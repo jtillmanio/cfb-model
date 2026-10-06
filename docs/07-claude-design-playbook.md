@@ -337,6 +337,9 @@ No injury indicators: injuries are tracked by hand and entered as manual adjustm
 ## 2. What to do with the output
 
 ### a. Save a reference copy in the repo
+
+> **Superseded (2026-10-06): the first design pass used the §c handoff bundle instead of this export.** The bundle lives in `design/handoff/` (`designs/`, `screenshots/`, `tokens/`), with its README at `design/README.md`. Why: Claude Code reads the handoff directly. It holds the HTML boards with every state annotated, exact token values (`tokens.css`/`tokens.json`) and 2x screenshots, so a PDF would just be a lossy copy of the same thing. Steps 1 and 3 below are kept for reference only. Step 2 still applies: the project link is in [Design links](#design-links). Where and what is in the bundle: [05-ui-design-brief.md › Design source](05-ui-design-brief.md#design-source).
+
 For each finished project (the design system, then the screens):
 1. **Export → PDF** of all frames, and **Export → standalone HTML** for the screens project. Save to `design/exports/YYYY-MM-DD-<name>.pdf|html`. These are the visual source of truth Claude Code compares against.
 2. Create a **share link** (view access) and record it in [Design links](#design-links) below.
@@ -350,6 +353,8 @@ In Claude Design: **Export → Hand off to Claude Code.** This packages the desi
 
 Do the handoff **when you're about to implement**, not when the design is finished. The bundle reflects the canvas at export time.
 
+> **As done (2026-10-06):** one bundle for the whole first pass (design system + all screens), copied to `design/handoff/` directly rather than `design/handoff/<name>/`. It was exported at the end of the design pass, so it reflects the canvas on 2026-10-06. Before implementing a screen, check whether the canvas changed since then; if it did, re-export and replace the bundle in its own commit.
+
 **Timing:**
 | What | When | Why |
 |---|---|---|
@@ -360,6 +365,8 @@ Do the handoff **when you're about to implement**, not when the design is finish
 | Model builder, Promote | Phase 7 | |
 
 ### d. Claude Code prompts
+
+> **Paths since the 2c handoff:** read `design/handoff/` for `design/handoff/<name>/`, and `design/handoff/screenshots/` plus the boards in `design/handoff/designs/` for `design/exports/…pdf`. `design/README.md` maps each screen to its board and screen files.
 
 **Design system (first):**
 ```
@@ -385,7 +392,7 @@ Then take Playwright screenshots at 1440 and 390 and list remaining differences 
 
 ### e. When the first design pass is finished: next steps
 "Finished" means Prompts 1–9 and 11 are done and the audit is clean. Then, in order:
-1. **Export and share** (§a): PDF of every frame, standalone HTML of the screens project, share links in [Design links](#design-links). Commit.
+1. **Export and share** (§a): PDF of every frame, standalone HTML of the screens project, share links in [Design links](#design-links). Commit. *Superseded for the first pass: the handoff bundle in `design/handoff/` replaced the export (see §a).*
 2. **Record the decisions** (§b): the "Design decisions" section in the brief. Include anything that diverged from the brief and any new components Prompt 11 added.
 3. **Sync the docs to what you drew.** If the design added, dropped or changed a feature, update `docs/01`, the brief and `design/sample-data.md` (the design wins on look and layout; the docs win on what the model does). Per `CLAUDE.md`, fix the loser in the same PR.
 4. **Hand off the design system only** (§c), once the Phase 0 `web/` scaffold exists. Do not hand off screens yet: the bundle reflects the canvas at export time and screens need the Phase 4 API.
@@ -403,5 +410,5 @@ Then take Playwright screenshots at 1440 and 390 and list remaining differences 
 ## Design links
 | What | Link | Last export |
 |---|---|---|
-| Design system project | | |
-| Screens project | | |
+| Design project (design system board + all screens) | [claude.ai/design/p/2730c87c…](https://claude.ai/design/p/2730c87c-4f7e-4cbe-87f7-a41113416ce8) (needs the owner's login) | 2026-10-06, handoff bundle in `design/handoff/` |
+| This Week Mobile (example screen link) | [This Week Mobile.dc.html](https://claude.ai/design/p/2730c87c-4f7e-4cbe-87f7-a41113416ce8?file=This+Week+Mobile.dc.html) | same |

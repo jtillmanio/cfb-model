@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet><style id="dc-token-fallback">:root{--background:#0c0f12;--foreground:#eef0f3;--card:#13161a;--card-foreground:#eef0f3;--popover:#1b1e23;--popover-foreground:#eef0f3;--primary:#e5e8ec;--primary-foreground:#13161a;--secondary:#23272b;--secondary-foreground:#eef0f3;--muted:#1d2125;--muted-foreground:#9fa5ad;--accent:#262a30;--accent-foreground:#eef0f3;--destructive:#ef6661;--destructive-foreground:#0c0f12;--border:#2a2e33;--input:#5f646a;--ring:#67aaed;--edge:#b699eb;--edge-foreground:#0c0f12;--pos:#68b5f5;--neg:#f19a4b;--push:#a7abb1;--tier-a:#bd9ff2;--tier-a-foreground:#0c0f12;--tier-b:#8a70b8;--tier-b-foreground:#0c0f12;--tier-c:#392a51;--tier-c-foreground:#d7c9f3;--live:#52cd86;--locked:#91969b;--breakeven:#c9ced4;--chart-1:#4fa6e9;--chart-2:#e38d3d;--chart-3:#aa8dde;--chart-4:#39bab4;--chart-5:#87909c}</style><link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&amp;family=IBM+Plex+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet"><style>a{color:var(--pos)}a:hover{color:var(--foreground)}</style></helmet>
+<div data-screen-label="Lab · desktop" style="width:1440px;min-height:900px;box-sizing:border-box;display:grid;grid-template-columns:224px minmax(0,1fr);background:var(--background);color:var(--foreground);font-family:'IBM Plex Sans',ui-sans-serif,system-ui,sans-serif;font-size:14px;line-height:20px;font-variant-numeric:tabular-nums lining-nums">
+<aside style="display:flex;flex-direction:column;gap:16px;padding:12px;background:var(--card);border-right:1px solid var(--border)">
+<div style="display:flex;align-items:center;gap:10px;height:32px;padding:0 6px"><span style="width:24px;height:24px;border-radius:6px;background:var(--foreground);color:var(--background);display:flex;align-items:center;justify-content:center;font:700 11px/1 'IBM Plex Mono',monospace;flex:none">CF</span><span style="font-size:14px;font-weight:600;letter-spacing:-0.005em">CFB Model</span></div>
+<div style="display:flex;align-items:center;gap:8px;height:32px;padding:0 10px;border:1px solid var(--input);border-radius:6px;font-size:13px;font-weight:600;cursor:pointer"><span style="width:8px;height:8px;border-radius:50%;background:var(--live);flex:none"></span><span style="flex:1">College football</span><span style="display:inline-block;width:14px;height:14px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/chevrons-up-down.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/chevrons-up-down.svg) center/contain no-repeat;color:var(--muted-foreground)"></span></div>
+<nav style="display:flex;flex-direction:column;gap:2px">
+<span style="display:flex;align-items:center;gap:10px;height:34px;padding:0 10px;border-radius:6px;font-size:13px;font-weight:500;color:var(--muted-foreground);cursor:pointer" style-hover="background:var(--muted);color:var(--foreground)"><span style="display:inline-block;width:16px;height:16px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/calendar-days.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/calendar-days.svg) center/contain no-repeat"></span>This Week</span>
+<span style="display:flex;align-items:center;gap:10px;height:34px;padding:0 10px;border-radius:6px;font-size:13px;font-weight:500;color:var(--muted-foreground);cursor:pointer" style-hover="background:var(--muted);color:var(--foreground)"><span style="display:inline-block;width:16px;height:16px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/target.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/target.svg) center/contain no-repeat"></span><span style="flex:1">Picks</span><span style="font-size:12px">9</span></span>
+<span style="display:flex;align-items:center;gap:10px;height:34px;padding:0 10px;border-radius:6px;font-size:13px;font-weight:500;color:var(--muted-foreground);cursor:pointer" style-hover="background:var(--muted);color:var(--foreground)"><span style="display:inline-block;width:16px;height:16px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/trophy.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/trophy.svg) center/contain no-repeat"></span>Contest</span>
+<span style="display:flex;align-items:center;gap:10px;height:34px;padding:0 10px;border-radius:6px;font-size:13px;font-weight:500;color:var(--muted-foreground);cursor:pointer" style-hover="background:var(--muted);color:var(--foreground)"><span style="display:inline-block;width:16px;height:16px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/list-ordered.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/list-ordered.svg) center/contain no-repeat"></span>Rankings</span>
+<span style="display:flex;align-items:center;gap:10px;height:34px;padding:0 10px;border-radius:6px;font-size:13px;font-weight:500;color:var(--muted-foreground);cursor:pointer" style-hover="background:var(--muted);color:var(--foreground)"><span style="display:inline-block;width:16px;height:16px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/shield.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/shield.svg) center/contain no-repeat"></span>Teams</span>
+<span style="display:flex;align-items:center;gap:10px;height:34px;padding:0 10px;border-radius:6px;font-size:13px;font-weight:500;color:var(--muted-foreground);cursor:pointer" style-hover="background:var(--muted);color:var(--foreground)"><span style="display:inline-block;width:16px;height:16px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/activity.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/activity.svg) center/contain no-repeat"></span>Performance</span>
+<span style="display:flex;align-items:center;gap:10px;height:34px;padding:0 10px;border-radius:6px;background:var(--accent);font-size:13px;font-weight:600"><span style="display:inline-block;width:16px;height:16px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/flask-conical.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/flask-conical.svg) center/contain no-repeat"></span>Lab</span>
+</nav>
+<div style="flex:1"></div>
+<div style="display:flex;flex-direction:column;gap:6px;padding:12px;border:1px solid var(--border);border-radius:8px;background:var(--background);cursor:pointer" style-hover="border-color:var(--input)">
+<span style="font-size:12px;line-height:16px;color:var(--muted-foreground)">Model · 2026 live</span>
+<span style="display:flex;align-items:baseline;gap:8px"><span style="font-size:16px;font-weight:600">31-24-1</span><span style="font-size:13px">56.4%</span></span>
+<span style="display:flex;align-items:center;gap:8px;font-size:12px;line-height:16px"><span style="color:var(--pos);font-weight:600">+4.6u</span><span style="color:var(--muted-foreground)">CLV +0.9</span><span style="flex:1"></span><span style="color:var(--muted-foreground)">Track record</span></span>
+</div>
+<div style="display:flex;flex-direction:column;gap:2px;padding-top:8px;border-top:1px solid var(--border)">
+<span style="display:flex;align-items:center;gap:10px;height:34px;padding:0 10px;border-radius:6px;font-size:13px;font-weight:500;color:var(--muted-foreground)"><span style="display:inline-block;width:16px;height:16px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/settings.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/settings.svg) center/contain no-repeat"></span>Settings</span>
+<span style="display:flex;align-items:center;gap:10px;height:34px;padding:0 10px;border-radius:6px;font-size:13px;font-weight:500"><span style="width:20px;height:20px;border-radius:50%;background:var(--secondary);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;flex:none">JD</span><span style="flex:1">Account</span></span>
+</div>
+</aside>
+<main style="min-width:0;display:flex;flex-direction:column">
+<div style="display:flex;align-items:center;gap:12px;height:56px;padding:0 24px;border-bottom:1px solid var(--border);box-sizing:border-box;flex:none">
+<span style="display:inline-flex;align-items:center;gap:8px;height:32px;padding:0 10px;border-radius:6px;border:1px solid var(--input);width:320px;box-sizing:border-box;font-size:13px;color:var(--muted-foreground)"><span style="display:inline-block;width:14px;height:14px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/search.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/search.svg) center/contain no-repeat"></span><span style="flex:1">Search teams</span><span style="display:inline-flex;align-items:center;height:20px;padding:0 6px;border-radius:4px;border:1px solid var(--border);background:var(--muted);font:500 11px 'IBM Plex Mono',monospace">⌘K</span></span>
+<span style="flex:1"></span>
+<span style="font-size:12px;line-height:16px;color:var(--muted-foreground)">All Lab numbers are backtest results unless marked live</span>
+<span style="position:relative;display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:6px;border:1px solid var(--input);box-sizing:border-box;cursor:pointer"><span style="display:inline-block;width:16px;height:16px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/bell.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/bell.svg) center/contain no-repeat"></span><span style="position:absolute;top:-5px;right:-5px;min-width:16px;height:16px;padding:0 4px;box-sizing:border-box;border-radius:8px;background:var(--foreground);color:var(--background);font-size:12px;line-height:16px;font-weight:700;text-align:center;box-shadow:0 0 0 2px var(--background)">1</span></span>
+</div>
+<div style="display:flex;align-items:center;gap:16px;padding:16px 24px 0">
+<div style="display:flex;align-items:baseline;gap:12px;min-width:0"><h1 style="margin:0;font-size:24px;line-height:32px;font-weight:600;letter-spacing:-0.005em">Lab</h1><span style="font-size:12px;line-height:16px;color:var(--muted-foreground);white-space:nowrap">Look inside the model: what you chose, what it learned, and how versions compare</span></div>
+<span style="flex:1"></span>
+<span onClick="{{ goVersions }}" title="Every backtest since v1.0 was promoted counts" style="display:inline-flex;align-items:center;gap:8px;height:32px;padding:0 12px;border:1px solid color-mix(in oklch, var(--neg) 55%, transparent);border-radius:6px;background:color-mix(in oklch, var(--neg) 10%, transparent);box-sizing:border-box;font-size:13px;cursor:pointer;white-space:nowrap"><span style="font-size:14px;font-weight:700;color:var(--neg)">7</span>variants tried since last promotion</span>
+</div>
+<div style="display:flex;gap:4px;padding:0 24px;margin-top:12px;border-bottom:1px solid var(--border)">
+<sc-for list="{{ tabs }}" as="t" hint-placeholder-count="5"><span onClick="{{ t.click }}" style="display:inline-flex;align-items:center;gap:6px;height:40px;padding:0 12px;margin-bottom:-1px;box-sizing:border-box;border-bottom:2px solid {{ t.bc }};font-size:13px;font-weight:{{ t.w }};color:{{ t.c }};cursor:{{ t.cur }}">{{ t.l }}<sc-if value="{{ t.later }}" hint-placeholder-val="{{ false }}"><span style="font-size:12px;line-height:14px;font-weight:600;letter-spacing:.04em;padding:0 4px;border-radius:4px;border:1px dashed var(--input);color:var(--muted-foreground)">LATER</span></sc-if></span></sc-for>
+</div>
+
+<sc-if value="{{ isWeights }}" hint-placeholder-val="{{ true }}">
+<div style="display:flex;flex-direction:column;gap:16px;padding:16px 24px 32px">
+<div style="display:flex;align-items:center;gap:16px;padding:12px 16px;border:1px solid var(--border);border-radius:8px;background:var(--card)">
+<span style="display:inline-flex;align-items:center;gap:8px;height:32px;padding:0 10px;border:1px solid var(--input);border-radius:6px;background:var(--background);box-sizing:border-box;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap">v1.0<span style="display:inline-flex;align-items:center;gap:5px;height:18px;padding:0 6px;border-radius:999px;background:var(--muted);font-size:12px;font-weight:500;color:var(--muted-foreground)"><span style="width:6px;height:6px;border-radius:50%;background:var(--live)"></span>production</span><span style="display:inline-block;width:14px;height:14px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/chevron-down.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/chevron-down.svg) center/contain no-repeat;color:var(--muted-foreground)"></span></span>
+<span style="display:flex;flex-direction:column;font-size:12px;line-height:16px;color:var(--muted-foreground)"><span><span style="color:var(--foreground);font-weight:500">Created Aug 20, 2026</span> · first model, no parent</span><span>Weights below were learned in its walk-forward backtest</span></span>
+<span style="flex:1"></span>
+<span style="display:flex;align-items:center;gap:16px;font-size:12px;line-height:16px;color:var(--muted-foreground)">
+<span style="display:flex;align-items:center;gap:6px"><span style="font-size:12px;line-height:16px;font-weight:500;padding:0 6px;border-radius:4px;border:1px solid var(--input);color:var(--foreground)">Tuned</span>backtest tried values, kept the best</span>
+<span style="display:flex;align-items:center;gap:6px"><span style="font-size:12px;line-height:16px;font-weight:500;padding:0 6px;border-radius:4px;border:1px dashed var(--input)">Set by hand</span>picked, not tested</span>
+</span>
+<span style="display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 12px;border:1px solid var(--border);border-radius:6px;box-sizing:border-box;font-size:13px;font-weight:500;color:var(--muted-foreground);white-space:nowrap"><span style="display:inline-block;width:14px;height:14px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/copy-plus.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/copy-plus.svg) center/contain no-repeat"></span>Clone to new variant<span style="font-size:12px;line-height:14px;font-weight:600;letter-spacing:.04em;padding:0 4px;border-radius:4px;border:1px dashed var(--input)">LATER</span></span>
+</div>
+
+<div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;align-items:start">
+<div style="display:flex;flex-direction:column;gap:16px;min-width:0">
+<section style="background:var(--card);border:1px solid var(--border);border-radius:8px;overflow:hidden">
+<div style="display:flex;flex-direction:column;gap:4px;padding:14px 16px 12px">
+<span style="display:flex;align-items:baseline;gap:10px"><span style="font-size:12px;line-height:16px;font-weight:600;letter-spacing:.08em;color:var(--muted-foreground)">CHOSEN</span><span style="font-size:16px;line-height:24px;font-weight:600">Settings</span><span style="font-size:13px;color:var(--muted-foreground)">7</span></span>
+<span style="font-size:13px;line-height:18px;color:var(--muted-foreground);text-wrap:pretty">Choices made before training that control how the model learns. Statisticians call these <span style="color:var(--foreground)">hyperparameters</span>.</span>
+</div>
+<sc-for list="{{ chosen }}" as="r" hint-placeholder-count="7">
+<div style="display:grid;grid-template-columns:minmax(0,1fr) auto;column-gap:20px;align-items:start;padding:12px 16px;border-top:1px solid var(--border)">
+<div style="display:flex;flex-direction:column;gap:3px;min-width:0">
+<span style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap"><span style="font-size:14px;font-weight:600">{{ r.n }}</span><span style="font:400 11px/16px 'IBM Plex Mono',monospace;color:var(--muted-foreground)">{{ r.k }}</span></span>
+<span style="font-size:13px;line-height:18px;text-wrap:pretty">{{ r.e }}</span>
+</div>
+<div style="display:flex;flex-direction:column;align-items:flex-end;gap:5px">
+<span style="font-size:16px;line-height:22px;font-weight:600;white-space:nowrap">{{ r.v }}</span>
+<span style="font-size:12px;line-height:16px;font-weight:500;padding:0 6px;border-radius:4px;border:1px {{ r.bs }} var(--input);color:{{ r.tc }};white-space:nowrap">{{ r.tl }}</span>
+</div>
+</div>
+</sc-for>
+</section>
+
+<section style="display:flex;flex-direction:column;gap:12px;padding:16px;background:var(--card);border:1px solid var(--border);border-radius:8px">
+<div style="display:flex;flex-direction:column;gap:4px">
+<span style="display:flex;align-items:center;gap:10px"><span style="font-size:16px;line-height:24px;font-weight:600">Preseason prior fades out</span><span style="font-size:12px;line-height:16px;font-weight:500;padding:0 6px;border-radius:4px;border:1px solid var(--input)">Tuned</span></span>
+<span style="font-size:13px;line-height:18px;color:var(--muted-foreground);text-wrap:pretty">Each week, a team's rating blends our preseason guess with this season's games. The guess counts fully in week 1, half by week 4, and a tenth by week 8.</span>
+</div>
+<div style="position:relative;height:226px">
+<sc-for list="{{ dGrid }}" as="g" hint-placeholder-count="3"><span style="position:absolute;left:44px;width:480px;height:0;border-top:1px solid var(--border);top:{{ g.y }}"></span><span style="position:absolute;left:0;width:36px;text-align:right;font-size:12px;line-height:16px;color:var(--muted-foreground);top:{{ g.ly }}">{{ g.l }}</span></sc-for>
+<svg width="480" height="170" style="position:absolute;left:44px;top:12px;overflow:visible"><polygon points="{{ dSeason }}" style="fill:color-mix(in oklch, var(--chart-1) 22%, transparent)"></polygon><polygon points="{{ dPrior }}" style="fill:color-mix(in oklch, var(--chart-5) 40%, transparent)"></polygon><polyline points="{{ dCurve }}" style="fill:none;stroke:var(--foreground);stroke-width:2;stroke-linejoin:round"></polyline></svg>
+<sc-for list="{{ dX }}" as="x" hint-placeholder-count="12"><span style="position:absolute;top:188px;width:24px;margin-left:-12px;text-align:center;font-size:12px;line-height:16px;color:var(--muted-foreground);left:{{ x.x }}">{{ x.l }}</span></sc-for>
+<span style="position:absolute;left:44px;top:206px;width:480px;text-align:center;font-size:12px;line-height:16px;color:var(--muted-foreground)">week of season</span>
+<span style="position:absolute;top:12px;height:170px;width:0;border-left:1.5px dashed var(--foreground);left:{{ dNowX }}"></span>
+<span style="position:absolute;top:16px;font-size:12px;line-height:16px;font-weight:600;white-space:nowrap;left:{{ dNowLx }}">Now · Week 6</span>
+<sc-for list="{{ dMarks }}" as="m" hint-placeholder-count="3"><span style="position:absolute;width:9px;height:9px;border-radius:50%;transform:translate(-50%,-50%);background:var(--foreground);box-shadow:0 0 0 2px var(--card);left:{{ m.x }};top:{{ m.y }}"></span><span style="position:absolute;font-size:12px;line-height:16px;font-weight:600;white-space:nowrap;left:{{ m.lx }};top:{{ m.ly }}">{{ m.l }}</span></sc-for>
+<span style="position:absolute;left:56px;top:148px;font-size:12px;line-height:16px;font-weight:500">Preseason guess</span>
+<span style="position:absolute;left:376px;top:72px;font-size:12px;line-height:16px;font-weight:500">This season's games</span>
+</div>
+<div style="display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:6px;background:var(--muted);font-size:13px;line-height:18px">
+<span style="display:flex;height:10px;width:120px;border-radius:2px;overflow:hidden;flex:none"><span style="width:26%;background:color-mix(in oklch, var(--chart-5) 70%, transparent)"></span><span style="flex:1;background:color-mix(in oklch, var(--chart-1) 60%, transparent)"></span></span>
+<span>This week, a rating is <span style="font-weight:600">26% preseason guess</span> and <span style="font-weight:600">74% this season's games</span>.</span>
+</div>
+<p style="margin:0;font-size:12px;line-height:16px;color:var(--muted-foreground);text-wrap:pretty">The three dots are the tuned values. Weeks between them are interpolated; after week 8 the guess holds at 10%.</p>
+</section>
+</div>
+
+<div style="display:flex;flex-direction:column;gap:16px;min-width:0">
+<section style="background:var(--card);border:1px solid var(--border);border-radius:8px;overflow:hidden">
+<div style="display:flex;flex-direction:column;gap:4px;padding:14px 16px 12px">
+<span style="display:flex;align-items:baseline;gap:10px"><span style="font-size:12px;line-height:16px;font-weight:600;letter-spacing:.08em;color:var(--muted-foreground)">LEARNED</span><span style="font-size:16px;line-height:24px;font-weight:600">Weights</span><span style="font-size:13px;color:var(--muted-foreground)">5</span></span>
+<span style="font-size:13px;line-height:18px;color:var(--muted-foreground);text-wrap:pretty">Numbers the model fit from past games. Statisticians call these <span style="color:var(--foreground)">parameters</span>. EPA/play is expected points added per play: how much each play moves a team toward scoring.</span>
+</div>
+<sc-for list="{{ learned }}" as="r" hint-placeholder-count="5">
+<div style="display:grid;grid-template-columns:minmax(0,1fr) auto;column-gap:20px;align-items:start;padding:12px 16px;border-top:1px solid var(--border)">
+<div style="display:flex;flex-direction:column;gap:3px;min-width:0">
+<span style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap"><span style="font-size:14px;font-weight:600">{{ r.n }}</span><span style="font:400 11px/16px 'IBM Plex Mono',monospace;color:var(--muted-foreground)">{{ r.k }}</span></span>
+<span style="font-size:13px;line-height:18px;text-wrap:pretty">{{ r.e }}</span>
+</div>
+<div style="display:flex;flex-direction:column;align-items:flex-end;gap:2px">
+<span style="font-size:24px;line-height:28px;font-weight:600;white-space:nowrap">{{ r.v }}</span>
+<span style="font-size:12px;line-height:16px;color:var(--muted-foreground);white-space:nowrap">{{ r.u }}</span>
+</div>
+</div>
+</sc-for>
+</section>
+
+<section style="display:flex;flex-direction:column;gap:12px;padding:16px;background:var(--card);border:1px solid var(--border);border-radius:8px">
+<div style="display:flex;flex-direction:column;gap:4px">
+<span style="display:flex;align-items:center;gap:10px"><span style="font-size:16px;line-height:24px;font-weight:600">What the model leans on</span><span style="font-size:12px;color:var(--muted-foreground)">input importance · share of explained variance</span></span>
+<span style="font-size:13px;line-height:18px;color:var(--muted-foreground);text-wrap:pretty">Of everything that makes the model's predictions differ from game to game, how much comes from each input. Adds to 100%.</span>
+</div>
+<div style="display:flex;flex-direction:column;gap:6px">
+<sc-for list="{{ imp }}" as="b" hint-placeholder-count="7">
+<div style="display:grid;grid-template-columns:128px minmax(0,1fr) 44px;column-gap:12px;align-items:center;height:28px">
+<span style="font-size:13px;font-weight:500;white-space:nowrap">{{ b.l }}</span>
+<span style="position:relative;display:block;height:12px;border-radius:2px;background:var(--muted)"><span style="position:absolute;left:0;top:0;bottom:0;border-radius:2px;width:{{ b.w }};background:{{ b.c }}"></span></span>
+<span style="text-align:right;font-size:13px;font-weight:600">{{ b.t }}</span>
+</div>
+</sc-for>
+</div>
+<div style="display:flex;align-items:center;gap:16px;font-size:12px;line-height:16px;color:var(--muted-foreground)"><span style="display:flex;align-items:center;gap:6px"><span style="width:12px;height:8px;border-radius:1px;background:var(--chart-1)"></span>this season's play</span><span style="display:flex;align-items:center;gap:6px"><span style="width:12px;height:8px;border-radius:1px;background:var(--chart-5)"></span>preseason guess (same grey as the curve)</span></div>
+<p style="margin:0;font-size:13px;line-height:18px;text-wrap:pretty"><span style="font-weight:600">Passing is more than half of it:</span> pass offense and pass defense together are 53%. The prior's 11% is a season average; it carries far more weight in September.</p>
+</section>
+</div>
+</div>
+<p style="margin:0;font-size:12px;line-height:16px;color:var(--muted-foreground);text-wrap:pretty">Grey monospace labels are the setting's key in the model spec, so you can find it in the YAML.</p>
+</div>
+</sc-if>
+
+<sc-if value="{{ isVersions }}" hint-placeholder-val="{{ false }}">
+<div style="display:flex;flex-direction:column;gap:16px;padding:16px 24px 32px">
+<section style="display:grid;grid-template-columns:auto minmax(0,1fr) auto;column-gap:28px;align-items:center;padding:20px 24px;border:1px solid color-mix(in oklch, var(--neg) 55%, transparent);border-radius:8px;background:color-mix(in oklch, var(--neg) 8%, var(--card))">
+<span style="font-size:32px;line-height:40px;font-weight:600;letter-spacing:-0.02em;color:var(--neg)">7</span>
+<div style="display:flex;flex-direction:column;gap:6px;min-width:0">
+<span style="font-size:16px;line-height:24px;font-weight:600">Variants tried since last promotion</span>
+<span style="font-size:13px;line-height:19px;max-width:720px;text-wrap:pretty">Every backtest since v1.0 went to production on Aug 20 counts, including ones you didn't keep. Try enough variants and one will look better by luck alone, so the more tries, the bigger a gain has to be before you believe it.</span>
+</div>
+<div style="display:flex;flex-direction:column;align-items:flex-end;gap:8px">
+<span style="display:flex;gap:5px"><sc-for list="{{ tally }}" as="k" hint-placeholder-count="7"><span style="width:8px;height:28px;border-radius:2px;background:var(--neg)"></span></sc-for></span>
+<span style="font-size:12px;line-height:16px;color:var(--muted-foreground)">Resets to 0 when a version is promoted</span>
+</div>
+</section>
+
+<div style="display:flex;align-items:center;gap:20px;flex-wrap:wrap;font-size:12px;line-height:16px;color:var(--muted-foreground)">
+<span style="font-weight:600;color:var(--foreground)">Status</span>
+<sc-for list="{{ legend }}" as="p" hint-placeholder-count="4"><span style="display:flex;align-items:center;gap:8px"><span style="display:inline-flex;align-items:center;gap:6px;height:22px;padding:0 8px;border-radius:999px;border:1px {{ p.bs }} var(--border);background:var(--muted);box-sizing:border-box;font-size:12px;font-weight:500;color:{{ p.tc }};white-space:nowrap"><span style="width:7px;height:7px;border-radius:50%;box-sizing:border-box;background:{{ p.dot }};border:{{ p.db }}"></span>{{ p.l }}</span>{{ p.m }}</span></sc-for>
+</div>
+
+<section style="background:var(--card);border:1px solid var(--border);border-radius:8px;overflow:hidden">
+<div style="display:grid;grid-template-columns:200px 200px 80px 112px minmax(0,1fr) minmax(0,1fr) 80px 176px;column-gap:14px;align-items:end;padding:12px 16px 10px;border-bottom:1px solid var(--border);font-size:12px;line-height:16px;color:var(--muted-foreground)">
+<span style="font-weight:500">Version</span><span style="font-weight:500">Status</span><span style="font-weight:500">Parent</span><span style="font-weight:500">Created</span>
+<span style="display:flex;flex-direction:column"><span style="display:flex;align-items:center;gap:6px;font-weight:500;color:var(--foreground)">Margin error (MAE)<span style="font-size:12px;line-height:14px;font-weight:600;letter-spacing:.04em;padding:0 4px;border-radius:4px;border:1px dashed var(--input);color:var(--muted-foreground)">BACKTEST</span></span><span>Avg points a prediction misses by. Lower is better. Market: 12.6</span></span>
+<span style="display:flex;flex-direction:column"><span style="display:flex;align-items:center;gap:6px;font-weight:500;color:var(--foreground)">ATS win %<span style="font-size:12px;line-height:14px;font-weight:600;letter-spacing:.04em;padding:0 4px;border-radius:4px;border:1px dashed var(--input);color:var(--muted-foreground)">BACKTEST</span></span><span>Picks that beat the spread. Break-even 52.4%</span></span>
+<span style="font-weight:500;text-align:right">Live picks</span><span></span>
+</div>
+<sc-for list="{{ versions }}" as="r" hint-placeholder-count="3">
+<div style="display:grid;grid-template-columns:200px 200px 80px 112px minmax(0,1fr) minmax(0,1fr) 80px 176px;column-gap:14px;align-items:center;min-height:68px;padding:10px 16px;box-sizing:border-box;border-bottom:1px solid var(--border);font-size:13px">
+<span style="display:flex;flex-direction:column;min-width:0"><span style="font-size:14px;line-height:20px;font-weight:600">{{ r.v }}</span><span style="font-size:12px;line-height:16px;color:var(--muted-foreground)">{{ r.sub }}</span></span>
+<span style="display:flex;flex-wrap:wrap;align-items:center;gap:6px"><span style="display:inline-flex;align-items:center;gap:6px;height:22px;padding:0 8px;border-radius:999px;border:1px {{ r.p.bs }} var(--border);background:var(--muted);box-sizing:border-box;font-size:12px;font-weight:500;color:{{ r.p.tc }};white-space:nowrap"><span style="width:7px;height:7px;border-radius:50%;box-sizing:border-box;background:{{ r.p.dot }};border:{{ r.p.db }}"></span>{{ r.p.l }}</span><sc-if value="{{ r.running }}" hint-placeholder-val="{{ false }}"><span style="display:inline-flex;align-items:center;gap:6px;height:22px;padding:0 8px;border-radius:4px;border:1px solid color-mix(in oklch, var(--chart-1) 50%, transparent);background:color-mix(in oklch, var(--chart-1) 12%, transparent);box-sizing:border-box;font-size:12px;font-weight:500;white-space:nowrap"><span style="width:10px;height:10px;border-radius:50%;box-sizing:border-box;border:2px solid var(--chart-1);border-right-color:transparent"></span>Backtest running</span></sc-if></span>
+<span style="color:{{ r.parC }};font-weight:500">{{ r.parent }}</span>
+<span style="color:var(--muted-foreground)">{{ r.created }}</span>
+<span style="display:flex;flex-direction:column"><span style="font-size:14px;font-weight:600">{{ r.mae }}</span><span style="font-size:12px;line-height:16px;color:var(--muted-foreground)">{{ r.maeN }}</span></span>
+<span style="display:flex;flex-direction:column"><span style="font-size:14px;font-weight:600">{{ r.ats }}</span><span style="font-size:12px;line-height:16px;color:{{ r.atsC }}">{{ r.atsN }}</span></span>
+<span style="text-align:right;color:{{ r.liveC }}">{{ r.live }}</span>
+<span style="display:flex;justify-content:flex-end;gap:6px"><sc-for list="{{ r.acts }}" as="a" hint-placeholder-count="1"><span onClick="{{ a.click }}" style="display:inline-flex;align-items:center;height:28px;padding:0 10px;border:1px solid var(--input);border-radius:6px;box-sizing:border-box;font-size:12px;font-weight:500;cursor:pointer;white-space:nowrap" style-hover="background:var(--accent)">{{ a.l }}</span></sc-for></span>
+</div>
+</sc-for>
+<div style="display:flex;align-items:center;gap:8px;padding:12px 16px;font-size:12px;line-height:16px;color:var(--muted-foreground)"><span style="display:inline-flex;align-items:center;gap:6px;height:22px;padding:0 8px;border-radius:999px;border:1px solid var(--border);box-sizing:border-box;font-weight:500"><span style="width:7px;height:7px;border-radius:50%;background:var(--locked)"></span>retired</span>None yet. v1.0 is the first version to reach production; when it's replaced it moves here with its live record intact.</div>
+</section>
+<p style="margin:0;font-size:12px;line-height:16px;color:var(--muted-foreground);text-wrap:pretty">Backtest columns use the 2016–2023 validation seasons for every version, so rows compare like for like. The 2024–2025 holdout is only opened at promotion.</p>
+</div>
+</sc-if>
+
+<sc-if value="{{ isCompare }}" hint-placeholder-val="{{ false }}">
+<div style="display:flex;flex-direction:column;gap:16px;padding:16px 24px 32px">
+<div style="display:grid;grid-template-columns:auto auto minmax(0,1fr) auto;column-gap:24px;align-items:center;padding:12px 16px;border:1px solid var(--border);border-radius:8px;background:var(--card)">
+<span style="display:flex;align-items:center;gap:10px">
+<span style="display:inline-flex;align-items:center;gap:8px;height:32px;padding:0 10px;border:1px solid var(--input);border-radius:6px;background:var(--background);box-sizing:border-box;font-size:13px;font-weight:600;white-space:nowrap"><span style="width:10px;height:10px;border-radius:50%;background:var(--chart-5)"></span>v1.0<span style="font-size:12px;font-weight:500;color:var(--muted-foreground)">production</span></span>
+<span style="font-size:12px;color:var(--muted-foreground)">vs</span>
+<span style="display:inline-flex;align-items:center;gap:8px;height:32px;padding:0 10px;border:1px solid var(--input);border-radius:6px;background:var(--background);box-sizing:border-box;font-size:13px;font-weight:600;white-space:nowrap"><span style="width:10px;height:10px;border-radius:2px;background:var(--chart-1)"></span>v1.1<span style="font-size:12px;font-weight:500;color:var(--muted-foreground)">candidate</span></span>
+</span>
+<span style="width:1px;height:32px;background:var(--border)"></span>
+<span style="display:flex;flex-direction:column;font-size:12px;line-height:16px;min-width:0"><span style="color:var(--muted-foreground)">What changed · 1 setting</span><span style="font-size:13px;line-height:18px"><span style="font-weight:600">Recency half-life 4 → 5 weeks</span><span style="color:var(--muted-foreground)"> · older games fade a little slower</span></span></span>
+<span style="display:flex;flex-direction:column;align-items:flex-end;font-size:12px;line-height:16px;color:var(--muted-foreground)"><span style="color:var(--foreground);font-weight:500">Same games: validation 2016–2023</span><span>Holdout 2024–2025 stays locked</span></span>
+</div>
+
+<div style="display:flex;align-items:flex-start;gap:12px;padding:14px 16px;border:1px solid var(--border);border-radius:8px;background:var(--muted)">
+<span style="display:inline-block;width:18px;height:18px;flex:none;margin-top:1px;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/scale.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/scale.svg) center/contain no-repeat"></span>
+<span style="font-size:14px;line-height:20px;text-wrap:pretty"><span style="font-weight:600">Slightly better everywhere, proven nowhere.</span> Every gain below is inside the noise, and v1.1 is the best of 7 variants tried. On its own this isn't a reason to promote.</span>
+</div>
+
+<div style="display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px">
+<sc-for list="{{ deltas }}" as="d" hint-placeholder-count="5">
+<div style="display:flex;flex-direction:column;gap:4px;padding:14px;border-radius:8px;border:1px dashed var(--input);background:var(--card);min-width:0">
+<span style="font-size:12px;line-height:16px;font-weight:500;color:var(--muted-foreground)">{{ d.l }}</span>
+<span style="display:flex;align-items:baseline;gap:6px;white-space:nowrap"><span style="font-size:14px;color:var(--muted-foreground)">{{ d.a }}</span><span style="font-size:12px;color:var(--muted-foreground)">→</span><span style="font-size:24px;line-height:28px;font-weight:600">{{ d.b }}</span></span>
+<span style="font-size:12px;line-height:16px;font-weight:600;color:{{ d.dc }}">{{ d.d }}</span>
+<span style="font-size:12px;line-height:16px;text-wrap:pretty">{{ d.e }}</span>
+<span style="font-size:12px;line-height:16px;color:var(--muted-foreground);text-wrap:pretty">{{ d.n }}</span>
+</div>
+</sc-for>
+</div>
+
+<div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px">
+<section style="display:flex;flex-direction:column;gap:12px;padding:16px;background:var(--card);border:1px solid var(--border);border-radius:8px;min-width:0">
+<div style="display:flex;align-items:center;gap:10px"><span style="font-size:16px;line-height:24px;font-weight:600">Calibration</span><span style="font-size:12px;line-height:16px;font-weight:600;letter-spacing:.06em;padding:0 6px;border-radius:4px;border:1px dashed var(--input);color:var(--muted-foreground)">BACKTEST</span><span style="font-size:12px;color:var(--muted-foreground)">when it says X%, does it hit X%?</span></div>
+<div style="position:relative;height:250px">
+<sc-for list="{{ cGridY }}" as="g" hint-placeholder-count="4"><span style="position:absolute;left:48px;width:200px;height:0;border-top:1px solid {{ g.c }};top:{{ g.y }}"></span><span style="position:absolute;left:0;width:40px;text-align:right;font-size:12px;line-height:16px;color:var(--muted-foreground);top:{{ g.ly }}">{{ g.l }}</span></sc-for>
+<sc-for list="{{ cGridX }}" as="g" hint-placeholder-count="4"><span style="position:absolute;top:212px;width:40px;margin-left:-20px;text-align:center;font-size:12px;line-height:16px;color:var(--muted-foreground);left:{{ g.x }}">{{ g.l }}</span></sc-for>
+<span style="position:absolute;left:48px;top:228px;width:200px;text-align:center;font-size:12px;line-height:16px;color:var(--muted-foreground)">predicted cover %</span>
+<svg width="200" height="200" style="position:absolute;left:48px;top:8px;overflow:visible"><line x1="0" y1="200" x2="200" y2="0" style="stroke:var(--muted-foreground);stroke-width:1.5;stroke-dasharray:1 3"></line><polyline points="{{ cA }}" style="fill:none;stroke:var(--chart-5);stroke-width:2;stroke-dasharray:6 4"></polyline><polyline points="{{ cB }}" style="fill:none;stroke:var(--chart-1);stroke-width:2;stroke-dasharray:6 4"></polyline></svg>
+<sc-for list="{{ cPtsA }}" as="p" hint-placeholder-count="6"><span title="{{ p.t }}" style="position:absolute;width:9px;height:9px;border-radius:50%;box-sizing:border-box;transform:translate(-50%,-50%);background:var(--card);border:1.5px solid var(--chart-5);left:{{ p.x }};top:{{ p.y }}"></span></sc-for>
+<sc-for list="{{ cPtsB }}" as="p" hint-placeholder-count="6"><span title="{{ p.t }}" style="position:absolute;width:8px;height:8px;box-sizing:border-box;transform:translate(-50%,-50%);background:var(--chart-1);left:{{ p.x }};top:{{ p.y }}"></span></sc-for>
+<span style="position:absolute;font-size:12px;line-height:16px;color:var(--muted-foreground);left:170px;top:10px">Perfect</span>
+<div style="position:absolute;left:276px;top:4px;right:0;display:flex;flex-direction:column;gap:8px;font-size:12px;line-height:16px">
+<span style="display:flex;align-items:center;gap:8px"><span style="position:relative;width:28px;height:10px;flex:none"><span style="position:absolute;left:0;right:0;top:4px;border-top:2px dashed var(--chart-5)"></span><span style="position:absolute;left:9px;top:0;width:9px;height:9px;border-radius:50%;box-sizing:border-box;background:var(--card);border:1.5px solid var(--chart-5)"></span></span>v1.0 hit rate</span>
+<span style="display:flex;align-items:center;gap:8px"><span style="position:relative;width:28px;height:10px;flex:none"><span style="position:absolute;left:0;right:0;top:4px;border-top:2px dashed var(--chart-1)"></span><span style="position:absolute;left:10px;top:1px;width:8px;height:8px;background:var(--chart-1)"></span></span>v1.1 hit rate</span>
+<div style="display:grid;grid-template-columns:auto auto auto;column-gap:16px;row-gap:3px;margin-top:6px"><span style="color:var(--muted-foreground)">Says</span><span style="color:var(--muted-foreground);text-align:right">v1.0 hits</span><span style="color:var(--muted-foreground);text-align:right">v1.1 hits</span><sc-for list="{{ cRows }}" as="r" hint-placeholder-count="6"><span>{{ r.p }}</span><span style="text-align:right">{{ r.a }}</span><span style="text-align:right;font-weight:600">{{ r.b }}</span></sc-for></div>
+</div>
+</div>
+<p style="margin:0;font-size:13px;line-height:18px;text-wrap:pretty"><span style="font-weight:600">Both are overconfident at the top.</span> When they say 65%+, v1.0 hits 59.6% and v1.1 hits 60.5%: closer, but still about 4.5 points short.</p>
+</section>
+
+<section style="display:flex;flex-direction:column;gap:12px;padding:16px;background:var(--card);border:1px solid var(--border);border-radius:8px;min-width:0">
+<div style="display:flex;align-items:center;gap:10px"><span style="font-size:16px;line-height:24px;font-weight:600">Record by edge bucket</span><span style="font-size:12px;line-height:16px;font-weight:600;letter-spacing:.06em;padding:0 6px;border-radius:4px;border:1px dashed var(--input);color:var(--muted-foreground)">BACKTEST</span><span style="font-size:12px;color:var(--muted-foreground)">do bigger edges win more often?</span></div>
+<div style="position:relative;height:250px">
+<sc-for list="{{ bGrid }}" as="g" hint-placeholder-count="5"><span style="position:absolute;left:48px;width:400px;height:0;border-top:1px solid {{ g.c }};top:{{ g.y }}"></span><span style="position:absolute;left:0;width:40px;text-align:right;font-size:12px;line-height:16px;color:var(--muted-foreground);top:{{ g.ly }}">{{ g.l }}</span></sc-for>
+<sc-for list="{{ bBars }}" as="b" hint-placeholder-count="8"><span title="{{ b.t }}" style="position:absolute;width:30px;box-sizing:border-box;border:1.5px dashed {{ b.c }};border-bottom:none;border-radius:4px 4px 0 0;background:{{ b.bg }};left:{{ b.x }};top:{{ b.y }};height:{{ b.h }}"></span><span style="position:absolute;width:40px;text-align:center;font-size:12px;line-height:14px;font-weight:600;left:{{ b.lx }};top:{{ b.ly }}">{{ b.v }}</span></sc-for>
+<sc-for list="{{ bX }}" as="x" hint-placeholder-count="4"><span style="position:absolute;top:208px;width:100px;margin-left:-50px;display:flex;flex-direction:column;align-items:center;font-size:12px;line-height:16px;left:{{ x.x }}"><span style="font-weight:500">{{ x.l }}</span><span style="color:var(--muted-foreground)">{{ x.n }}</span></span></sc-for>
+<span style="position:absolute;left:48px;width:400px;height:0;border-top:1.5px dashed var(--breakeven);top:{{ beY }}"></span>
+<span style="position:absolute;left:456px;font-size:12px;line-height:16px;font-weight:500;white-space:nowrap;top:{{ beLy }}">Break-even<br>52.4%</span>
+<span style="position:absolute;left:456px;top:208px;font-size:12px;line-height:16px;color:var(--muted-foreground)">edge, pts<br>picks v1.0/v1.1</span>
+<span style="position:absolute;left:456px;top:8px;display:flex;flex-direction:column;gap:4px;font-size:12px;line-height:16px"><span style="display:flex;align-items:center;gap:6px"><span style="width:10px;height:10px;border:1.5px dashed var(--chart-5);box-sizing:border-box"></span>v1.0</span><span style="display:flex;align-items:center;gap:6px"><span style="width:10px;height:10px;border:1.5px dashed var(--chart-1);box-sizing:border-box;background:color-mix(in oklch, var(--chart-1) 45%, transparent)"></span>v1.1</span></span>
+</div>
+<p style="margin:0;font-size:13px;line-height:18px;text-wrap:pretty"><span style="font-weight:600">Same shape, same dip.</span> Both rise through 5.0–7.0 and fall back at 7.0+, so v1.1 doesn't fix the biggest-edge problem (often news the model hasn't seen). Bars start at 50%, a coin flip.</p>
+</section>
+</div>
+
+<section style="background:var(--card);border:1px solid var(--border);border-radius:8px;overflow:hidden">
+<div style="display:flex;flex-direction:column;gap:4px;padding:14px 16px 12px">
+<span style="display:flex;align-items:center;gap:10px"><span style="font-size:16px;line-height:24px;font-weight:600">Where they disagree most</span><span style="font-size:12px;color:var(--muted-foreground)">Week 6 · v1.1 shadow lines</span></span>
+<span style="font-size:13px;line-height:18px;color:var(--muted-foreground);text-wrap:pretty">v1.1 doesn't make live picks. These are the lines it would post this week, sorted by how far apart the two models are.</span>
+</div>
+<div style="display:grid;grid-template-columns:minmax(0,1fr) 84px 84px 84px 52px 164px 108px 108px 160px;column-gap:10px;align-items:end;padding:8px 16px;border-top:1px solid var(--border);border-bottom:1px solid var(--border);font-size:12px;line-height:16px;font-weight:500;color:var(--muted-foreground)">
+<span>Game</span><span style="text-align:right">Market</span><span style="text-align:right">v1.0 line</span><span style="text-align:right">v1.1 line</span><span style="text-align:right">Apart</span><span style="display:flex;flex-direction:column"><span>Edge vs market, pts</span><span style="display:flex;justify-content:space-between;width:150px"><span>0</span><span>2.5 pick</span><span>6</span></span></span><span style="text-align:right">v1.0 pick</span><span style="text-align:right">v1.1 pick</span><span>What changes</span>
+</div>
+<sc-for list="{{ dis }}" as="r" hint-placeholder-count="5">
+<div style="display:grid;grid-template-columns:minmax(0,1fr) 84px 84px 84px 52px 164px 108px 108px 160px;column-gap:10px;align-items:center;height:56px;padding:0 16px;border-bottom:1px solid var(--border);font-size:13px">
+<span style="display:flex;flex-direction:column;min-width:0"><span style="font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.g }}</span><span style="font-size:12px;line-height:16px;color:var(--muted-foreground)">{{ r.s }}</span></span>
+<span style="text-align:right;font-weight:500">{{ r.mk }}</span>
+<span style="text-align:right;color:var(--muted-foreground)">{{ r.a }}</span>
+<span style="text-align:right;font-weight:600">{{ r.b }}</span>
+<span style="text-align:right;font-weight:600">{{ r.gapT }}</span>
+<span style="position:relative;display:block;width:150px;height:20px">
+<span style="position:absolute;left:0;right:0;top:10px;border-top:1px solid var(--border)"></span>
+<span style="position:absolute;top:4px;height:12px;border-left:1.5px solid var(--muted-foreground);left:{{ r.x0 }}"></span>
+<span style="position:absolute;top:2px;height:16px;border-left:1.5px dashed var(--breakeven);left:{{ r.xT }}"></span>
+<span style="position:absolute;top:9px;height:2px;background:var(--input);left:{{ r.lineL }};width:{{ r.lineW }}"></span>
+<span style="position:absolute;top:10px;width:10px;height:10px;border-radius:50%;box-sizing:border-box;transform:translate(-50%,-50%);background:var(--card);border:2px solid var(--chart-5);left:{{ r.xa }}"></span>
+<span style="position:absolute;top:10px;width:9px;height:9px;transform:translate(-50%,-50%);background:var(--chart-1);left:{{ r.xb }}"></span>
+</span>
+<span style="display:flex;align-items:center;justify-content:flex-end;gap:6px"><span style="font-weight:600;white-space:nowrap;color:{{ r.pa.c }}">{{ r.pa.t }}</span><span style="display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:4px;font-size:12px;font-weight:700;background:{{ r.pa.bg }};color:{{ r.pa.fg }}">{{ r.pa.tier }}</span></span>
+<span style="display:flex;align-items:center;justify-content:flex-end;gap:6px"><span style="font-weight:600;white-space:nowrap;color:{{ r.pb.c }}">{{ r.pb.t }}</span><span style="display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:4px;font-size:12px;font-weight:700;background:{{ r.pb.bg }};color:{{ r.pb.fg }}">{{ r.pb.tier }}</span></span>
+<span style="font-size:12px;line-height:16px;font-weight:500">{{ r.m }}</span>
+</div>
+</sc-for>
+<div style="display:flex;align-items:center;gap:18px;padding:12px 16px;font-size:12px;line-height:16px;color:var(--muted-foreground)">
+<span style="display:flex;align-items:center;gap:6px"><span style="width:10px;height:10px;border-radius:50%;box-sizing:border-box;border:2px solid var(--chart-5)"></span>v1.0</span>
+<span style="display:flex;align-items:center;gap:6px"><span style="width:9px;height:9px;background:var(--chart-1)"></span>v1.1</span>
+<span style="flex:1;text-wrap:pretty">v1.1 sits closer to the market in all five. It keeps the two biggest picks at a lower tier, drops BYU and Iowa, and flips Kentucky–Georgia to the other side (still no pick).</span>
+</div>
+</section>
+<p style="margin:0;font-size:12px;line-height:16px;color:var(--muted-foreground);text-wrap:pretty">Illustrative (not in sample-data.md): v1.1's setting change, calibration, edge-bucket results and Week 6 shadow lines. v1.0 values and both headline metrics are from the sample.</p>
+</div>
+</sc-if>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1440,&quot;height&quot;:1300},&quot;view&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;weights&quot;,&quot;versions&quot;,&quot;compare&quot;],&quot;default&quot;:&quot;weights&quot;,&quot;tsType&quot;:&quot;'weights'|'versions'|'compare'&quot;}}">
+class Component extends DCLogic {
+  state = { view: null };
+  renderVals() {
+    const view = this.state.view ?? this.props.view ?? 'weights';
+    const go = v => () => this.setState({ view: v });
+    const px = v => v.toFixed(1) + 'px';
+    const sgn = (v, d = 1) => v > 0 ? '+' + v.toFixed(d) : v < 0 ? '−' + Math.abs(v).toFixed(d) : (0).toFixed(d);
+    const tabs = [['weights', 'Weights'], ['versions', 'Versions'], ['compare', 'Compare'], ['builder', 'Builder'], ['promote', 'Promote']].map(([k, l]) => {
+      const on = k === view, later = k === 'builder' || k === 'promote';
+      return { l, later, bc: on ? 'var(--foreground)' : 'transparent', w: on ? '600' : '500', c: on ? 'var(--foreground)' : 'var(--muted-foreground)', cur: later ? 'default' : 'pointer', click: later ? undefined : go(k) };
+    });
+    // weights
+    const T = t => t === 'tuned' ? { tl: 'Tuned', bs: 'solid', tc: 'var(--foreground)' } : { tl: 'Set by hand', bs: 'dashed', tc: 'var(--muted-foreground)' };
+    const chosen = [
+      { n: 'Ridge alpha', k: 'hyperparameters.ridge_alpha', v: '12.0', t: 'tuned', e: 'How strongly ratings are pulled toward average. Higher means more skeptical of a few big games.' },
+      { n: 'Recency half-life', k: 'hyperparameters.recency_half_life_weeks', v: '4 weeks', t: 'tuned', e: "A game 4 weeks ago counts half as much as this week's." },
+      { n: 'Prior weight', k: 'prior.decay', v: '100% → 10%', t: 'tuned', e: 'How fast the preseason guess fades: 50% by week 4, 10% by week 8. Curve below.' },
+      { n: 'Margin cap', k: 'hyperparameters.margin_cap', v: '28 pts', t: 'set', e: 'Blowouts beyond 28 count as 28, so a 63–0 doesn’t outweigh everything else.' },
+      { n: 'Market shrink k', k: 'picks.market_shrinkage_k', v: '0.6', t: 'tuned', e: 'Final line = 60% model + 40% market. Reins in the model’s wildest takes.' },
+      { n: 'Tier thresholds', k: 'picks.tiers', v: 'A 5.0 · B 3.5 · C 2.5', t: 'set', e: 'Points of edge a game needs for an A, B or C pick. Under 2.5, no pick.' },
+      { n: 'Min cover probability', k: 'picks.min_prob', v: '55%', t: 'set', e: 'A pick also needs at least a 55% chance to cover.' },
+    ].map(r => ({ ...r, ...T(r.t) }));
+    const learned = [
+      { n: 'Home field', k: 'home_field', v: '+2.3', u: 'pts', e: 'Playing at home is worth 2.3 points. Neutral sites get 0.' },
+      { n: 'Pass offense EPA/play', k: 'inputs.epa_per_play.pass', v: '×31', u: 'pts per 1.0 EPA/play', e: '+1.0 EPA/play of passing ≈ +31 pts per game. Real gaps are tenths: +0.1 ≈ +3.1 pts.' },
+      { n: 'Rush offense EPA/play', k: 'inputs.epa_per_play.rush', v: '×24', u: 'pts per 1.0 EPA/play', e: '+1.0 EPA/play of rushing ≈ +24 pts per game, so +0.1 ≈ +2.4 pts. Worth less than passing.' },
+      { n: 'Success rate', k: 'inputs.success_rate', v: '×0.31', u: 'pts per percentage point', e: '+10 percentage points of successful plays ≈ +3.1 pts.' },
+      { n: 'Margin standard deviation', k: 'margin_sd', v: '13.8', u: 'pts (σ)', e: 'How spread out real results are around our prediction. About 2 in 3 games finish within 13.8 pts of it.' },
+    ];
+    const curve = [100, 82, 66, 50, 38, 26, 17, 10, 10, 10, 10, 10];
+    const DX = w => (w - 1) / 11 * 480, DY = p => (100 - p) / 100 * 170;
+    const cpts = curve.map((p, i) => DX(i + 1).toFixed(1) + ',' + DY(p).toFixed(1));
+    const dCurve = cpts.join(' ');
+    const dPrior = cpts.join(' ') + ' 480,170 0,170';
+    const dSeason = '0,0 480,0 ' + cpts.slice().reverse().join(' ');
+    const dGrid = [0, 50, 100].map(v => ({ y: px(12 + DY(v)), ly: px(12 + DY(v) - 8), l: v + '%' }));
+    const dX = curve.map((_, i) => ({ x: px(44 + DX(i + 1)), l: String(i + 1) }));
+    const dMarks = [[1, 100, '100% · week 1', 10, 2], [4, 50, '50% · week 4', 10, -8], [8, 10, '10% · week 8', 8, -24]].map(([w, p, l, ox, oy]) => ({ x: px(44 + DX(w)), y: px(12 + DY(p)), lx: px(44 + DX(w) + ox), ly: px(12 + DY(p) + oy), l }));
+    const imp = [['Pass offense', 31], ['Pass defense', 22], ['Rush offense', 15], ['Rush defense', 13], ['Preseason prior', 11], ['Special teams', 5], ['Home field', 3]]
+      .map(([l, v]) => ({ l, t: v + '%', w: (v / 35 * 100).toFixed(1) + '%', c: l === 'Preseason prior' ? 'var(--chart-5)' : 'var(--chart-1)' }));
+    // versions
+    const pill = s => ({
+      production: { l: 'production', dot: 'var(--live)', db: 'none', bs: 'solid', tc: 'var(--foreground)', m: 'makes the live picks' },
+      candidate: { l: 'candidate', dot: 'var(--chart-1)', db: 'none', bs: 'solid', tc: 'var(--foreground)', m: 'backtested, waiting on promotion' },
+      dev: { l: 'dev', dot: 'transparent', db: '1.5px solid var(--muted-foreground)', bs: 'dashed', tc: 'var(--foreground)', m: 'being built or tested' },
+      retired: { l: 'retired', dot: 'var(--locked)', db: 'none', bs: 'solid', tc: 'var(--muted-foreground)', m: 'replaced, kept for history' },
+    })[s];
+    const legend = ['dev', 'candidate', 'production', 'retired'].map(pill);
+    const versions = [
+      { v: 'v1.0', sub: 'Makes this season’s live picks', p: pill('production'), parent: '—', created: 'Aug 20, 2026', mae: '12.9', maeN: '0.3 pts worse than the market', ats: '54.1%', atsN: '+1.7 over break-even', live: '56', acts: [{ l: 'Weights', click: go('weights') }] },
+      { v: 'v1.1', sub: 'Recency half-life 4 → 5 weeks', p: pill('candidate'), parent: 'v1.0', created: 'Sep 14, 2026', mae: '12.8', maeN: '0.2 pts worse than the market', ats: '54.4%', atsN: '+2.0 over break-even', live: 'none', acts: [{ l: 'Compare to v1.0', click: go('compare') }] },
+      { v: 'v1.2-dev', sub: 'Clone of v1.1', p: pill('dev'), running: true, parent: 'v1.1', created: 'Oct 1, 2026', mae: '—', maeN: 'waiting on backtest', ats: '—', atsN: 'waiting on backtest', live: 'none', acts: [] },
+    ].map(r => ({ ...r, running: !!r.running, parC: r.parent === '—' ? 'var(--muted-foreground)' : 'var(--foreground)', atsC: r.ats === '—' ? 'var(--muted-foreground)' : 'var(--pos)', liveC: r.live === 'none' ? 'var(--muted-foreground)' : 'var(--foreground)' }));
+    // compare
+    const better = 'var(--pos)', flat = 'var(--muted-foreground)';
+    const deltas = [
+      { l: 'ATS win %', a: '54.1%', b: '54.4%', d: '+0.3 · better', dc: better, e: 'Share of picks that beat the spread.', n: 'Within noise: ±2.8 pts at 95% confidence.' },
+      { l: 'ROI', a: '+3.3%', b: '+3.9%', d: '+0.6 · better', dc: better, e: 'Profit per unit risked at −110.', n: 'Follows from win %, so same noise.' },
+      { l: 'Margin error (MAE)', a: '12.9', b: '12.8', d: '−0.1 pts · better', dc: better, e: 'Avg points a prediction misses by.', n: 'Market is 12.6. Both still trail it.' },
+      { l: 'Calibration gap', a: '−2.3', b: '−1.8', d: '+0.5 · closer to 0', dc: better, e: 'Avg of actual minus predicted cover %. 0 = honest.', n: 'Negative = promises more than it delivers.' },
+      { l: 'Picks made', a: '1,184', b: '1,152', d: '−32 · fewer', dc: flat, e: 'Games that cleared the pick rules.', n: 'v1.1 agrees with the market slightly more.' },
+    ];
+    const calA = [[52.5, 52.0], [55, 54.1], [57.5, 56.2], [60, 57.8], [62.5, 58.9], [65, 59.6]];
+    const calB = [[52.5, 52.2], [55, 54.4], [57.5, 56.6], [60, 58.3], [62.5, 59.6], [65, 60.5]];
+    const CX = v => 48 + (v - 50) / 17.5 * 200, CY = v => 8 + (67.5 - v) / 17.5 * 200;
+    const cGridY = [50, 55, 60, 65].map(v => ({ y: px(CY(v)), ly: px(CY(v) - 8), l: v + '%', c: v === 50 ? 'var(--input)' : 'var(--border)' }));
+    const cGridX = [50, 55, 60, 65].map(v => ({ x: px(CX(v)), l: v + (v === 65 ? '+' : '') }));
+    const line = c => c.map(([p, a]) => (CX(p) - 48).toFixed(1) + ',' + (CY(a) - 8).toFixed(1)).join(' ');
+    const pts = (c, n) => c.map(([p, a]) => ({ x: px(CX(p)), y: px(CY(a)), t: `${n}: says ${p}% → hits ${a}%` }));
+    const cRows = calA.map(([p, a], i) => ({ p: p + (i === 5 ? '+' : '') + '%', a: a.toFixed(1) + '%', b: calB[i][1].toFixed(1) + '%' }));
+    const bk = [['2.5–3.5', 512, 52.0, 506, 52.4], ['3.5–5.0', 431, 54.6, 418, 55.6], ['5.0–7.0', 176, 56.9, 167, 57.5], ['7.0+', 65, 55.4, 61, 54.1]];
+    const BY = v => 24 + (58 - v) / 8 * 180;
+    const bGrid = [50, 52, 54, 56, 58].map(v => ({ y: px(BY(v)), ly: px(BY(v) - 8), l: v + '%', c: v === 50 ? 'var(--input)' : 'var(--border)' }));
+    const bBars = [];
+    bk.forEach(([l, na, pa, nb, pb], i) => {
+      const cx = 48 + (i + 0.5) * 100;
+      [[cx - 32, pa, na, 'var(--chart-5)', 'repeating-linear-gradient(135deg,color-mix(in oklch, var(--chart-5) 45%, transparent) 0 2px,transparent 2px 6px)', 'v1.0'],
+       [cx + 2, pb, nb, 'var(--chart-1)', 'repeating-linear-gradient(135deg,color-mix(in oklch, var(--chart-1) 60%, transparent) 0 2px,transparent 2px 6px)', 'v1.1']].forEach(([x, p, n, c, bg, nm]) => {
+        bBars.push({ x: px(x), y: px(BY(p)), h: px(BY(50) - BY(p)), c, bg, lx: px(x - 5), ly: px(BY(p) - 16), v: p.toFixed(1), t: `${nm} · edge ${l}: ${p}% on ${n} picks` });
+      });
+    });
+    const bX = bk.map(([l, na, , nb], i) => ({ x: px(48 + (i + 0.5) * 100), l, n: na + ' / ' + nb }));
+    const tierS = { A: ['var(--tier-a)', 'var(--tier-a-foreground)'], B: ['var(--tier-b)', 'var(--tier-b-foreground)'], C: ['var(--tier-c)', 'var(--tier-c-foreground)'] };
+    const pk = (t, tier) => tier ? { t, tier, c: 'var(--foreground)', bg: tierS[tier][0], fg: tierS[tier][1] } : { t, tier: '—', c: 'var(--muted-foreground)', bg: 'transparent', fg: 'var(--muted-foreground)' };
+    const DXe = e => (e + 1) / 7 * 150;
+    const dis = [
+      { g: '#2 Texas vs #4 Oklahoma', s: 'Sat 7:30 PM · Dallas (N)', mk: 'TEX −6.5', a: 'TEX −1.3', b: 'TEX −3.4', ea: 5.2, eb: 3.1, pa: pk('+5.2 OU', 'A'), pb: pk('+3.1 OU', 'C'), m: 'Same side, tier A → C' },
+      { g: '#6 Ole Miss @ #9 LSU', s: 'Sat 3:30 PM', mk: 'LSU −3.5', a: 'MISS −1.4', b: 'LSU −0.4', ea: 4.9, eb: 3.1, pa: pk('+4.9 MISS', 'B'), pb: pk('+3.1 MISS', 'C'), m: 'Same side, tier B → C' },
+      { g: 'Colorado @ #20 BYU', s: 'Sat 10:30 PM', mk: 'BYU −6', a: 'BYU −9.1', b: 'BYU −7.6', ea: 3.1, eb: 1.6, pa: pk('+3.1 BYU', 'C'), pb: pk('+1.6 BYU', null), m: 'Pick dropped' },
+      { g: 'Kentucky @ #5 Georgia', s: 'Sat 7:30 PM', mk: 'UGA −21', a: 'UGA −19.8', b: 'UGA −21.2', ea: 1.2, eb: -0.2, pa: pk('+1.2 UK', null), pb: pk('+0.2 UGA', null), m: 'Flips side, no pick either way' },
+      { g: 'Iowa @ Wisconsin', s: 'Sat 12:00 PM · live', mk: 'WIS −1.5', a: 'IOWA −1.2', b: 'IOWA −0.1', ea: 2.7, eb: 1.6, pa: pk('+2.7 IOWA', 'C'), pb: pk('+1.6 IOWA', null), m: 'Pick dropped' },
+    ].map(r => {
+      const xa = DXe(r.ea), xb = DXe(r.eb);
+      return { ...r, gapT: (r.ea - r.eb).toFixed(1), x0: px(DXe(0)), xT: px(DXe(2.5)), xa: px(xa), xb: px(xb), lineL: px(Math.min(xa, xb)), lineW: px(Math.abs(xa - xb)) };
+    });
+    return {
+      tabs, isWeights: view === 'weights', isVersions: view === 'versions', isCompare: view === 'compare', goVersions: go('versions'),
+      chosen, learned, dCurve, dPrior, dSeason, dGrid, dX, dMarks, dNowX: px(44 + DX(6)), dNowLx: px(44 + DX(6) + 6), imp,
+      tally: [1, 2, 3, 4, 5, 6, 7], legend, versions,
+      deltas, cGridY, cGridX, cA: line(calA), cB: line(calB), cPtsA: pts(calA, 'v1.0'), cPtsB: pts(calB, 'v1.1'), cRows,
+      bGrid, bBars, bX, beY: px(BY(52.4)), beLy: px(BY(52.4) - 16), dis,
+    };
+  }
+}
+</script>
+</body>
+</html>

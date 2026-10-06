@@ -1,0 +1,3 @@
+# Claude Design handoff and design references: store byte-for-byte,
+# no line-ending conversion (HTML/SVG/JSON/JS must match the export).
+design/** -text

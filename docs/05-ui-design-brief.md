@@ -4,6 +4,24 @@
 
 ---
 
+## Design source
+
+**`design/handoff/` is the source of truth for UI; where it disagrees with this brief, the design wins unless noted.** Noted exceptions: what the model computes and how numbers are defined stay with [04-model.md](04-model.md) and `CLAUDE.md` (the design wins on look and layout; see [07 §2e](07-claude-design-playbook.md#e-when-the-first-design-pass-is-finished-next-steps)), plus the [open items](#open-items-found-in-the-handoff) under Design decisions.
+
+- **Project:** [CFB Model on Claude Design](https://claude.ai/design/p/2730c87c-4f7e-4cbe-87f7-a41113416ce8). Needs the owner's login; Claude Code works from the handoff, not the canvas.
+- **Example screen:** [This Week Mobile](https://claude.ai/design/p/2730c87c-4f7e-4cbe-87f7-a41113416ce8?file=This+Week+Mobile.dc.html)
+- **Handoff bundle (2026-10-06):** exported with the [07 §2c](07-claude-design-playbook.md#c-hand-off-to-claude-code) handoff, replacing the PDF/HTML export. Read `design/README.md` first: it is the bundle's README (tokens, components, per-screen specs, file map).
+
+| Folder | What's in it |
+|---|---|
+| `design/handoff/designs/` | HTML design files. **Boards** (`This Week.dc.html`, `Contest.dc.html`, …, `CFB Design System.dc.html`) lay out every state with numbered notes (1a, 1b…); the notes are the spec. **Screen files** (`* Desktop.dc.html`, `* Mobile.dc.html`) take their states as props. `*-data.js` holds sample data (fixture seeds); `support.js` is only needed to view the mocks. View through a local static server (`npx serve design/handoff/designs`), boards rather than single screens. References, not code to port. |
+| `design/handoff/screenshots/` | 2x PNGs of each screen's default state, dark mode, `01-this-week-desktop` … `21-offseason-empty-mobile`. Mobile shots are full scroll length. Other states live only in the boards. |
+| `design/handoff/tokens/` | `tokens.css`: drop-in CSS variables (dark default on `:root`/`.dark`, `.light`), oklch with hex comments. `tokens.json`: the same tokens with notes and WCAG contrast checks. |
+
+`.gitattributes` marks `design/**` as `-text` so Git stores these files byte-for-byte (no line-ending conversion). Don't edit, reformat or move anything under `design/`; to update, re-export and replace the bundle.
+
+---
+
 ## Brief
 
 **Product:** A private college football analytics app. A statistical model predicts every game, compares its numbers to sportsbook point spreads, recommends picks where it disagrees with the market, ranks all teams, and honestly tracks its own performance. One user for now: a software developer who plays a weekly against-the-spread pick'em contest in a work league. They research on weekday evenings at a desk, make picks late in the week (Thursday/Friday), and follow results on a phone on Saturdays. They're also learning statistical modeling and want to look inside the model: its weights, and building their own variants.
@@ -185,3 +203,56 @@ Record sample: 2026 season 31-24-1 ATS (56.4%), +4.6 units, ROI +7.6%, avg CLV +
 - Keep tokens as CSS variables, so light/dark and future per-sport theming are trivial
 - Numbers right-aligned in tables, with tabular-nums everywhere
 - Every data screen needs a skeleton state drawn at the loaded size, because the database can take a few seconds to wake up. Turn the pulse off under reduced motion.
+
+## Design decisions
+
+From the first design pass (handoff of 2026-10-06; see [Design source](#design-source)). Full values live in `design/README.md` and `design/handoff/tokens/`; this section records the choices and the places the design departs from the brief above. "Where" names the design file in `design/handoff/designs/` and/or the screenshot in `design/handoff/screenshots/`.
+
+### Foundations
+| Decision | Where |
+|---|---|
+| **Fonts:** IBM Plex Sans (400–700) for UI, IBM Plex Mono (400–600) **only** for scores, clocks and raw paste text. Chosen over Inter/Geist for real tabular figures, a true − glyph, distinct 1/l/I and 0/O at 12px, and a matched mono. `tabular-nums lining-nums` on body, everywhere. Table headers in sentence case ("Cover %"). | `Foundations.dc.html` (Call notes); every screenshot |
+| **Base (dark default):** background `#0c0f12`, card `#13161a`, popover `#1b1e23`, foreground `#eef0f3`, muted-fg `#9fa5ad`, border `#2a2e33`. No pure black or white. Primary is ink (`#e5e8ec`), not a hue: color is reserved for meaning. Light: background `#f5f7f9`, foreground `#13161b`. | `tokens/tokens.css`; `Review Checks.dc.html` §05 |
+| **Edge gets its own violet:** `--edge` `#b699eb` dark / `#6d41a9` light, deliberately **not** `--pos`, so "model disagrees" doesn't read as good news. Filled pill only when edge ≥ 2.5; below that, plain muted text. | `Components.dc.html`; `01-this-week-desktop.png` |
+| **Pos/neg are blue/orange:** `--pos` `#68b5f5` / `#0465af`, `--neg` `#f19a4b` / `#a64b00` (dark/light), `--push` grey. Used only for signed outcomes (covered, units, CLV, rank move, line moved our way). `--destructive` red is only for errors and deletes, never a loss. | `tokens/tokens.json` (notes); `13-performance-desktop.png` |
+| **Tiers are one violet hue in three lightness steps:** A `#bd9ff2`, B `#8a70b8`, C `#392a51` (dark; the ramp flips in light so A always has the most contrast). The letter is always printed; C has a 1px outline. | `Review Checks.dc.html` §02; `01-this-week-desktop.png` |
+| **Ratings take no color** (`+27.4` in ink): "+" means above average, not good news. | `Foundations.dc.html`; `09-team-desktop.png` (header) |
+| **Flat cards, tight radii:** cards are a surface step + 1px border with no shadow; shadows only on popovers, dialogs and ⌘K. Radius 4/6/8/12/full, `--radius` 6px. | `Foundations.dc.html` |
+| **Table densities:** comfortable (header 40, row 48) is the system default; compact (header 32, row 36) is a per-table toggle. See open items for This Week's default. | `Foundations.dc.html`; `This Week Desktop.dc.html` (`density` prop) |
+| **Whole-number spreads align with half points:** keep `BSU −10` (no ".0"), but table cells pad whole spreads with U+2008 + U+2007 so units digits line up; `format.ts` gets an align flag. Model lines always carry one decimal so they never look like market lines. | `Review Checks.dc.html` §04; `Foundations.dc.html` |
+
+### Navigation
+| Decision | Where |
+|---|---|
+| **Desktop:** 224px left sidebar (This Week, Picks, Contest, Rankings, Teams, Performance, Lab) with sport switcher on top and a track-record card at the bottom linking to Performance. Top bar: week selector, ⌘K search, "Updated …" time, alerts bell. | `01-this-week-desktop.png`; `This Week Desktop.dc.html` |
+| **Mobile:** bottom tab bar **This Week, Picks, Contest, Rankings, More** (More = Teams, Performance, Lab, Settings). Note the order: Picks before Contest, unlike playbook Prompt 2. Filters, sort, week picker, time machine, pick tray and ⌘K open as sheets. | `02-this-week-mobile.png`; `This Week Mobile.dc.html` |
+| **No "Lock" verbs:** users "add" picks; picks lock at kickoff by themselves. | `Components.dc.html` (Buttons) |
+
+### Changes from the brief
+| Brief said | Design does | Where |
+|---|---|---|
+| Edge and positive share one color pair | Edge is a separate violet (above); blue/orange is only for outcomes | `Components.dc.html` |
+| Totals "secondary, can be hidden at first" | A Spread / Total / Both segmented control on This Week, Spread by default | `01-this-week-desktop.png`; `This Week.dc.html` |
+| Best lines is a Picks tab | Also a second view on This Week (Slate \| Best lines), written as the bet ("MISS +3.5"); the Picks tab remains | `This Week.dc.html` 1b; `01-this-week-desktop.png` |
+| Market cell: line + opening + sparkline | Opening line and sparkline sit muted *before* the current line inside the Market column; the separate Move column from the first hi-fi pass was removed | `This Week.dc.html` turn 2; `01-this-week-desktop.png` |
+| "picked at −13.5, now −15" | Pick history goes on a second line ("Picked at −2.5 → now −3.5 · CLV +1.0") so the current number never shifts column | `Components.dc.html`; `01-this-week-desktop.png` (Ole Miss row) |
+| Unit profile: "radar or percentile bars" | Percentile bars (no radar) | `Team Desktop.dc.html`; `09-team-desktop.png` |
+| Drag-to-reorder list for confidence points | Kept as a component, but Splash scores 1 pt per pick, so order means priority; the list takes a points column only if a contest needs it | `Components.dc.html` |
+| Waterfall drivers (color unspecified) | All driver bars neutral (`--chart-5`); direction comes from position and sign plus "Helps OU / Helps TEX" chips | `Charts.dc.html`; `05-game-detail-desktop.png` |
+| Win % by edge bucket (axis unspecified) | Y-axis starts at 50%, stated on the axis | `Charts.dc.html`; `13-performance-desktop.png` |
+| Calibration chart | Overconfidence drawn as gap lines in `--neg` (orange) with a gap table; the board note calls them "red", but the file uses `--neg` | `Performance Desktop.dc.html`; `13-performance-desktop.png` |
+| Weather icon for wind / rain / snow / cold | Icon only past a threshold, next to the network; info only, not a model input (thresholds: see open items) | `Market Extras.dc.html`; `01-this-week-desktop.png` |
+| Contest: pick tray | Added "Use the model's top 4" / "Fill N open slots with model's picks", "Copy picks to enter on Splash", a ≠ chip when the contest line differs from market (blue = better for the ranked side, orange = worse), and a purple dot for the model's side | `Contest.dc.html`; `03-contest-desktop.png` |
+| Pass/fail checklist (color unspecified) | Uses `--pos`/`--neg`, keeping destructive red for errors | `Components.dc.html` |
+| Login, Settings (brief: minimal) | Single account (no sign-up/reset); the sign-in button says "Waking the database" on a cold start; Settings › General has theme, default contest and time zone with a "use this device's time zone" toggle | `Palette Login Settings.dc.html` |
+| Manual adjustment (later) | Drawn in full (team, points, reason, recomputed line and edge) but disabled, tagged "Coming later" | `Game Detail Desktop.dc.html`; `05-game-detail-desktop.png` |
+| Season Outlook conference view; SP+/FPI comparison; last-season overlay on the trajectory | Not drawn (listed as "Try next" on the boards). Still in the brief; design them before building | `Rankings.dc.html` |
+
+### Open items found in the handoff
+Unresolved in the design. Decide each before implementing the affected screen; until then, the default below applies.
+- **Edge color under color blindness.** `--pos` and `--edge` collapse to nearly the same blue under deuteranopia/protanopia (ΔE 2–7). It works today only because edge is always a filled pill and pos is always signed text. The design offered an ink-filled edge pill instead and leaned that way; the tokens still ship violet. *Default: violet, as in `tokens.css`.* (`Review Checks.dc.html` §03)
+- **Weather thresholds disagree.** `This Week.dc.html` and `design/README.md` say wind ≥ 15 mph or rain ≥ 50%; `Market Extras.dc.html` says sustained wind ≥ 15 mph, rain or snow ≥ 60%, or ≤ 25°F (which also covers the brief's snow and cold).
+- **Line-move alert default.** `This Week.dc.html` (turn 1) says starred games alert on moves ≥ 0.5; the empty alerts panel says 1 pt; Settings makes it a half-point stepper (N).
+- **This Week density.** `Foundations.dc.html` makes comfortable the default and compact a toggle for Rankings and Lab; `This Week Desktop.dc.html` defaults to `compact` and `design/README.md` lists the This Week desktop slate as a compact table.
+- **Paths in `design/README.md`.** It refers to `docs/sample-data.md` and `docs/sample-splash.txt` and lists a bundled `docs/` folder. In this repo those are `design/sample-data.md`, `design/sample-splash.txt` and the real `docs/`.
+- **Screenshots, not the spec, for icons.** In `02-this-week-mobile.png` the lucide icons render as blank squares (they didn't load at capture time). Use the boards for icons.

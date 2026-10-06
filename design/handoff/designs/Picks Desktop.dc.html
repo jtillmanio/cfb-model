@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet><style id="dc-token-fallback">:root{--background:#0c0f12;--foreground:#eef0f3;--card:#13161a;--card-foreground:#eef0f3;--popover:#1b1e23;--popover-foreground:#eef0f3;--primary:#e5e8ec;--primary-foreground:#13161a;--secondary:#23272b;--secondary-foreground:#eef0f3;--muted:#1d2125;--muted-foreground:#9fa5ad;--accent:#262a30;--accent-foreground:#eef0f3;--destructive:#ef6661;--destructive-foreground:#0c0f12;--border:#2a2e33;--input:#5f646a;--ring:#67aaed;--edge:#b699eb;--edge-foreground:#0c0f12;--pos:#68b5f5;--neg:#f19a4b;--push:#a7abb1;--tier-a:#bd9ff2;--tier-a-foreground:#0c0f12;--tier-b:#8a70b8;--tier-b-foreground:#0c0f12;--tier-c:#392a51;--tier-c-foreground:#d7c9f3;--live:#52cd86;--locked:#91969b;--breakeven:#c9ced4;--chart-1:#4fa6e9;--chart-2:#e38d3d;--chart-3:#aa8dde;--chart-4:#39bab4;--chart-5:#87909c}</style><link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&amp;family=IBM+Plex+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet"><script src="./picks-data.js"></script><style>a{color:var(--pos)}a:hover{color:var(--foreground)}</style></helmet>
+<div data-screen-label="Picks · desktop" style="width:1440px;min-height:900px;box-sizing:border-box;display:grid;grid-template-columns:224px minmax(0,1fr);background:var(--background);color:var(--foreground);font-family:'IBM Plex Sans',ui-sans-serif,system-ui,sans-serif;font-size:14px;line-height:20px;font-variant-numeric:tabular-nums lining-nums">
+<aside style="display:flex;flex-direction:column;gap:16px;padding:12px;background:var(--card);border-right:1px solid var(--border)">
+<div style="display:flex;align-items:center;gap:10px;height:32px;padding:0 6px"><span style="width:24px;height:24px;border-radius:6px;background:var(--foreground);color:var(--background);display:flex;align-items:center;justify-content:center;font:700 11px/1 'IBM Plex Mono',monospace;flex:none">CF</span><span style="font-size:14px;font-weight:600;letter-spacing:-0.005em">CFB Model</span></div>
+<div style="display:flex;align-items:center;gap:8px;height:32px;padding:0 10px;border:1px solid var(--input);border-radius:6px;font-size:13px;font-weight:600;cursor:pointer"><span style="width:8px;height:8px;border-radius:50%;background:var(--live);flex:none"></span><span style="flex:1">College football</span><span style="display:inline-block;width:14px;height:14px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/chevrons-up-down.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/chevrons-up-down.svg) center/contain no-repeat;color:var(--muted-foreground)"></span></div>
+<nav style="display:flex;flex-direction:column;gap:2px">
+<span style="display:flex;align-items:center;gap:10px;height:34px;padding:0 10px;border-radius:6px;font-size:13px;font-weight:500;color:var(--muted-foreground);cursor:pointer" style-hover="background:var(--muted);color:var(--foreground)"><span style="display:inline-block;width:16px;height:16px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/calendar-days.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/calendar-days.svg) center/contain no-repeat"></span>This Week</span>
+<span style="display:flex;align-items:center;gap:10px;height:34px;padding:0 10px;border-radius:6px;background:var(--accent);font-size:13px;font-weight:600"><span style="display:inline-block;width:16px;height:16px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/target.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/target.svg) center/contain no-repeat"></span><span style="flex:1">Picks</span><span style="font-size:12px">9</span></span>
+<span style="display:flex;align-items:center;gap:10px;height:34px;padding:0 10px;border-radius:6px;font-size:13px;font-weight:500;color:var(--muted-foreground);cursor:pointer" style-hover="background:var(--muted);color:var(--foreground)"><span style="display:inline-block;width:16px;height:16px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/trophy.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/trophy.svg) center/contain no-repeat"></span>Contest</span>
+<span style="display:flex;align-items:center;gap:10px;height:34px;padding:0 10px;border-radius:6px;font-size:13px;font-weight:500;color:var(--muted-foreground);cursor:pointer" style-hover="background:var(--muted);color:var(--foreground)"><span style="display:inline-block;width:16px;height:16px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/list-ordered.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/list-ordered.svg) center/contain no-repeat"></span>Rankings</span>
+<span style="display:flex;align-items:center;gap:10px;height:34px;padding:0 10px;border-radius:6px;font-size:13px;font-weight:500;color:var(--muted-foreground);cursor:pointer" style-hover="background:var(--muted);color:var(--foreground)"><span style="display:inline-block;width:16px;height:16px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/shield.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/shield.svg) center/contain no-repeat"></span>Teams</span>
+<span style="display:flex;align-items:center;gap:10px;height:34px;padding:0 10px;border-radius:6px;font-size:13px;font-weight:500;color:var(--muted-foreground);cursor:pointer" style-hover="background:var(--muted);color:var(--foreground)"><span style="display:inline-block;width:16px;height:16px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/activity.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/activity.svg) center/contain no-repeat"></span>Performance</span>
+<span style="display:flex;align-items:center;gap:10px;height:34px;padding:0 10px;border-radius:6px;font-size:13px;font-weight:500;color:var(--muted-foreground);cursor:pointer" style-hover="background:var(--muted);color:var(--foreground)"><span style="display:inline-block;width:16px;height:16px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/flask-conical.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/flask-conical.svg) center/contain no-repeat"></span>Lab</span>
+</nav>
+<div style="flex:1"></div>
+<div style="display:flex;flex-direction:column;gap:6px;padding:12px;border:1px solid var(--border);border-radius:8px;background:var(--background);cursor:pointer" style-hover="border-color:var(--input)">
+<span style="font-size:12px;line-height:16px;color:var(--muted-foreground)">Model · 2026 live</span>
+<span style="display:flex;align-items:baseline;gap:8px"><span style="font-size:16px;font-weight:600">31-24-1</span><span style="font-size:13px">56.4%</span></span>
+<span style="display:flex;align-items:center;gap:8px;font-size:12px;line-height:16px"><span style="color:var(--pos);font-weight:600">+4.6u</span><span style="color:var(--muted-foreground)">CLV +0.9</span><span style="flex:1"></span><span style="color:var(--muted-foreground)">Track record</span><span style="display:inline-block;width:12px;height:12px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/chevron-right.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/chevron-right.svg) center/contain no-repeat;color:var(--muted-foreground)"></span></span>
+</div>
+<div style="display:flex;flex-direction:column;gap:2px;padding-top:8px;border-top:1px solid var(--border)">
+<span style="display:flex;align-items:center;gap:10px;height:34px;padding:0 10px;border-radius:6px;font-size:13px;font-weight:500;color:var(--muted-foreground)"><span style="display:inline-block;width:16px;height:16px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/settings.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/settings.svg) center/contain no-repeat"></span>Settings</span>
+<span style="display:flex;align-items:center;gap:10px;height:34px;padding:0 10px;border-radius:6px;font-size:13px;font-weight:500"><span style="width:20px;height:20px;border-radius:50%;background:var(--secondary);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;flex:none">JD</span><span style="flex:1">Account</span><span style="display:inline-block;width:14px;height:14px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/chevrons-up-down.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/chevrons-up-down.svg) center/contain no-repeat;color:var(--muted-foreground)"></span></span>
+</div>
+</aside>
+<main style="min-width:0;display:flex;flex-direction:column">
+<div style="display:flex;align-items:center;gap:12px;height:56px;padding:0 24px;border-bottom:1px solid var(--border);box-sizing:border-box;flex:none">
+<span style="display:inline-flex;align-items:center;height:32px;border:1px solid var(--input);border-radius:6px;overflow:hidden;box-sizing:border-box;flex:none"><span style="display:inline-flex;align-items:center;justify-content:center;width:30px;height:100%;border-right:1px solid var(--border);cursor:pointer"><span style="display:inline-block;width:14px;height:14px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/chevron-left.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/chevron-left.svg) center/contain no-repeat"></span></span><span style="display:inline-flex;align-items:center;gap:6px;height:100%;padding:0 12px;font-size:13px;font-weight:600;white-space:nowrap">2026 · Week 6<span style="display:inline-block;width:14px;height:14px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/chevron-down.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/chevron-down.svg) center/contain no-repeat;color:var(--muted-foreground)"></span></span><span style="display:inline-flex;align-items:center;justify-content:center;width:30px;height:100%;border-left:1px solid var(--border);cursor:pointer"><span style="display:inline-block;width:14px;height:14px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/chevron-right.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/chevron-right.svg) center/contain no-repeat"></span></span></span>
+<span style="display:inline-flex;align-items:center;gap:8px;height:32px;padding:0 10px;border-radius:6px;border:1px solid var(--input);width:320px;box-sizing:border-box;font-size:13px;color:var(--muted-foreground)"><span style="display:inline-block;width:14px;height:14px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/search.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/search.svg) center/contain no-repeat"></span><span style="flex:1">Search teams</span><span style="display:inline-flex;align-items:center;height:20px;padding:0 6px;border-radius:4px;border:1px solid var(--border);background:var(--muted);font:500 11px 'IBM Plex Mono',monospace">⌘K</span></span>
+<span style="flex:1"></span>
+<span style="font-size:12px;line-height:16px;color:var(--muted-foreground)">{{ updatedTxt }}</span>
+<span style="position:relative;display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:6px;border:1px solid var(--input);box-sizing:border-box;cursor:pointer"><span style="display:inline-block;width:16px;height:16px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/bell.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/bell.svg) center/contain no-repeat"></span><span style="position:absolute;top:-5px;right:-5px;min-width:16px;height:16px;padding:0 4px;box-sizing:border-box;border-radius:8px;background:var(--foreground);color:var(--background);font-size:12px;line-height:16px;font-weight:700;text-align:center;box-shadow:0 0 0 2px var(--background)">1</span></span>
+</div>
+<div style="display:flex;align-items:center;gap:24px;padding:16px 24px 12px">
+<div style="display:flex;align-items:baseline;gap:12px;min-width:0"><h1 style="margin:0;font-size:24px;line-height:32px;font-weight:600;letter-spacing:-0.005em">Picks</h1><span style="font-size:12px;line-height:16px;color:var(--muted-foreground);white-space:nowrap">Model recommendations against the spread · every pick graded automatically</span></div>
+<span style="flex:1"></span>
+<span style="display:inline-flex;height:32px;border:1px solid var(--input);border-radius:6px;overflow:hidden;box-sizing:border-box;flex:none;font-size:13px">
+<span onClick="{{ setCurrent }}" style="display:flex;align-items:center;gap:6px;padding:0 12px;cursor:pointer;background:{{ tC.bg }};font-weight:{{ tC.w }};color:{{ tC.c }}">Week 6<span style="font-size:12px;line-height:16px;padding:0 5px;border-radius:999px;background:var(--secondary);color:var(--foreground);font-weight:600">9</span></span>
+<span onClick="{{ setBest }}" style="display:flex;align-items:center;gap:6px;padding:0 12px;border-left:1px solid var(--input);cursor:pointer;background:{{ tB.bg }};font-weight:{{ tB.w }};color:{{ tB.c }}">Best lines<span style="font-size:12px;line-height:16px;padding:0 5px;border-radius:999px;background:var(--secondary);color:var(--foreground);font-weight:600">{{ bestCount }}</span></span>
+<span onClick="{{ setPast }}" style="display:flex;align-items:center;gap:6px;padding:0 12px;border-left:1px solid var(--input);cursor:pointer;background:{{ tPw.bg }};font-weight:{{ tPw.w }};color:{{ tPw.c }}">Past weeks<span style="font-size:12px;line-height:16px;padding:0 5px;border-radius:999px;background:var(--secondary);color:var(--foreground);font-weight:600">5</span></span>
+</span>
+</div>
+
+<div style="display:grid;grid-template-columns:minmax(0,1fr) auto;margin:0 24px 16px;background:var(--card);border:1px solid var(--border);border-radius:8px;overflow:hidden">
+<div style="display:flex;align-items:center;gap:28px;padding:12px 16px;min-width:0">
+<div style="display:flex;flex-direction:column;gap:2px;flex:none"><span style="font-size:12px;line-height:16px;color:var(--muted-foreground)">2026 live · through Week 5</span><span style="font-size:20px;line-height:28px;font-weight:600">31-24-1</span></div>
+<div style="display:flex;flex-direction:column;gap:4px;flex:none;width:200px">
+<span style="display:flex;align-items:baseline;gap:8px"><span style="font-size:20px;line-height:28px;font-weight:600">56.4%</span><span style="font-size:12px;line-height:16px;color:var(--muted-foreground)">break-even <span style="color:var(--foreground);font-weight:500">52.4%</span></span></span>
+<span title="Win % on a 45–65% track. Tick = break-even 52.4%" style="position:relative;display:block;height:6px;border-radius:4px;background:var(--muted)"><span style="position:absolute;left:0;top:0;bottom:0;width:57%;border-radius:4px;background:var(--pos)"></span><span style="position:absolute;left:37%;top:-3px;bottom:-3px;width:2px;background:var(--breakeven)"></span></span>
+</div>
+<div style="display:flex;flex-direction:column;gap:2px;flex:none"><span style="font-size:12px;line-height:16px;color:var(--muted-foreground)">Units</span><span style="font-size:16px;line-height:24px;font-weight:600;color:var(--pos)">+4.6u</span></div>
+<div style="display:flex;flex-direction:column;gap:2px;flex:none"><span style="font-size:12px;line-height:16px;color:var(--muted-foreground)">ROI</span><span style="font-size:16px;line-height:24px;font-weight:600;color:var(--pos)">+7.6%</span></div>
+<div style="display:flex;flex-direction:column;gap:2px;flex:none"><span style="font-size:12px;line-height:16px;color:var(--muted-foreground)">Avg CLV</span><span style="font-size:16px;line-height:24px;font-weight:600;color:var(--pos)">+0.9 pts</span></div>
+<div style="display:flex;flex-direction:column;gap:2px;flex:none"><span style="font-size:12px;line-height:16px;color:var(--muted-foreground)">Picks</span><span style="font-size:16px;line-height:24px;font-weight:600">56</span></div>
+<span style="flex:1"></span>
+<span style="display:inline-flex;align-items:center;gap:4px;font-size:13px;font-weight:500;white-space:nowrap;cursor:pointer;color:var(--muted-foreground)" style-hover="color:var(--foreground)">Track record<span style="display:inline-block;width:14px;height:14px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/arrow-right.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/arrow-right.svg) center/contain no-repeat"></span></span>
+</div>
+<div onClick="{{ setCurrent }}" style="display:flex;align-items:center;gap:14px;padding:12px 16px;border-left:1px solid var(--border);background:var(--muted);cursor:pointer" style-hover="background:var(--accent)">
+<div style="display:flex;flex-direction:column;gap:6px">
+<span style="font-size:12px;line-height:16px;color:var(--muted-foreground)">This week · {{ wk.now }}</span>
+<span style="display:flex;gap:2px"><sc-for list="{{ wk.segs }}" as="s" hint-placeholder-count="9"><span title="{{ s.t }}" style="width:9px;height:14px;border-radius:2px;box-sizing:border-box;background:{{ s.bg }};border:1px solid {{ s.bd }}"></span></sc-for></span>
+</div>
+<div style="display:flex;flex-direction:column;gap:2px;font-size:13px;line-height:18px;white-space:nowrap">
+<span><span style="font-weight:600">{{ wk.rec }}</span><span style="color:var(--muted-foreground)"> · </span><span style="font-weight:600;color:{{ wk.unitsC }}">{{ wk.units }}</span><span style="color:var(--muted-foreground)"> · </span><span style="font-weight:600">{{ wk.toPlay }}</span><span style="color:var(--muted-foreground)"> to play</span></span>
+<span style="color:var(--muted-foreground)"><span style="color:var(--live);font-weight:600">{{ wk.live }}</span> {{ wk.note }}</span>
+</div>
+</div>
+</div>
+
+<sc-if value="{{ notBest }}" hint-placeholder-val="{{ true }}">
+<div style="display:flex;align-items:center;gap:6px;padding:0 24px 12px;flex-wrap:wrap;row-gap:8px">
+<span style="font-size:12px;color:var(--muted-foreground);margin-right:2px">Tier</span>
+<sc-for list="{{ tierChips }}" as="c" hint-placeholder-count="4"><span onClick="{{ c.pick }}" style="display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 10px;border-radius:999px;border:1px solid {{ c.border }};background:{{ c.bg }};font-size:13px;font-weight:{{ c.w }};box-sizing:border-box;flex:none;cursor:pointer" style-hover="border-color:var(--input)">{{ c.l }}</span></sc-for>
+<span style="width:1px;height:20px;background:var(--border);margin:0 6px;flex:none"></span>
+<span style="font-size:12px;color:var(--muted-foreground);margin-right:2px">Conference</span>
+<sc-for list="{{ confChips }}" as="c" hint-placeholder-count="5"><span onClick="{{ c.pick }}" style="display:inline-flex;align-items:center;height:28px;padding:0 10px;border-radius:999px;border:1px solid {{ c.border }};background:{{ c.bg }};font-size:13px;font-weight:{{ c.w }};box-sizing:border-box;flex:none;cursor:pointer" style-hover="border-color:var(--input)">{{ c.l }}</span></sc-for>
+<span style="width:1px;height:20px;background:var(--border);margin:0 6px;flex:none"></span>
+<span style="display:inline-flex;height:28px;border:1px solid var(--input);border-radius:6px;overflow:hidden;box-sizing:border-box;flex:none;font-size:13px"><sc-for list="{{ sideSeg }}" as="s" hint-placeholder-count="3"><span onClick="{{ s.pick }}" style="display:flex;align-items:center;padding:0 10px;cursor:pointer;border-left:{{ s.bl }};background:{{ s.bg }};font-weight:{{ s.w }};color:{{ s.c }}">{{ s.l }}</span></sc-for></span>
+<span style="display:inline-flex;height:28px;border:1px solid var(--input);border-radius:6px;overflow:hidden;box-sizing:border-box;flex:none;font-size:13px"><sc-for list="{{ venueSeg }}" as="s" hint-placeholder-count="3"><span onClick="{{ s.pick }}" style="display:flex;align-items:center;padding:0 10px;cursor:pointer;border-left:{{ s.bl }};background:{{ s.bg }};font-weight:{{ s.w }};color:{{ s.c }}">{{ s.l }}</span></sc-for></span>
+<sc-if value="{{ anyFilter }}" hint-placeholder-val="{{ false }}"><span onClick="{{ clearAll }}" style="display:inline-flex;align-items:center;height:28px;padding:0 8px;font-size:13px;font-weight:500;color:var(--muted-foreground);cursor:pointer" style-hover="color:var(--foreground)">Clear</span></sc-if>
+<span style="flex:1"></span>
+<span style="font-size:12px;line-height:16px;color:var(--muted-foreground)">{{ sortNote }}</span>
+</div>
+</sc-if>
+
+<sc-if value="{{ isBest }}" hint-placeholder-val="{{ false }}">
+<div style="display:flex;align-items:center;gap:6px;padding:0 24px 12px;flex-wrap:wrap;row-gap:8px">
+<span style="font-size:12px;color:var(--muted-foreground);margin-right:2px">Lines from</span>
+<sc-for list="{{ srcChips }}" as="c" hint-placeholder-count="2"><span onClick="{{ c.pick }}" style="display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 11px;border-radius:999px;border:1px solid {{ c.bd }};background:{{ c.bg }};font-size:13px;font-weight:{{ c.w }};box-sizing:border-box;flex:none;cursor:pointer" style-hover="border-color:var(--input)"><sc-if value="{{ c.on }}" hint-placeholder-val="{{ false }}"><span style="display:inline-block;width:12px;height:12px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/check.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/check.svg) center/contain no-repeat"></span></sc-if>{{ c.l }}</span></sc-for>
+<span style="font-size:12px;line-height:16px;color:var(--muted-foreground);margin-left:6px">{{ srcNote }}</span>
+<span style="flex:1"></span>
+<span style="font-size:12px;line-height:16px;color:var(--muted-foreground)">Upcoming CFB · ranked by the model's cover % · Thu 10:00 PM ET</span>
+</div>
+<div style="margin:0 24px 24px;background:var(--card);border:1px solid var(--border);border-radius:8px;overflow:hidden">
+<sc-if value="{{ uncal }}" hint-placeholder-val="{{ false }}"><div style="display:flex;align-items:flex-start;gap:10px;padding:10px 14px;border-bottom:1px solid var(--border);background:var(--muted)"><span style="display:inline-block;width:15px;height:15px;margin-top:2px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/info.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/info.svg) center/contain no-repeat;color:var(--muted-foreground)"></span><span style="font-size:13px;line-height:19px;text-wrap:pretty"><b style="font-weight:600">Cover % is uncalibrated.</b> <span style="color:var(--muted-foreground)">In the backtest, games the model rated 62.5% covered 58.9%, and 65%+ covered 59.6%. Use it to rank games, not as odds, until calibration passes in Lab.</span></span></div></sc-if>
+<div style="display:grid;grid-template-columns:28px minmax(0,1fr) 104px 132px 204px 84px 140px 36px 16px;column-gap:10px;align-items:center;height:32px;padding:0 12px;border-bottom:1px solid var(--border);font-size:12px;line-height:16px;font-weight:500;color:var(--muted-foreground)">
+<span style="text-align:center">#</span><span>Pick</span><span>Best line</span><span>Source</span><span>Other source</span><span style="text-align:right">Edge</span>
+<span style="display:flex;align-items:center;gap:5px;color:var(--foreground)">Cover %<span style="display:inline-block;width:12px;height:12px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/arrow-down.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/arrow-down.svg) center/contain no-repeat"></span><sc-if value="{{ uncal }}" hint-placeholder-val="{{ false }}"><span title="Not yet calibrated against real results" style="font-size:12px;line-height:14px;font-weight:600;letter-spacing:.04em;padding:0 4px;border-radius:4px;border:1px dashed var(--input);color:var(--muted-foreground)">UNCALIBRATED</span></sc-if></span>
+<span style="text-align:center">Tier</span><span></span>
+</div>
+<sc-for list="{{ bAbove }}" as="b" hint-placeholder-count="6">
+<div style="display:grid;grid-template-columns:28px minmax(0,1fr) 104px 132px 204px 84px 140px 36px 16px;column-gap:10px;align-items:center;height:56px;padding:0 12px;border-bottom:1px solid var(--border);box-sizing:border-box;cursor:pointer" style-hover="background:var(--accent)">
+<span style="text-align:center;font-size:14px;font-weight:600;color:var(--muted-foreground)">{{ b.rank }}</span>
+<div style="display:flex;flex-direction:column;gap:2px;min-width:0"><span style="display:flex;align-items:center;gap:8px;min-width:0"><span style="width:16px;height:16px;border-radius:50%;flex:none;background:{{ b.color }};box-shadow:0 0 0 1px var(--border)"></span><span style="font-size:14px;font-weight:600;white-space:nowrap">{{ b.team }}</span></span><span style="padding-left:24px;font-size:12px;line-height:16px;color:var(--muted-foreground);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ b.vs }} · {{ b.kick }}</span></div>
+<span style="font-size:14px;font-weight:600;white-space:nowrap">{{ b.line }}</span>
+<span style="display:flex;flex-direction:column;align-items:flex-start;gap:3px"><sc-if value="{{ b.isSplash }}" hint-placeholder-val="{{ true }}"><span title="Splash work league line · you can enter this one" style="display:inline-flex;align-items:center;gap:5px;height:22px;padding:0 8px;border-radius:4px;background:var(--secondary);font-size:12px;font-weight:600;white-space:nowrap"><span style="display:inline-block;width:12px;height:12px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/trophy.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/trophy.svg) center/contain no-repeat"></span>Splash</span></sc-if><sc-if value="{{ b.isMarket }}" hint-placeholder-val="{{ false }}"><span title="Market consensus line" style="display:inline-flex;align-items:center;gap:5px;height:22px;padding:0 8px;border-radius:4px;border:1px solid var(--input);box-sizing:border-box;font-size:12px;font-weight:600;white-space:nowrap"><span style="display:inline-block;width:12px;height:12px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/activity.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/activity.svg) center/contain no-repeat"></span>Market</span><span style="display:flex;align-items:center;gap:4px;font-size:12px;line-height:16px;font-weight:600;color:var(--neg);white-space:nowrap"><span style="display:inline-block;width:12px;height:12px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/ban.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/ban.svg) center/contain no-repeat"></span>Not in Splash</span></sc-if></span>
+<span style="display:flex;flex-direction:column;gap:1px;min-width:0;font-size:13px;line-height:18px;color:var(--muted-foreground);white-space:nowrap"><sc-if value="{{ b.hasOther }}" hint-placeholder-val="{{ true }}"><span>{{ b.other }} <span style="color:var(--foreground)">· {{ b.otherCovT }}</span></span></sc-if><sc-if value="{{ b.noOther }}" hint-placeholder-val="{{ false }}"><span style="font-style:italic">Not in contest</span></sc-if><sc-if value="{{ b.hasOtherNote }}" hint-placeholder-val="{{ false }}"><span style="font-size:12px;line-height:14px">{{ b.otherNote }}</span></sc-if></span>
+<span style="display:flex;justify-content:flex-end;padding-right:6px"><span style="display:inline-flex;align-items:center;height:22px;padding:0 9px;border-radius:999px;background:var(--edge);color:var(--edge-foreground);font-size:12px;line-height:16px;font-weight:600;white-space:nowrap">{{ b.edgeT }}</span></span>
+<span style="display:flex;align-items:center;gap:8px"><span style="min-width:32px;text-align:right;font-size:14px;font-weight:600;text-decoration:{{ covDeco }};text-underline-offset:3px">{{ b.coverT }}</span><span style="position:relative;width:60px;height:6px;border-radius:4px;background:var(--secondary);overflow:hidden;flex:none"><span style="position:absolute;left:0;top:0;bottom:0;width:{{ b.coverW }};background:var(--edge)"></span></span></span>
+<span style="display:flex;justify-content:center"><span style="display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:4px;background:{{ b.tierBg }};color:{{ b.tierFg }};font-size:12px;font-weight:700">{{ b.tier }}</span></span>
+<span style="display:inline-block;width:14px;height:14px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/chevron-right.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/chevron-right.svg) center/contain no-repeat;color:var(--muted-foreground)"></span>
+</div>
+</sc-for>
+<div style="display:flex;align-items:center;gap:10px;height:30px;padding:0 12px 0 50px;background:var(--background);border-bottom:1px solid var(--border);border-top:1px dashed var(--foreground);margin-top:-1px;box-sizing:border-box"><span style="font-size:12px;line-height:14px;font-weight:600;letter-spacing:.05em;text-transform:uppercase">Pick threshold · edge ≥ 2.5</span><span style="font-size:12px;line-height:16px;color:var(--muted-foreground)">{{ bBelowTxt }}</span></div>
+<sc-for list="{{ bBelow }}" as="b" hint-placeholder-count="4">
+<div style="display:grid;grid-template-columns:28px minmax(0,1fr) 104px 132px 204px 84px 140px 36px 16px;column-gap:10px;align-items:center;height:48px;padding:0 12px;border-bottom:1px solid var(--border);box-sizing:border-box;cursor:pointer" style-hover="background:var(--accent)">
+<span style="text-align:center;font-size:13px;font-weight:600;color:var(--muted-foreground)">{{ b.rank }}</span>
+<span style="display:flex;align-items:center;gap:8px;min-width:0"><span style="width:14px;height:14px;border-radius:50%;flex:none;background:{{ b.color }};box-shadow:0 0 0 1px var(--border)"></span><span style="font-size:14px;font-weight:500;white-space:nowrap">{{ b.team }}</span><span style="font-size:12px;color:var(--muted-foreground);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ b.vs }} · {{ b.kick }}</span></span>
+<span style="font-size:14px;font-weight:500;white-space:nowrap">{{ b.line }}</span>
+<span style="display:flex;flex-direction:column;align-items:flex-start;gap:3px"><sc-if value="{{ b.isSplash }}" hint-placeholder-val="{{ false }}"><span style="display:inline-flex;align-items:center;gap:5px;height:22px;padding:0 8px;border-radius:4px;background:var(--secondary);font-size:12px;font-weight:600;white-space:nowrap"><span style="display:inline-block;width:12px;height:12px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/trophy.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/trophy.svg) center/contain no-repeat"></span>Splash</span></sc-if><sc-if value="{{ b.isMarket }}" hint-placeholder-val="{{ true }}"><span style="display:inline-flex;align-items:center;gap:5px;height:22px;padding:0 8px;border-radius:4px;border:1px solid var(--input);box-sizing:border-box;font-size:12px;font-weight:600;white-space:nowrap"><span style="display:inline-block;width:12px;height:12px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/activity.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/activity.svg) center/contain no-repeat"></span>Market</span><span style="display:flex;align-items:center;gap:4px;font-size:12px;line-height:16px;font-weight:600;color:var(--neg);white-space:nowrap"><span style="display:inline-block;width:12px;height:12px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/ban.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/ban.svg) center/contain no-repeat"></span>Not in Splash</span></sc-if></span>
+<span style="display:flex;flex-direction:column;gap:1px;min-width:0;font-size:13px;line-height:18px;color:var(--muted-foreground);white-space:nowrap"><sc-if value="{{ b.hasOther }}" hint-placeholder-val="{{ false }}"><span>{{ b.other }} · {{ b.otherCovT }}</span></sc-if><sc-if value="{{ b.noOther }}" hint-placeholder-val="{{ true }}"><span style="font-style:italic">Not in contest</span></sc-if><sc-if value="{{ b.hasOtherNote }}" hint-placeholder-val="{{ false }}"><span style="font-size:12px;line-height:14px">{{ b.otherNote }}</span></sc-if></span>
+<span style="text-align:right;padding-right:6px;font-size:13px;color:var(--muted-foreground)">{{ b.edgeT }}</span>
+<span style="display:flex;align-items:center;gap:8px"><span style="min-width:32px;text-align:right;font-size:13px;color:var(--muted-foreground);text-decoration:{{ covDeco }};text-underline-offset:3px">{{ b.coverT }}</span><span style="position:relative;width:60px;height:6px;border-radius:4px;background:var(--secondary);overflow:hidden;flex:none"><span style="position:absolute;left:0;top:0;bottom:0;width:{{ b.coverW }};background:var(--input)"></span></span></span>
+<span style="text-align:center;font-size:13px;color:var(--muted-foreground)">—</span>
+<span style="display:inline-block;width:14px;height:14px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/chevron-right.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/chevron-right.svg) center/contain no-repeat;color:var(--muted-foreground)"></span>
+</div>
+</sc-for>
+<sc-if value="{{ bHasHidden }}" hint-placeholder-val="{{ false }}"><div style="display:flex;align-items:center;gap:8px;min-height:36px;padding:0 12px 0 50px;border-bottom:1px solid var(--border);font-size:12px;line-height:16px;color:var(--muted-foreground)"><span style="display:inline-block;width:13px;height:13px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/eye-off.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/eye-off.svg) center/contain no-repeat"></span>Not in the contest, so hidden: {{ bHidden }}</div></sc-if>
+<div style="display:flex;align-items:center;justify-content:space-between;gap:24px;min-height:40px;padding:8px 12px 8px 50px;box-sizing:border-box;font-size:12px;line-height:16px;color:var(--muted-foreground)"><span style="text-wrap:pretty">One row per game, on whichever line gives the model's side the higher cover %. Ties go to the contest line. Market lines can't be entered in the contest.</span><span style="white-space:nowrap">NFL games have no model yet · <a href="#" style="color:var(--foreground);text-underline-offset:2px">see them on Contest</a></span></div>
+</div>
+</sc-if>
+
+<sc-if value="{{ isCurrent }}" hint-placeholder-val="{{ true }}">
+<div style="margin:0 24px 24px;background:var(--card);border:1px solid var(--border);border-radius:8px;overflow:hidden">
+<div style="display:grid;grid-template-columns:28px minmax(0,1fr) 128px 84px 76px 116px 132px 212px 16px;column-gap:10px;align-items:center;height:32px;padding:0 12px;border-bottom:1px solid var(--border);font-size:12px;line-height:16px;font-weight:500;color:var(--muted-foreground)">
+<span>Tier</span><span>Pick · game</span>
+<span style="text-align:right">Picked at</span>
+<span style="text-align:right">Now</span>
+<span style="text-align:right" title="Closing line value: points gained vs the current line (closing line once the game kicks)">CLV</span>
+<span style="padding-left:16px">Edge now</span>
+<span style="display:flex;align-items:center;gap:5px" title="Model probability of covering the current line. Not yet calibrated: the backtest shows it runs high above 60%."><span>Cover</span><sc-if value="{{ uncal }}" hint-placeholder-val="{{ true }}"><span style="font-size:12px;line-height:14px;font-weight:600;letter-spacing:.04em;padding:0 4px;border-radius:4px;border:1px dashed var(--input)">UNCALIBRATED</span></sc-if></span>
+<span>Status</span><span></span>
+</div>
+<sc-for list="{{ rows }}" as="r" hint-placeholder-count="9">
+<div style="display:grid;grid-template-columns:28px minmax(0,1fr) 128px 84px 76px 116px 132px 212px 16px;column-gap:10px;align-items:center;height:60px;padding:0 12px;border-bottom:1px solid var(--border);box-sizing:border-box;cursor:pointer" style-hover="background:var(--accent)">
+<span style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:4px;background:{{ r.tierBg }};color:{{ r.tierFg }};font-size:12px;font-weight:700">{{ r.tier }}</span>
+<div style="display:flex;flex-direction:column;gap:2px;min-width:0">
+<span style="display:flex;align-items:center;gap:8px;min-width:0"><span style="width:16px;height:16px;border-radius:50%;flex:none;background:{{ r.color }};box-shadow:0 0 0 1px var(--border)"></span><span style="font-size:14px;font-weight:600;white-space:nowrap">{{ r.pick }}</span><sc-if value="{{ r.star }}" hint-placeholder-val="{{ false }}"><span title="Starred" style="display:inline-block;width:13px;height:13px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/star.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/star.svg) center/contain no-repeat;color:var(--muted-foreground)"></span></sc-if><sc-if value="{{ r.hasNote }}" hint-placeholder-val="{{ false }}"><span title="{{ r.note }}" style="font-size:12px;line-height:16px;color:var(--muted-foreground);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.note }}</span></sc-if></span>
+<span style="padding-left:24px;font-size:12px;line-height:16px;color:var(--muted-foreground);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.gameT }}</span>
+</div>
+<span style="display:flex;flex-direction:column;align-items:flex-end;gap:2px"><span style="font-size:14px;font-weight:600">{{ r.at }}</span><span style="font-size:12px;line-height:14px;color:var(--muted-foreground);white-space:nowrap">{{ r.when }}</span></span>
+<span style="display:flex;flex-direction:column;align-items:flex-end;gap:2px"><span style="display:flex;align-items:center;gap:4px;font-size:14px;font-weight:500"><sc-if value="{{ r.moved }}" hint-placeholder-val="{{ false }}"><span title="Line moved since pick" style="display:inline-block;width:12px;height:12px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/move-horizontal.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/move-horizontal.svg) center/contain no-repeat;color:var(--muted-foreground)"></span></sc-if>{{ r.now }}</span><span style="font-size:12px;line-height:14px;color:var(--muted-foreground)">{{ r.nowLab }}</span></span>
+<span style="display:flex;flex-direction:column;align-items:flex-end;gap:2px"><span style="font-size:14px;font-weight:600;color:{{ r.clvC }}">{{ r.clvT }}</span><span style="font-size:12px;line-height:14px;color:var(--muted-foreground)">{{ r.clvLab }}</span></span>
+<span style="display:flex;flex-direction:column;align-items:flex-end;gap:2px"><span style="display:inline-flex;align-items:center;height:20px;padding:0 8px;border-radius:999px;background:var(--edge);color:var(--edge-foreground);font-size:12px;line-height:16px;font-weight:600;white-space:nowrap">{{ r.edgeT }}</span><sc-if value="{{ r.edgeMoved }}" hint-placeholder-val="{{ false }}"><span style="font-size:12px;line-height:14px;color:var(--muted-foreground);white-space:nowrap">at pick {{ r.edgeAtT }}</span></sc-if></span>
+<span style="display:flex;flex-direction:column;gap:4px"><span style="display:flex;align-items:baseline;gap:6px"><span style="font-size:14px;font-weight:500">{{ r.coverT }}</span><sc-if value="{{ r.hasCoverAt }}" hint-placeholder-val="{{ false }}"><span style="font-size:12px;color:var(--muted-foreground)">was {{ r.coverAtT }}</span></sc-if></span><span style="position:relative;display:block;width:72px;height:4px;border-radius:2px;background:var(--muted)"><span style="position:absolute;left:0;top:0;bottom:0;width:{{ r.coverW }};border-radius:2px;background:var(--foreground)"></span><span title="Break-even 52.4%" style="position:absolute;left:52.4%;top:-2px;bottom:-2px;width:1px;background:var(--breakeven)"></span></span></span>
+<div style="display:flex;flex-direction:column;gap:2px;min-width:0">
+<sc-if value="{{ r.isUp }}" hint-placeholder-val="{{ true }}"><span style="font-size:13px;font-weight:500;white-space:nowrap">{{ r.kickShort }}</span><span style="font-size:12px;line-height:16px;color:var(--muted-foreground)">To play</span></sc-if>
+<sc-if value="{{ r.isLive }}" hint-placeholder-val="{{ false }}"><span style="display:flex;align-items:center;gap:6px;white-space:nowrap"><span style="display:flex;align-items:center;gap:5px;font:500 12px 'IBM Plex Mono',monospace;color:var(--live)"><span style="width:6px;height:6px;border-radius:50%;background:currentColor"></span>{{ r.clock }}</span><span style="font-size:13px;font-weight:500">{{ r.score }}</span></span><span style="font-size:12px;line-height:16px;font-weight:500;color:{{ r.liveC }}">{{ r.liveT }}</span></sc-if>
+<sc-if value="{{ r.isFinal }}" hint-placeholder-val="{{ false }}"><span style="display:flex;align-items:center;gap:6px;white-space:nowrap"><span style="display:inline-flex;align-items:center;gap:3px;height:20px;padding:0 6px;border-radius:4px;background:{{ r.resBg }};color:var(--background);font-size:12px;font-weight:700">{{ r.resT }}</span><span style="font-size:13px;font-weight:500">{{ r.score }}</span></span><span style="font-size:12px;line-height:16px;color:var(--muted-foreground)">Final · <span style="color:{{ r.resC }};font-weight:600">{{ r.unitsT }}</span></span></sc-if>
+</div>
+<span style="display:inline-block;width:14px;height:14px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/chevron-right.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/chevron-right.svg) center/contain no-repeat;color:var(--muted-foreground)"></span>
+</div>
+</sc-for>
+<sc-if value="{{ isEmpty }}" hint-placeholder-val="{{ false }}"><div style="display:flex;flex-direction:column;align-items:center;gap:4px;padding:40px 12px;border-bottom:1px solid var(--border)"><span style="font-size:14px;font-weight:600">No picks match these filters</span><span onClick="{{ clearAll }}" style="font-size:12px;color:var(--muted-foreground);cursor:pointer">Clear filters</span></div></sc-if>
+<div style="display:flex;align-items:center;justify-content:space-between;gap:24px;min-height:40px;padding:8px 12px 8px 50px;box-sizing:border-box;font-size:12px;line-height:16px;color:var(--muted-foreground)"><span style="white-space:nowrap">{{ footLeft }}</span><span style="text-align:right;text-wrap:pretty">CLV = points gained vs the current line (closing line after kickoff) · Units at −110: win +1.0u, loss −1.1u · Cover tick = break-even 52.4%</span></div>
+</div>
+</sc-if>
+
+<sc-if value="{{ isPast }}" hint-placeholder-val="{{ false }}">
+<div style="margin:0 24px 24px;background:var(--card);border:1px solid var(--border);border-radius:8px;overflow:hidden">
+<div style="display:grid;grid-template-columns:20px minmax(0,1fr) 64px 92px 168px 80px 88px;column-gap:12px;align-items:center;height:32px;padding:0 16px 0 12px;border-bottom:1px solid var(--border);font-size:12px;line-height:16px;font-weight:500;color:var(--muted-foreground)">
+<span></span><span>Week</span><span style="text-align:right">Picks</span><span style="text-align:right">Record</span><span>Win % · vs 52.4%</span><span style="text-align:right">Units</span><span style="text-align:right">Avg CLV</span>
+</div>
+<sc-for list="{{ weeks }}" as="w" hint-placeholder-count="5">
+<div style="border-bottom:1px solid var(--border)">
+<div onClick="{{ w.toggle }}" style="display:grid;grid-template-columns:20px minmax(0,1fr) 64px 92px 168px 80px 88px;column-gap:12px;align-items:center;height:52px;padding:0 16px 0 12px;cursor:pointer;background:{{ w.hdrBg }}" style-hover="background:var(--accent)">
+<span style="display:inline-block;width:16px;height:16px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/{{ w.chev }}.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/{{ w.chev }}.svg) center/contain no-repeat;color:var(--muted-foreground)"></span>
+<span style="display:flex;align-items:baseline;gap:10px"><span style="font-size:14px;font-weight:600">Week {{ w.wk }}</span><span style="font-size:12px;color:var(--muted-foreground)">{{ w.date }}</span></span>
+<span style="text-align:right;font-size:13px;color:var(--muted-foreground)">{{ w.n }}</span>
+<span style="text-align:right;font-size:14px;font-weight:600">{{ w.recT }}</span>
+<span style="display:flex;align-items:center;gap:8px"><span style="width:48px;text-align:right;font-size:13px;font-weight:500">{{ w.pctT }}</span><span style="position:relative;display:block;width:88px;height:10px"><span style="position:absolute;left:44px;top:-3px;bottom:-3px;width:1px;background:var(--breakeven)"></span><span style="position:absolute;top:2px;height:6px;border-radius:1px;left:{{ w.barL }};width:{{ w.barW }};background:{{ w.barC }}"></span></span></span>
+<span style="text-align:right;font-size:14px;font-weight:600;color:{{ w.unitsC }}">{{ w.unitsT }}</span>
+<span style="text-align:right;font-size:13px;color:{{ w.clvC }}">{{ w.clvT }}</span>
+</div>
+<sc-if value="{{ w.open }}" hint-placeholder-val="{{ false }}">
+<sc-if value="{{ w.hasRows }}" hint-placeholder-val="{{ true }}">
+<div style="background:var(--background);border-top:1px solid var(--border)">
+<div style="display:grid;grid-template-columns:20px 28px minmax(0,1fr) 92px 84px 72px 180px 72px;column-gap:12px;align-items:center;height:28px;padding:0 16px 0 12px;font-size:12px;line-height:14px;font-weight:600;letter-spacing:.04em;color:var(--muted-foreground)"><span></span><span>TIER</span><span>PICK · GAME</span><span style="text-align:right">PICKED AT</span><span style="text-align:right">CLOSED</span><span style="text-align:right">CLV</span><span>FINAL</span><span style="text-align:right">UNITS</span></div>
+<sc-for list="{{ w.rows }}" as="r" hint-placeholder-count="6">
+<div style="display:grid;grid-template-columns:20px 28px minmax(0,1fr) 92px 84px 72px 180px 72px;column-gap:12px;align-items:center;height:40px;padding:0 16px 0 12px;border-top:1px solid var(--border);font-size:13px">
+<span></span>
+<span style="display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:4px;background:{{ r.tierBg }};color:{{ r.tierFg }};font-size:12px;font-weight:700">{{ r.tier }}</span>
+<span style="display:flex;align-items:center;gap:8px;min-width:0"><span style="width:12px;height:12px;border-radius:50%;flex:none;background:{{ r.color }};box-shadow:0 0 0 1px var(--border)"></span><span style="font-weight:600;white-space:nowrap">{{ r.pick }}</span><span style="color:var(--muted-foreground);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.game }}</span></span>
+<span style="text-align:right">{{ r.at }}</span>
+<span style="text-align:right">{{ r.now }}</span>
+<span style="text-align:right;font-weight:600;color:{{ r.clvC }}">{{ r.clvT }}</span>
+<span style="display:flex;align-items:center;gap:8px;white-space:nowrap"><span style="display:inline-flex;align-items:center;justify-content:center;min-width:26px;height:20px;padding:0 5px;box-sizing:border-box;border-radius:4px;background:{{ r.resBg }};color:var(--background);font-size:12px;font-weight:700">{{ r.resT }}</span><span>{{ r.score }}</span></span>
+<span style="text-align:right;font-weight:600;color:{{ r.resC }}">{{ r.unitsT }}</span>
+</div>
+</sc-for>
+<div style="display:flex;align-items:center;height:36px;padding:0 16px 0 52px;border-top:1px solid var(--border);font-size:12px;color:var(--muted-foreground)">{{ w.foot }}</div>
+</div>
+</sc-if>
+<sc-if value="{{ w.noRows }}" hint-placeholder-val="{{ false }}"><div style="padding:14px 16px 14px 44px;border-top:1px solid var(--border);background:var(--background);font-size:12px;color:var(--muted-foreground)">Pick-level rows for this week aren't in the sample data. Week 5 shows the expanded layout.</div></sc-if>
+</sc-if>
+</div>
+</sc-for>
+<div style="display:flex;align-items:center;justify-content:space-between;gap:24px;height:40px;padding:0 16px 0 44px;font-size:12px;line-height:16px;color:var(--muted-foreground)"><span>Season 31-24-1 · 56.4% · +4.6u · bar = win % vs break-even 52.4%, ±20 pts</span><span>Results are live picks only. Backtests live on Performance.</span></div>
+</div>
+</sc-if>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1440,&quot;height&quot;:900},&quot;tab&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;current&quot;,&quot;best&quot;,&quot;past&quot;],&quot;default&quot;:&quot;current&quot;,&quot;tsType&quot;:&quot;'current'|'best'|'past'&quot;},&quot;source&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;both&quot;,&quot;splash&quot;],&quot;default&quot;:&quot;both&quot;,&quot;tsType&quot;:&quot;'both'|'splash'&quot;,&quot;section&quot;:&quot;Best lines&quot;},&quot;calibration&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;uncalibrated&quot;,&quot;calibrated&quot;],&quot;default&quot;:&quot;uncalibrated&quot;,&quot;tsType&quot;:&quot;'uncalibrated'|'calibrated'&quot;,&quot;section&quot;:&quot;Best lines&quot;}}">
+class Component extends DCLogic {
+  state = { tab: null, src: null, tier: 'All', conf: 'All', side: 'All', venue: 'All', open: { 5: true }, ready: !!window.PK };
+  componentDidMount() { if (!window.PK) this.t = setInterval(() => { if (window.PK) { clearInterval(this.t); this.setState({ ready: true }); } }, 50); }
+  componentWillUnmount() { clearInterval(this.t); }
+  renderVals() {
+    const PK = window.PK;
+    const tab = this.state.tab ?? this.props.tab ?? 'current';
+    const src = this.state.src ?? this.props.source ?? 'both';
+    const S = this.state;
+    const seg = x => ({ bg: x ? 'var(--accent)' : 'transparent', w: x ? '600' : '500', c: x ? 'var(--foreground)' : 'var(--muted-foreground)' });
+    const chip = (key, l, label) => ({ l: label ?? l, pick: () => this.setState({ [key]: l }), border: S[key] === l ? 'var(--input)' : 'var(--border)', bg: S[key] === l ? 'var(--accent)' : 'transparent', w: S[key] === l ? '600' : '500' });
+    const segs = (key, ls) => ls.map((l, i) => ({ l, pick: () => this.setState({ [key]: l }), bl: i ? '1px solid var(--input)' : 'none', ...seg(S[key] === l) }));
+    const tierStyle = t => ({ A: ['var(--tier-a)', 'var(--tier-a-foreground)'], B: ['var(--tier-b)', 'var(--tier-b-foreground)'], C: ['var(--tier-c)', 'var(--tier-c-foreground)'] })[t];
+    const sgn = (v, d = 1) => v > 0 ? '+' + v.toFixed(d) : v < 0 ? '−' + Math.abs(v).toFixed(d) : (0).toFixed(d);
+    const tone = v => v > 0 ? 'var(--pos)' : v < 0 ? 'var(--neg)' : 'var(--muted-foreground)';
+    const confOf = c => ['SEC', 'Big Ten', 'Big 12'].includes(c) ? c : 'Other';
+    const pass = r => (S.tier === 'All' || r.tier === S.tier) && (S.conf === 'All' || confOf(r.conf) === S.conf)
+      && (S.side === 'All' || r.side === S.side) && (S.venue === 'All' || r.venue === S.venue);
+    const res = r => ({ resT: r.res === 'W' ? '✓ W' : r.res === 'L' ? '✗ L' : 'P', resBg: r.res === 'W' ? 'var(--pos)' : r.res === 'L' ? 'var(--neg)' : 'var(--push)',
+      resC: tone(r.units), unitsT: r.units === 0 ? '0.0u' : sgn(r.units) + 'u' });
+    const anyFilter = S.tier !== 'All' || S.conf !== 'All' || S.side !== 'All' || S.venue !== 'All';
+    const base = {
+      isCurrent: tab === 'current', isPast: tab === 'past', isBest: tab === 'best', notBest: tab !== 'best', tC: seg(tab === 'current'), tPw: seg(tab === 'past'), tB: seg(tab === 'best'),
+      setCurrent: () => this.setState({ tab: 'current' }), setPast: () => this.setState({ tab: 'past' }), setBest: () => this.setState({ tab: 'best' }),
+      uncal: (this.props.calibration ?? 'uncalibrated') === 'uncalibrated', covDeco: (this.props.calibration ?? 'uncalibrated') === 'uncalibrated' ? 'underline dotted var(--muted-foreground)' : 'none',
+      updatedTxt: tab === 'best' ? 'Lines updated Thu 9:02 PM ET' : 'Lines updated Sat 2:10 PM ET',
+      srcChips: [['both', 'Splash + Market'], ['splash', 'Splash only']].map(([k, l]) => { const on = src === k; return { l, on, pick: () => this.setState({ src: k }), bd: on ? 'var(--input)' : 'var(--border)', bg: on ? 'var(--accent)' : 'transparent', w: on ? '600' : '500' }; }),
+      srcNote: src === 'splash' ? 'Only lines you can enter in the Splash work league' : 'Splash work league + market consensus · best of the two per game',
+      wk: tab === 'best'
+        ? { now: 'Thu 10:00 PM', rec: '0-0', units: '0.0u', unitsC: 'var(--muted-foreground)', toPlay: '8', live: '1 live', note: '(Thu night)', segs: [{ t: 'Live · Thu night', bg: 'repeating-linear-gradient(135deg, color-mix(in oklch, var(--live) 60%, transparent) 0 3px, transparent 3px 6px)', bd: 'var(--live)' }, ...Array.from({ length: 8 }, () => ({ t: 'To play', bg: 'transparent', bd: 'var(--input)' }))] }
+        : { now: 'Sat 2:15 PM', rec: '1-0', units: '+1.0u', unitsC: 'var(--pos)', toPlay: '6', live: '2 live', note: '(IOWA covering, OSU not yet)', segs: null },
+      tierChips: ['All', 'A', 'B', 'C'].map(l => chip('tier', l)),
+      confChips: ['All', 'SEC', 'Big Ten', 'Big 12', 'Other'].map(l => chip('conf', l)),
+      sideSeg: segs('side', ['All', 'Fav', 'Dog']), venueSeg: segs('venue', ['All', 'Home', 'Away']),
+      anyFilter, clearAll: () => this.setState({ tier: 'All', conf: 'All', side: 'All', venue: 'All' }),
+      sortNote: tab === 'current' ? 'Sorted by tier, then edge' : 'Newest week first',
+      segs: [
+        { t: 'Won · TULN', bg: 'var(--pos)', bd: 'var(--pos)' },
+        { t: 'Live · covering · IOWA', bg: 'repeating-linear-gradient(135deg, color-mix(in oklch, var(--live) 60%, transparent) 0 3px, transparent 3px 6px)', bd: 'var(--live)' },
+        { t: 'Live · not covering yet · OSU', bg: 'repeating-linear-gradient(135deg, color-mix(in oklch, var(--live) 60%, transparent) 0 3px, transparent 3px 6px)', bd: 'var(--live)' },
+        ...Array.from({ length: 6 }, () => ({ t: 'To play', bg: 'transparent', bd: 'var(--input)' })),
+      ],
+    };
+    if (!base.wk.segs) base.wk.segs = base.segs;
+    if (!PK) return { ...base, rows: [], weeks: [], isEmpty: false, footLeft: '', bAbove: [], bBelow: [], bBelowTxt: '', bestCount: '', bHasHidden: false, bHidden: '' };
+    const bv = PK.bestView(src);
+    const order = { A: 0, B: 1, C: 2 };
+    const cur = PK.current.filter(pass).slice().sort((a, b) => order[a.tier] - order[b.tier] || b.edge - a.edge);
+    const rows = cur.map(r => {
+      const [tb, tf] = tierStyle(r.tier);
+      const closed = r.status !== 'up';
+      return { ...r, ...(r.res ? res(r) : {}), tierBg: tb, tierFg: tf, star: !!r.star, hasNote: !!r.note,
+        gameT: [r.game, r.where, r.kick].filter(Boolean).join(' · '),
+        moved: r.now !== r.at, nowLab: closed ? 'closed' : (r.now !== r.at ? 'moved' : 'unchanged'),
+        clvT: sgn(r.clv), clvC: tone(r.clv), clvLab: closed ? 'final' : 'so far',
+        edgeT: '+' + r.edge.toFixed(1) + ' ' + r.t, edgeMoved: r.edge !== r.edgeAt, edgeAtT: '+' + r.edgeAt.toFixed(1) + ' ' + r.t,
+        coverT: r.cover + '%', coverW: r.cover + '%', hasCoverAt: !!r.coverAt, coverAtT: r.coverAt ? r.coverAt + '%' : '',
+        isUp: r.status === 'up', isLive: r.status === 'live', isFinal: r.status === 'final',
+        kickShort: r.kick.split(' · ')[0], liveC: r.liveTone === 'pos' ? 'var(--pos)' : 'var(--neg)' };
+    });
+    const weeks = PK.weeks.map(w => {
+      const open = !!S.open[w.wk];
+      const g = w.w + w.l, pct = w.w / g * 100, d = Math.max(-20, Math.min(20, pct - 52.4)), px = Math.abs(d) / 20 * 44;
+      const wr = (w.rows || []).filter(pass).map(r => { const [tb, tf] = tierStyle(r.tier); return { ...r, ...res(r), tierBg: tb, tierFg: tf, clvT: sgn(r.clv), clvC: tone(r.clv) }; });
+      return { ...w, open, chev: open ? 'chevron-down' : 'chevron-right', hdrBg: open ? 'var(--muted)' : 'transparent',
+        toggle: () => this.setState({ open: { ...S.open, [w.wk]: !open } }),
+        recT: w.w + '-' + w.l + (w.push ? '-' + w.push : ''), pctT: pct.toFixed(1) + '%',
+        barL: (d >= 0 ? 44 : 44 - px) + 'px', barW: Math.max(px, 1) + 'px', barC: d >= 0 ? 'var(--pos)' : 'var(--neg)',
+        unitsT: sgn(w.units) + 'u', unitsC: tone(w.units), clvT: sgn(w.clv), clvC: tone(w.clv),
+        hasRows: !!w.rows, noRows: !w.rows, rows: wr,
+        foot: anyFilter ? `${wr.length} of ${w.n} picks match filters` : `${w.n} picks · avg CLV ${sgn(w.clv)} · beat the closing line on ${(w.rows || []).filter(r => r.clv > 0).length} of ${w.n}` };
+    });
+    return { ...base, rows, weeks, isEmpty: rows.length === 0,
+      bAbove: bv.above, bBelow: bv.below, bBelowTxt: bv.belowTxt, bestCount: String(bv.count), bHasHidden: !!bv.hidden, bHidden: bv.hidden,
+      footLeft: anyFilter ? `${rows.length} of 9 picks` : '9 picks · 1 final · 2 live · 6 to play · avg CLV +0.3' };
+  }
+}
+</script>
+</body>
+</html>

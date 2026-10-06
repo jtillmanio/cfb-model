@@ -168,7 +168,7 @@ Playbook: [07-claude-design-playbook.md](07-claude-design-playbook.md). Design w
 - [ ] **Prompt 11: market extras** (line movement, best lines, record strip, watchlist & alerts, weather), after 2, 3, 4 and 6
 - [ ] Prompt 8: states and leftovers (after 11)
 - [ ] Prompt 9: consistency audit
-- [ ] Export PDF + HTML, share links, "Design decisions" section in the brief, docs synced to the design
+- [ ] Handoff bundle in `design/handoff/` (replaced the PDF + HTML export), share links, "Design decisions" section in the brief, docs synced to the design
 - [ ] Design-system handoff, then implement it as its own PR (needs the Phase 0 `web/` scaffold). **Review gate**
 
 **Per-screen handoff:** each Phase 4 screen is handed off and implemented one at a time (see the Phase 4 checklist).

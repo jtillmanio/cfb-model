@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet data-dc-atomics><meta name="design_doc_mode" content="canvas"><link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Kalam:wght@400;700&family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@500;600;700&display=swap" rel="stylesheet"><style>body{margin:0;background:#f0eee9;font-family:Kalam,system-ui,sans-serif;color:#1f1f1f}a{color:#2f62d8}a:hover{color:#1d44a3}.dv-turn{padding:40px 44px 32px;border-bottom:1px solid rgba(0,0,0,.08);scroll-margin-top:16px}.dv-thd{display:flex;align-items:baseline;gap:10px;margin:0 0 20px}.dv-tid{font:600 10px ui-monospace,Menlo,monospace;padding:3px 7px;background:#1a1a1a;color:#fff;border-radius:4px;text-decoration:none}.dv-tname{font:600 13px/1.2 system-ui,sans-serif;color:#1a1a1a}.dv-opts{display:flex;flex-wrap:wrap;gap:40px;align-items:flex-start}.dv-opt{flex:none;display:flex;flex-direction:column;gap:9px;scroll-margin-top:16px}.dv-oid{font:600 10.5px ui-monospace,Menlo,monospace;padding:3px 7px;background:rgba(0,0,0,.08);color:#1a1a1a;border-radius:5px;text-decoration:none}.dv-olabel{display:flex;align-items:baseline;gap:8px;font:400 11px/1.3 system-ui,sans-serif;color:rgba(0,0,0,.55)}.dv-card{max-width:100%;background:#fff;border:1px solid rgba(0,0,0,.08);border-radius:8px;box-shadow:0 1px 3px rgba(0,0,0,.06);overflow:hidden}.dv-opt:target .dv-oid{background:#2a78d6;color:#fff}.dv-next{margin:22px 0 0;font:12px/1.5 system-ui,sans-serif;color:rgba(0,0,0,.5)}</style></helmet>
+<section class="dv-turn" id="t1">
+<div class="dv-thd"><a class="dv-tid" href="#t1">1</a><span class="dv-tname">This Week — layout wireframe (shell + slate). Low-fi, theme-agnostic: frame 3 (desktop light) uses the exact layout of <a class="dv-oid" href="#1a">1a</a>.</span></div>
+<div class="dv-opts">
+
+<div class="dv-opt" id="1a">
+<div class="dv-olabel"><a class="dv-oid" href="#1a">1a</a>Desktop 1440 — frames 1 (dark) &amp; 3 (light)</div>
+<div style="display:flex;gap:28px;align-items:flex-start">
+<div class="dv-card" style="width:1440px;flex:none;background:#fbfaf7;position:relative;min-height:940px"><div style="position:absolute;left:0;right:0;top:900px;border-top:2px dashed #2f62d8;pointer-events:none;z-index:2"><span style="position:absolute;right:8px;top:-17px;font:600 10px 'IBM Plex Mono',monospace;color:#2f62d8;background:#fbfaf7;padding:0 4px">900 · fold at 1440×900 ({{ densityLabel }})</span></div>
+<div style="display:grid;grid-template-columns:224px minmax(0,1fr);min-height:100%">
+
+<aside style="border-right:1.5px solid #222;display:flex;flex-direction:column;gap:20px;padding:16px 14px">
+<div style="display:flex;align-items:center;gap:10px;height:32px"><span style="width:26px;height:26px;border:1.5px solid #222;border-radius:6px;flex:none"></span><span style="font-weight:700;font-size:17px">CFB Model</span></div>
+<div style="display:flex;flex-direction:column;gap:6px">
+<div style="display:flex;align-items:center;gap:8px"><span style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;background:#2f62d8;color:#fff;font:700 11px/1 'IBM Plex Mono',monospace;flex:none">1</span><span style="font-size:12px;color:#777">Sport</span></div>
+<div style="border:1.5px solid #222;border-radius:6px;overflow:hidden">
+<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 10px;border-bottom:1px dashed #bbb"><span style="font:600 13px 'IBM Plex Mono',monospace">● CFB</span><span style="color:#777">▾</span></div>
+<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 10px;color:#9a9a9a"><span style="font:500 13px 'IBM Plex Mono',monospace">○ NFL</span><span style="font-size:12px">coming later</span></div>
+</div>
+</div>
+<nav style="display:flex;flex-direction:column;gap:2px">
+<div style="display:flex;align-items:center;gap:10px;height:36px;padding:0 10px;border-radius:6px;background:#e4e0d7;color:#1f1f1f"><span style="width:14px;height:14px;border:1.5px solid #222;border-radius:3px;flex:none"></span><span style="font-weight:700">This Week</span></div>
+<div style="display:flex;align-items:center;gap:10px;height:36px;padding:0 10px;border-radius:6px"><span style="width:14px;height:14px;border:1.5px solid #222;border-radius:3px;flex:none"></span><span style="flex:1">Picks</span><span style="font:500 12px 'IBM Plex Mono',monospace;color:#666">14</span></div>
+<div style="display:flex;align-items:center;gap:10px;height:36px;padding:0 10px;border-radius:6px"><span style="width:14px;height:14px;border:1.5px solid #222;border-radius:3px;flex:none"></span><span>Contest</span></div>
+<div style="display:flex;align-items:center;gap:10px;height:36px;padding:0 10px;border-radius:6px"><span style="width:14px;height:14px;border:1.5px solid #222;border-radius:3px;flex:none"></span><span>Rankings</span></div>
+<div style="display:flex;align-items:center;gap:10px;height:36px;padding:0 10px;border-radius:6px"><span style="width:14px;height:14px;border:1.5px solid #222;border-radius:3px;flex:none"></span><span>Teams</span></div>
+<div style="display:flex;align-items:center;gap:10px;height:36px;padding:0 10px;border-radius:6px"><span style="width:14px;height:14px;border:1.5px solid #222;border-radius:3px;flex:none"></span><span>Performance</span></div>
+<div style="display:flex;align-items:center;gap:10px;height:36px;padding:0 10px;border-radius:6px"><span style="width:14px;height:14px;border:1.5px solid #222;border-radius:3px;flex:none"></span><span>Lab</span></div>
+</nav>
+<div style="flex:1"></div>
+<div style="border:1.5px dashed #999;border-radius:6px;padding:10px;display:flex;flex-direction:column;gap:4px">
+<div style="display:flex;align-items:center;gap:8px"><span style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;background:#2f62d8;color:#fff;font:700 11px/1 'IBM Plex Mono',monospace;flex:none">2</span><span style="font-size:12px;color:#777">Model record · 2026 live</span></div>
+<span style="font:600 14px 'IBM Plex Mono',monospace">31-24-1 · 56.4%</span>
+<span style="font:400 12px 'IBM Plex Mono',monospace;color:#666">+4.6u · CLV +0.9</span>
+</div>
+<div style="display:flex;flex-direction:column;gap:2px;border-top:1px solid #ccc;padding-top:10px">
+<div style="display:flex;align-items:center;gap:10px;height:34px;padding:0 10px"><span style="width:14px;height:14px;border:1.5px solid #222;border-radius:50%;flex:none"></span><span>Settings</span></div>
+<div style="display:flex;align-items:center;gap:10px;height:34px;padding:0 10px"><span style="width:22px;height:22px;border:1.5px solid #222;border-radius:50%;flex:none"></span><span>Account</span><span style="margin-left:auto;color:#777">▴</span></div>
+</div>
+</aside>
+
+<main style="min-width:0;display:flex;flex-direction:column">
+<div style="position:relative;display:flex;align-items:center;gap:16px;height:56px;padding:0 24px;border-bottom:1.5px solid #222">
+<div style="display:flex;align-items:center;gap:8px"><span style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;background:#2f62d8;color:#fff;font:700 11px/1 'IBM Plex Mono',monospace;flex:none">3</span>
+<div style="display:flex;align-items:center;border:1.5px solid #222;border-radius:6px;height:34px"><span style="padding:0 10px;color:#666">‹</span><span style="padding:0 12px;border-left:1px solid #ccc;border-right:1px solid #ccc;font:600 14px/34px 'IBM Plex Mono',monospace">2026 · Week 6 ▾</span><span style="padding:0 10px;color:#666">›</span></div></div>
+<div style="display:flex;align-items:center;gap:8px;flex:1;max-width:420px"><span style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;background:#2f62d8;color:#fff;font:700 11px/1 'IBM Plex Mono',monospace;flex:none">4</span>
+<div style="flex:1;display:flex;align-items:center;gap:8px;height:34px;padding:0 10px;border:1.5px solid #999;border-radius:6px;color:#888"><span style="width:12px;height:12px;border:1.5px solid #888;border-radius:50%;flex:none"></span><span style="flex:1">Search teams…</span><span style="font:500 11px 'IBM Plex Mono',monospace;border:1px solid #bbb;border-radius:4px;padding:1px 5px">⌘K</span></div></div>
+<div style="flex:1"></div>
+<span style="font:400 12px 'IBM Plex Mono',monospace;color:#666">Updated Thu 9:02 PM ET</span>
+<span style="font:700 10px 'IBM Plex Mono',monospace;color:#2f62d8;border:1px solid #2f62d8;border-radius:3px;padding:1px 4px">STICKY</span>
+</div>
+
+<div style="display:flex;align-items:baseline;gap:16px;padding:{{ titlePad }}">
+<h1 style="margin:0;font-size:30px;line-height:1">This Week</h1>
+<span style="font:500 13px 'IBM Plex Mono',monospace;color:#555">2026 · Week 6 · 54 games · 14 picks (9 ATS · 5 O/U)</span>
+</div>
+
+<div style="border-bottom:1.5px solid #222;position:relative">
+<div style="position:relative;display:flex;align-items:center;gap:8px;padding:10px 24px;border-top:1px solid #ccc;flex-wrap:wrap">
+<span style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;background:#2f62d8;color:#fff;font:700 11px/1 'IBM Plex Mono',monospace;flex:none">5</span>
+<div style="display:flex;border:1.5px solid #222;border-radius:6px;overflow:hidden;height:30px"><span style="padding:0 12px;line-height:28px;background:#e4e0d7;font-weight:700">All</span><span style="padding:0 12px;line-height:28px;border-left:1px solid #222">Picks only</span><span style="padding:0 12px;line-height:28px;border-left:1px solid #222">FBS vs FBS</span></div>
+<span style="height:30px;line-height:27px;padding:0 8px;border:1.5px solid #999;border-radius:6px">Conf ▾</span>
+<span style="height:30px;line-height:27px;padding:0 8px;border:1.5px solid #999;border-radius:6px">☐ Ranked</span>
+<span style="height:30px;line-height:27px;padding:0 8px;border:1.5px solid #999;border-radius:6px">Window ▾</span>
+<div style="flex:1"></div>
+<span style="height:30px;line-height:27px;padding:0 8px;border:1.5px solid #999;border-radius:6px;white-space:nowrap">Kickoff ▾ · ≡</span>
+<span style="width:1px;height:22px;background:#ccc"></span>
+<div style="display:flex;align-items:center;gap:8px"><span style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;background:#2f62d8;color:#fff;font:700 11px/1 'IBM Plex Mono',monospace;flex:none">6</span><div style="display:flex;border:1.5px solid #222;border-radius:6px;overflow:hidden;height:30px;cursor:pointer"><span onClick="{{ setSpread }}" style="padding:0 9px;line-height:28px;background:{{ segS }};font-weight:{{ segSW }}">Spread</span><span onClick="{{ setTotal }}" style="padding:0 9px;line-height:28px;border-left:1px solid #222;background:{{ segT }};font-weight:{{ segTW }}">Total</span><span onClick="{{ setBoth }}" style="padding:0 9px;line-height:28px;border-left:1px solid #222;background:{{ segB }};font-weight:{{ segBW }}">Both</span></div></div>
+<span style="position:absolute;right:4px;top:-8px;font:700 10px 'IBM Plex Mono',monospace;color:#2f62d8;background:#fbfaf7;border:1px solid #2f62d8;border-radius:3px;padding:1px 4px">STICKY</span>
+</div>
+<div style="display:grid;grid-template-columns:96px minmax(0,1fr) 348px 56px 40px 88px 196px 16px;gap:0 10px;align-items:stretch;height:34px;padding:0 24px;border-top:1px solid #ccc;font:600 11px 'IBM Plex Mono',monospace;letter-spacing:.04em;color:#666">
+<span style="display:flex;align-items:center">KICKOFF</span>
+<span style="display:flex;align-items:center">MATCHUP</span>
+<div style="display:grid;grid-template-columns:32px 100px 100px 116px;background:#ecE9e1;border-left:1.5px solid #222;border-right:1.5px solid #222;color:#1f1f1f;font-weight:700"><span></span><span style="display:flex;align-items:center;justify-content:flex-end;padding:0 10px">MARKET</span><span style="display:flex;align-items:center;justify-content:flex-end;padding:0 10px">MODEL</span><span style="display:flex;align-items:center;justify-content:flex-end;padding:0 12px;gap:6px"><span style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;background:#2f62d8;color:#fff;font:700 11px/1 'IBM Plex Mono',monospace;flex:none">7</span>EDGE ▾</span></div>
+<span style="display:flex;align-items:center;justify-content:flex-end">COVER</span>
+<span style="display:flex;align-items:center;justify-content:center">TIER</span>
+<span style="display:flex;align-items:center;justify-content:flex-end">WIN</span>
+<span style="display:flex;align-items:center">PICK / RESULT</span>
+<span></span>
+</div>
+</div>
+
+<sc-for list="{{ groups }}" as="g" hint-placeholder-count="4">
+<div style="display:flex;align-items:center;gap:12px;height:{{ groupH }};padding:0 24px;background:#f1efe9;border-bottom:1px solid #d6d1c6">
+<span style="font:700 12px 'IBM Plex Mono',monospace;letter-spacing:.06em">{{ g.label }}</span>
+<span style="font:400 12px 'IBM Plex Mono',monospace;color:#777">{{ g.time }}</span>
+<sc-if value="{{ g.first }}" hint-placeholder-val="{{ false }}"><span style="margin-left:auto;font-size:12px;color:#2f62d8">group header sticks under column header</span></sc-if>
+</div>
+<sc-for list="{{ g.rows }}" as="r" hint-placeholder-count="3">
+<div style="position:relative;display:grid;grid-template-columns:96px minmax(0,1fr) 348px 56px 40px 88px 196px 16px;gap:0 10px;align-items:center;box-sizing:border-box;height:{{ rowH }};overflow:hidden;padding:0 24px;border-bottom:1px solid #e0dcd2;cursor:pointer" style-hover="background:#f4f2ec">
+<sc-if value="{{ r.hover }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;inset:0;background:rgba(47,98,216,.07);outline:1.5px dashed #2f62d8;outline-offset:-2px;pointer-events:none"></div><span style="position:absolute;left:4px;top:50%;margin-top:-9px;display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;background:#2f62d8;color:#fff;font:700 11px/1 'IBM Plex Mono',monospace">8</span></sc-if>
+<div style="display:flex;flex-direction:column;gap:3px;min-width:0">
+<sc-if value="{{ r.isLive }}" hint-placeholder-val="{{ false }}"><span style="display:flex;align-items:center;gap:6px;font:700 12px 'IBM Plex Mono',monospace"><span style="width:7px;height:7px;border-radius:50%;background:#1f1f1f"></span>LIVE</span></sc-if>
+<sc-if value="{{ r.isFinal }}" hint-placeholder-val="{{ false }}"><span style="font:700 12px 'IBM Plex Mono',monospace;color:#777">FINAL</span></sc-if>
+<sc-if value="{{ r.isUp }}" hint-placeholder-val="{{ true }}"><span style="font:600 13px 'IBM Plex Mono',monospace">{{ r.c1 }}</span></sc-if>
+<span style="font:400 11px 'IBM Plex Mono',monospace;color:#777">{{ r.c2 }}</span>
+</div>
+<div style="display:flex;flex-direction:column;gap:{{ teamGap }};min-width:0;padding-right:8px">
+<div style="display:flex;align-items:center;gap:8px"><span style="width:12px;font:400 12px 'IBM Plex Mono',monospace;color:#999"></span><span style="width:16px;height:16px;border:1.5px solid #222;border-radius:50%;flex:none"></span><span style="font:600 10px 'IBM Plex Mono',monospace;color:#666;min-width:22px">{{ r.away.rank }}</span><span style="font-family:'IBM Plex Sans',sans-serif;font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.away.name }}</span><span style="margin-left:auto;font:600 14px 'IBM Plex Mono',monospace">{{ r.away.score }}</span></div>
+<div style="display:flex;align-items:center;gap:8px"><span style="width:12px;font:400 12px 'IBM Plex Mono',monospace;color:#999">{{ r.sep }}</span><span style="width:16px;height:16px;border:1.5px solid #222;border-radius:50%;flex:none"></span><span style="font:600 10px 'IBM Plex Mono',monospace;color:#666;min-width:22px">{{ r.home.rank }}</span><span style="font-family:'IBM Plex Sans',sans-serif;font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.home.name }}</span><sc-if value="{{ r.neutral }}" hint-placeholder-val="{{ false }}"><span style="font:600 10px 'IBM Plex Mono',monospace;border:1.5px solid #222;border-radius:3px;padding:0 4px;white-space:nowrap">N · DALLAS</span><span style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;background:#2f62d8;color:#fff;font:700 11px/1 'IBM Plex Mono',monospace;flex:none">11</span></sc-if><span style="margin-left:auto;font:600 14px 'IBM Plex Mono',monospace">{{ r.home.score }}</span></div>
+</div>
+<div style="align-self:stretch;display:flex;flex-direction:column;justify-content:center;gap:2px;padding:3px 0;background:#f1efe9;border-left:1px solid #bbb;border-right:1px solid #bbb">
+<sc-for list="{{ r.lines }}" as="l" hint-placeholder-count="2">
+<div style="display:grid;grid-template-columns:32px 100px 100px 116px;align-items:center;height:{{ lineH }}">
+<span style="padding-left:8px;font:600 9px 'IBM Plex Mono',monospace;letter-spacing:.06em;color:#777">{{ l.label }}</span>
+<div style="display:flex;align-items:center;justify-content:flex-end;gap:4px;padding:0 10px">
+<sc-if value="{{ l.hasLine }}" hint-placeholder-val="{{ true }}"><span style="font:600 14px 'IBM Plex Mono',monospace;white-space:nowrap">{{ l.market }}</span><sc-if value="{{ l.moved }}" hint-placeholder-val="{{ false }}"><span style="font:600 10px 'IBM Plex Mono',monospace;color:#555">▲</span></sc-if></sc-if>
+<sc-if value="{{ l.noLine }}" hint-placeholder-val="{{ false }}"><span style="display:flex;align-items:center;gap:5px;font-size:13px;color:#777;font-style:italic;white-space:nowrap"><sc-if value="{{ l.badge }}" hint-placeholder-val="{{ false }}"><span style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;background:#2f62d8;color:#fff;font:700 11px/1 'IBM Plex Mono',monospace;font-style:normal;flex:none">10</span></sc-if>no line</span></sc-if>
+</div>
+<div style="display:flex;align-items:center;justify-content:flex-end;padding:0 10px"><span style="font:600 14px 'IBM Plex Mono',monospace;white-space:nowrap">{{ l.model }}</span></div>
+<div style="display:flex;align-items:center;justify-content:flex-end;padding:0 10px">
+<sc-if value="{{ l.isPick }}" hint-placeholder-val="{{ false }}"><span style="font:700 14px 'IBM Plex Mono',monospace;background:#1f1f1f;color:#fff;border-radius:4px;padding:1px 7px;white-space:nowrap">{{ l.edge }}</span></sc-if>
+<sc-if value="{{ l.lowEdge }}" hint-placeholder-val="{{ true }}"><span style="font:500 13px 'IBM Plex Mono',monospace;color:#777;white-space:nowrap">{{ l.edge }}</span></sc-if>
+<sc-if value="{{ l.noEdge }}" hint-placeholder-val="{{ false }}"><span style="font:500 13px 'IBM Plex Mono',monospace;color:#999">—</span></sc-if>
+</div>
+</div>
+</sc-for>
+</div>
+<div style="display:flex;flex-direction:column;gap:2px">
+<sc-for list="{{ r.lines }}" as="l" hint-placeholder-count="2"><span style="height:{{ lineH }};display:flex;align-items:center;justify-content:flex-end;font:500 13px 'IBM Plex Mono',monospace">{{ l.cover }}</span></sc-for>
+</div>
+<div style="display:flex;flex-direction:column;gap:2px">
+<sc-for list="{{ r.lines }}" as="l" hint-placeholder-count="2"><div style="height:{{ lineH }};display:flex;align-items:center;justify-content:center">
+<sc-if value="{{ l.hasTier }}" hint-placeholder-val="{{ false }}"><span style="width:19px;height:19px;display:flex;align-items:center;justify-content:center;border:1.5px solid #222;border-radius:4px;font:700 11px 'IBM Plex Mono',monospace">{{ l.tier }}</span></sc-if>
+<sc-if value="{{ l.noTier }}" hint-placeholder-val="{{ true }}"><span style="font:400 13px 'IBM Plex Mono',monospace;color:#999">—</span></sc-if>
+</div></sc-for>
+</div>
+<span style="text-align:right;font:400 12px 'IBM Plex Mono',monospace;color:#555;white-space:nowrap">{{ r.win }}</span>
+<div style="display:flex;flex-direction:column;gap:2px;min-width:0">
+<sc-for list="{{ r.notes }}" as="nt" hint-placeholder-count="1"><span style="font-size:12px;line-height:1.25;color:#333;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ nt }}</span></sc-for>
+<sc-if value="{{ r.movedShow }}" hint-placeholder-val="{{ false }}"><span style="display:flex;align-items:center;gap:6px"><span style="font:700 12px 'IBM Plex Mono',monospace;border:1.5px solid #222;border-radius:3px;padding:0 5px;white-space:nowrap">CLV +1.0</span><span style="font-size:12px;color:#555;white-space:nowrap">moved our way</span><span style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;background:#2f62d8;color:#fff;font:700 11px/1 'IBM Plex Mono',monospace;flex:none">9</span></span></sc-if>
+</div>
+<span style="color:#999;font-size:18px">›</span>
+</div>
+</sc-for>
+</sc-for>
+<div style="padding:14px 24px 28px;font:400 12px 'IBM Plex Mono',monospace;color:#888">Showing sample subset · 11 of 54 games</div>
+</main>
+</div>
+</div>
+
+<div style="width:340px;flex:none;display:flex;flex-direction:column;gap:16px;padding-top:4px">
+<span style="font-weight:700;font-size:18px;color:#2f62d8">Notes · desktop</span>
+<sc-for list="{{ notesDesk }}" as="n" hint-placeholder-count="12">
+<div style="display:flex;gap:10px;align-items:flex-start">
+<span style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;background:#2f62d8;color:#fff;font:700 11px/1 'IBM Plex Mono',monospace;flex:none;margin-top:3px">{{ n.k }}</span>
+<div style="display:flex;flex-direction:column;gap:2px"><span style="font-weight:700;font-size:15px">{{ n.t }}</span><span style="font-size:14px;line-height:1.35;color:#444;text-wrap:pretty">{{ n.d }}</span></div>
+</div>
+</sc-for>
+</div>
+</div>
+</div>
+
+<div class="dv-opt" id="1b">
+<div class="dv-olabel"><a class="dv-oid" href="#1b">1b</a>Mobile 390 — frame 2, full scroll length</div>
+<div class="dv-card" style="width:390px;background:#fbfaf7;position:relative;overflow:visible">
+<div style="height:44px;display:flex;align-items:center;justify-content:space-between;padding:0 22px;font:600 13px 'IBM Plex Mono',monospace"><span>9:41</span><span style="color:#888">▪▪▪</span></div>
+<div style="display:flex;align-items:center;gap:8px;height:48px;padding:0 14px;border-bottom:1.5px solid #222">
+<span style="display:flex;align-items:center;gap:4px;height:30px;padding:0 8px;border:1.5px solid #222;border-radius:6px;font:600 12px 'IBM Plex Mono',monospace">CFB ▾</span>
+<span style="display:flex;align-items:center;height:30px;padding:0 10px;border:1.5px solid #222;border-radius:6px;font:600 13px 'IBM Plex Mono',monospace">2026 · Wk 6 ▾</span>
+<div style="flex:1"></div>
+<span style="width:30px;height:30px;border:1.5px solid #999;border-radius:6px;display:flex;align-items:center;justify-content:center"><span style="width:11px;height:11px;border:1.5px solid #555;border-radius:50%"></span></span>
+<span style="width:28px;height:28px;border:1.5px solid #222;border-radius:50%"></span>
+<span style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;background:#2f62d8;color:#fff;font:700 11px/1 'IBM Plex Mono',monospace;flex:none">A</span>
+</div>
+<div style="display:flex;flex-direction:column;gap:4px;padding:14px 14px 10px">
+<h1 style="margin:0;font-size:26px;line-height:1.1">This Week</h1>
+<span style="font:400 12px 'IBM Plex Mono',monospace;color:#555">54 games · 14 picks · Upd Thu 9:02 PM</span>
+</div>
+<div style="display:flex;align-items:center;gap:8px;padding:8px 14px;border-top:1px solid #ccc;border-bottom:1.5px solid #222">
+<div style="display:flex;border:1.5px solid #222;border-radius:6px;overflow:hidden;height:34px"><span style="padding:0 12px;line-height:32px;background:#e4e0d7;font-weight:700">All</span><span style="padding:0 12px;line-height:32px;border-left:1px solid #222">Picks</span></div>
+<span style="height:34px;line-height:31px;padding:0 10px;border:1.5px solid #222;border-radius:6px">Filters</span>
+<span style="height:34px;line-height:31px;padding:0 10px;border:1.5px solid #999;border-radius:6px;white-space:nowrap">Kickoff ▾</span>
+<span style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;background:#2f62d8;color:#fff;font:700 11px/1 'IBM Plex Mono',monospace;flex:none">B</span>
+</div>
+<sc-for list="{{ groups }}" as="g" hint-placeholder-count="4">
+<div style="display:flex;align-items:center;gap:10px;height:30px;padding:0 14px;background:#f1efe9;border-bottom:1px solid #d6d1c6"><span style="font:700 11px 'IBM Plex Mono',monospace;letter-spacing:.06em">{{ g.label }}</span><span style="font:400 11px 'IBM Plex Mono',monospace;color:#777">{{ g.time }}</span></div>
+<div style="display:flex;flex-direction:column;gap:10px;padding:10px 12px 14px">
+<sc-for list="{{ g.rows }}" as="r" hint-placeholder-count="2">
+<div style="position:relative;border:1.5px solid #222;border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:10px;background:#fff" style-active="background:#f1efe9">
+<div style="display:flex;align-items:center;gap:8px">
+<sc-if value="{{ r.isLive }}" hint-placeholder-val="{{ false }}"><span style="display:flex;align-items:center;gap:5px;font:700 11px 'IBM Plex Mono',monospace"><span style="width:7px;height:7px;border-radius:50%;background:#1f1f1f"></span>LIVE</span></sc-if>
+<sc-if value="{{ r.isFinal }}" hint-placeholder-val="{{ false }}"><span style="font:700 11px 'IBM Plex Mono',monospace;color:#777">FINAL</span></sc-if>
+<span style="font:500 11px 'IBM Plex Mono',monospace;color:#555">{{ r.mStatus }}</span>
+<sc-if value="{{ r.neutral }}" hint-placeholder-val="{{ false }}"><span style="font:600 10px 'IBM Plex Mono',monospace;border:1.5px solid #222;border-radius:3px;padding:0 4px">N · DALLAS</span></sc-if>
+<div style="flex:1"></div>
+</div>
+<div style="display:flex;flex-direction:column;gap:5px">
+<div style="display:flex;align-items:center;gap:8px"><span style="width:16px;height:16px;border:1.5px solid #222;border-radius:50%;flex:none"></span><span style="font:600 10px 'IBM Plex Mono',monospace;color:#666">{{ r.away.rank }}</span><span style="font-family:'IBM Plex Sans',sans-serif;font-size:16px;font-weight:600">{{ r.away.name }}</span><span style="margin-left:auto;font:600 15px 'IBM Plex Mono',monospace">{{ r.away.score }}</span></div>
+<div style="display:flex;align-items:center;gap:8px"><span style="width:16px;height:16px;border:1.5px solid #222;border-radius:50%;flex:none"></span><span style="font:600 10px 'IBM Plex Mono',monospace;color:#666">{{ r.home.rank }}</span><span style="font-family:'IBM Plex Sans',sans-serif;font-size:16px;font-weight:600">{{ r.home.name }}</span><span style="font:400 11px 'IBM Plex Mono',monospace;color:#999">{{ r.homeTag }}</span><span style="margin-left:auto;font:600 15px 'IBM Plex Mono',monospace">{{ r.home.score }}</span></div>
+</div>
+<div style="display:flex;flex-direction:column;border:1.5px solid #222;border-radius:6px;background:#f1efe9;overflow:hidden">
+<div style="display:grid;grid-template-columns:34px 1fr 1fr 1.3fr;padding:6px 0 2px"><span></span><span style="padding:0 6px;font:600 9px 'IBM Plex Mono',monospace;letter-spacing:.06em;color:#666">MARKET</span><span style="padding:0 6px;font:600 9px 'IBM Plex Mono',monospace;letter-spacing:.06em;color:#666">MODEL</span><span style="padding:0 6px;font:600 9px 'IBM Plex Mono',monospace;letter-spacing:.06em;color:#666">EDGE</span></div>
+<sc-for list="{{ r.lines }}" as="l" hint-placeholder-count="2">
+<div style="display:grid;grid-template-columns:34px 1fr 1fr 1.3fr;align-items:stretch;min-height:30px;border-top:1px solid #d6d1c6">
+<span style="display:flex;align-items:center;padding-left:8px;font:600 9px 'IBM Plex Mono',monospace;letter-spacing:.06em;color:#777">{{ l.label }}</span>
+<div style="display:flex;align-items:center;gap:3px;padding:0 6px"><sc-if value="{{ l.hasLine }}" hint-placeholder-val="{{ true }}"><span style="font:600 13px 'IBM Plex Mono',monospace;white-space:nowrap">{{ l.market }}</span><sc-if value="{{ l.moved }}" hint-placeholder-val="{{ false }}"><span style="font:600 10px 'IBM Plex Mono',monospace;color:#555">▲</span></sc-if></sc-if><sc-if value="{{ l.noLine }}" hint-placeholder-val="{{ false }}"><span style="font-size:12px;font-style:italic;color:#777">no line</span></sc-if></div>
+<div style="display:flex;align-items:center;padding:0 6px"><span style="font:600 13px 'IBM Plex Mono',monospace;white-space:nowrap">{{ l.model }}</span></div>
+<sc-if value="{{ l.isPick }}" hint-placeholder-val="{{ false }}"><div style="display:flex;align-items:center;gap:6px;padding:0 6px;background:#1f1f1f;color:#fff"><span style="font:700 13px 'IBM Plex Mono',monospace;white-space:nowrap">{{ l.edge }}</span><span style="margin-left:auto;font:700 10px 'IBM Plex Mono',monospace;border:1px solid #fff;border-radius:3px;padding:0 4px">{{ l.tier }}</span></div></sc-if>
+<sc-if value="{{ l.notPick }}" hint-placeholder-val="{{ true }}"><div style="display:flex;align-items:center;padding:0 6px"><span style="font:500 13px 'IBM Plex Mono',monospace;color:#777;white-space:nowrap">{{ l.edgeOrDash }}</span></div></sc-if>
+</div>
+</sc-for>
+</div>
+<div style="display:flex;align-items:center;gap:10px;font:400 12px 'IBM Plex Mono',monospace;color:#555"><span>Cover {{ r.coverM }}</span><span>·</span><span>Win {{ r.win }}</span><div style="flex:1"></div><span style="color:#999;font-size:16px">›</span></div>
+<sc-if value="{{ r.hasNote }}" hint-placeholder-val="{{ false }}"><div style="display:flex;align-items:center;gap:8px;border-top:1px dashed #bbb;padding-top:8px;flex-wrap:wrap"><span style="font-size:13px;color:#333">{{ r.noteM }}</span><sc-if value="{{ r.movedShow }}" hint-placeholder-val="{{ false }}"><span style="font:700 11px 'IBM Plex Mono',monospace;border:1.5px solid #222;border-radius:3px;padding:0 5px">CLV +1.0</span><span style="font-size:12px;color:#555">moved our way</span></sc-if></div></sc-if>
+<sc-if value="{{ r.hover }}" hint-placeholder-val="{{ false }}"><span style="position:absolute;right:-9px;top:-9px;display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;background:#2f62d8;color:#fff;font:700 11px/1 'IBM Plex Mono',monospace">C</span></sc-if>
+</div>
+</sc-for>
+</div>
+</sc-for>
+<div style="height:8px"></div>
+<div style="display:grid;grid-template-columns:repeat(5,1fr);height:76px;border-top:1.5px solid #222;background:#fbfaf7;padding-bottom:18px;position:relative">
+<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px"><span style="width:18px;height:18px;border:2.5px solid #1f1f1f;border-radius:4px"></span><span style="font-size:12px;font-weight:700">This Week</span></div>
+<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;color:#555"><span style="width:18px;height:18px;border:1.5px solid #555;border-radius:4px"></span><span style="font-size:12px">Contest</span></div>
+<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;color:#555"><span style="width:18px;height:18px;border:1.5px solid #555;border-radius:4px"></span><span style="font-size:12px">Picks</span></div>
+<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;color:#555"><span style="width:18px;height:18px;border:1.5px solid #555;border-radius:4px"></span><span style="font-size:12px">Rankings</span></div>
+<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;color:#555"><span style="width:18px;height:18px;border:1.5px solid #555;border-radius:50%"></span><span style="font-size:12px">More</span></div>
+<span style="position:absolute;left:8px;top:-9px;display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;background:#2f62d8;color:#fff;font:700 11px/1 'IBM Plex Mono',monospace">D</span>
+</div>
+<div style="position:absolute;left:0;right:0;top:844px;border-top:2px dashed #2f62d8;pointer-events:none"><span style="position:absolute;left:6px;top:-16px;white-space:nowrap;font:600 10px 'IBM Plex Mono',monospace;color:#2f62d8;background:#fbfaf7;padding:0 3px">844 · first viewport</span></div>
+</div>
+</div>
+
+<div class="dv-opt" id="1c">
+<div class="dv-olabel"><a class="dv-oid" href="#1c">1c</a>Mobile 390 — filters &amp; sort sheet open</div>
+<div class="dv-card" style="width:390px;height:844px;background:#fbfaf7;position:relative">
+<div style="height:44px;display:flex;align-items:center;justify-content:space-between;padding:0 22px;font:600 13px 'IBM Plex Mono',monospace"><span>9:41</span><span style="color:#888">▪▪▪</span></div>
+<div style="display:flex;align-items:center;gap:8px;height:48px;padding:0 14px;border-bottom:1.5px solid #222"><span style="height:30px;width:60px;border:1.5px solid #222;border-radius:6px"></span><span style="height:30px;width:120px;border:1.5px solid #222;border-radius:6px"></span></div>
+<div style="display:flex;flex-direction:column;gap:10px;padding:14px 12px"><div style="height:24px;width:160px;background:#e4e0d7;border-radius:4px"></div><div style="height:150px;border:1.5px solid #ccc;border-radius:10px"></div><div style="height:150px;border:1.5px solid #ccc;border-radius:10px"></div></div>
+<div style="position:absolute;inset:0;background:rgba(20,20,20,.45)"></div>
+<div style="position:absolute;left:0;right:0;bottom:0;background:#fbfaf7;border-top:1.5px solid #222;border-radius:16px 16px 0 0;display:flex;flex-direction:column">
+<div style="display:flex;justify-content:center;padding:8px 0 4px"><span style="width:40px;height:5px;border-radius:3px;background:#bbb"></span></div>
+<div style="display:flex;align-items:center;padding:6px 16px 10px;border-bottom:1px solid #ccc"><span style="font-weight:700;font-size:20px">Filters &amp; sort</span><div style="flex:1"></div><span style="color:#2f62d8">Reset</span></div>
+<div style="display:flex;flex-direction:column;gap:16px;padding:14px 16px">
+<div style="display:flex;flex-direction:column;gap:6px"><span style="font:600 11px 'IBM Plex Mono',monospace;letter-spacing:.06em;color:#666">SHOW</span><div style="display:grid;grid-template-columns:repeat(3,1fr);border:1.5px solid #222;border-radius:6px;overflow:hidden;height:40px"><span style="display:flex;align-items:center;justify-content:center;background:#1f1f1f;color:#fff">All</span><span style="display:flex;align-items:center;justify-content:center;border-left:1px solid #222">Picks only</span><span style="display:flex;align-items:center;justify-content:center;border-left:1px solid #222">FBS vs FBS</span></div></div>
+<div style="display:flex;flex-direction:column;gap:6px"><span style="font:600 11px 'IBM Plex Mono',monospace;letter-spacing:.06em;color:#666">CONFERENCE</span><div style="display:flex;flex-wrap:wrap;gap:6px"><span style="height:34px;line-height:31px;padding:0 12px;border:1.5px solid #222;border-radius:17px;background:#1f1f1f;color:#fff">All</span><span style="height:34px;line-height:31px;padding:0 12px;border:1.5px solid #999;border-radius:17px">SEC</span><span style="height:34px;line-height:31px;padding:0 12px;border:1.5px solid #999;border-radius:17px">Big Ten</span><span style="height:34px;line-height:31px;padding:0 12px;border:1.5px solid #999;border-radius:17px">Big 12</span><span style="height:34px;line-height:31px;padding:0 12px;border:1.5px solid #999;border-radius:17px">ACC</span><span style="height:34px;line-height:31px;padding:0 12px;border:1.5px solid #999;border-radius:17px">MWC</span><span style="height:34px;line-height:31px;padding:0 12px;border:1.5px solid #999;border-radius:17px">Ind</span></div></div>
+<div style="display:flex;flex-direction:column;gap:6px"><span style="font:600 11px 'IBM Plex Mono',monospace;letter-spacing:.06em;color:#666">WINDOW</span><div style="display:flex;flex-wrap:wrap;gap:6px"><span style="height:34px;line-height:31px;padding:0 12px;border:1.5px solid #999;border-radius:17px">Fri night</span><span style="height:34px;line-height:31px;padding:0 12px;border:1.5px solid #999;border-radius:17px">Sat noon</span><span style="height:34px;line-height:31px;padding:0 12px;border:1.5px solid #999;border-radius:17px">Sat afternoon</span><span style="height:34px;line-height:31px;padding:0 12px;border:1.5px solid #999;border-radius:17px">Sat night</span></div></div>
+<div style="display:flex;align-items:center;height:44px;border-top:1px solid #ddd;border-bottom:1px solid #ddd"><span style="flex:1">Ranked teams only</span><span style="width:40px;height:22px;border:1.5px solid #222;border-radius:12px;position:relative"><span style="position:absolute;left:3px;top:3px;width:13px;height:13px;border-radius:50%;background:#222"></span></span></div>
+<div style="display:flex;flex-direction:column;gap:6px"><span style="font:600 11px 'IBM Plex Mono',monospace;letter-spacing:.06em;color:#666">SORT BY</span><div style="display:grid;grid-template-columns:repeat(3,1fr);border:1.5px solid #222;border-radius:6px;overflow:hidden;height:40px"><span style="display:flex;align-items:center;justify-content:center;background:#1f1f1f;color:#fff">Kickoff</span><span style="display:flex;align-items:center;justify-content:center;border-left:1px solid #222">Edge</span><span style="display:flex;align-items:center;justify-content:center;border-left:1px solid #222">Confidence</span></div></div>
+<div style="display:flex;align-items:center;gap:8px;height:44px;border-top:1px solid #ddd"><span style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;background:#2f62d8;color:#fff;font:700 11px/1 'IBM Plex Mono',monospace;flex:none">E</span><span style="flex:1">Markets</span><div style="display:flex;border:1.5px solid #222;border-radius:6px;overflow:hidden;height:34px"><span style="padding:0 10px;line-height:32px">Spread</span><span style="padding:0 10px;line-height:32px;border-left:1px solid #222">Total</span><span style="padding:0 10px;line-height:32px;border-left:1px solid #222;background:#1f1f1f;color:#fff">Both</span></div></div>
+</div>
+<div style="padding:4px 16px 30px"><div style="height:48px;border-radius:8px;background:#1f1f1f;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:16px">Show results</div></div>
+</div>
+</div>
+</div>
+
+<div class="dv-opt" style="width:300px">
+<div class="dv-olabel">Notes · mobile (<a class="dv-oid" href="#1b">1b</a> <a class="dv-oid" href="#1c">1c</a>)</div>
+<div style="display:flex;flex-direction:column;gap:16px;padding-top:6px">
+<sc-for list="{{ notesMob }}" as="n" hint-placeholder-count="6">
+<div style="display:flex;gap:10px;align-items:flex-start">
+<span style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;background:#2f62d8;color:#fff;font:700 11px/1 'IBM Plex Mono',monospace;flex:none;margin-top:3px">{{ n.k }}</span>
+<div style="display:flex;flex-direction:column;gap:2px"><span style="font-weight:700;font-size:15px">{{ n.t }}</span><span style="font-size:14px;line-height:1.35;color:#444;text-wrap:pretty">{{ n.d }}</span></div>
+</div>
+</sc-for>
+</div>
+</div>
+
+</div>
+<p class="dv-next">Try next: "approved — go hi-fi" · "try a top-bar nav instead of the sidebar" · "put Pick/Result next to Edge"</p>
+</section>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;density&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;compact&quot;,&quot;comfortable&quot;],&quot;default&quot;:&quot;compact&quot;,&quot;tsType&quot;:&quot;'compact'|'comfortable'&quot;},&quot;markets&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;both&quot;,&quot;spread&quot;,&quot;total&quot;],&quot;default&quot;:&quot;both&quot;,&quot;tsType&quot;:&quot;'both'|'spread'|'total'&quot;}}">
+class Component extends DCLogic {
+  state = { mkt: null };
+  renderVals() {
+    const mkt = this.state.mkt ?? this.props.markets ?? 'both';
+    const both = mkt === 'both';
+    const T = (name, rank = '', score = '') => ({ name, rank, score });
+    const L = (label, m, mo, e, tier, cover, moved) => {
+      const hasLine = !!m, isPick = !!tier;
+      return { label, hasLine, noLine: !hasLine, market: m || '', model: mo, isPick, notPick: !isPick,
+        lowEdge: !isPick && !!e, noEdge: !e, edge: e || '', edgeOrDash: e || '—', cover: cover || '—',
+        hasTier: isPick, noTier: !isPick, tier: tier || '', moved: !!moved, badge: !hasLine };
+    };
+    const R = (o) => {
+      const status = o.status || 'up';
+      const sp = L('ATS', o.market, o.model, o.edge, o.tier, o.cover, o.moved);
+      const tt = L('O/U', o.tm, o.tmo, o.te, o.tt, o.tc);
+      tt.badge = tt.badge && mkt === 'total';
+      const lines = both ? [sp, tt] : mkt === 'spread' ? [sp] : [tt];
+      const notes = [o.gNote, mkt !== 'total' && o.note, mkt !== 'spread' && o.tNote].filter(Boolean);
+      return {
+        ...o, lines, notes,
+        isLive: status === 'live', isFinal: status === 'final', isUp: status === 'up',
+        sep: o.neutral ? 'vs' : '@', homeTag: o.neutral ? '' : 'home',
+        movedShow: !!o.moved && mkt !== 'total',
+        hasNote: notes.length > 0, noteM: notes.join(' · '),
+        coverM: lines.map(l => (both ? l.label + ' ' : '') + l.cover).join(' · '),
+        mStatus: status === 'up' ? (o.c1 + ' · ' + o.c2) : o.c2,
+      };
+    };
+    const groups = [
+      { label: 'FRI NIGHT', time: 'Fri 10/9 · 8:00 PM ET', first: true, rows: [
+        R({ status: 'final', c1: 'FINAL', c2: 'Fri 8:00 · FS1', away: T('UNLV', '', '24'), home: T('Boise State', '', '31'), market: 'BSU −10', model: 'BSU −9.1', edge: '+0.9 UNLV', cover: '52%', win: 'BSU 74%', note: '✓ UNLV covered · no pick', tm: '55.5', tmo: '57.0', te: '+1.5 O', tc: '53%', tNote: '✓ Under (55) · no pick' }),
+      ]},
+      { label: 'SAT NOON', time: '12:00 PM ET', rows: [
+        R({ status: 'live', c2: 'Q3 9:12 · FOX', away: T('Purdue', '', '3'), home: T('Ohio State', '#1', '24'), market: 'OSU −27.5', model: 'OSU −31.2', edge: '+3.7 OSU', cover: '59%', tier: 'B', win: 'OSU 99%', note: 'Pick OSU −27.5', tm: '52.5', tmo: '54.1', te: '+1.6 O', tc: '53%' }),
+        R({ status: 'live', c2: 'Q2 2:41 · BTN', away: T('Iowa', '', '10'), home: T('Wisconsin', '', '7'), market: 'WIS −1.5', model: 'IOWA −1.2', edge: '+2.7 IOWA', cover: '55%', tier: 'C', win: 'IOWA 53%', note: 'Pick IOWA +1.5', tm: '38.5', tmo: '34.9', te: '+3.6 U', tc: '60%', tt: 'B', tNote: 'Pick U 38.5' }),
+        R({ c1: '12:00 PM', c2: 'ESPN+', away: T('Furman (FCS)'), home: T('Clemson'), model: 'CLEM −34.0', win: 'CLEM 99%', gNote: 'FCS opponent · waiting on lines', tmo: '58.0' }),
+      ]},
+      { label: 'SAT AFTERNOON', time: '3:30 PM ET', rows: [
+        R({ c1: '3:30 PM', c2: 'CBS', away: T('Ole Miss', '#6'), home: T('LSU', '#9'), market: 'LSU −3.5', model: 'MISS −1.4', edge: '+4.9 MISS', cover: '62%', tier: 'B', win: 'MISS 54%', note: 'Picked MISS at LSU −2.5 → now −3.5', moved: true, tm: '55.5', tmo: '56.2', te: '+0.7 O', tc: '51%' }),
+        R({ c1: '3:30 PM', c2: 'NBC', away: T('Notre Dame', '#7'), home: T('Stanford'), market: 'ND −17', model: 'ND −19.9', edge: '+2.9 ND', cover: '56%', tier: 'C', win: 'ND 92%', note: 'Pick ND −17', hover: true, tm: '49.5', tmo: '45.2', te: '+4.3 U', tc: '61%', tt: 'B', tNote: 'Pick U 49.5' }),
+        R({ c1: '3:30 PM', c2: 'ABC', away: T('Michigan', '#14'), home: T('Northwestern'), market: 'MICH −9', model: 'MICH −8.4', edge: '+0.6 NW', cover: '51%', win: 'MICH 72%', tm: '41.5', tmo: '42.0', te: '+0.5 O', tc: '51%' }),
+      ]},
+      { label: 'SAT NIGHT', time: '7:00 – 10:30 PM ET', rows: [
+        R({ c1: '7:00 PM', c2: 'ESPN', away: T('Kansas State'), home: T('Utah', '#10'), market: 'UTAH −4', model: 'UTAH −4.6', edge: '+0.6 UTAH', cover: '51%', win: 'UTAH 63%', tm: '47', tmo: '51.4', te: '+4.4 O', tc: '62%', tt: 'A', tNote: 'Pick O 47' }),
+        R({ c1: '7:30 PM', c2: 'ABC', away: T('Texas', '#2'), home: T('Oklahoma', '#4'), neutral: true, market: 'TEX −6.5', model: 'TEX −1.3', edge: '+5.2 OU', cover: '63%', tier: 'A', win: 'TEX 54%', note: 'Pick OU +6.5', tm: '61.5', tmo: '58.0', te: '+3.5 U', tc: '58%', tt: 'C', tNote: 'Pick U 61.5' }),
+        R({ c1: '7:30 PM', c2: 'SECN', away: T('Kentucky'), home: T('Georgia', '#5'), market: 'UGA −21', model: 'UGA −19.8', edge: '+1.2 UK', cover: '53%', win: 'UGA 92%', tm: '45.5', tmo: '46.1', te: '+0.6 O', tc: '51%' }),
+        R({ c1: '10:30 PM', c2: 'ESPN', away: T('Colorado'), home: T('BYU', '#20'), market: 'BYU −6', model: 'BYU −9.1', edge: '+3.1 BYU', cover: '57%', tier: 'C', win: 'BYU 74%', note: 'Pick BYU −6', tm: '52', tmo: '53.2', te: '+1.2 O', tc: '52%' }),
+      ]},
+    ];
+    const notesDesk = [
+      { k: '1', t: 'Sport switcher', d: 'CFB active. NFL listed but disabled, labeled "coming later". Lives at the top of the sidebar so it scopes everything below.' },
+      { k: '2', t: 'Track record, always visible', d: 'Live 2026 record pinned in the sidebar; click → Performance. Honest-by-design, one click from every screen.' },
+      { k: '3', t: 'Global season / week', d: '‹ › step weeks; dropdown jumps to any season back to 2014. Applies to every screen, persists in the URL.' },
+      { k: '4', t: '⌘K command palette', d: 'Team search (and jump-to-screen). Opens as a centered palette; Enter → Team page.' },
+      { k: '5', t: 'Filters + sort', d: 'Segmented All / Picks only / FBS vs FBS, then Conference, Ranked, Window. Sort by Kickoff (default), Edge, or Confidence. Sorting by Edge/Confidence drops the day groups into one ranked list (each market line ranked on its own, so a game can appear twice); window shows as a tag in the Kickoff cell.' },
+      { k: '6', t: 'Markets: Spread · Total · Both', d: 'Over/unders are first-class picks, not a sub-line. Both (default) stacks an ATS line and an O/U line in every row; each has its own market, model, edge, cover % and tier. Spread or Total shows one line per row (44px). Click to try it. Persists per user.' },
+      { k: '7', t: 'The number band', d: 'Market → Model → Edge sit together in one tinted, outlined column band right after the matchup: the first thing the eye hits in every row. Numbers right-aligned, tabular. Edge is filled only when it clears the pick threshold (≥ 2.5, set per market); below it, muted text; no line, a dash. Totals edge reads O/U + points (+3.6 U). Click EDGE header to sort.' },
+      { k: '8', t: 'Row hover → click', d: 'Hover: tint + chevron darkens, pointer cursor. Click anywhere on the row → Game Detail. Team names link to Team page. ↑/↓ moves focus, Enter opens.' },
+      { k: '9', t: 'Line moved since pick', d: 'Shown in two places: Market cell gets a ▲ after the current line; Pick column says which side and both lines ("Picked MISS at LSU −2.5 → now −3.5") plus "CLV +1.0 · moved our way". Edge/cover reflect the current line.' },
+      { k: '10', t: 'No line yet (FCS)', d: 'Model line still shown; Edge, Cover and Tier read "—". Row can never be a pick until a line posts.' },
+      { k: '11', t: 'Neutral site', d: '"vs" replaces "@", plus an N · DALLAS tag. No home-field in the model line.' },
+      { k: '≡', t: 'Density', d: 'Compact (50px rows with both markets, 44px with one) fits all 11 rows above the 900px fold; Comfortable (68 / 62px) for reading. Sort and density share one control (Kickoff ▾ · ≡) to keep the bar on one line; persists per user.' },
+      { k: '·', t: 'Sticky header', d: 'Top bar and the filter bar + column header stick on scroll; the page title scrolls away. Day-window group headers stick beneath the column header. Live rows: pulsing dot (static under reduced motion) and auto-refresh scores.' },
+    ];
+    const notesMob = [
+      { k: 'A', t: 'App bar (sticky)', d: 'Sport switcher (CFB ▾, NFL "coming later" inside), week selector, search (team palette), account → settings.' },
+      { k: 'B', t: 'Quick filter + sheet', d: 'All / Picks stays inline for Saturday use. "Filters" opens the sheet (1c) with everything else; shows a count when active. Kickoff ▾ opens sort.' },
+      { k: 'C', t: 'Game card', d: 'Tap → Game Detail (pressed state tints the card). The Market / Model / Edge strip is the card\'s visual anchor: one row for ATS, one for O/U. Edge cell fills only for picks and carries the tier. Pick/result note at the bottom.' },
+      { k: 'D', t: 'Bottom tab bar', d: 'This Week · Contest · Picks · Rankings · More. More → Teams, Performance, Lab, Settings. Fixed to viewport bottom.' },
+      { k: 'E', t: 'Markets', d: 'Spread / Total / Both, same as desktop. Both by default; one market collapses each card strip to a single row.' },
+      { k: '·', t: 'Sticky', d: 'App bar + quick-filter row stick; day-window headers stick beneath them.' },
+    ];
+    const compact = (this.props.density ?? 'compact') === 'compact';
+    const seg = (k) => mkt === k ? '#e4e0d7' : 'transparent';
+    const segW = (k) => mkt === k ? '700' : '400';
+    return {
+      groups, notesDesk, notesMob,
+      segS: seg('spread'), segT: seg('total'), segB: seg('both'), segSW: segW('spread'), segTW: segW('total'), segBW: segW('both'),
+      setSpread: () => this.setState({ mkt: 'spread' }), setTotal: () => this.setState({ mkt: 'total' }), setBoth: () => this.setState({ mkt: 'both' }),
+      lineH: compact ? '20px' : '26px',
+      rowH: compact ? (both ? '50px' : '44px') : (both ? '68px' : '62px'), groupH: compact ? '26px' : '30px',
+      teamGap: compact ? '1px' : '4px', titlePad: compact ? '14px 24px 10px' : '22px 24px 14px',
+      densityLabel: compact ? 'Compact' : 'Comfortable',
+    };
+  }
+}
+</script>
+</body>
+</html>

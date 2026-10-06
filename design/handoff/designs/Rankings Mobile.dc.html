@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet><style id="dc-token-fallback">:root{--background:#0c0f12;--foreground:#eef0f3;--card:#13161a;--card-foreground:#eef0f3;--popover:#1b1e23;--popover-foreground:#eef0f3;--primary:#e5e8ec;--primary-foreground:#13161a;--secondary:#23272b;--secondary-foreground:#eef0f3;--muted:#1d2125;--muted-foreground:#9fa5ad;--accent:#262a30;--accent-foreground:#eef0f3;--destructive:#ef6661;--destructive-foreground:#0c0f12;--border:#2a2e33;--input:#5f646a;--ring:#67aaed;--edge:#b699eb;--edge-foreground:#0c0f12;--pos:#68b5f5;--neg:#f19a4b;--push:#a7abb1;--tier-a:#bd9ff2;--tier-a-foreground:#0c0f12;--tier-b:#8a70b8;--tier-b-foreground:#0c0f12;--tier-c:#392a51;--tier-c-foreground:#d7c9f3;--live:#52cd86;--locked:#91969b;--breakeven:#c9ced4;--chart-1:#4fa6e9;--chart-2:#e38d3d;--chart-3:#aa8dde;--chart-4:#39bab4;--chart-5:#87909c}</style><link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&amp;family=IBM+Plex+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet"><script src="./rankings-data.js"></script></helmet>
+<div data-screen-label="Rankings · mobile" style="position:relative;width:390px;height:{{ frameH }};overflow:hidden;box-sizing:border-box;display:flex;flex-direction:column;background:var(--background);color:var(--foreground);font-family:'IBM Plex Sans',ui-sans-serif,system-ui,sans-serif;font-size:14px;line-height:20px;font-variant-numeric:tabular-nums lining-nums">
+<div style="display:flex;align-items:center;justify-content:space-between;height:44px;padding:0 24px;font-size:14px;font-weight:600;flex:none"><span>9:41</span><span style="display:flex;align-items:center;gap:6px"><span style="display:inline-block;width:16px;height:16px;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/signal.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/signal.svg) center/contain no-repeat"></span><span style="display:inline-block;width:16px;height:16px;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/wifi.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/wifi.svg) center/contain no-repeat"></span><span style="display:inline-block;width:22px;height:16px;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/battery-full.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/battery-full.svg) center/contain no-repeat"></span></span></div>
+<div style="display:flex;align-items:center;gap:4px;height:52px;padding:0 4px 0 12px;background:var(--card);border-bottom:1px solid var(--border);flex:none">
+<span style="display:inline-flex;align-items:center;gap:4px;height:44px;padding:0 6px;font-size:13px;font-weight:600"><span style="width:7px;height:7px;border-radius:50%;background:var(--live)"></span>CFB<span style="display:inline-block;width:14px;height:14px;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/chevron-down.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/chevron-down.svg) center/contain no-repeat;color:var(--muted-foreground)"></span></span>
+<span style="width:1px;height:20px;background:var(--border)"></span>
+<span style="display:inline-flex;align-items:center;gap:4px;height:44px;padding:0 8px;font-size:14px;font-weight:600">2026 · Week 6<span style="display:inline-block;width:14px;height:14px;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/chevron-down.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/chevron-down.svg) center/contain no-repeat;color:var(--muted-foreground)"></span></span>
+<span style="flex:1"></span>
+<span style="position:relative;display:inline-flex;align-items:center;justify-content:center;width:44px;height:44px"><span style="display:inline-block;width:18px;height:18px;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/bell.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/bell.svg) center/contain no-repeat"></span><span style="position:absolute;top:7px;right:7px;min-width:16px;height:16px;padding:0 4px;box-sizing:border-box;border-radius:8px;background:var(--foreground);color:var(--background);font-size:12px;line-height:16px;font-weight:700;text-align:center;box-shadow:0 0 0 2px var(--card)">1</span></span>
+<span style="display:inline-flex;align-items:center;justify-content:center;width:44px;height:44px;color:var(--muted-foreground)"><span style="display:inline-block;width:18px;height:18px;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/search.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/search.svg) center/contain no-repeat"></span></span>
+</div>
+
+<div style="display:flex;flex-direction:column;gap:12px;padding:14px 16px 12px;flex:none">
+<div style="display:flex;flex-direction:column;gap:2px"><h1 style="margin:0;font-size:20px;line-height:28px;font-weight:600">Rankings</h1><span style="font-size:12px;line-height:16px;color:var(--muted-foreground)">{{ subLabel }}</span></div>
+<div style="display:grid;grid-template-columns:1fr 1.35fr 1fr;height:48px;padding:2px;border-radius:8px;background:var(--muted);box-sizing:border-box;font-size:13px">
+<span onClick="{{ setPower }}" style="display:flex;align-items:center;justify-content:center;border-radius:6px;cursor:pointer;background:{{ tP.bg }};font-weight:{{ tP.w }};color:{{ tP.c }}">Power</span>
+<span onClick="{{ setOutlook }}" style="display:flex;align-items:center;justify-content:center;border-radius:6px;cursor:pointer;background:{{ tO.bg }};font-weight:{{ tO.w }};color:{{ tO.c }}">Season Outlook</span>
+<span aria-disabled="true" style="display:flex;align-items:center;justify-content:center;gap:4px;border-radius:6px;color:var(--muted-foreground);font-weight:500">History<span style="font-size:12px;line-height:13px;font-weight:600;letter-spacing:.04em;padding:0 4px;border-radius:4px;border:1px solid var(--border)">LATER</span></span>
+</div>
+<div onClick="{{ openSheet }}" style="display:flex;align-items:center;gap:10px;height:44px;padding:0 12px;border:1px solid var(--border);border-radius:6px;background:var(--card);box-sizing:border-box;cursor:pointer">
+<span style="display:inline-block;width:15px;height:15px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/history.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/history.svg) center/contain no-repeat;color:var(--muted-foreground)"></span>
+<span style="font-size:12px;color:var(--muted-foreground)">As of</span>
+<span style="font-size:14px;font-weight:600;white-space:nowrap">{{ asOf }}</span>
+<span style="flex:1"></span>
+<span style="display:inline-flex;align-items:center;gap:5px;font-size:12px;color:var(--muted-foreground)"><span style="width:6px;height:6px;border-radius:50%;background:var(--live)"></span>Latest</span>
+<span style="display:inline-block;width:14px;height:14px;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/chevron-down.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/chevron-down.svg) center/contain no-repeat;color:var(--muted-foreground)"></span>
+</div>
+<div style="display:flex;gap:6px;overflow-x:auto;margin:0 -16px;padding:0 16px;scrollbar-width:none">
+<sc-for list="{{ confs }}" as="c" hint-placeholder-count="5"><span onClick="{{ c.pick }}" style="display:inline-flex;align-items:center;justify-content:center;min-width:44px;height:44px;padding:0 12px;border-radius:999px;border:1px solid {{ c.border }};background:{{ c.bg }};font-size:13px;font-weight:{{ c.w }};box-sizing:border-box;flex:none;white-space:nowrap;cursor:pointer">{{ c.l }}</span></sc-for>
+<span style="display:inline-flex;align-items:center;gap:5px;height:32px;padding:0 12px;border-radius:6px;border:1px solid var(--input);font-size:13px;font-weight:500;box-sizing:border-box;flex:none;white-space:nowrap"><span style="display:inline-block;width:12px;height:12px;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/check.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/check.svg) center/contain no-repeat"></span>FBS only</span>
+</div>
+</div>
+
+<sc-if value="{{ isPower }}" hint-placeholder-val="{{ true }}">
+<div style="margin:0 12px;background:var(--card);border:1px solid var(--border);border-radius:8px;overflow:hidden;flex:none">
+<div style="display:grid;grid-template-columns:30px minmax(0,1fr) 76px;gap:10px;align-items:center;height:28px;padding:0 12px;border-bottom:1px solid var(--border);font-size:12px;line-height:14px;font-weight:600;letter-spacing:.06em;color:var(--muted-foreground)"><span style="text-align:center">RK</span><span>TEAM · NEXT GAME</span><span style="text-align:right">RATING</span></div>
+<sc-for list="{{ rows }}" as="r" hint-placeholder-count="10">
+<div style="display:grid;grid-template-columns:30px minmax(0,1fr) 76px;gap:10px;align-items:start;padding:10px 12px;border-bottom:1px solid var(--border);cursor:pointer" style-active="background:var(--accent)">
+<div style="display:flex;flex-direction:column;align-items:center;gap:1px;padding-top:2px"><span style="font-size:16px;line-height:22px;font-weight:600">{{ r.rk }}</span><span title="{{ r.delta.aria }}" style="font-size:12px;line-height:14px;font-weight:500;color:{{ r.delta.c }}">{{ r.delta.t }}</span></div>
+<div style="display:flex;flex-direction:column;gap:3px;min-width:0">
+<span style="display:flex;align-items:center;gap:8px;height:26px;min-width:0"><span style="width:20px;height:20px;border-radius:50%;flex:none;background:{{ r.team.color }};box-shadow:0 0 0 1px var(--border)"></span><span style="font-size:14px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.team.n }}</span></span>
+<span style="font-size:12px;line-height:16px;color:var(--muted-foreground);white-space:nowrap">{{ r.conf }} · {{ r.rec }} · Off <span style="color:var(--foreground)">{{ r.offRkT }}</span> · Def <span style="color:var(--foreground)">{{ r.defRkT }}</span> · SOS {{ r.sosT }}</span>
+<span style="display:flex;align-items:center;gap:6px;min-height:22px;font-size:12px;line-height:16px;color:var(--muted-foreground);white-space:nowrap">
+<sc-if value="{{ r.hasNext }}" hint-placeholder-val="{{ true }}"><span style="min-width:0;overflow:hidden;text-overflow:ellipsis">{{ r.nextShort }}</span><span style="flex:none;color:var(--foreground);font-weight:500">· {{ r.nextLine }}</span></sc-if>
+<sc-if value="{{ r.bye }}" hint-placeholder-val="{{ false }}"><span>Bye week</span></sc-if>
+<sc-if value="{{ r.isPick }}" hint-placeholder-val="{{ false }}"><span style="display:inline-flex;align-items:center;height:20px;padding:0 7px;border-radius:999px;background:var(--edge);color:var(--edge-foreground);font-size:12px;line-height:16px;font-weight:600;flex:none">{{ r.edge }}</span><span style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:4px;background:{{ r.tierBg }};color:{{ r.tierFg }};font-size:12px;font-weight:700;flex:none">{{ r.tier }}</span></sc-if>
+</span>
+</div>
+<div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;padding-top:2px"><span style="font-size:16px;line-height:22px;font-weight:600">{{ r.ratingT }}</span><svg width="56" height="18" style="display:block;overflow:visible"><polyline points="{{ r.sparkM }}" style="fill:none;stroke:var(--foreground);stroke-width:1.5;stroke-linejoin:round;stroke-linecap:round"></polyline><circle cx="{{ r.sxM }}" cy="{{ r.syM }}" r="2.5" style="fill:var(--foreground)"></circle></svg></div>
+</div>
+</sc-for>
+<sc-if value="{{ isEmpty }}" hint-placeholder-val="{{ false }}"><div style="display:flex;flex-direction:column;align-items:center;gap:4px;padding:32px 12px"><span style="font-size:14px;font-weight:600">No {{ conf }} teams in this view</span><span style="font-size:12px;color:var(--muted-foreground)">The sample covers the top 10 only.</span></div></sc-if>
+</div>
+<div style="padding:10px 16px 14px;font-size:12px;line-height:16px;color:var(--muted-foreground);text-wrap:pretty;flex:none">Rating = points vs an average FBS team, neutral field. Line = preseason → now. Edge pill = model pick this week.</div>
+</sc-if>
+
+<sc-if value="{{ isOutlook }}" hint-placeholder-val="{{ false }}">
+<div style="padding:0 16px 10px;font-size:12px;line-height:16px;color:var(--muted-foreground);text-wrap:pretty;flex:none">Projected from the model's win probability for every remaining game. Sorted by P(CFP).</div>
+<div style="display:flex;flex-direction:column;gap:10px;padding:0 12px;flex:none">
+<sc-for list="{{ orows }}" as="o" hint-placeholder-count="5">
+<div style="display:flex;flex-direction:column;gap:10px;padding:12px 14px;background:var(--card);border:1px solid var(--border);border-radius:8px;cursor:pointer" style-active="background:var(--accent)">
+<div style="display:flex;align-items:center;gap:8px">
+<span style="width:20px;font-size:12px;color:var(--muted-foreground);text-align:right">{{ o.rk }}</span><span style="width:20px;height:20px;border-radius:50%;flex:none;background:{{ o.team.color }};box-shadow:0 0 0 1px var(--border)"></span><span style="font-size:14px;font-weight:500">{{ o.team.n }}</span><span style="font-size:12px;color:var(--muted-foreground)">{{ o.rec }}</span>
+<span style="flex:1"></span>
+<span style="display:flex;flex-direction:column;align-items:flex-end"><span style="font-size:16px;line-height:20px;font-weight:600">{{ o.proj }}</span><span style="font-size:12px;line-height:14px;color:var(--muted-foreground)">projected</span></span>
+</div>
+<div style="display:grid;grid-template-columns:96px repeat(3,minmax(0,1fr));gap:8px;align-items:end">
+<span style="display:flex;flex-direction:column;gap:2px"><span style="display:flex;align-items:flex-end;gap:3px;height:28px;padding-bottom:1px;border-bottom:1px solid var(--input)"><sc-for list="{{ o.barsLg }}" as="b" hint-placeholder-count="5"><span style="flex:1;height:{{ b.h }};background:{{ b.bg }};border-radius:2px 2px 0 0"></span></sc-for></span><span style="display:flex;gap:3px;font-size:12px;line-height:12px;color:var(--muted-foreground)"><sc-for list="{{ o.barsLg }}" as="b" hint-placeholder-count="5"><span style="flex:1;text-align:center;white-space:nowrap">{{ b.lab }}</span></sc-for></span></span>
+<span style="display:flex;flex-direction:column;gap:3px"><span style="font-size:12px;line-height:14px;color:var(--muted-foreground);white-space:nowrap">Title game</span><span style="position:relative;display:flex;align-items:center;justify-content:flex-end;height:30px;padding:0 8px;border-radius:4px;overflow:hidden;background:color-mix(in oklch, var(--secondary) 50%, transparent)"><span style="position:absolute;left:0;top:0;bottom:0;width:{{ o.ptgC.w }};background:color-mix(in oklch, var(--chart-1) 24%, transparent)"></span><span style="position:relative;font-size:13px;font-weight:500">{{ o.ptgC.t }}</span></span></span>
+<span style="display:flex;flex-direction:column;gap:3px"><span style="font-size:12px;line-height:14px;color:var(--muted-foreground);white-space:nowrap">Conf title</span><span style="position:relative;display:flex;align-items:center;justify-content:flex-end;height:30px;padding:0 8px;border-radius:4px;overflow:hidden;background:color-mix(in oklch, var(--secondary) 50%, transparent)"><span style="position:absolute;left:0;top:0;bottom:0;width:{{ o.ptC.w }};background:color-mix(in oklch, var(--chart-1) 24%, transparent)"></span><span style="position:relative;font-size:13px;font-weight:500">{{ o.ptC.t }}</span></span></span>
+<span style="display:flex;flex-direction:column;gap:3px"><span style="font-size:12px;line-height:14px;color:var(--foreground);font-weight:600;white-space:nowrap">CFP</span><span style="position:relative;display:flex;align-items:center;justify-content:flex-end;height:30px;padding:0 8px;border-radius:4px;overflow:hidden;background:color-mix(in oklch, var(--secondary) 50%, transparent)"><span style="position:absolute;left:0;top:0;bottom:0;width:{{ o.pcfpC.w }};background:color-mix(in oklch, var(--chart-1) 24%, transparent)"></span><span style="position:relative;font-size:13px;font-weight:600">{{ o.pcfpC.t }}</span></span></span>
+</div>
+</div>
+</sc-for>
+<sc-if value="{{ oEmpty }}" hint-placeholder-val="{{ false }}"><div style="display:flex;flex-direction:column;align-items:center;gap:4px;padding:32px 12px;background:var(--card);border:1px solid var(--border);border-radius:8px"><span style="font-size:14px;font-weight:600">No {{ conf }} teams in this view</span><span style="font-size:12px;color:var(--muted-foreground)">The outlook sample covers five teams.</span></div></sc-if>
+</div>
+<div style="padding:10px 16px 14px;font-size:12px;line-height:16px;color:var(--muted-foreground);text-wrap:pretty;flex:none">Bars = chance of each final win total, one scale for every team. Seed projections later.</div>
+</sc-if>
+
+<div style="display:flex;height:64px;padding-bottom:20px;background:var(--card);border-top:1px solid var(--border);flex:none;margin-top:auto">
+<span style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font-size:12px;line-height:14px;font-weight:500;color:var(--muted-foreground)"><span style="display:inline-flex;align-items:center;justify-content:center;width:48px;height:28px"><span style="display:inline-block;width:18px;height:18px;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/calendar-days.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/calendar-days.svg) center/contain no-repeat"></span></span>This Week</span>
+<span style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font-size:12px;line-height:14px;font-weight:500;color:var(--muted-foreground)"><span style="display:inline-flex;align-items:center;justify-content:center;width:48px;height:28px"><span style="display:inline-block;width:18px;height:18px;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/target.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/target.svg) center/contain no-repeat"></span></span>Picks</span>
+<span style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font-size:12px;line-height:14px;font-weight:500;color:var(--muted-foreground)"><span style="display:inline-flex;align-items:center;justify-content:center;width:48px;height:28px"><span style="display:inline-block;width:18px;height:18px;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/trophy.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/trophy.svg) center/contain no-repeat"></span></span>Contest</span>
+<span style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font-size:12px;line-height:14px;font-weight:600"><span style="display:inline-flex;align-items:center;justify-content:center;width:48px;height:28px;border-radius:999px;background:var(--accent)"><span style="display:inline-block;width:18px;height:18px;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/list-ordered.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/list-ordered.svg) center/contain no-repeat"></span></span>Rankings</span>
+<span style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font-size:12px;line-height:14px;font-weight:500;color:var(--muted-foreground)"><span style="display:inline-flex;align-items:center;justify-content:center;width:48px;height:28px"><span style="display:inline-block;width:18px;height:18px;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/menu.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/menu.svg) center/contain no-repeat"></span></span>More</span>
+</div>
+
+<sc-if value="{{ sheetOpen }}" hint-placeholder-val="{{ false }}">
+<div onClick="{{ closeSheet }}" style="position:absolute;inset:0;background:rgba(0,0,0,.55)"></div>
+<div style="position:absolute;left:0;right:0;bottom:0;display:flex;flex-direction:column;background:var(--popover);color:var(--popover-foreground);border-top:1px solid var(--border);border-radius:12px 12px 0 0">
+<div style="display:flex;justify-content:center;padding:8px 0 2px"><span style="width:36px;height:5px;border-radius:4px;background:var(--input)"></span></div>
+<div style="display:flex;align-items:center;height:48px;padding:0 16px;border-bottom:1px solid var(--border)"><span style="font-size:16px;font-weight:600">Ratings as of</span><span style="flex:1"></span><span onClick="{{ goLatest }}" style="display:flex;align-items:center;justify-content:flex-end;min-width:44px;height:44px;font-size:14px;color:var(--muted-foreground);cursor:pointer">Latest</span></div>
+<div style="display:flex;flex-direction:column;gap:16px;padding:14px 16px 12px">
+<div style="display:flex;flex-direction:column;gap:6px"><span style="font-size:12px;line-height:16px;font-weight:500;color:var(--muted-foreground)">Season · back to 2014</span><div style="display:flex;gap:6px;overflow-x:auto;margin:0 -16px;padding:0 16px;scrollbar-width:none"><sc-for list="{{ seasons }}" as="s" hint-placeholder-count="6"><span onClick="{{ s.pick }}" style="display:inline-flex;align-items:center;gap:5px;justify-content:center;min-width:44px;height:44px;padding:0 14px;border-radius:999px;border:1px solid {{ s.border }};background:{{ s.bg }};font-size:14px;font-weight:{{ s.w }};box-sizing:border-box;flex:none;cursor:pointer">{{ s.y }}</span></sc-for></div></div>
+<div style="display:flex;flex-direction:column;gap:6px"><span style="font-size:12px;line-height:16px;font-weight:500;color:var(--muted-foreground)">{{ selSeason }} · entering week</span><div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px"><sc-for list="{{ weeks }}" as="w" hint-placeholder-count="16"><span onClick="{{ w.pick }}" style="display:flex;align-items:center;justify-content:center;height:44px;border-radius:6px;border:1px solid {{ w.border }};background:{{ w.bg }};color:{{ w.c }};font-size:14px;font-weight:{{ w.fw }};box-sizing:border-box;cursor:pointer">{{ w.l }}</span></sc-for></div></div>
+<div style="display:flex;gap:8px;font-size:12px;line-height:16px;color:var(--muted-foreground)"><span style="display:inline-block;width:13px;height:13px;flex:none;margin-top:2px;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/info.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/info.svg) center/contain no-repeat"></span><span style="text-wrap:pretty">Ratings exactly as the model saw them that week. No hindsight.</span></div>
+</div>
+<div style="padding:4px 16px 34px"><span onClick="{{ closeSheet }}" style="display:flex;align-items:center;justify-content:center;height:48px;border-radius:8px;background:var(--primary);color:var(--primary-foreground);font-size:14px;font-weight:600;cursor:pointer">Show {{ pendingLabel }}</span></div>
+</div>
+</sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:390,&quot;height&quot;:844},&quot;tab&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;power&quot;,&quot;outlook&quot;],&quot;default&quot;:&quot;power&quot;,&quot;tsType&quot;:&quot;'power'|'outlook'&quot;},&quot;sheet&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;}}">
+class Component extends DCLogic {
+  state = { tab: null, conf: 'All', sheet: null, selSeason: 2026, pending: null, applied: null, ready: !!window.RK };
+  componentDidMount() {
+    if (!window.RK) this.t = setInterval(() => { if (window.RK) { clearInterval(this.t); this.setState({ ready: true }); } }, 50);
+  }
+  componentWillUnmount() { clearInterval(this.t); }
+  renderVals() {
+    const RK = window.RK;
+    const WEEKS = ['Pre', ...Array.from({ length: 14 }, (_, i) => String(i + 2)), 'Final'];
+    const LATEST = { s: 2026, w: '6' };
+    const tab = this.state.tab ?? this.props.tab ?? 'power';
+    const sheetOpen = this.state.sheet ?? !!this.props.sheet;
+    const applied = this.state.applied ?? LATEST;
+    const pending = this.state.pending ?? applied;
+    const selSeason = this.state.selSeason;
+    const seg = x => ({ bg: x ? 'var(--card)' : 'transparent', w: x ? '600' : '500', c: x ? 'var(--foreground)' : 'var(--muted-foreground)' });
+    const lab = a => a.w === 'Pre' ? `${a.s} · preseason` : a.w === 'Final' ? `${a.s} · final` : `${a.s} · entering Wk ${a.w}`;
+    const avail = (s, w) => s < 2026 || WEEKS.indexOf(w) <= WEEKS.indexOf('6');
+    const conf = this.state.conf;
+    const confs = ['All', 'SEC', 'Big Ten', 'Big 12', 'ACC', 'Ind'].map(l => ({ l, pick: () => this.setState({ conf: l }),
+      border: l === conf ? 'var(--input)' : 'var(--border)', bg: l === conf ? 'var(--accent)' : 'transparent', w: l === conf ? '600' : '500' }));
+    const base = {
+      frameH: sheetOpen ? '844px' : 'auto', sheetOpen,
+      openSheet: () => this.setState({ sheet: true, pending: applied, selSeason: applied.s }),
+      closeSheet: () => this.setState({ sheet: false, applied: pending }),
+      goLatest: () => this.setState({ pending: LATEST, selSeason: 2026 }),
+      isPower: tab === 'power', isOutlook: tab === 'outlook', tP: seg(tab === 'power'), tO: seg(tab === 'outlook'),
+      setPower: () => this.setState({ tab: 'power' }), setOutlook: () => this.setState({ tab: 'outlook' }),
+      subLabel: tab === 'power' ? 'Model power ratings · FBS' : 'Projected records and odds · FBS',
+      asOf: lab(applied), pendingLabel: lab(pending), confs, conf, selSeason: String(selSeason),
+      seasons: (RK ? RK.seasons : []).map(y => ({ y: String(y), pick: () => this.setState({ selSeason: y }),
+        border: y === selSeason ? 'var(--input)' : 'var(--border)', bg: y === selSeason ? 'var(--accent)' : 'transparent', w: y === selSeason ? '600' : '400' })),
+      weeks: WEEKS.map(w => {
+        const ok = avail(selSeason, w), cur = pending.s === selSeason && pending.w === w;
+        return { l: w === 'Pre' || w === 'Final' ? w : 'Wk ' + w, pick: () => ok && this.setState({ pending: { s: selSeason, w } }),
+          border: cur ? 'var(--foreground)' : 'var(--border)', bg: cur ? 'var(--accent)' : 'transparent',
+          c: ok ? 'var(--foreground)' : 'var(--locked)', fw: cur ? '600' : '400' };
+      }),
+    };
+    if (!RK) return { ...base, rows: [], orows: [], isEmpty: false, oEmpty: false };
+    const filt = r => conf === 'All' || r.conf === conf;
+    const mk = pts => {
+      const w = 56, h = 18, mn0 = Math.min(...pts), mx0 = Math.max(...pts), mid = (mn0 + mx0) / 2, r = Math.max(mx0 - mn0, 3), mn = mid - r / 2, mx = mid + r / 2;
+      const xy = pts.map((v, i) => [2 + i / (pts.length - 1) * (w - 4), 2 + (mx - v) / (mx - mn) * (h - 4)]);
+      return { p: xy.map(p => p[0].toFixed(1) + ',' + p[1].toFixed(1)).join(' '), x: xy[xy.length - 1][0].toFixed(1), y: xy[xy.length - 1][1].toFixed(1) };
+    };
+    const rows = RK.powerRows.filter(filt).map(r => { const s = mk(r.traj); return { ...r, sparkM: s.p, sxM: s.x, syM: s.y }; });
+    const orows = RK.outlookRows.filter(filt);
+    return { ...base, rows, orows, isEmpty: rows.length === 0, oEmpty: orows.length === 0 };
+  }
+}
+</script>
+</body>
+</html>

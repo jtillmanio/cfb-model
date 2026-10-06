@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet><meta name="design_doc_mode" content="canvas"><link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&amp;family=IBM+Plex+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet"><style>body{margin:0;background:#08090b;font-family:'IBM Plex Sans',sans-serif;color:#eef0f3}a{color:#68b5f5}a:hover{color:#eef0f3}</style></helmet>
+<section id="t2" style="padding:40px 44px 48px;border-bottom:1px solid rgba(255,255,255,.08);color:#eef0f3">
+<div style="display:flex;align-items:baseline;gap:10px;margin:0 0 20px"><a href="#t2" style="font:600 10px ui-monospace,Menlo,monospace;padding:3px 7px;background:#eef0f3;color:#08090b;border-radius:4px;text-decoration:none">2</a><span style="font:600 13px/1.2 'IBM Plex Sans',sans-serif">Contest: "this week so far" in Results &amp; standing (brief §7).</span></div>
+<div style="display:grid;grid-template-columns:repeat(4,minmax(0,300px));gap:28px;margin:0 0 32px;font-size:13px;line-height:19px;color:#c9ced4">
+<div style="display:flex;flex-direction:column;gap:4px"><span style="font-weight:600;color:#eef0f3">Points, not units</span><span style="text-wrap:pretty">A scoreboard row at the top of the card: you vs the model's top 4, 1 pt per correct pick, push 0. Nothing has finished yet on Thu night, so both read 0 pts.</span></div>
+<div style="display:flex;flex-direction:column;gap:4px"><span style="font-weight:600;color:#eef0f3">Same rows below</span><span style="text-wrap:pretty">Your picks and the model's top 4 still list each pick with its status; mobile labels its big numbers "pts".</span></div>
+</div>
+<div style="display:flex;flex-wrap:wrap;gap:40px;align-items:flex-start">
+<div id="2a" style="display:flex;flex-direction:column;gap:9px;flex:none;scroll-margin-top:16px"><span style="display:flex;align-items:baseline;gap:8px;font-size:12px;color:#9fa5ad"><a href="#2a" style="font:600 10.5px ui-monospace,Menlo,monospace;padding:3px 7px;background:rgba(255,255,255,.1);color:#eef0f3;border-radius:4px;text-decoration:none">2a</a>Desktop 1440 · Results, Thu 10:00 PM</span><div style="--background:#0c0f12;--foreground:#eef0f3;--card:#13161a;--card-foreground:#eef0f3;--popover:#1b1e23;--popover-foreground:#eef0f3;--primary:#e5e8ec;--primary-foreground:#13161a;--secondary:#23272b;--secondary-foreground:#eef0f3;--muted:#1d2125;--muted-foreground:#9fa5ad;--accent:#262a30;--accent-foreground:#eef0f3;--destructive:#ef6661;--destructive-foreground:#0c0f12;--border:#2a2e33;--input:#5f646a;--ring:#67aaed;--edge:#b699eb;--edge-foreground:#0c0f12;--pos:#68b5f5;--neg:#f19a4b;--push:#a7abb1;--tier-a:#bd9ff2;--tier-a-foreground:#0c0f12;--tier-b:#8a70b8;--tier-b-foreground:#0c0f12;--tier-c:#392a51;--tier-c-foreground:#d7c9f3;--live:#52cd86;--locked:#91969b;--breakeven:#c9ced4;--chart-1:#4fa6e9;--chart-2:#e38d3d;--chart-3:#aa8dde;--chart-4:#39bab4;--chart-5:#87909c;border-radius:8px;overflow:hidden;border:1px solid #2a2e33;flex:none"><dc-import name="Contest Desktop" frame="results" now="thu" hint-size="1440px,900px"></dc-import></div></div>
+<div id="2b" style="display:flex;flex-direction:column;gap:9px;flex:none;scroll-margin-top:16px"><span style="display:flex;align-items:baseline;gap:8px;font-size:12px;color:#9fa5ad"><a href="#2b" style="font:600 10.5px ui-monospace,Menlo,monospace;padding:3px 7px;background:rgba(255,255,255,.1);color:#eef0f3;border-radius:4px;text-decoration:none">2b</a>Mobile 390 · Results, Sat 2:15 PM</span><div style="--background:#0c0f12;--foreground:#eef0f3;--card:#13161a;--card-foreground:#eef0f3;--popover:#1b1e23;--popover-foreground:#eef0f3;--primary:#e5e8ec;--primary-foreground:#13161a;--secondary:#23272b;--secondary-foreground:#eef0f3;--muted:#1d2125;--muted-foreground:#9fa5ad;--accent:#262a30;--accent-foreground:#eef0f3;--destructive:#ef6661;--destructive-foreground:#0c0f12;--border:#2a2e33;--input:#5f646a;--ring:#67aaed;--edge:#b699eb;--edge-foreground:#0c0f12;--pos:#68b5f5;--neg:#f19a4b;--push:#a7abb1;--tier-a:#bd9ff2;--tier-a-foreground:#0c0f12;--tier-b:#8a70b8;--tier-b-foreground:#0c0f12;--tier-c:#392a51;--tier-c-foreground:#d7c9f3;--live:#52cd86;--locked:#91969b;--breakeven:#c9ced4;--chart-1:#4fa6e9;--chart-2:#e38d3d;--chart-3:#aa8dde;--chart-4:#39bab4;--chart-5:#87909c;border-radius:28px;overflow:hidden;border:1px solid #2a2e33;flex:none"><dc-import name="Contest Mobile" frame="results" now="sat" hint-size="390px,1700px"></dc-import></div></div>
+</div>
+</section>
+<section id="t1" style="padding:40px 44px 48px;--background:#0c0f12;--foreground:#eef0f3;--card:#13161a;--card-foreground:#eef0f3;--popover:#1b1e23;--popover-foreground:#eef0f3;--primary:#e5e8ec;--primary-foreground:#13161a;--secondary:#23272b;--secondary-foreground:#eef0f3;--muted:#1d2125;--muted-foreground:#9fa5ad;--accent:#262a30;--accent-foreground:#eef0f3;--destructive:#ef6661;--destructive-foreground:#0c0f12;--border:#2a2e33;--input:#5f646a;--ring:#67aaed;--edge:#b699eb;--edge-foreground:#0c0f12;--pos:#68b5f5;--neg:#f19a4b;--push:#a7abb1;--tier-a:#bd9ff2;--tier-a-foreground:#0c0f12;--tier-b:#8a70b8;--tier-b-foreground:#0c0f12;--tier-c:#392a51;--tier-c-foreground:#d7c9f3;--live:#52cd86;--locked:#91969b;--breakeven:#c9ced4">
+<div style="display:flex;align-items:baseline;gap:10px;margin:0 0 20px"><a href="#t1" style="font:600 10px ui-monospace,Menlo,monospace;padding:3px 7px;background:#eef0f3;color:#08090b;border-radius:4px;text-decoration:none">1</a><span style="font:600 13px/1.2 'IBM Plex Sans',sans-serif">Contest (Pick'em) — hi-fi. Splash work league · Week 6. Every frame is clickable: paste, fix the team, pick, switch, remove.</span></div>
+<div style="display:grid;grid-template-columns:repeat(4,minmax(0,300px));gap:28px;margin:0 0 36px;font-size:13px;line-height:19px;color:#c9ced4">
+<div style="display:flex;flex-direction:column;gap:4px"><span style="font-weight:600;color:#eef0f3">Built for the real paste</span><span style="text-wrap:pretty">Splash's page copies as one value per line: day headers, team names (nicknames for NFL), "Preview / Sun 1:00pm", records, each side's spread, then Over/Under. The preview shows your raw text next to the parsed rows, dims what's skipped, and jumps to the source lines for any row.</span></div>
+<div style="display:flex;flex-direction:column;gap:4px"><span style="font-weight:600;color:#eef0f3">One tap per game</span><span style="text-wrap:pretty">Each row has two side buttons with the contest line ("TEX −7" / "OU +7"). Tap to pick, tap again to clear, tap the other side to switch. A purple dot marks the model's side. Locked games replace the buttons with a hatched "Picks closed" block.<br><b style="font-weight:600;color:#eef0f3">Paste → 4 picks:</b> paste (1) · pick the unmatched team (1) · Confirm (1) · 4 side taps = <b style="font-weight:600;color:#eef0f3">7</b>. Or "Use the model's top 4" in the tray = <b style="font-weight:600;color:#eef0f3">4</b>.</span></div>
+<div style="display:flex;flex-direction:column;gap:4px"><span style="font-weight:600;color:#eef0f3">Contest line first</span><span style="text-wrap:pretty">Ranking and cover % use the contest's line. Market sits under it with a ≠ chip when they differ: blue if the contest gives the ranked side a better number, orange if worse. NFL rows say "No model yet" and use the gap with a ~market-implied %.</span></div>
+<div style="display:flex;flex-direction:column;gap:4px"><span style="font-weight:600;color:#eef0f3">Clocks</span><span style="text-wrap:pretty">Most frames are Thu 10:00 PM ET. Frame 3 is Fri 8:12 PM, so UNLV @ Boise is locked (sample data puts the lock state on Friday night). Mobile results is Sat 2:15 PM, the Saturday check-in.</span></div>
+</div>
+
+<div style="display:flex;flex-direction:column;gap:44px">
+
+<div style="display:flex;flex-direction:column;gap:14px">
+<span style="font:600 15px/1.3 'IBM Plex Sans',sans-serif">1 · Empty state <span style="font-weight:400;color:#9fa5ad">— no slate yet. Paste is the hero; manual add is secondary.</span></span>
+<div style="display:flex;flex-wrap:wrap;gap:40px;align-items:flex-start">
+<div id="1a" style="display:flex;flex-direction:column;gap:9px;flex:none"><span style="display:flex;align-items:baseline;gap:8px;font-size:12px;color:#9fa5ad"><a href="#1a" style="font:600 10.5px ui-monospace,Menlo,monospace;padding:3px 7px;background:rgba(255,255,255,.1);color:#eef0f3;border-radius:4px;text-decoration:none">1a</a>Desktop 1440 · Thu 10:00 PM (paste anything or click the button)</span><div style="border-radius:8px;overflow:hidden;border:1px solid #2a2e33"><dc-import name="Contest Desktop" frame="empty" now="thu" hint-size="1440px,900px"></dc-import></div></div>
+<div id="1b" style="display:flex;flex-direction:column;gap:9px;flex:none"><span style="display:flex;align-items:baseline;gap:8px;font-size:12px;color:#9fa5ad"><a href="#1b" style="font:600 10.5px ui-monospace,Menlo,monospace;padding:3px 7px;background:rgba(255,255,255,.1);color:#eef0f3;border-radius:4px;text-decoration:none">1b</a>Mobile 390</span><div style="border-radius:28px;overflow:hidden;border:1px solid #2a2e33"><dc-import name="Contest Mobile" frame="empty" hint-size="390px,844px"></dc-import></div></div>
+</div>
+</div>
+
+<div style="display:flex;flex-direction:column;gap:14px">
+<span style="font:600 15px/1.3 'IBM Plex Sans',sans-serif">2 · Parsed preview <span style="font-weight:400;color:#9fa5ad">— 9 matched, “Hou Texans” @ “Jax” needs a team. Pick Houston Texans to enable Confirm.</span></span>
+<div style="display:flex;flex-wrap:wrap;gap:40px;align-items:flex-start">
+<div id="1c" style="display:flex;flex-direction:column;gap:9px;flex:none"><span style="display:flex;align-items:baseline;gap:8px;font-size:12px;color:#9fa5ad"><a href="#1c" style="font:600 10.5px ui-monospace,Menlo,monospace;padding:3px 7px;background:rgba(255,255,255,.1);color:#eef0f3;border-radius:4px;text-decoration:none">1c</a>Desktop 1440 · raw paste ↔ parsed rows (click any row)</span><div style="border-radius:8px;overflow:hidden;border:1px solid #2a2e33"><dc-import name="Contest Desktop" frame="parse" now="thu" hint-size="1440px,960px"></dc-import></div></div>
+<div id="1d" style="display:flex;flex-direction:column;gap:9px;flex:none"><span style="display:flex;align-items:baseline;gap:8px;font-size:12px;color:#9fa5ad"><a href="#1d" style="font:600 10.5px ui-monospace,Menlo,monospace;padding:3px 7px;background:rgba(255,255,255,.1);color:#eef0f3;border-radius:4px;text-decoration:none">1d</a>Mobile 390 · problem first, then matched list</span><div style="border-radius:28px;overflow:hidden;border:1px solid #2a2e33"><dc-import name="Contest Mobile" frame="parse" hint-size="390px,1500px"></dc-import></div></div>
+</div>
+</div>
+
+<div style="display:flex;flex-direction:column;gap:14px">
+<span style="font:600 15px/1.3 'IBM Plex Sans',sans-serif">3 · Ranked slate <span style="font-weight:400;color:#9fa5ad">— Fri 8:12 PM. Cutoff under #4, NFL on the market gap, UNLV @ Boise locked.</span></span>
+<div style="display:flex;flex-wrap:wrap;gap:40px;align-items:flex-start">
+<div id="1e" style="display:flex;flex-direction:column;gap:9px;flex:none"><span style="display:flex;align-items:baseline;gap:8px;font-size:12px;color:#9fa5ad"><a href="#1e" style="font:600 10.5px ui-monospace,Menlo,monospace;padding:3px 7px;background:rgba(255,255,255,.1);color:#eef0f3;border-radius:4px;text-decoration:none">1e</a>Desktop 1440 · tray is a persistent side panel</span><div style="border-radius:8px;overflow:hidden;border:1px solid #2a2e33"><dc-import name="Contest Desktop" frame="slate" now="fri" hint-size="1440px,960px"></dc-import></div></div>
+<div id="1f" style="display:flex;flex-direction:column;gap:9px;flex:none"><span style="display:flex;align-items:baseline;gap:8px;font-size:12px;color:#9fa5ad"><a href="#1f" style="font:600 10.5px ui-monospace,Menlo,monospace;padding:3px 7px;background:rgba(255,255,255,.1);color:#eef0f3;border-radius:4px;text-decoration:none">1f</a>Mobile 390 · full scroll, tray bar at the bottom</span><div style="border-radius:28px;overflow:hidden;border:1px solid #2a2e33"><dc-import name="Contest Mobile" frame="slate" now="fri" hint-size="390px,2900px"></dc-import></div></div>
+</div>
+</div>
+
+<div style="display:flex;flex-direction:column;gap:14px">
+<span style="font:600 15px/1.3 'IBM Plex Sans',sans-serif">4 · Pick tray <span style="font-weight:400;color:#9fa5ad">— Thu 10:00 PM. 2 of 4: OU +7 matches model #1, BUF −3 is your call. Open slots offer the model's next pick.</span></span>
+<div style="display:flex;flex-wrap:wrap;gap:40px;align-items:flex-start">
+<div id="1g" style="display:flex;flex-direction:column;gap:9px;flex:none"><span style="display:flex;align-items:baseline;gap:8px;font-size:12px;color:#9fa5ad"><a href="#1g" style="font:600 10.5px ui-monospace,Menlo,monospace;padding:3px 7px;background:rgba(255,255,255,.1);color:#eef0f3;border-radius:4px;text-decoration:none">1g</a>Desktop 1440 · same screen as <a href="#1e">1e</a> at pick time (UNLV still open, #8)</span><div style="border-radius:8px;overflow:hidden;border:1px solid #2a2e33"><dc-import name="Contest Desktop" frame="tray" now="thu" hint-size="1440px,960px"></dc-import></div></div>
+<div id="1h" style="display:flex;flex-direction:column;gap:9px;flex:none"><span style="display:flex;align-items:baseline;gap:8px;font-size:12px;color:#9fa5ad"><a href="#1h" style="font:600 10.5px ui-monospace,Menlo,monospace;padding:3px 7px;background:rgba(255,255,255,.1);color:#eef0f3;border-radius:4px;text-decoration:none">1h</a>Mobile 390 · bottom sheet</span><div style="border-radius:28px;overflow:hidden;border:1px solid #2a2e33"><dc-import name="Contest Mobile" frame="tray" now="thu" hint-size="390px,844px"></dc-import></div></div>
+</div>
+</div>
+
+<div style="display:flex;flex-direction:column;gap:14px">
+<span style="font:600 15px/1.3 'IBM Plex Sans',sans-serif">5 · Results &amp; standing <span style="font-weight:400;color:#9fa5ad">— you vs the model's top 4, season and by week; league standing entered by hand (click Edit).</span></span>
+<div style="display:flex;flex-wrap:wrap;gap:40px;align-items:flex-start">
+<div id="1i" style="display:flex;flex-direction:column;gap:9px;flex:none"><span style="display:flex;align-items:baseline;gap:8px;font-size:12px;color:#9fa5ad"><a href="#1i" style="font:600 10.5px ui-monospace,Menlo,monospace;padding:3px 7px;background:rgba(255,255,255,.1);color:#eef0f3;border-radius:4px;text-decoration:none">1i</a>Desktop 1440 · Thu 10:00 PM</span><div style="border-radius:8px;overflow:hidden;border:1px solid #2a2e33"><dc-import name="Contest Desktop" frame="results" now="thu" hint-size="1440px,900px"></dc-import></div></div>
+<div id="1j" style="display:flex;flex-direction:column;gap:9px;flex:none"><span style="display:flex;align-items:baseline;gap:8px;font-size:12px;color:#9fa5ad"><a href="#1j" style="font:600 10.5px ui-monospace,Menlo,monospace;padding:3px 7px;background:rgba(255,255,255,.1);color:#eef0f3;border-radius:4px;text-decoration:none">1j</a>Mobile 390 · Sat 2:15 PM check-in (model's OSU −27 live)</span><div style="border-radius:28px;overflow:hidden;border:1px solid #2a2e33"><dc-import name="Contest Mobile" frame="results" now="sat" hint-size="390px,1700px"></dc-import></div></div>
+</div>
+</div>
+
+<div style="display:flex;flex-direction:column;gap:14px">
+<span style="font:600 15px/1.3 'IBM Plex Sans',sans-serif">6 · Contest rules <span style="font-weight:400;color:#9fa5ad">— desktop only. Splash preset selected; change any rule and it becomes Custom.</span></span>
+<div style="display:flex;flex-wrap:wrap;gap:40px;align-items:flex-start">
+<div id="1k" style="display:flex;flex-direction:column;gap:9px;flex:none"><span style="display:flex;align-items:baseline;gap:8px;font-size:12px;color:#9fa5ad"><a href="#1k" style="font:600 10.5px ui-monospace,Menlo,monospace;padding:3px 7px;background:rgba(255,255,255,.1);color:#eef0f3;border-radius:4px;text-decoration:none">1k</a>Desktop 1440</span><div style="border-radius:8px;overflow:hidden;border:1px solid #2a2e33"><dc-import name="Contest Desktop" frame="settings" now="thu" hint-size="1440px,1100px"></dc-import></div></div>
+</div>
+</div>
+
+</div>
+<p style="margin:28px 0 0;font-size:12px;line-height:1.5;color:#9fa5ad">Try next: "show a re-paste diff (lines that moved since Thu)" · "confidence-pool variant with drag-to-reorder" · "light mode pass"</p>
+</section>
+</x-dc>
+</body>
+</html>
