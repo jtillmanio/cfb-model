@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet><meta name="design_doc_mode" content="canvas"><link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&amp;family=IBM+Plex+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet"><style>body{margin:0;background:#08090b;font-family:'IBM Plex Sans',sans-serif;color:#eef0f3}a{color:#68b5f5}a:hover{color:#eef0f3}@keyframes skelPulse{0%,100%{opacity:1}50%{opacity:.5}}@media (prefers-reduced-motion: reduce){[data-skel-pulse]{animation:none!important}}</style></helmet>
+
+<nav style="display:flex;gap:16px;padding:16px 44px;border-bottom:1px solid rgba(255,255,255,.08);font-size:13px"><span style="font-weight:600;color:#eef0f3">Loading</span><a href="Empty and Error States.dc.html" style="color:#9fa5ad;text-decoration:none">Empty · Error</a><a href="Palette Login Settings.dc.html" style="color:#9fa5ad;text-decoration:none">⌘K · Login · Settings</a></nav>
+
+<section id="t1" style="width:max-content;min-width:100%;box-sizing:border-box;background:#08090b;padding:40px 44px 48px;border-bottom:1px solid rgba(255,255,255,.08);--background:#0c0f12;--foreground:#eef0f3;--card:#13161a;--card-foreground:#eef0f3;--popover:#1b1e23;--popover-foreground:#eef0f3;--primary:#e5e8ec;--primary-foreground:#13161a;--secondary:#23272b;--secondary-foreground:#eef0f3;--muted:#1d2125;--muted-foreground:#9fa5ad;--accent:#262a30;--accent-foreground:#eef0f3;--destructive:#ef6661;--destructive-foreground:#0c0f12;--border:#2a2e33;--input:#5f646a;--ring:#67aaed;--edge:#b699eb;--edge-foreground:#0c0f12;--pos:#68b5f5;--neg:#f19a4b;--push:#a7abb1;--tier-a:#bd9ff2;--tier-a-foreground:#0c0f12;--tier-b:#8a70b8;--tier-b-foreground:#0c0f12;--tier-c:#392a51;--tier-c-foreground:#d7c9f3;--live:#52cd86;--locked:#91969b;--breakeven:#c9ced4;--chart-1:#4fa6e9;--chart-2:#e38d3d;--chart-3:#aa8dde;--chart-4:#39bab4;--chart-5:#87909c">
+<div style="display:flex;align-items:baseline;gap:10px;margin:0 0 20px"><a href="#t1" style="font:600 10px ui-monospace,Menlo,monospace;padding:3px 7px;background:#eef0f3;color:#08090b;border-radius:4px;text-decoration:none">1</a><span style="font:600 13px/1.2 'IBM Plex Sans',sans-serif">Loading skeletons — each one is the real loaded screen with its data swapped for bars, so nothing moves when the data arrives.</span></div>
+<div style="display:grid;grid-template-columns:repeat(4,minmax(0,300px));gap:28px;margin:0 0 32px;font-size:13px;line-height:19px;color:#c9ced4">
+<div style="display:flex;flex-direction:column;gap:4px"><span style="font-weight:600;color:#eef0f3">Same size by construction</span><span style="text-wrap:pretty">Each frame mounts the loaded screen, then covers every data value with a bar of the same width and position. Turn on "showLoaded" to check the fit.</span></div>
+<div style="display:flex;flex-direction:column;gap:4px"><span style="font-weight:600;color:#eef0f3">What stays real</span><span style="text-wrap:pretty">Nav, top bar, page titles, tabs, filter chips and column headers render right away. Everything that comes from the database is a bar: numbers, team names, records, lines, charts, team dots.</span></div>
+<div style="display:flex;flex-direction:column;gap:4px"><span style="font-weight:600;color:#eef0f3">Pulse off under reduced motion</span><span style="text-wrap:pretty">The bars pulse together, opacity 1 → 0.5 → 1 over 1.6s. Under <span style="font-family:'IBM Plex Mono',monospace;font-size:12px">prefers-reduced-motion: reduce</span> they hold a static fill. Preview it with the "reducedMotion" tweak.</span></div>
+<div style="display:flex;flex-direction:column;gap:4px"><span style="font-weight:600;color:#eef0f3">The wake-up note</span><span style="text-wrap:pretty">After 1.5s with no data, a quiet "Waking up the database…" note appears bottom-right on desktop, or above the tab bar on mobile, where toasts go. It isn't an error.</span></div>
+</div>
+<div style="display:flex;flex-direction:column;gap:44px">
+
+<div style="display:flex;flex-direction:column;gap:14px">
+<span style="font:600 15px/1.3 'IBM Plex Sans',sans-serif">This Week <span style="font-weight:400;color:#9fa5ad">— slate table, week strip and sidebar record are bars. Filter chips and column headers stay real.</span></span>
+<div style="display:flex;flex-wrap:wrap;gap:40px;align-items:flex-start">
+<div id="1a" style="display:flex;flex-direction:column;gap:9px;flex:none"><span style="display:flex;align-items:baseline;gap:8px;font-size:12px;color:#9fa5ad"><a href="#1a" style="font:600 10.5px ui-monospace,Menlo,monospace;padding:3px 7px;background:rgba(255,255,255,.1);color:#eef0f3;border-radius:4px;text-decoration:none">1a</a>Desktop 1440</span>
+<div data-skel="twd" data-name="This Week Desktop" data-skeltext="{{ twNames }}" data-gx="224" data-gy="56" style="position:relative;width:1440px;border-radius:8px;overflow:hidden;border:1px solid #2a2e33;background:var(--background)"><div data-skel-host=""><dc-import name="This Week Desktop" hint-size="1440px,900px"></dc-import></div>{{ ov.twd }}</div></div>
+<div id="1b" style="display:flex;flex-direction:column;gap:9px;flex:none"><span style="display:flex;align-items:baseline;gap:8px;font-size:12px;color:#9fa5ad"><a href="#1b" style="font:600 10.5px ui-monospace,Menlo,monospace;padding:3px 7px;background:rgba(255,255,255,.1);color:#eef0f3;border-radius:4px;text-decoration:none">1b</a>Mobile 390</span>
+<div data-skel="twm" data-name="This Week Mobile" data-skeltext="{{ twNames }}" data-gy="96" data-clip="844" data-mobile="1" style="position:relative;width:390px;height:844px;border-radius:28px;overflow:hidden;border:1px solid #2a2e33;background:var(--background)"><div data-skel-host=""><dc-import name="This Week Mobile" hint-size="390px,844px"></dc-import></div>{{ ov.twm }}
+<div style="position:absolute;left:0;right:0;bottom:0;z-index:30;display:flex;height:64px;padding-bottom:20px;background:var(--card);border-top:1px solid var(--border);font-family:'IBM Plex Sans',sans-serif"><sc-for list="{{ tabs.tw }}" as="t" hint-placeholder-count="5"><span style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font-size:12px;line-height:14px;font-weight:{{ t.w }};color:{{ t.c }}"><span style="display:inline-flex;align-items:center;justify-content:center;width:48px;height:28px;border-radius:999px;background:{{ t.bg }}"><span style="display:inline-block;width:18px;height:18px;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/{{ t.icon }}.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/{{ t.icon }}.svg) center/contain no-repeat"></span></span>{{ t.l }}</span></sc-for></div></div></div>
+</div>
+</div>
+
+<div style="display:flex;flex-direction:column;gap:14px">
+<span style="font:600 15px/1.3 'IBM Plex Sans',sans-serif">Contest <span style="font-weight:400;color:#9fa5ad">— ranked slate and pick tray. The side buttons keep their outline, with the line hidden.</span></span>
+<div style="display:flex;flex-wrap:wrap;gap:40px;align-items:flex-start">
+<div id="1c" style="display:flex;flex-direction:column;gap:9px;flex:none"><span style="display:flex;align-items:baseline;gap:8px;font-size:12px;color:#9fa5ad"><a href="#1c" style="font:600 10.5px ui-monospace,Menlo,monospace;padding:3px 7px;background:rgba(255,255,255,.1);color:#eef0f3;border-radius:4px;text-decoration:none">1c</a>Desktop 1440</span>
+<div data-skel="cd" data-name="Contest Desktop" data-gx="224" data-gy="56" style="position:relative;width:1440px;border-radius:8px;overflow:hidden;border:1px solid #2a2e33;background:var(--background)"><div data-skel-host=""><dc-import name="Contest Desktop" frame="slate" now="thu" hint-size="1440px,960px"></dc-import></div>{{ ov.cd }}</div></div>
+<div id="1d" style="display:flex;flex-direction:column;gap:9px;flex:none"><span style="display:flex;align-items:baseline;gap:8px;font-size:12px;color:#9fa5ad"><a href="#1d" style="font:600 10.5px ui-monospace,Menlo,monospace;padding:3px 7px;background:rgba(255,255,255,.1);color:#eef0f3;border-radius:4px;text-decoration:none">1d</a>Mobile 390</span>
+<div data-skel="cm" data-name="Contest Mobile" data-gy="96" data-clip="844" data-mobile="1" style="position:relative;width:390px;height:844px;border-radius:28px;overflow:hidden;border:1px solid #2a2e33;background:var(--background)"><div data-skel-host=""><dc-import name="Contest Mobile" frame="slate" hint-size="390px,844px"></dc-import></div>{{ ov.cm }}
+<div style="position:absolute;left:0;right:0;bottom:0;z-index:30;display:flex;height:64px;padding-bottom:20px;background:var(--card);border-top:1px solid var(--border);font-family:'IBM Plex Sans',sans-serif"><sc-for list="{{ tabs.c }}" as="t" hint-placeholder-count="5"><span style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font-size:12px;line-height:14px;font-weight:{{ t.w }};color:{{ t.c }}"><span style="display:inline-flex;align-items:center;justify-content:center;width:48px;height:28px;border-radius:999px;background:{{ t.bg }}"><span style="display:inline-block;width:18px;height:18px;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/{{ t.icon }}.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/{{ t.icon }}.svg) center/contain no-repeat"></span></span>{{ t.l }}</span></sc-for></div></div></div>
+</div>
+</div>
+
+<div style="display:flex;flex-direction:column;gap:14px">
+<span style="font:600 15px/1.3 'IBM Plex Sans',sans-serif">Game Detail <span style="font-weight:400;color:#9fa5ad">— full page. Chart areas turn into one solid block, so a half-drawn curve never shows.</span></span>
+<div style="display:flex;flex-wrap:wrap;gap:40px;align-items:flex-start">
+<div id="1e" style="display:flex;flex-direction:column;gap:9px;flex:none"><span style="display:flex;align-items:baseline;gap:8px;font-size:12px;color:#9fa5ad"><a href="#1e" style="font:600 10.5px ui-monospace,Menlo,monospace;padding:3px 7px;background:rgba(255,255,255,.1);color:#eef0f3;border-radius:4px;text-decoration:none">1e</a>Desktop 1440 · full length</span>
+<div data-skel="gdd" data-name="Game Detail Desktop" data-gx="224" data-gy="56" data-skeltext="{{ gdNames }}" style="position:relative;width:1440px;border-radius:8px;overflow:hidden;border:1px solid #2a2e33;background:var(--background)"><div data-skel-host=""><dc-import name="Game Detail Desktop" hint-size="1440px,1500px"></dc-import></div>{{ ov.gdd }}</div></div>
+<div id="1f" style="display:flex;flex-direction:column;gap:9px;flex:none"><span style="display:flex;align-items:baseline;gap:8px;font-size:12px;color:#9fa5ad"><a href="#1f" style="font:600 10.5px ui-monospace,Menlo,monospace;padding:3px 7px;background:rgba(255,255,255,.1);color:#eef0f3;border-radius:4px;text-decoration:none">1f</a>Mobile 390 · first screen</span>
+<div data-skel="gdm" data-name="Game Detail Mobile" data-gy="96" data-clip="844" data-mobile="1" data-skeltext="{{ gdNames }}" style="position:relative;width:390px;height:844px;border-radius:28px;overflow:hidden;border:1px solid #2a2e33;background:var(--background)"><div data-skel-host=""><dc-import name="Game Detail Mobile" hint-size="390px,3000px"></dc-import></div>{{ ov.gdm }}
+<div style="position:absolute;left:0;right:0;bottom:0;z-index:30;display:flex;height:64px;padding-bottom:20px;background:var(--card);border-top:1px solid var(--border);font-family:'IBM Plex Sans',sans-serif"><sc-for list="{{ tabs.tw }}" as="t" hint-placeholder-count="5"><span style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font-size:12px;line-height:14px;font-weight:{{ t.w }};color:{{ t.c }}"><span style="display:inline-flex;align-items:center;justify-content:center;width:48px;height:28px;border-radius:999px;background:{{ t.bg }}"><span style="display:inline-block;width:18px;height:18px;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/{{ t.icon }}.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/{{ t.icon }}.svg) center/contain no-repeat"></span></span>{{ t.l }}</span></sc-for></div></div></div>
+</div>
+</div>
+
+<div style="display:flex;flex-direction:column;gap:14px">
+<span style="font:600 15px/1.3 'IBM Plex Sans',sans-serif">Rankings <span style="font-weight:400;color:#9fa5ad">— power table. Δ, rating bars and trend sparklines are bars. The "as of" control stays live.</span></span>
+<div style="display:flex;flex-wrap:wrap;gap:40px;align-items:flex-start">
+<div id="1g" style="display:flex;flex-direction:column;gap:9px;flex:none"><span style="display:flex;align-items:baseline;gap:8px;font-size:12px;color:#9fa5ad"><a href="#1g" style="font:600 10.5px ui-monospace,Menlo,monospace;padding:3px 7px;background:rgba(255,255,255,.1);color:#eef0f3;border-radius:4px;text-decoration:none">1g</a>Desktop 1440</span>
+<div data-skel="rkd" data-name="Rankings Desktop" data-gx="224" data-gy="56" style="position:relative;width:1440px;border-radius:8px;overflow:hidden;border:1px solid #2a2e33;background:var(--background)"><div data-skel-host=""><dc-import name="Rankings Desktop" hint-size="1440px,900px"></dc-import></div>{{ ov.rkd }}</div></div>
+<div id="1h" style="display:flex;flex-direction:column;gap:9px;flex:none"><span style="display:flex;align-items:baseline;gap:8px;font-size:12px;color:#9fa5ad"><a href="#1h" style="font:600 10.5px ui-monospace,Menlo,monospace;padding:3px 7px;background:rgba(255,255,255,.1);color:#eef0f3;border-radius:4px;text-decoration:none">1h</a>Mobile 390</span>
+<div data-skel="rkm" data-name="Rankings Mobile" data-gy="96" data-clip="844" data-mobile="1" style="position:relative;width:390px;height:844px;border-radius:28px;overflow:hidden;border:1px solid #2a2e33;background:var(--background)"><div data-skel-host=""><dc-import name="Rankings Mobile" hint-size="390px,844px"></dc-import></div>{{ ov.rkm }}
+<div style="position:absolute;left:0;right:0;bottom:0;z-index:30;display:flex;height:64px;padding-bottom:20px;background:var(--card);border-top:1px solid var(--border);font-family:'IBM Plex Sans',sans-serif"><sc-for list="{{ tabs.r }}" as="t" hint-placeholder-count="5"><span style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font-size:12px;line-height:14px;font-weight:{{ t.w }};color:{{ t.c }}"><span style="display:inline-flex;align-items:center;justify-content:center;width:48px;height:28px;border-radius:999px;background:{{ t.bg }}"><span style="display:inline-block;width:18px;height:18px;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/{{ t.icon }}.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/{{ t.icon }}.svg) center/contain no-repeat"></span></span>{{ t.l }}</span></sc-for></div></div></div>
+</div>
+</div>
+
+<div style="display:flex;flex-direction:column;gap:14px">
+<span style="font:600 15px/1.3 'IBM Plex Sans',sans-serif">Performance <span style="font-weight:400;color:#9fa5ad">— KPI tiles, charts and breakdown tables. The dashed backtest frame stays, so live and backtest stay apart while loading too.</span></span>
+<div style="display:flex;flex-wrap:wrap;gap:40px;align-items:flex-start">
+<div id="1i" style="display:flex;flex-direction:column;gap:9px;flex:none"><span style="display:flex;align-items:baseline;gap:8px;font-size:12px;color:#9fa5ad"><a href="#1i" style="font:600 10.5px ui-monospace,Menlo,monospace;padding:3px 7px;background:rgba(255,255,255,.1);color:#eef0f3;border-radius:4px;text-decoration:none">1i</a>Desktop 1440 · full length</span>
+<div data-skel="pfd" data-name="Performance Desktop" data-gx="224" data-gy="56" style="position:relative;width:1440px;border-radius:8px;overflow:hidden;border:1px solid #2a2e33;background:var(--background)"><div data-skel-host=""><dc-import name="Performance Desktop" hint-size="1440px,1900px"></dc-import></div>{{ ov.pfd }}</div></div>
+<div id="1j" style="display:flex;flex-direction:column;gap:9px;flex:none"><span style="display:flex;align-items:baseline;gap:8px;font-size:12px;color:#9fa5ad"><a href="#1j" style="font:600 10.5px ui-monospace,Menlo,monospace;padding:3px 7px;background:rgba(255,255,255,.1);color:#eef0f3;border-radius:4px;text-decoration:none">1j</a>Mobile 390</span>
+<div data-skel="pfm" data-name="Performance Mobile" data-gy="96" data-clip="844" data-mobile="1" style="position:relative;width:390px;height:844px;border-radius:28px;overflow:hidden;border:1px solid #2a2e33;background:var(--background)"><div data-skel-host=""><dc-import name="Performance Mobile" hint-size="390px,844px"></dc-import></div>{{ ov.pfm }}
+<div style="position:absolute;left:0;right:0;bottom:0;z-index:30;display:flex;height:64px;padding-bottom:20px;background:var(--card);border-top:1px solid var(--border);font-family:'IBM Plex Sans',sans-serif"><sc-for list="{{ tabs.p }}" as="t" hint-placeholder-count="5"><span style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font-size:12px;line-height:14px;font-weight:{{ t.w }};color:{{ t.c }}"><span style="display:inline-flex;align-items:center;justify-content:center;width:48px;height:28px;border-radius:999px;background:{{ t.bg }}"><span style="display:inline-block;width:18px;height:18px;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/{{ t.icon }}.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/{{ t.icon }}.svg) center/contain no-repeat"></span></span>{{ t.l }}</span></sc-for></div></div></div>
+</div>
+</div>
+
+</div>
+</section>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;showLoaded&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Skeletons&quot;},&quot;reducedMotion&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Skeletons&quot;}}">
+class Component extends DCLogic {
+  state = { sk: {}, fail: {}, wake: false, fr: {} };
+  lit = {}; sig = {}; done = {}; muts = {};
+  componentDidMount() {
+    this.iv = setInterval(() => this.scan(), 350);
+    this.wt = setTimeout(() => this.setState({ wake: true }), 1500);
+  }
+  componentWillUnmount() { clearInterval(this.iv); clearTimeout(this.wt); }
+  componentDidUpdate(pp) {
+    if (!!pp.showLoaded !== !!this.props.showLoaded) {
+      Object.keys(this.muts).forEach(k => this.undo(k));
+      Object.keys(this.done).forEach(k => { if (!k.startsWith('gdf')) { delete this.done[k]; delete this.sig[k]; } });
+      if (this.props.showLoaded) this.setState({ sk: {} });
+    }
+  }
+  undo(k) {
+    (this.muts[k] || []).reverse().forEach(m => { m[0].style[m[1]] = m[2]; });
+    this.muts[k] = [];
+  }
+  async literals(name) {
+    if (this.lit[name]) return this.lit[name];
+    const t = await fetch(encodeURI('./' + name + '.dc.html')).then(r => r.text());
+    const open = '<x-' + 'dc>', close = '</x-' + 'dc>';
+    const a = t.indexOf(open), b = t.indexOf(close);
+    const doc = new DOMParser().parseFromString('<body>' + t.slice(a + open.length, b) + '</body>', 'text/html');
+    const set = new Set();
+    const tw = doc.createTreeWalker(doc.body, NodeFilter.SHOW_TEXT);
+    let n; while ((n = tw.nextNode())) { const s = n.nodeValue.replace(/\s+/g, ' ').trim(); if (s && !s.includes('{{')) set.add(s); }
+    return (this.lit[name] = set);
+  }
+  async scan() {
+    if (this.busy) return;
+    this.busy = true;
+    try {
+      if (document.fonts && document.fonts.status !== 'loaded') return;
+      for (const w of document.querySelectorAll('[data-skel]')) {
+        const key = w.getAttribute('data-skel');
+        if (this.done[key]) continue;
+        const kind = w.getAttribute('data-kind') || 'skel';
+        if (kind === 'skel' && this.props.showLoaded) continue;
+        const host = w.querySelector('[data-skel-host]');
+        if (!host) continue;
+        const s = host.getElementsByTagName('*').length * 10000 + host.offsetHeight;
+        const p = this.sig[key] || { s: 0, n: 0, first: Date.now() };
+        const big = s > 100 * 10000;
+        if (big && s === p.s) p.n++; else p.n = 0;
+        p.s = s; this.sig[key] = p;
+        if (p.n < 4 && !(big && Date.now() - p.first > 9000)) continue;
+        this.done[key] = true;
+        if (kind === 'fail') this.measureFail(w, key);
+        else await this.skel(w, key);
+        break;
+      }
+    } finally { this.busy = false; }
+  }
+  frame(w) {
+    const wr = w.getBoundingClientRect(); const sc = (wr.width / w.offsetWidth) || 1;
+    const ox = wr.left + w.clientLeft * sc, oy = wr.top + w.clientTop * sc;
+    return r => ({ x: (r.left - ox) / sc, y: (r.top - oy) / sc, w: r.width / sc, h: r.height / sc });
+  }
+  measureFail(w, key) {
+    const host = w.querySelector('[data-skel-host]');
+    const title = w.getAttribute('data-panel');
+    const tw = document.createTreeWalker(host, NodeFilter.SHOW_TEXT);
+    let n, el = null;
+    while ((n = tw.nextNode())) if (n.nodeValue.trim() === title) { el = n.parentElement; break; }
+    const clear = c => !c || c === 'transparent' || /rgba\(0, 0, 0, 0\)/.test(c);
+    while (el && el !== host) { const cs = getComputedStyle(el); if (parseFloat(cs.borderTopWidth) >= 1 && !clear(cs.backgroundColor) && el.getBoundingClientRect().height > 100) break; el = el.parentElement; }
+    if (!el || el === host) { this.done[key] = false; return; }
+    const r = this.frame(w)(el.getBoundingClientRect());
+    this.setState(s => ({ fail: { ...s.fail, [key]: { x: r.x + 'px', y: r.y + 'px', w: r.w + 'px', h: r.h + 'px' } } }));
+  }
+  async skel(w, key) {
+    const lit = await this.literals(w.getAttribute('data-name'));
+    const gx = +(w.getAttribute('data-gx') || 0), gy = +(w.getAttribute('data-gy') || 0), clip = +(w.getAttribute('data-clip') || 1e9);
+    const force = new Set((w.getAttribute('data-skeltext') || '').split('|').filter(Boolean));
+    const keep = new Set(['2026 · Week 6', '⌘K', '9:41', '2:15', 'CF', 'CFB']);
+    const R = this.frame(w);
+    const host = w.querySelector('[data-skel-host]');
+    this.undo(key);
+    const muts = this.muts[key] = [];
+    const ops = [], hidden = new Set();
+    const setS = (el, p, v) => ops.push([el, p, v]);
+    const hide = el => { hidden.add(el); setS(el, 'visibility', 'hidden'); setS(el, 'opacity', '0'); };
+    const underHidden = el => { for (let p = el; p && p !== host; p = p.parentElement) if (hidden.has(p)) return true; return false; };
+    const clear = c => !c || c === 'transparent' || /rgba\(0, 0, 0, 0\)/.test(c);
+    const cls = t => { const s = t.replace(/\s+/g, ' ').trim(); if (!s) return null; if (keep.has(s)) return 'keep'; if (force.has(s)) return 'data'; if (!/[A-Za-z0-9%]/.test(s)) return 'punct'; if (s[0] === '(') return 'data'; return (!lit.has(s) || /\d/.test(s)) ? 'data' : 'keep'; };
+    const dataEls = new Set();
+    const dataUp = el => { let p = el.parentElement; for (let i = 0; i < 4 && p; i++, p = p.parentElement) if (dataEls.has(p)) return true; return false; };
+    const bars = [];
+    const tierBg = new Set(['--edge','--tier-a','--tier-b','--tier-c'].map(v => { const p = document.createElement('span'); p.style.background = 'var(' + v + ')'; host.appendChild(p); const col = getComputedStyle(p).backgroundColor; p.remove(); return col; }).filter(x => !clear(x)));
+    for (const el of host.querySelectorAll('*')) {
+      if (underHidden(el)) continue;
+      const tag = el.tagName.toLowerCase();
+      if (tag !== 'svg' && el.closest('svg')) continue;
+      if (!el.getClientRects().length) continue;
+      const r = R(el.getBoundingClientRect());
+      if (r.y > clip || r.y + r.h < 0 || r.w === 0) continue;
+      const cs = getComputedStyle(el);
+      if (cs.visibility === 'hidden' || cs.opacity === '0' || cs.display === 'none') continue;
+      const zone = r.y >= gy - 1 && r.x >= gx - 1;
+      if (zone && tierBg.has(cs.backgroundColor) && r.h <= 64 && r.w <= 260) { bars.push({ ...r, rad: cs.borderRadius }); hide(el); continue; }
+      if (!zone && /^\d+$/.test((el.textContent || '').trim()) && el.children.length === 0 && !clear(cs.backgroundColor) && r.w <= 24 && r.h <= 24) { hide(el); continue; }
+      if (tag === 'svg') {
+        if (!zone) continue;
+        if (r.h > 24 || r.w * r.h > 1500) { bars.push({ ...r, rad: '6px', big: true }); hide(el); }
+        else if (r.w > 24) { bars.push({ ...r, rad: '3px' }); hide(el); }
+        else hide(el);
+        continue;
+      }
+      const mask = cs.webkitMaskImage || cs.maskImage;
+      if (mask && mask !== 'none') { if (dataUp(el)) hide(el); continue; }
+      const tns = [...el.childNodes].filter(n => n.nodeType === 3 && n.nodeValue.trim());
+      if (tns.length) {
+        const c = tns.map(n => cls(n.nodeValue));
+        const isData = c.includes('data') || (dataUp(el) && c.every(x => x !== 'keep'));
+        const onlyPunct = c.every(x => x === 'punct');
+        if (isData) {
+          dataEls.add(el);
+          if (!clear(cs.backgroundColor) && r.h <= 48 && r.w <= 260) { bars.push({ ...r, rad: cs.borderRadius }); hide(el); continue; }
+          { let p = el.parentElement; for (let i = 0; i < 2 && p && p !== host; i++, p = p.parentElement) { const pc = getComputedStyle(p); const pr = R(p.getBoundingClientRect()); if (!clear(pc.backgroundColor) && pc.backgroundColor !== getComputedStyle(host).backgroundColor && pr.h <= 64 && pr.w <= 260 && parseFloat(pc.borderRadius) >= 4 && !/^rgb\((1[0-9]|2[0-9]|3[0-9]), /.test(pc.backgroundColor)) { bars.push({ ...pr, rad: pc.borderRadius }); hide(p); break; } } if (hidden.has(p)) continue; }
+          setS(el, 'color', 'transparent');
+          const fs = parseFloat(cs.fontSize) || 13;
+          const lines = [];
+          tns.forEach((n, i) => {
+            if (c[i] === 'punct') return;
+            const rg = document.createRange(); rg.selectNodeContents(n);
+            for (const rr of rg.getClientRects()) {
+              const q = R(rr); if (q.w < 2) continue;
+              const L = lines.find(l => Math.abs((l.y + l.h / 2) - (q.y + q.h / 2)) < 4);
+              if (L) { const x2 = Math.max(L.x + L.w, q.x + q.w); L.x = Math.min(L.x, q.x); L.w = x2 - L.x; } else lines.push({ ...q });
+            }
+          });
+          const h = Math.max(6, Math.round(fs * 0.72));
+          lines.forEach(l => { const x1 = Math.max(l.x, r.x), x2 = Math.min(l.x + l.w, r.x + r.w); if (x2 - x1 >= 2) bars.push({ x: x1, y: l.y + (l.h - h) / 2, w: x2 - x1, h, rad: '4px' }); });
+        } else if (onlyPunct && zone) { dataEls.add(el); setS(el, 'color', 'transparent'); }
+        continue;
+      }
+      if (el.children.length === 0 && zone && (!clear(cs.backgroundColor) || parseFloat(cs.borderTopWidth) >= 1) && r.w >= 4 && r.h >= 4 && r.h <= 80) { bars.push({ ...r, rad: cs.borderRadius }); hide(el); }
+    }
+    ops.forEach(([el, p, v]) => { muts.push([el, p, el.style[p]]); el.style[p] = v; });
+    this.setState(s => ({ sk: { ...s.sk, [key]: { bars, mobile: w.hasAttribute('data-mobile') } } }));
+  }
+  overlay(key) {
+    const d = this.state.sk[key];
+    if (!d || this.props.showLoaded) return null;
+    this.ovc = this.ovc || {};
+    const ck = [d, this.state.wake, !!this.props.reducedMotion];
+    const hit = this.ovc[key];
+    if (hit && hit[0] === ck[0] && hit[1] === ck[1] && hit[2] === ck[2]) return hit[3];
+    const h = React.createElement;
+    const rm = !!this.props.reducedMotion;
+    const pulse = h('div', { 'data-skel-pulse': '', style: { position: 'absolute', inset: 0, zIndex: 20, pointerEvents: 'none', animation: rm ? 'none' : 'skelPulse 1.6s ease-in-out infinite' } },
+      d.bars.map((b, i) => h('span', { key: i, style: { position: 'absolute', left: b.x, top: b.y, width: b.w, height: b.h, borderRadius: b.rad, background: b.big ? 'var(--muted)' : 'var(--secondary)' } })));
+    const pillPos = d.mobile ? { left: '50%', transform: 'translateX(-50%)', top: 844 - 64 - 12 - 36 } : { right: 24, top: 900 - 24 - 36 };
+    const pill = this.state.wake ? h('div', { style: { position: 'absolute', zIndex: 25, ...pillPos, display: 'flex', alignItems: 'center', gap: 8, height: 36, padding: '0 12px', boxSizing: 'border-box', whiteSpace: 'nowrap', background: 'var(--popover)', color: 'var(--foreground)', border: '1px solid var(--border)', borderRadius: 8, boxShadow: '0 8px 24px -8px rgba(0,0,0,.45)', font: "400 13px/18px 'IBM Plex Sans',sans-serif" } },
+      h('span', { style: { display: 'inline-block', width: 14, height: 14, flex: 'none', background: 'var(--muted-foreground)', WebkitMask: 'url(https://unpkg.com/lucide-static/icons/loader-circle.svg) center/contain no-repeat', mask: 'url(https://unpkg.com/lucide-static/icons/loader-circle.svg) center/contain no-repeat' } }),
+      h('span', { style: { color: 'var(--muted-foreground)' } }, 'Waking up the database…')) : null;
+    const out = h(React.Fragment, null, pulse, pill);
+    this.ovc[key] = [...ck, out];
+    return out;
+  }
+  failVals(key) {
+    const f = this.state.fail[key];
+    const st = this.state.fr[key] || { busy: false, tries: 2 };
+    if (!f) return { on: false, idle: true, busy: false, tries: '2' };
+    return { on: true, ...f, idle: !st.busy, busy: st.busy, tries: String(st.tries),
+      retry: () => { this.setState(s => ({ fr: { ...s.fr, [key]: { busy: true, tries: st.tries } } })); setTimeout(() => this.setState(s => ({ fr: { ...s.fr, [key]: { busy: false, tries: Math.min(3, st.tries + 1) } } })), 1600); } };
+  }
+  renderVals() {
+    const tabs = a => [['This Week','calendar-days'],['Picks','target'],['Contest','trophy'],['Rankings','list-ordered'],['More','ellipsis']].map(([l, icon], i) => ({ l, icon, w: i === a ? '600' : '500', c: i === a ? 'var(--foreground)' : 'var(--muted-foreground)', bg: i === a ? 'var(--accent)' : 'transparent' }));
+    const ov = {};
+    ['twd','twm','cd','cm','gdd','gdm','rkd','rkm','pfd','pfm'].forEach(k => { ov[k] = this.overlay(k); });
+    return {
+      ov, tabs: { tw: tabs(0), c: tabs(2), r: tabs(3), p: tabs(4) },
+      gdNames: 'Texas|Oklahoma|Texas vs Oklahoma|TEX|OU|Texas by|Why the model has Texas by|Why Texas by|Cotton Bowl, Dallas · neutral site|Cotton Bowl, Dallas|neutral site',
+      twNames: 'IOWA covering, OSU not yet|IOWA covering|OSU not yet',
+      fd: this.failVals('gdfd'), fm: this.failVals('gdfm'),
+    };
+  }
+}
+</script>
+</body>
+</html>

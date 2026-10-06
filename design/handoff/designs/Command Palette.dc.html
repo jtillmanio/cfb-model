@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet><style id="dc-token-fallback">:root{--background:#0c0f12;--foreground:#eef0f3;--card:#13161a;--card-foreground:#eef0f3;--popover:#1b1e23;--popover-foreground:#eef0f3;--primary:#e5e8ec;--primary-foreground:#13161a;--secondary:#23272b;--secondary-foreground:#eef0f3;--muted:#1d2125;--muted-foreground:#9fa5ad;--accent:#262a30;--accent-foreground:#eef0f3;--destructive:#ef6661;--destructive-foreground:#0c0f12;--border:#2a2e33;--input:#5f646a;--ring:#67aaed;--edge:#b699eb;--edge-foreground:#0c0f12;--pos:#68b5f5;--neg:#f19a4b;--push:#a7abb1;--tier-a:#bd9ff2;--tier-a-foreground:#0c0f12;--tier-b:#8a70b8;--tier-b-foreground:#0c0f12;--tier-c:#392a51;--tier-c-foreground:#d7c9f3;--live:#52cd86;--locked:#91969b;--breakeven:#c9ced4;--chart-1:#4fa6e9;--chart-2:#e38d3d;--chart-3:#aa8dde;--chart-4:#39bab4;--chart-5:#87909c}</style><link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&amp;family=IBM+Plex+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet"><style>input::placeholder{color:var(--muted-foreground)}</style></helmet>
+<sc-if value="{{ isDialog }}" hint-placeholder-val="{{ true }}">
+<div data-screen-label="Command palette · desktop" style="width:560px;background:var(--popover);color:var(--popover-foreground);border:1px solid var(--border);border-radius:8px;box-shadow:0 24px 64px -12px rgba(0,0,0,.5);overflow:hidden;font-family:'IBM Plex Sans',ui-sans-serif,system-ui,sans-serif;font-size:14px;line-height:20px;font-variant-numeric:tabular-nums lining-nums">
+<div style="display:flex;align-items:center;gap:8px;height:48px;padding:0 16px;border-bottom:1px solid var(--border)">
+<span style="display:inline-block;width:16px;height:16px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/search.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/search.svg) center/contain no-repeat;color:var(--muted-foreground)"></span>
+<input value="{{ q }}" onChange="{{ onInput }}" onKeyDown="{{ onKey }}" placeholder="Search teams, games or jump to a screen" style="flex:1;min-width:0;height:100%;border:0;outline:0;background:transparent;color:var(--foreground);font:400 15px 'IBM Plex Sans',sans-serif"></input>
+<span style="display:inline-flex;align-items:center;height:20px;padding:0 6px;border-radius:4px;border:1px solid var(--border);background:var(--muted);font:500 12px/16px 'IBM Plex Mono',monospace;color:var(--muted-foreground)">esc</span>
+</div>
+<sc-if value="{{ hasRows }}" hint-placeholder-val="{{ true }}">
+<div style="display:flex;flex-direction:column;gap:2px;max-height:440px;overflow:auto;padding:8px">
+<sc-for list="{{ groups }}" as="g" hint-placeholder-count="2">
+<div style="display:flex;align-items:center;gap:8px;padding:{{ g.pad }}"><span style="font-size:12px;line-height:16px;color:var(--muted-foreground)">{{ g.label }}</span><span style="flex:1"></span><sc-if value="{{ g.hasNote }}" hint-placeholder-val="{{ false }}"><span onClick="{{ g.onNote }}" style="font-size:12px;line-height:16px;color:var(--muted-foreground);cursor:pointer" style-hover="color:var(--foreground)">{{ g.note }}</span></sc-if></div>
+<sc-for list="{{ g.rows }}" as="r" hint-placeholder-count="3">
+<div onMouseEnter="{{ r.hover }}" style="display:flex;align-items:center;gap:10px;height:44px;padding:0 12px;border-radius:6px;background:{{ r.bg }};cursor:pointer">
+<sc-if value="{{ r.isTeam }}" hint-placeholder-val="{{ true }}"><span style="width:20px;height:20px;border-radius:50%;flex:none;background:{{ r.color }};box-shadow:0 0 0 1px var(--border)"></span></sc-if>
+<sc-if value="{{ r.isGame }}" hint-placeholder-val="{{ false }}"><span style="position:relative;width:20px;height:20px;flex:none"><span style="position:absolute;left:0;top:0;width:14px;height:14px;border-radius:50%;background:{{ r.color }};box-shadow:0 0 0 1px var(--border)"></span><span style="position:absolute;right:0;bottom:0;width:14px;height:14px;border-radius:50%;background:{{ r.color2 }};box-shadow:0 0 0 1px var(--border),0 0 0 2px var(--popover)"></span></span></sc-if>
+<sc-if value="{{ r.isScreen }}" hint-placeholder-val="{{ false }}"><span style="display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;flex:none"><span style="display:inline-block;width:16px;height:16px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/{{ r.icon }}.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/{{ r.icon }}.svg) center/contain no-repeat;color:var(--muted-foreground)"></span></span></sc-if>
+<span style="display:flex;flex-direction:column;flex:1;min-width:0"><span style="font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.title }}</span><sc-if value="{{ r.hasSub }}" hint-placeholder-val="{{ true }}"><span style="font-size:12px;line-height:16px;color:var(--muted-foreground);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.sub }}</span></sc-if></span>
+<sc-if value="{{ r.hasKbd }}" hint-placeholder-val="{{ false }}"><span style="display:flex;gap:4px;flex:none"><sc-for list="{{ r.kbd }}" as="k" hint-placeholder-count="2"><span style="display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;padding:0 5px;box-sizing:border-box;border-radius:4px;border:1px solid var(--border);background:var(--muted);font:500 11px/16px 'IBM Plex Mono',monospace;color:var(--muted-foreground)">{{ k }}</span></sc-for></span></sc-if>
+<sc-if value="{{ r.sel }}" hint-placeholder-val="{{ false }}"><span style="display:inline-block;width:14px;height:14px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/corner-down-left.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/corner-down-left.svg) center/contain no-repeat;color:var(--muted-foreground)"></span></sc-if>
+</div>
+</sc-for>
+</sc-for>
+</div>
+</sc-if>
+<sc-if value="{{ noRows }}" hint-placeholder-val="{{ false }}">
+<div style="display:flex;flex-direction:column;align-items:center;gap:4px;padding:32px 16px;text-align:center"><span style="display:inline-block;width:20px;height:20px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/search-x.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/search-x.svg) center/contain no-repeat;color:var(--muted-foreground)"></span><span style="font-weight:500">No teams, games or screens match “{{ q }}”</span><span style="font-size:12px;line-height:16px;color:var(--muted-foreground)">Try a school name or abbreviation, like OSU or MISS.</span></div>
+</sc-if>
+<div style="display:flex;gap:16px;padding:8px 16px;border-top:1px solid var(--border);font-size:12px;line-height:16px;color:var(--muted-foreground)"><span>↑↓ Navigate</span><span>↵ Open</span><span>esc {{ escLabel }}</span><span style="flex:1"></span><span>G then a letter jumps from anywhere</span></div>
+</div>
+</sc-if>
+
+<sc-if value="{{ isSheet }}" hint-placeholder-val="{{ false }}">
+<div data-screen-label="Command palette · mobile" style="width:390px;height:844px;box-sizing:border-box;display:flex;flex-direction:column;background:var(--background);color:var(--foreground);font-family:'IBM Plex Sans',ui-sans-serif,system-ui,sans-serif;font-size:14px;line-height:20px;font-variant-numeric:tabular-nums lining-nums;overflow:hidden">
+<div style="display:flex;align-items:center;justify-content:space-between;height:44px;padding:0 24px;font-size:14px;font-weight:600;flex:none"><span>9:41</span><span style="display:flex;align-items:center;gap:6px"><span style="display:inline-block;width:16px;height:16px;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/signal.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/signal.svg) center/contain no-repeat"></span><span style="display:inline-block;width:16px;height:16px;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/wifi.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/wifi.svg) center/contain no-repeat"></span><span style="display:inline-block;width:22px;height:16px;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/battery-full.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/battery-full.svg) center/contain no-repeat"></span></span></div>
+<div style="display:flex;align-items:center;gap:8px;padding:4px 8px 12px 12px;border-bottom:1px solid var(--border);flex:none">
+<span style="display:flex;align-items:center;gap:8px;flex:1;height:44px;padding:0 12px;border-radius:8px;border:1px solid var(--ring);background:var(--card);box-sizing:border-box"><span style="display:inline-block;width:16px;height:16px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/search.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/search.svg) center/contain no-repeat;color:var(--muted-foreground)"></span><input value="{{ q }}" onChange="{{ onInput }}" onKeyDown="{{ onKey }}" placeholder="Teams, games, screens" style="flex:1;min-width:0;height:100%;border:0;outline:0;background:transparent;color:var(--foreground);font:400 16px 'IBM Plex Sans',sans-serif"></input><sc-if value="{{ hasQ }}" hint-placeholder-val="{{ false }}"><span onClick="{{ clear }}" style="display:inline-flex;align-items:center;justify-content:center;width:44px;height:44px;margin-right:-14px;cursor:pointer"><span style="display:inline-block;width:16px;height:16px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/circle-x.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/circle-x.svg) center/contain no-repeat;color:var(--muted-foreground)"></span></span></sc-if></span>
+<span style="display:inline-flex;align-items:center;height:44px;padding:0 8px;font-size:14px;font-weight:500;cursor:pointer">Cancel</span>
+</div>
+<sc-if value="{{ hasRows }}" hint-placeholder-val="{{ true }}">
+<div style="flex:1;min-height:0;overflow:auto;padding:4px 0 24px">
+<sc-for list="{{ groups }}" as="g" hint-placeholder-count="2">
+<div style="display:flex;align-items:center;gap:8px;min-height:44px;padding:2px 16px 0;box-sizing:border-box"><span style="font-size:12px;line-height:16px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--muted-foreground)">{{ g.label }}</span><span style="flex:1"></span><sc-if value="{{ g.hasNote }}" hint-placeholder-val="{{ false }}"><span onClick="{{ g.onNote }}" style="display:flex;align-items:center;justify-content:flex-end;min-width:44px;height:44px;font-size:13px;line-height:16px;color:var(--muted-foreground);cursor:pointer">{{ g.note }}</span></sc-if></div>
+<sc-for list="{{ g.rows }}" as="r" hint-placeholder-count="3">
+<div style="display:flex;align-items:center;gap:12px;min-height:56px;padding:0 16px;border-bottom:1px solid var(--border);box-sizing:border-box;cursor:pointer" style-active="background:var(--accent)">
+<sc-if value="{{ r.isTeam }}" hint-placeholder-val="{{ true }}"><span style="width:24px;height:24px;border-radius:50%;flex:none;background:{{ r.color }};box-shadow:0 0 0 1px var(--border)"></span></sc-if>
+<sc-if value="{{ r.isGame }}" hint-placeholder-val="{{ false }}"><span style="position:relative;width:24px;height:24px;flex:none"><span style="position:absolute;left:0;top:0;width:16px;height:16px;border-radius:50%;background:{{ r.color }};box-shadow:0 0 0 1px var(--border)"></span><span style="position:absolute;right:0;bottom:0;width:16px;height:16px;border-radius:50%;background:{{ r.color2 }};box-shadow:0 0 0 1px var(--border),0 0 0 2px var(--background)"></span></span></sc-if>
+<sc-if value="{{ r.isScreen }}" hint-placeholder-val="{{ false }}"><span style="display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;flex:none"><span style="display:inline-block;width:18px;height:18px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/{{ r.icon }}.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/{{ r.icon }}.svg) center/contain no-repeat;color:var(--muted-foreground)"></span></span></sc-if>
+<span style="display:flex;flex-direction:column;flex:1;min-width:0"><span style="font-size:14px;line-height:20px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.title }}</span><sc-if value="{{ r.hasSub }}" hint-placeholder-val="{{ true }}"><span style="font-size:12px;line-height:16px;color:var(--muted-foreground);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.sub }}</span></sc-if></span>
+<span style="display:inline-block;width:14px;height:14px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/chevron-right.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/chevron-right.svg) center/contain no-repeat;color:var(--muted-foreground)"></span>
+</div>
+</sc-for>
+</sc-for>
+</div>
+</sc-if>
+<sc-if value="{{ noRows }}" hint-placeholder-val="{{ false }}">
+<div style="display:flex;flex-direction:column;align-items:center;gap:6px;padding:48px 24px;text-align:center"><span style="display:inline-block;width:24px;height:24px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/search-x.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/search-x.svg) center/contain no-repeat;color:var(--muted-foreground)"></span><span style="font-size:14px;font-weight:600">Nothing matches “{{ q }}”</span><span style="font-size:13px;line-height:19px;color:var(--muted-foreground)">Try a school name or abbreviation, like OSU or MISS.</span></div>
+</sc-if>
+</div>
+</sc-if>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:560,&quot;height&quot;:560},&quot;query&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;layout&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;dialog&quot;,&quot;sheet&quot;],&quot;default&quot;:&quot;dialog&quot;,&quot;tsType&quot;:&quot;'dialog'|'sheet'&quot;}}">
+class Component extends DCLogic {
+  state = { q: null, sel: 0, recent: true };
+  renderVals() {
+    const T = [
+      ['Ohio State','OSU','#BB0000',1,'Big Ten','5-0','+27.4'],['Texas','TEX','#BF5700',2,'SEC','5-0','+25.9'],['Oregon','ORE','#154733',3,'Big Ten','5-0','+24.8'],
+      ['Oklahoma','OU','#841617',4,'SEC','4-1','+24.4'],['Georgia','UGA','#BA0C2F',5,'SEC','4-1','+23.1'],['Ole Miss','MISS','#14213D',6,'SEC','5-0','+22.0'],
+      ['Penn State','PSU','#041E42',7,'Big Ten','4-1','+21.2'],['LSU','LSU','#461D7C',9,'SEC','4-1','+19.6'],['Utah','UTAH','#CC0000',10,'Big 12','4-1','+18.9'],
+      ['Iowa','IOWA','#FFCD00',22,'Big Ten','4-1','+12.0'],['Kansas State','KSU','#512888',24,'Big 12','3-2','+11.3'],['Boise State','BSU','#0033A0',31,'Mountain West','4-1','+8.4'],
+      ['Wisconsin','WIS','#C5050C',41,'Big Ten','2-3','+5.5'],['UNLV','UNLV','#CF0A2C',48,'Mountain West','4-1','+3.2'],['Ohio','OHIO','#00694E',72,'MAC','3-2','−1.8'],
+      ['Purdue','PUR','#CEB888',88,'Big Ten','1-4','−6.1'],
+    ].map(([n,a,c,rk,conf,rec,r]) => ({ n, a, c, sub: `${rk} · ${conf} · ${rec} · ${r}` }));
+    const by = n => T.find(t => t.n === n);
+    const G = [
+      ['Purdue','Ohio State','@','Sat 12:00 PM · FOX · OSU −27.5 · edge +3.7 OSU'],['Ole Miss','LSU','@','Sat 3:30 PM · CBS · LSU −3.5 · edge +4.9 MISS'],
+      ['Kansas State','Utah','@','Sat 7:00 PM · ESPN · UTAH −4 · edge +0.6'],['Texas','Oklahoma','vs','Sat 7:30 PM · ABC · Dallas · TEX −6.5 · edge +5.2 OU'],
+      ['UNLV','Boise State','@','Fri 8:00 PM · FS1 · BSU −10 · edge +0.9'],
+    ];
+    const S = [['This Week','calendar-days',['G','W']],['Picks','target',['G','P']],['Contest','trophy',['G','C']],['Rankings','list-ordered',['G','R']],['Performance','activity',['G','F']],['Lab','flask-conical',['G','L']],['Settings','settings',['⌘',',']]];
+    const q = (this.state.q ?? this.props.query ?? '').trim();
+    const ql = q.toLowerCase();
+    const sheet = (this.props.layout ?? 'dialog') === 'sheet';
+    const teamRow = t => ({ kind: 'team', title: t.n, sub: t.sub, color: t.c });
+    const screenRow = s => ({ kind: 'screen', title: s[0], sub: '', icon: s[1], kbd: s[2] });
+    let groups = [];
+    if (!ql) {
+      if (this.state.recent) groups.push({ label: 'Recent teams', note: 'Clear', onNote: () => this.setState({ recent: false }), rows: ['Oklahoma','Texas','Ole Miss','Boise State'].map(n => teamRow(by(n))) });
+      groups.push({ label: 'Jump to', rows: S.map(screenRow) });
+    } else {
+      const tm = T.filter(t => t.n.toLowerCase().includes(ql) || t.a.toLowerCase().startsWith(ql)).slice(0, 5);
+      const hit = n => { const t = by(n); return t.n.toLowerCase().includes(ql) || t.a.toLowerCase().startsWith(ql); };
+      const gm = G.filter(g => hit(g[0]) || hit(g[1])).map(g => ({ kind: 'game', title: `${g[0]} ${g[2]} ${g[1]}`, sub: g[3], color: by(g[0]).c, color2: by(g[1]).c }));
+      const sm = S.filter(s => s[0].toLowerCase().includes(ql)).map(screenRow);
+      if (tm.length) groups.push({ label: 'Teams', rows: tm.map(teamRow) });
+      if (gm.length) groups.push({ label: 'Games · Week 6', rows: gm });
+      if (sm.length) groups.push({ label: 'Jump to', rows: sm });
+    }
+    const flat = groups.flatMap(g => g.rows);
+    const sel = Math.min(this.state.sel, Math.max(0, flat.length - 1));
+    let i = 0;
+    groups = groups.map((g, gi) => ({ ...g, hasNote: !!g.note, pad: gi === 0 ? '4px 12px' : '8px 12px 4px', rows: g.rows.map(r => { const idx = i++; return { ...r,
+      isTeam: r.kind === 'team', isGame: r.kind === 'game', isScreen: r.kind === 'screen', hasSub: !!r.sub, hasKbd: !!r.kbd && idx !== sel, kbd: r.kbd || [],
+      sel: idx === sel, bg: idx === sel ? 'var(--accent)' : 'transparent', hover: () => this.setState({ sel: idx }) }; }) }));
+    return {
+      isDialog: !sheet, isSheet: sheet, q, hasQ: !!q, groups, hasRows: flat.length > 0, noRows: flat.length === 0,
+      escLabel: q ? 'Clear' : 'Close',
+      onInput: e => this.setState({ q: e.target.value, sel: 0 }),
+      clear: () => this.setState({ q: '', sel: 0 }),
+      onKey: e => {
+        if (e.key === 'ArrowDown') { e.preventDefault(); this.setState({ sel: Math.min(flat.length - 1, sel + 1) }); }
+        else if (e.key === 'ArrowUp') { e.preventDefault(); this.setState({ sel: Math.max(0, sel - 1) }); }
+        else if (e.key === 'Escape') this.setState({ q: '', sel: 0 });
+      },
+    };
+  }
+}
+</script>
+</body>
+</html>

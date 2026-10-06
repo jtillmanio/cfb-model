@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet><style id="dc-token-fallback">:root{--background:#0c0f12;--foreground:#eef0f3;--card:#13161a;--card-foreground:#eef0f3;--popover:#1b1e23;--popover-foreground:#eef0f3;--primary:#e5e8ec;--primary-foreground:#13161a;--secondary:#23272b;--secondary-foreground:#eef0f3;--muted:#1d2125;--muted-foreground:#9fa5ad;--accent:#262a30;--accent-foreground:#eef0f3;--destructive:#ef6661;--destructive-foreground:#0c0f12;--border:#2a2e33;--input:#5f646a;--ring:#67aaed;--edge:#b699eb;--edge-foreground:#0c0f12;--pos:#68b5f5;--neg:#f19a4b;--push:#a7abb1;--tier-a:#bd9ff2;--tier-a-foreground:#0c0f12;--tier-b:#8a70b8;--tier-b-foreground:#0c0f12;--tier-c:#392a51;--tier-c-foreground:#d7c9f3;--live:#52cd86;--locked:#91969b;--breakeven:#c9ced4;--chart-1:#4fa6e9;--chart-2:#e38d3d;--chart-3:#aa8dde;--chart-4:#39bab4;--chart-5:#87909c}</style><link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&amp;family=IBM+Plex+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet"><script src="./game-detail-data.js"></script><style>a{color:var(--pos)}a:hover{color:var(--foreground)}</style></helmet>
+<div data-screen-label="Game Detail · mobile" style="position:relative;width:390px;box-sizing:border-box;display:flex;flex-direction:column;background:var(--background);color:var(--foreground);font-family:'IBM Plex Sans',ui-sans-serif,system-ui,sans-serif;font-size:14px;line-height:20px;font-variant-numeric:tabular-nums lining-nums">
+<div style="display:flex;align-items:center;justify-content:space-between;height:44px;padding:0 24px;font-size:14px;font-weight:600;flex:none"><span>2:15</span><span style="display:flex;align-items:center;gap:6px"><span style="display:inline-block;width:16px;height:16px;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/signal.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/signal.svg) center/contain no-repeat"></span><span style="display:inline-block;width:16px;height:16px;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/wifi.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/wifi.svg) center/contain no-repeat"></span><span style="display:inline-block;width:22px;height:16px;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/battery-full.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/battery-full.svg) center/contain no-repeat"></span></span></div>
+<div style="display:flex;align-items:center;gap:2px;height:52px;padding:0 4px;background:var(--card);border-bottom:1px solid var(--border);flex:none">
+<span style="display:inline-flex;align-items:center;gap:2px;height:44px;padding:0 8px 0 4px;font-size:14px;font-weight:500"><span style="display:inline-block;width:20px;height:20px;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/chevron-left.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/chevron-left.svg) center/contain no-repeat"></span>This Week</span>
+<span style="flex:1"></span>
+<span onClick="{{ toggleMath }}" style="display:inline-flex;align-items:center;gap:5px;justify-content:center;min-width:44px;height:44px;padding:0 10px;border-radius:999px;border:1px solid {{ mathBd }};background:{{ mathBg }};font-size:12px;font-weight:600;box-sizing:border-box;cursor:pointer"><span style="font-family:'IBM Plex Mono',monospace">Σ</span>Math</span>
+<span onClick="{{ toggleStar }}" style="display:inline-flex;align-items:center;justify-content:center;width:44px;height:44px;cursor:pointer">
+<sc-if value="{{ starred }}" hint-placeholder-val="{{ true }}"><svg width="18" height="18" viewBox="0 0 24 24" style="fill:var(--foreground);stroke:var(--foreground);stroke-width:1.8;stroke-linejoin:round"><path d="M12 2.8l2.8 5.9 6.4.8-4.7 4.4 1.2 6.4L12 17.1l-5.7 3.2 1.2-6.4-4.7-4.4 6.4-.8z"></path></svg></sc-if>
+<sc-if value="{{ notStarred }}" hint-placeholder-val="{{ false }}"><svg width="18" height="18" viewBox="0 0 24 24" style="fill:none;stroke:var(--input);stroke-width:1.8;stroke-linejoin:round"><path d="M12 2.8l2.8 5.9 6.4.8-4.7 4.4 1.2 6.4L12 17.1l-5.7 3.2 1.2-6.4-4.7-4.4 6.4-.8z"></path></svg></sc-if>
+</span>
+</div>
+
+<div style="display:flex;flex-direction:column;gap:8px;padding:12px 16px 10px">
+<div style="display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);gap:8px;align-items:center">
+<div style="display:flex;align-items:center;gap:8px;min-width:0"><span style="width:28px;height:28px;border-radius:50%;background:#BF5700;box-shadow:0 0 0 1px var(--border);flex:none"></span><span style="display:flex;flex-direction:column;min-width:0"><span style="display:flex;align-items:baseline;gap:4px"><span style="font-size:12px;color:var(--muted-foreground)">#2</span><span style="font-size:16px;line-height:22px;font-weight:600">Texas</span></span><span style="font-size:12px;line-height:14px;color:var(--muted-foreground)">5-0 · ATS 3-2</span></span></div>
+<span style="display:flex;flex-direction:column;align-items:center;gap:1px"><span style="font-size:12px;color:var(--muted-foreground)">vs</span><span style="font-size:12px;line-height:14px;font-weight:600;padding:0 4px;border-radius:4px;border:1px solid var(--border);color:var(--muted-foreground)">N</span></span>
+<div style="display:flex;align-items:center;gap:8px;justify-content:flex-end;min-width:0"><span style="display:flex;flex-direction:column;align-items:flex-end;min-width:0"><span style="display:flex;align-items:baseline;gap:4px"><span style="font-size:12px;color:var(--muted-foreground)">#4</span><span style="font-size:16px;line-height:22px;font-weight:600">Oklahoma</span></span><span style="font-size:12px;line-height:14px;color:var(--muted-foreground)">4-1 · ATS 4-1</span></span><span style="width:28px;height:28px;border-radius:50%;background:#841617;box-shadow:0 0 0 1px var(--border);flex:none"></span></div>
+</div>
+<span style="font-size:12px;line-height:16px;color:var(--muted-foreground);text-align:center">Sat 7:30 PM ET · ABC · Cotton Bowl, Dallas</span>
+<sc-if value="{{ wxForecast }}" hint-placeholder-val="{{ true }}"><span style="display:flex;align-items:center;justify-content:center;gap:5px;font-size:12px;line-height:16px;color:var(--muted-foreground)"><span style="display:inline-block;width:12px;height:12px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/cloud-sun.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/cloud-sun.svg) center/contain no-repeat"></span>Forecast 84°F · wind 7 mph · rain 5%</span></sc-if>
+<sc-if value="{{ wxDome }}" hint-placeholder-val="{{ false }}"><span style="display:flex;align-items:center;justify-content:center;gap:5px;font-size:12px;line-height:16px;color:var(--muted-foreground)"><span style="display:inline-block;width:12px;height:12px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/warehouse.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/warehouse.svg) center/contain no-repeat"></span>Dome · weather doesn't apply</span></sc-if>
+<sc-if value="{{ wxNone }}" hint-placeholder-val="{{ false }}"><span style="display:flex;align-items:center;justify-content:center;gap:5px;font-size:12px;line-height:16px;color:var(--muted-foreground)"><span style="display:inline-block;width:12px;height:12px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/cloud-off.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/cloud-off.svg) center/contain no-repeat"></span>No weather data yet</span></sc-if>
+</div>
+
+<div style="display:flex;flex-direction:column;gap:12px;padding:0 12px 24px">
+
+<section style="display:flex;flex-direction:column;background:var(--card);border:1px solid var(--border);border-radius:8px;overflow:hidden">
+<div style="display:flex;align-items:center;gap:8px;height:40px;padding:0 14px;border-bottom:1px solid var(--border)"><span style="font-size:14px;font-weight:600">The Number</span><span style="flex:1"></span><span style="font-size:12px;color:var(--muted-foreground)">Model v1.0 · Thu 9:02 PM</span></div>
+<div style="display:flex;align-items:center;gap:8px;padding:12px 14px 10px;background:color-mix(in oklch, var(--edge) 6%, var(--card));border-bottom:1px solid var(--border)">
+<span style="display:inline-flex;align-items:center;height:34px;padding:0 12px;border-radius:999px;background:var(--edge);color:var(--edge-foreground);font-size:20px;line-height:28px;font-weight:600;white-space:nowrap">+5.2 OU</span>
+<span style="display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:6px;background:var(--tier-a);color:var(--tier-a-foreground);font-size:14px;font-weight:700;flex:none">A</span>
+<span style="display:flex;flex-direction:column;margin-left:4px;min-width:0"><span style="font-size:14px;line-height:18px;font-weight:600">Pick: OU +6.5</span><span style="font-size:12px;line-height:14px;color:var(--muted-foreground)">Picked at +6.5 · CLV 0.0</span></span>
+</div>
+<div style="display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);border-bottom:1px solid var(--border)">
+<div style="display:flex;flex-direction:column;gap:2px;padding:10px 14px;border-right:1px solid var(--border)">
+<span style="font-size:12px;line-height:14px;color:var(--muted-foreground)">Market</span>
+<span style="font-size:24px;line-height:28px;font-weight:600">TEX −6.5</span>
+<span style="font-size:12px;line-height:14px;color:var(--muted-foreground)">Opened −7</span>
+<svg width="160" height="46" viewBox="0 0 160 46" style="display:block;overflow:visible;margin-top:4px">
+<polyline points="{{ sp.line }}" style="fill:none;stroke:var(--muted-foreground);stroke-width:1.5;stroke-linejoin:round"></polyline>
+<circle cx="{{ sp.p0.x }}" cy="{{ sp.p0.y }}" r="2.5" style="fill:var(--card);stroke:var(--muted-foreground);stroke-width:1.5"></circle>
+<circle cx="{{ sp.p1.x }}" cy="{{ sp.p1.y }}" r="2.5" style="fill:var(--card);stroke:var(--muted-foreground);stroke-width:1.5"></circle>
+<circle cx="{{ sp.p2.x }}" cy="{{ sp.p2.y }}" r="2.5" style="fill:var(--card);stroke:var(--muted-foreground);stroke-width:1.5"></circle>
+<circle cx="{{ sp.p3.x }}" cy="{{ sp.p3.y }}" r="3.5" style="fill:var(--foreground)"></circle>
+<text x="{{ sp.p0.x }}" y="{{ sp.p0.dy }}" style="fill:var(--muted-foreground);font-size:12px;text-anchor:middle">Sun</text>
+<text x="{{ sp.p1.x }}" y="{{ sp.p1.dy }}" style="fill:var(--muted-foreground);font-size:12px;text-anchor:middle">Tue</text>
+<text x="{{ sp.p2.x }}" y="{{ sp.p2.dy }}" style="fill:var(--muted-foreground);font-size:12px;text-anchor:middle">Thu</text>
+<text x="{{ sp.p3.x }}" y="{{ sp.p3.dy }}" style="fill:var(--foreground);font-size:12px;font-weight:600;text-anchor:middle">Sat</text>
+<text x="{{ sp.p0.x }}" y="{{ sp.p0.ly }}" style="fill:var(--muted-foreground);font-size:12px;text-anchor:middle">{{ sp.p0.v }}</text>
+<text x="{{ sp.p2.x }}" y="{{ sp.p2.ly }}" style="fill:var(--muted-foreground);font-size:12px;text-anchor:middle">{{ sp.p2.v }}</text>
+</svg>
+</div>
+<div style="display:flex;flex-direction:column;gap:2px;padding:10px 14px">
+<span style="font-size:12px;line-height:14px;color:var(--muted-foreground)">Model</span>
+<span style="font-size:24px;line-height:28px;font-weight:600">TEX −1.3</span>
+<span style="font-size:12px;line-height:14px;color:var(--muted-foreground);text-wrap:pretty">Texas by 1.3 on a neutral field</span>
+<sc-if value="{{ math }}" hint-placeholder-val="{{ false }}"><span style="margin-top:4px;font:400 11px/15px 'IBM Plex Mono',monospace;color:var(--muted-foreground)">6.5 − 1.3 = 5.2 → OU</span></sc-if>
+</div>
+</div>
+<div style="position:relative;height:56px;margin:10px 18px 4px">
+<div style="position:absolute;left:0;right:0;top:25px;height:2px;background:var(--input)"></div>
+<sc-for list="{{ gp.ticks }}" as="t" hint-placeholder-count="5"><span style="position:absolute;left:{{ t.left }};top:21px;width:1px;height:10px;background:var(--input)"></span></sc-for>
+<span style="position:absolute;left:{{ gp.zeroLeft }};top:36px;transform:translateX(-50%);font-size:12px;line-height:14px;color:var(--muted-foreground)">Even</span>
+<div style="position:absolute;left:{{ gp.edgeLeft }};width:{{ gp.edgeWidth }};top:22px;height:8px;border-radius:4px;background:var(--edge)"></div>
+<span style="position:absolute;left:{{ gp.modelLeft }};top:19px;width:14px;height:14px;margin-left:-7px;border-radius:50%;background:var(--card);border:2px solid var(--foreground);box-sizing:border-box"></span>
+<span style="position:absolute;left:{{ gp.mktLeft }};top:19px;width:14px;height:14px;margin-left:-7px;border-radius:50%;background:var(--foreground)"></span>
+<span style="position:absolute;left:{{ gp.modelLeft }};top:0;transform:translateX(-50%);font-size:12px;line-height:14px;font-weight:600;white-space:nowrap">Model 1.3</span>
+<span style="position:absolute;left:{{ gp.mktLeft }};top:0;transform:translateX(-50%);font-size:12px;line-height:14px;font-weight:600;white-space:nowrap">Market 6.5</span>
+<span style="position:absolute;left:49%;top:36px;transform:translateX(-50%);font-size:12px;line-height:14px;font-weight:600;color:var(--edge);white-space:nowrap">5.2-pt edge</span>
+</div>
+<span style="padding:0 14px 12px;font-size:12px;line-height:17px;color:var(--muted-foreground);text-wrap:pretty">Texas margin. The model sees a much closer game than the market, so it takes Oklahoma and the points.</span>
+<div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);border-top:1px solid var(--border)">
+<div style="display:flex;flex-direction:column;gap:4px;padding:10px 14px;border-right:1px solid var(--border)">
+<span style="font-size:12px;line-height:14px;color:var(--muted-foreground)">Cover · OU +6.5</span>
+<span style="font-size:24px;line-height:28px;font-weight:600">63%</span>
+<div style="position:relative;height:6px;border-radius:4px;background:var(--secondary)"><span style="position:absolute;left:0;top:0;bottom:0;width:63%;border-radius:4px;background:var(--edge)"></span><span style="position:absolute;left:52.4%;top:-3px;bottom:-3px;width:2px;background:var(--breakeven)"></span></div>
+<span style="font-size:12px;line-height:14px;color:var(--muted-foreground)">Tick = 52.4% break-even</span>
+</div>
+<div style="display:flex;flex-direction:column;gap:4px;padding:10px 14px">
+<span style="font-size:12px;line-height:14px;color:var(--muted-foreground)">Win chance</span>
+<span style="display:flex;align-items:baseline;gap:8px"><span style="font-size:24px;line-height:28px;font-weight:600">TEX 54%</span></span>
+<div style="display:flex;gap:2px;height:6px"><span style="width:54%;border-radius:4px 0 0 4px;background:var(--chart-1)"></span><span style="flex:1;border-radius:0 4px 4px 0;background:var(--chart-4)"></span></div>
+<span style="font-size:12px;line-height:14px;color:var(--muted-foreground)">OU 46% · near coin flip</span>
+</div>
+</div>
+</section>
+
+<section style="display:flex;flex-direction:column;gap:10px;padding:12px 14px 14px;background:var(--card);border:1px solid var(--border);border-radius:8px">
+<div style="display:flex;align-items:center;gap:8px"><span style="display:flex;flex-direction:column"><span style="font-size:14px;line-height:22px;font-weight:600">Prediction drivers</span><span style="font-size:12px;line-height:16px;color:var(--muted-foreground)">Why Texas by 1.3</span></span><span style="flex:1"></span>
+<span style="display:inline-flex;height:46px;border:1px solid var(--input);border-radius:6px;overflow:hidden;box-sizing:border-box;font-size:12px">
+<span onClick="{{ setWf }}" style="display:flex;align-items:center;justify-content:center;min-width:44px;padding:0 10px;cursor:pointer;background:{{ sWf.bg }};font-weight:{{ sWf.w }};color:{{ sWf.c }}">Waterfall</span>
+<span onClick="{{ setBars }}" style="display:flex;align-items:center;justify-content:center;min-width:44px;padding:0 10px;border-left:1px solid var(--input);cursor:pointer;background:{{ sBars.bg }};font-weight:{{ sBars.w }};color:{{ sBars.c }}">Bars</span>
+</span></div>
+<div style="position:relative;height:22px">
+<span style="position:absolute;right:calc(100% - {{ wf.zeroLeft }} + 6px);top:1px;display:inline-flex;align-items:center;gap:4px;height:20px;padding:0 7px 0 4px;border-radius:999px;border:1px solid var(--border);font-size:12px;font-weight:600;box-sizing:border-box;white-space:nowrap"><span style="width:10px;height:10px;border-radius:50%;background:#841617;box-shadow:0 0 0 1px var(--border)"></span>← Helps OU</span>
+<span style="position:absolute;left:calc({{ wf.zeroLeft }} + 6px);top:1px;display:inline-flex;align-items:center;gap:4px;height:20px;padding:0 4px 0 7px;border-radius:999px;border:1px solid var(--border);font-size:12px;font-weight:600;box-sizing:border-box;white-space:nowrap">Helps TEX →<span style="width:10px;height:10px;border-radius:50%;background:#BF5700;box-shadow:0 0 0 1px var(--border)"></span></span>
+</div>
+<div style="display:flex;flex-direction:column">
+<sc-for list="{{ wf.rows }}" as="r" hint-placeholder-count="7">
+<div style="display:flex;flex-direction:column;gap:3px;padding:5px 0">
+<div style="display:flex;align-items:center;gap:6px;height:18px">
+<span style="flex:1;min-width:0;font-size:12px;line-height:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.short }}</span>
+<sc-if value="{{ r.side.has }}" hint-placeholder-val="{{ true }}"><span style="display:inline-flex;align-items:center;gap:3px;font-size:12px;font-weight:600"><span style="width:8px;height:8px;border-radius:50%;background:{{ r.side.color }};box-shadow:0 0 0 1px var(--border)"></span>{{ r.side.abbr }}</span></sc-if>
+<span style="width:34px;text-align:right;font-size:13px;font-weight:600;color:{{ r.valInk }}">{{ r.val }}</span>
+<span style="width:44px;text-align:right;font-size:12px;color:var(--muted-foreground)">{{ r.runTxt }}</span>
+</div>
+<div style="position:relative;height:14px">
+<sc-for list="{{ wf.ticks }}" as="t" hint-placeholder-count="5"><span style="position:absolute;left:{{ t.left }};top:-4px;bottom:-4px;width:1px;background:var(--border)"></span></sc-for>
+<span style="position:absolute;left:{{ wf.zeroLeft }};top:-4px;bottom:-4px;width:1px;background:var(--input)"></span>
+<span style="position:absolute;left:{{ r.left }};width:{{ r.width }};top:0;height:14px;border-radius:2px;background:var(--chart-5)"></span>
+</div>
+</div>
+</sc-for>
+<div style="display:flex;flex-direction:column;gap:3px;padding:8px 0 0;margin-top:4px;border-top:1px solid var(--foreground)">
+<div style="display:flex;align-items:center;gap:6px;height:18px"><span style="flex:1;font-size:13px;font-weight:600">Model margin</span><span style="display:inline-flex;align-items:center;gap:3px;font-size:12px;font-weight:600"><span style="width:8px;height:8px;border-radius:50%;background:#BF5700"></span>TEX</span><span style="width:34px;text-align:right;font-size:14px;font-weight:700">+1.3</span><span style="width:44px"></span></div>
+<div style="position:relative;height:16px"><span style="position:absolute;left:{{ wf.zeroLeft }};top:-3px;bottom:-3px;width:1px;background:var(--input)"></span><span style="position:absolute;left:{{ wf.total.left }};width:{{ wf.total.width }};top:0;height:16px;border-radius:2px;background:var(--foreground)"></span></div>
+<div style="position:relative;height:16px"><sc-for list="{{ wf.ticks }}" as="t" hint-placeholder-count="5"><span style="position:absolute;left:{{ t.left }};top:2px;transform:translateX(-50%);font-size:12px;line-height:14px;color:var(--muted-foreground)">{{ t.label }}</span></sc-for></div>
+</div>
+</div>
+<span style="font-size:13px;line-height:19px;text-wrap:pretty">{{ drvCaption }}</span>
+<sc-if value="{{ math }}" hint-placeholder-val="{{ false }}"><div style="display:flex;flex-direction:column;gap:4px;padding:8px 10px;border-radius:6px;background:var(--background);border:1px solid var(--border);font:400 11px/16px 'IBM Plex Mono',monospace;color:var(--muted-foreground)"><span style="color:var(--foreground)">3.8 − 2.4 − 1.6 + 0.9 + 0.4 + 0.2 + 0.0 = +1.3</span><span>Unit driver = rating gap × learned weight (pass EPA ×31, rush ×24).</span></div></sc-if>
+</section>
+
+<section style="display:flex;flex-direction:column;gap:10px;padding:12px 14px 14px;background:var(--card);border:1px solid var(--border);border-radius:8px">
+<div style="display:flex;flex-direction:column"><span style="font-size:14px;line-height:22px;font-weight:600">Projected margin</span><span style="font-size:12px;line-height:16px;color:var(--muted-foreground)">Centered on TEX by 1.3, spread ±13.8</span></div>
+<div style="position:relative;width:330px;height:206px">
+<svg width="330" height="206" viewBox="0 0 330 206" style="display:block;overflow:visible">
+<defs><pattern id="gdHatchM" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="6" style="stroke:var(--edge);stroke-width:1;stroke-opacity:.5"></line></pattern></defs>
+<polygon points="{{ d.shade }}" style="fill:color-mix(in oklch, var(--edge) 20%, transparent)"></polygon>
+<polygon points="{{ d.shade }}" style="fill:url(#gdHatchM)"></polygon>
+<polyline points="{{ d.curve }}" style="fill:none;stroke:var(--foreground);stroke-width:1.5;stroke-linejoin:round"></polyline>
+<line x1="{{ d.L }}" y1="{{ d.base }}" x2="{{ d.Rx }}" y2="{{ d.base }}" style="stroke:var(--input);stroke-width:1"></line>
+<line x1="{{ d.zeroX }}" y1="{{ d.base }}" x2="{{ d.zeroX }}" y2="{{ d.top }}" style="stroke:var(--muted-foreground);stroke-width:1;stroke-dasharray:1 3"></line>
+<line x1="{{ d.modelX }}" y1="{{ d.base }}" x2="{{ d.modelX }}" y2="{{ d.topLine }}" style="stroke:var(--muted-foreground);stroke-width:1.5;stroke-dasharray:4 3"></line>
+<line x1="{{ d.mktX }}" y1="{{ d.base }}" x2="{{ d.mktX }}" y2="{{ d.topLine }}" style="stroke:var(--foreground);stroke-width:2"></line>
+<text x="{{ d.modelLblX }}" y="{{ d.topLbl }}" style="fill:var(--muted-foreground);font-size:12px;font-weight:500;text-anchor:end">Model 1.3</text>
+<text x="{{ d.mktLblX }}" y="{{ d.topLbl }}" style="fill:var(--foreground);font-size:12px;font-weight:600;text-anchor:start">Market −6.5</text>
+<text x="{{ d.ouLblX }}" y="{{ d.lblY }}" style="fill:var(--foreground);font-size:12px;font-weight:600;text-anchor:middle">OU covers</text>
+<text x="{{ d.ouLblX }}" y="{{ d.lblY2 }}" style="fill:var(--foreground);font-size:12px;font-weight:700;text-anchor:middle">63%</text>
+<text x="{{ d.texLblX }}" y="{{ d.lblY }}" style="fill:var(--muted-foreground);font-size:12px;font-weight:500;text-anchor:middle">TEX covers</text>
+<text x="{{ d.texLblX }}" y="{{ d.lblY2 }}" style="fill:var(--muted-foreground);font-size:12px;font-weight:600;text-anchor:middle">37%</text>
+</svg>
+<sc-for list="{{ d.ticks }}" as="t" hint-placeholder-count="5"><span style="position:absolute;left:{{ t.x }}px;top:{{ d.axisY }}px;transform:translateX(-50%);font-size:12px;line-height:14px;color:var(--muted-foreground);white-space:nowrap">{{ t.label }}</span></sc-for>
+</div>
+<div style="display:flex;flex-direction:column;gap:5px">
+<div style="display:grid;grid-template-columns:46fr 17fr 37fr;gap:2px;height:22px">
+<span style="display:flex;align-items:center;justify-content:center;border-radius:4px 0 0 4px;background:color-mix(in oklch, var(--edge) 42%, var(--card));font-size:12px;font-weight:700">46%</span>
+<span style="display:flex;align-items:center;justify-content:center;background:repeating-linear-gradient(135deg, color-mix(in oklch, var(--edge) 22%, var(--card)) 0 4px, color-mix(in oklch, var(--edge) 36%, var(--card)) 4px 6px);font-size:12px;font-weight:700">17%</span>
+<span style="display:flex;align-items:center;justify-content:center;border-radius:0 4px 4px 0;background:var(--secondary);font-size:12px;font-weight:600;color:var(--muted-foreground)">37%</span>
+</div>
+<div style="display:grid;grid-template-columns:46fr 17fr 37fr;gap:2px;font-size:12px;line-height:13px;color:var(--muted-foreground)"><span>OU wins</span><span>TEX 1–6</span><span style="text-align:right">TEX by 7+</span></div>
+</div>
+<span style="font-size:13px;line-height:19px;text-wrap:pretty"><b style="font-weight:600">Oklahoma covers in 63% of outcomes.</b> It wins outright in 46% and loses by 6 or fewer in another 17%. Texas has to win by 7+ to cover.</span>
+<sc-if value="{{ math }}" hint-placeholder-val="{{ false }}"><div style="display:flex;flex-direction:column;gap:4px;padding:8px 10px;border-radius:6px;background:var(--background);border:1px solid var(--border);font:400 11px/16px 'IBM Plex Mono',monospace;color:var(--muted-foreground)"><span style="color:var(--foreground)">Φ((6.5 − 1.3) / 13.8) = Φ(0.38)</span><span>Smooth curve: 65%. Real margins bunch on 3 and 7, so the model reads 63%.</span></div></sc-if>
+</section>
+
+<section style="display:flex;flex-direction:column;gap:10px;padding:12px 14px 14px;background:var(--card);border:1px solid var(--border);border-radius:8px">
+<div style="display:flex;flex-direction:column"><span style="font-size:14px;line-height:22px;font-weight:600">Line movement</span><span style="font-size:12px;line-height:16px;color:var(--muted-foreground)">Texas spread at each snapshot · opened −7, now −6.5</span></div>
+<svg width="330" height="184" viewBox="{{ lh.vb }}" style="display:block;overflow:visible">
+<sc-for list="{{ lh.yt }}" as="t" hint-placeholder-count="3"><line x1="{{ lh.L }}" y1="{{ t.y }}" x2="{{ lh.Rx }}" y2="{{ t.y }}" style="stroke:var(--border);stroke-width:1"></line><text x="{{ lh.labX }}" y="{{ t.y4 }}" style="fill:var(--muted-foreground);font-size:12px;text-anchor:end">{{ t.lbl }}</text></sc-for>
+<line x1="{{ lh.kickX }}" y1="{{ lh.kickTop }}" x2="{{ lh.kickX }}" y2="{{ lh.B }}" style="stroke:var(--input);stroke-width:1;stroke-dasharray:3 3"></line>
+<text x="{{ lh.kickX }}" y="{{ lh.kickLblY }}" style="fill:var(--muted-foreground);font-size:12px;text-anchor:end">Kickoff 7:30 PM</text>
+<path d="{{ lh.d }}" style="fill:none;stroke:var(--foreground);stroke-width:1.75;stroke-linejoin:round"></path>
+<line x1="{{ lh.tailX1 }}" y1="{{ lh.tailY }}" x2="{{ lh.tailX2 }}" y2="{{ lh.tailY }}" style="stroke:var(--muted-foreground);stroke-width:1.5;stroke-dasharray:2 3"></line>
+<sc-for list="{{ lh.dots }}" as="p" hint-placeholder-count="5"><circle cx="{{ p.x }}" cy="{{ p.y }}" r="{{ p.r }}" style="fill:{{ p.fill }};stroke:{{ p.ink }};stroke-width:1.5"></circle><sc-if value="{{ p.changed }}" hint-placeholder-val="{{ true }}"><text x="{{ p.x }}" y="{{ p.ly }}" style="fill:{{ p.ink }};font-size:12px;font-weight:{{ p.w }};text-anchor:middle">{{ p.v }}</text></sc-if><text x="{{ p.x }}" y="{{ p.dy }}" style="fill:{{ p.ink }};font-size:12px;font-weight:{{ p.w }};text-anchor:middle">{{ p.d }}</text><text x="{{ p.x }}" y="{{ p.ty }}" style="fill:var(--muted-foreground);font-size:12px;text-anchor:middle">{{ p.t }}</text></sc-for>
+</svg>
+<span style="font-size:12px;line-height:17px;color:var(--muted-foreground);text-wrap:pretty">Each dot is one run of our lines job. A move between runs shows up at the next dot.</span>
+</section>
+
+<section style="display:flex;flex-direction:column;gap:12px;padding:12px 14px 14px;background:var(--card);border:1px solid var(--border);border-radius:8px">
+<div style="display:flex;flex-direction:column"><span style="font-size:14px;line-height:22px;font-weight:600">Unit matchup</span><span style="font-size:12px;line-height:16px;color:var(--muted-foreground)">Offense vs the defense it faces · FBS percentile · tick = 50th</span></div>
+<span style="display:flex;align-items:center;gap:6px;font-size:12px;line-height:14px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--muted-foreground)"><span style="width:9px;height:9px;border-radius:50%;background:#BF5700"></span>Texas has the ball</span>
+<sc-for list="{{ units.texBall }}" as="u" hint-placeholder-count="2">
+<div style="display:flex;flex-direction:column;gap:5px">
+<span style="font-size:13px;font-weight:600">{{ u.unit }} <span style="font-weight:400;font-size:12px;color:var(--muted-foreground)">{{ u.top.note }}</span></span>
+<div style="display:grid;grid-template-columns:78px minmax(0,1fr) 36px;gap:8px;align-items:center;height:18px"><span style="font-size:12px;white-space:nowrap"><b style="font-weight:600">{{ u.top.abbr }}</b> <span style="color:var(--muted-foreground)">offense</span></span><span style="position:relative;height:8px;border-radius:4px;background:var(--secondary)"><span style="position:absolute;left:0;top:0;bottom:0;width:{{ u.top.w }};border-radius:4px;background:{{ u.top.fill }}"></span><span style="position:absolute;left:50%;top:-3px;bottom:-3px;width:1px;background:var(--muted-foreground)"></span></span><span style="font-size:12px;font-weight:600;text-align:right">{{ u.top.pTxt }}</span></div>
+<div style="display:grid;grid-template-columns:78px minmax(0,1fr) 36px;gap:8px;align-items:center;height:18px"><span style="font-size:12px;white-space:nowrap"><b style="font-weight:600">{{ u.bot.abbr }}</b> <span style="color:var(--muted-foreground)">defense</span></span><span style="position:relative;height:8px;border-radius:4px;background:var(--secondary)"><span style="position:absolute;left:0;top:0;bottom:0;width:{{ u.bot.w }};border-radius:4px;background:{{ u.bot.fill }}"></span><span style="position:absolute;left:50%;top:-3px;bottom:-3px;width:1px;background:var(--muted-foreground)"></span></span><span style="font-size:12px;font-weight:600;text-align:right">{{ u.bot.pTxt }}</span></div>
+</div>
+</sc-for>
+<span style="display:flex;align-items:center;gap:6px;padding-top:10px;border-top:1px solid var(--border);font-size:12px;line-height:14px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--muted-foreground)"><span style="width:9px;height:9px;border-radius:50%;background:#841617"></span>Oklahoma has the ball</span>
+<sc-for list="{{ units.ouBall }}" as="u" hint-placeholder-count="2">
+<div style="display:flex;flex-direction:column;gap:5px">
+<span style="font-size:13px;font-weight:600">{{ u.unit }} <span style="font-weight:400;font-size:12px;color:var(--muted-foreground)">{{ u.top.note }}</span></span>
+<div style="display:grid;grid-template-columns:78px minmax(0,1fr) 36px;gap:8px;align-items:center;height:18px"><span style="font-size:12px;white-space:nowrap"><b style="font-weight:600">{{ u.top.abbr }}</b> <span style="color:var(--muted-foreground)">offense</span></span><span style="position:relative;height:8px;border-radius:4px;background:var(--secondary)"><span style="position:absolute;left:0;top:0;bottom:0;width:{{ u.top.w }};border-radius:4px;background:{{ u.top.fill }}"></span><span style="position:absolute;left:50%;top:-3px;bottom:-3px;width:1px;background:var(--muted-foreground)"></span></span><span style="font-size:12px;font-weight:600;text-align:right">{{ u.top.pTxt }}</span></div>
+<div style="display:grid;grid-template-columns:78px minmax(0,1fr) 36px;gap:8px;align-items:center;height:18px"><span style="font-size:12px;white-space:nowrap"><b style="font-weight:600">{{ u.bot.abbr }}</b> <span style="color:var(--muted-foreground)">defense</span></span><span style="position:relative;height:8px;border-radius:4px;background:var(--secondary)"><span style="position:absolute;left:0;top:0;bottom:0;width:{{ u.bot.w }};border-radius:4px;background:{{ u.bot.fill }}"></span><span style="position:absolute;left:50%;top:-3px;bottom:-3px;width:1px;background:var(--muted-foreground)"></span></span><span style="font-size:12px;font-weight:600;text-align:right">{{ u.bot.pTxt }}</span></div>
+</div>
+</sc-for>
+<span style="padding-top:10px;border-top:1px solid var(--border);font-size:12px;line-height:14px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--muted-foreground)">Offense, all plays</span>
+<sc-for list="{{ units.offense }}" as="u" hint-placeholder-count="2">
+<div style="display:flex;flex-direction:column;gap:5px">
+<span style="font-size:13px;font-weight:600">{{ u.unit }}</span>
+<div style="display:grid;grid-template-columns:36px minmax(0,1fr) 72px;gap:8px;align-items:center;height:18px"><span style="font-size:12px;font-weight:600">{{ u.top.abbr }}</span><span style="position:relative;height:8px;border-radius:4px;background:var(--secondary)"><span style="position:absolute;left:0;top:0;bottom:0;width:{{ u.top.w }};border-radius:4px;background:{{ u.top.fill }}"></span><span style="position:absolute;left:50%;top:-3px;bottom:-3px;width:1px;background:var(--muted-foreground)"></span></span><span style="font-size:12px;text-align:right;white-space:nowrap"><b style="font-weight:600">{{ u.top.pTxt }}</b> <span style="color:var(--muted-foreground)">{{ u.top.note }}</span></span></div>
+<div style="display:grid;grid-template-columns:36px minmax(0,1fr) 72px;gap:8px;align-items:center;height:18px"><span style="font-size:12px;font-weight:600">{{ u.bot.abbr }}</span><span style="position:relative;height:8px;border-radius:4px;background:var(--secondary)"><span style="position:absolute;left:0;top:0;bottom:0;width:{{ u.bot.w }};border-radius:4px;background:{{ u.bot.fill }}"></span><span style="position:absolute;left:50%;top:-3px;bottom:-3px;width:1px;background:var(--muted-foreground)"></span></span><span style="font-size:12px;text-align:right;white-space:nowrap"><b style="font-weight:600">{{ u.bot.pTxt }}</b> <span style="color:var(--muted-foreground)">{{ u.bot.note }}</span></span></div>
+</div>
+</sc-for>
+<span style="font-size:13px;line-height:19px;text-wrap:pretty">Texas's passing (96th) vs a 58th-percentile pass defense is the widest gap, the +3.8 driver. Oklahoma's run game (90th) vs Texas's 62nd-percentile run defense is its best answer (−2.4).</span>
+</section>
+
+<section style="display:flex;flex-direction:column;gap:10px;padding:12px 14px 14px;background:var(--card);border:1px solid var(--border);border-radius:8px">
+<div style="display:flex;flex-direction:column"><span style="font-size:14px;line-height:22px;font-weight:600">Recent form vs the spread</span><span style="font-size:12px;line-height:16px;color:var(--muted-foreground)">Last 5, oldest → newest</span></div>
+<sc-for list="{{ form }}" as="f" hint-placeholder-count="2">
+<div style="display:grid;grid-template-columns:minmax(0,1fr) repeat(5,28px) 44px;gap:5px;align-items:center;height:30px">
+<span style="display:flex;align-items:center;gap:6px;font-size:13px;font-weight:600;min-width:0"><span style="width:12px;height:12px;border-radius:50%;background:{{ f.team.color }};box-shadow:0 0 0 1px var(--border);flex:none"></span>{{ f.team.abbr }}</span>
+<sc-for list="{{ f.marks }}" as="m" hint-placeholder-count="5"><span style="display:flex;align-items:center;justify-content:center;width:28px;height:26px;border-radius:4px;border:1px solid {{ m.bd }};color:{{ m.ink }};box-sizing:border-box"><sc-if value="{{ m.ok }}" hint-placeholder-val="{{ true }}"><span style="display:inline-block;width:13px;height:13px;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/check.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/check.svg) center/contain no-repeat"></span></sc-if><sc-if value="{{ m.no }}" hint-placeholder-val="{{ false }}"><span style="display:inline-block;width:13px;height:13px;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/x.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/x.svg) center/contain no-repeat"></span></sc-if></span></sc-for>
+<span style="text-align:right;font-size:13px;font-weight:600">{{ f.rec }}</span>
+</div>
+</sc-for>
+<span style="font-size:13px;line-height:19px;text-wrap:pretty">Oklahoma has covered 4 of 5, Texas 3 of 5. A tiny sample, and not a model input.</span>
+<div style="display:flex;flex-direction:column;gap:2px;padding-top:10px;border-top:1px solid var(--border)">
+<div style="display:flex;align-items:center;gap:8px;height:24px"><span style="font-size:14px;font-weight:600">Head-to-head</span><span style="font-size:12px;line-height:16px;font-weight:600;letter-spacing:.04em;padding:0 6px;border-radius:4px;border:1px solid var(--border);color:var(--muted-foreground)">PLACEHOLDER</span></div>
+<sc-for list="{{ h2h }}" as="y" hint-placeholder-count="3">
+<div style="display:grid;grid-template-columns:44px minmax(0,1fr) 56px 32px;gap:10px;align-items:center;height:34px;border-bottom:1px solid var(--border)">
+<span style="font-size:13px;color:var(--muted-foreground)">{{ y }}</span>
+<span style="height:10px;border-radius:4px;background:var(--muted)"></span>
+<span style="height:10px;border-radius:4px;background:var(--muted)"></span>
+<span style="height:18px;border-radius:4px;border:1px dashed var(--input)"></span>
+</div>
+</sc-for>
+<span style="font-size:12px;line-height:16px;color:var(--muted-foreground);padding-top:6px">Past meetings fill in once historical games are loaded.</span>
+</div>
+</section>
+
+<section style="display:flex;flex-direction:column;gap:10px;padding:12px 14px 14px;border:1px dashed var(--input);border-radius:8px;background:repeating-linear-gradient(135deg, transparent 0 7px, color-mix(in oklch, var(--border) 45%, transparent) 7px 8px)">
+<div style="display:flex;align-items:center;gap:8px"><span style="font-size:14px;font-weight:600">Apply adjustment</span><span style="display:inline-flex;align-items:center;gap:4px;height:20px;padding:0 8px;border-radius:999px;background:var(--secondary);font-size:12px;font-weight:600;color:var(--muted-foreground)"><span style="display:inline-block;width:11px;height:11px;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/lock.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/lock.svg) center/contain no-repeat"></span>Coming later</span></div>
+<div aria-disabled="true" style="display:flex;flex-direction:column;gap:8px;padding:12px;border:1px dashed var(--border);border-radius:6px;pointer-events:none;user-select:none">
+<div style="display:grid;grid-template-columns:minmax(0,1fr) 64px minmax(0,1fr);gap:6px">
+<span style="display:flex;align-items:center;gap:6px;height:44px;padding:0 10px;border:1px solid var(--input);border-radius:6px;background:var(--background);font-size:13px;box-sizing:border-box"><span style="width:10px;height:10px;border-radius:50%;background:#BF5700"></span>Texas</span>
+<span style="display:flex;align-items:center;height:44px;padding:0 10px;border:1px solid var(--input);border-radius:6px;background:var(--background);font-size:13px;font-weight:600;box-sizing:border-box">−4</span>
+<span style="display:flex;align-items:center;height:44px;padding:0 10px;border:1px solid var(--input);border-radius:6px;background:var(--background);font-size:13px;box-sizing:border-box">QB out</span>
+</div>
+<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;border:1px dashed var(--input);border-radius:6px;font-size:13px"><span style="color:var(--muted-foreground)">Model</span><span style="font-weight:600">TEX −1.3 → OU −2.7</span><span style="flex:1"></span><span style="color:var(--muted-foreground)">Edge</span><span style="font-weight:600">+9.2 OU</span></div>
+<span style="display:flex;align-items:center;justify-content:center;height:44px;border-radius:6px;background:var(--secondary);color:var(--muted-foreground);font-size:14px;font-weight:600">Apply</span>
+</div>
+<span style="font-size:12px;line-height:17px;color:var(--muted-foreground);text-wrap:pretty">For news the stats can't see yet, like injuries. Example values. Your pick keeps the line it was made at.</span>
+</section>
+</div>
+
+<div style="display:flex;height:64px;padding-bottom:20px;background:var(--card);border-top:1px solid var(--border);flex:none">
+<span style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font-size:12px;line-height:14px;font-weight:600"><span style="display:inline-flex;align-items:center;justify-content:center;width:48px;height:28px;border-radius:999px;background:var(--accent)"><span style="display:inline-block;width:18px;height:18px;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/calendar-days.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/calendar-days.svg) center/contain no-repeat"></span></span>This Week</span>
+<span style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font-size:12px;line-height:14px;font-weight:500;color:var(--muted-foreground)"><span style="display:inline-flex;align-items:center;justify-content:center;width:48px;height:28px"><span style="display:inline-block;width:18px;height:18px;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/target.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/target.svg) center/contain no-repeat"></span></span>Picks</span>
+<span style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font-size:12px;line-height:14px;font-weight:500;color:var(--muted-foreground)"><span style="display:inline-flex;align-items:center;justify-content:center;width:48px;height:28px"><span style="display:inline-block;width:18px;height:18px;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/trophy.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/trophy.svg) center/contain no-repeat"></span></span>Contest</span>
+<span style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font-size:12px;line-height:14px;font-weight:500;color:var(--muted-foreground)"><span style="display:inline-flex;align-items:center;justify-content:center;width:48px;height:28px"><span style="display:inline-block;width:18px;height:18px;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/list-ordered.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/list-ordered.svg) center/contain no-repeat"></span></span>Rankings</span>
+<span style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font-size:12px;line-height:14px;font-weight:500;color:var(--muted-foreground)"><span style="display:inline-flex;align-items:center;justify-content:center;width:48px;height:28px"><span style="display:inline-block;width:18px;height:18px;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/menu.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/menu.svg) center/contain no-repeat"></span></span>More</span>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:390,&quot;height&quot;:3000},&quot;showMath&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Learning&quot;},&quot;drivers&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;waterfall&quot;,&quot;bars&quot;],&quot;default&quot;:&quot;waterfall&quot;,&quot;tsType&quot;:&quot;'waterfall'|'bars'&quot;,&quot;section&quot;:&quot;Learning&quot;},&quot;weather&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;forecast&quot;,&quot;dome&quot;,&quot;none&quot;],&quot;default&quot;:&quot;forecast&quot;,&quot;tsType&quot;:&quot;'forecast'|'dome'|'none'&quot;,&quot;section&quot;:&quot;States&quot;}}">
+class Component extends DCLogic {
+  state = { math: null, mode: null, star: true, ready: !!window.GD };
+  componentDidMount() {
+    if (!window.GD) this.t = setInterval(() => { if (window.GD) { clearInterval(this.t); this.setState({ ready: true }); } }, 50);
+  }
+  componentWillUnmount() { clearInterval(this.t); }
+  renderVals() {
+    const G = window.GD;
+    const math = this.state.math ?? this.props.showMath ?? false;
+    const mode = this.state.mode ?? this.props.drivers ?? 'waterfall';
+    const seg = on => ({ bg: on ? 'var(--accent)' : 'transparent', w: on ? '600' : '500', c: on ? 'var(--foreground)' : 'var(--muted-foreground)' });
+    const base = {
+      math, toggleMath: () => this.setState({ math: !math }), mathBg: math ? 'var(--accent)' : 'transparent', mathBd: math ? 'var(--foreground)' : 'var(--input)',
+      sWf: seg(mode !== 'bars'), sBars: seg(mode === 'bars'), setWf: () => this.setState({ mode: 'waterfall' }), setBars: () => this.setState({ mode: 'bars' }),
+      starred: this.state.star, notStarred: !this.state.star, toggleStar: () => this.setState({ star: !this.state.star }),
+      wxForecast: (this.props.weather ?? 'forecast') === 'forecast', wxDome: this.props.weather === 'dome', wxNone: this.props.weather === 'none',
+      drvCaption: mode === 'bars'
+        ? "Each bar starts at zero so sizes compare directly. Texas's passing is the biggest single factor."
+        : "Each bar starts where the last ended. Texas's passing puts it up 3.8, Oklahoma's offense takes back 4.0, and small extras leave Texas ahead by just 1.3.",
+    };
+    if (!G) return { ...base, wf: { rows: [], ticks: [], total: {} }, d: { ticks: [] }, sp: { p0: {}, p1: {}, p2: {}, p3: {} }, lh: { yt: [], dots: [] }, gp: { ticks: [] }, units: { texBall: [], ouBall: [], offense: [] }, form: [], h2h: [] };
+    const wf = G.waterfall(mode);
+    wf.rows = wf.rows.map(r => ({ ...r, runTxt: mode === 'bars' ? '' : r.runTxt }));
+    const d = G.dist(330, 206);
+    const s = G.spark(160, 46);
+    return {
+      ...base, wf,
+      d: { ...d, topLine: d.top - 12, modelLblX: +d.modelX - 5, mktLblX: +d.mktX + 5 },
+      sp: { line: s.line, p0: s.pts[0], p1: s.pts[1], p2: s.pts[2], p3: s.pts[3] },
+      lh: (() => { const h = G.history(330, 184, 'full'); return { ...h, labX: h.L - 8, kickTop: h.T - 6 }; })(),
+      gp: G.gap(), units: G.unitRows, form: G.form, h2h: G.h2h,
+    };
+  }
+}
+</script>
+</body>
+</html>

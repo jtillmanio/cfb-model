@@ -1,0 +1,611 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet><style id="dc-token-fallback">:root{--background:#0c0f12;--foreground:#eef0f3;--card:#13161a;--card-foreground:#eef0f3;--popover:#1b1e23;--popover-foreground:#eef0f3;--primary:#e5e8ec;--primary-foreground:#13161a;--secondary:#23272b;--secondary-foreground:#eef0f3;--muted:#1d2125;--muted-foreground:#9fa5ad;--accent:#262a30;--accent-foreground:#eef0f3;--destructive:#ef6661;--destructive-foreground:#0c0f12;--border:#2a2e33;--input:#5f646a;--ring:#67aaed;--edge:#b699eb;--edge-foreground:#0c0f12;--pos:#68b5f5;--neg:#f19a4b;--push:#a7abb1;--tier-a:#bd9ff2;--tier-a-foreground:#0c0f12;--tier-b:#8a70b8;--tier-b-foreground:#0c0f12;--tier-c:#392a51;--tier-c-foreground:#d7c9f3;--live:#52cd86;--locked:#91969b;--breakeven:#c9ced4;--chart-1:#4fa6e9;--chart-2:#e38d3d;--chart-3:#aa8dde;--chart-4:#39bab4;--chart-5:#87909c}</style><link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&amp;family=IBM+Plex+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet"><script src="./contest-data.js"></script><style>a{color:var(--pos)}a:hover{color:var(--foreground)}</style></helmet>
+<div data-screen-label="Contest · desktop" style="width:1440px;min-height:900px;box-sizing:border-box;display:grid;grid-template-columns:224px minmax(0,1fr);background:var(--background);color:var(--foreground);font-family:'IBM Plex Sans',ui-sans-serif,system-ui,sans-serif;font-size:14px;line-height:20px;font-variant-numeric:tabular-nums lining-nums">
+
+<aside style="display:flex;flex-direction:column;gap:16px;padding:12px;background:var(--card);border-right:1px solid var(--border)">
+<div style="display:flex;align-items:center;gap:10px;height:32px;padding:0 6px"><span style="width:24px;height:24px;border-radius:6px;background:var(--foreground);color:var(--background);display:flex;align-items:center;justify-content:center;font:700 11px/1 'IBM Plex Mono',monospace;flex:none">CF</span><span style="font-size:14px;font-weight:600;letter-spacing:-0.005em">CFB Model</span></div>
+<div style="display:flex;align-items:center;gap:8px;height:32px;padding:0 10px;border:1px solid var(--input);border-radius:6px;font-size:13px;font-weight:600;cursor:pointer"><span style="width:8px;height:8px;border-radius:50%;background:var(--live);flex:none"></span><span style="flex:1">College football</span><span style="display:inline-block;width:14px;height:14px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/chevrons-up-down.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/chevrons-up-down.svg) center/contain no-repeat;color:var(--muted-foreground)"></span></div>
+<nav style="display:flex;flex-direction:column;gap:2px">
+<span style="display:flex;align-items:center;gap:10px;height:34px;padding:0 10px;border-radius:6px;font-size:13px;font-weight:500;color:var(--muted-foreground);cursor:pointer" style-hover="background:var(--muted);color:var(--foreground)"><span style="display:inline-block;width:16px;height:16px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/calendar-days.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/calendar-days.svg) center/contain no-repeat"></span>This Week</span>
+<span style="display:flex;align-items:center;gap:10px;height:34px;padding:0 10px;border-radius:6px;font-size:13px;font-weight:500;color:var(--muted-foreground);cursor:pointer" style-hover="background:var(--muted);color:var(--foreground)"><span style="display:inline-block;width:16px;height:16px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/target.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/target.svg) center/contain no-repeat"></span><span style="flex:1">Picks</span><span style="font-size:12px">14</span></span>
+<span style="display:flex;align-items:center;gap:10px;height:34px;padding:0 10px;border-radius:6px;background:var(--accent);font-size:13px;font-weight:600"><span style="display:inline-block;width:16px;height:16px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/trophy.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/trophy.svg) center/contain no-repeat"></span><span style="flex:1">Contest</span><span style="font-size:12px;font-weight:500;color:var(--muted-foreground)">{{ navCount }}</span></span>
+<span style="display:flex;align-items:center;gap:10px;height:34px;padding:0 10px;border-radius:6px;font-size:13px;font-weight:500;color:var(--muted-foreground);cursor:pointer" style-hover="background:var(--muted);color:var(--foreground)"><span style="display:inline-block;width:16px;height:16px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/list-ordered.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/list-ordered.svg) center/contain no-repeat"></span>Rankings</span>
+<span style="display:flex;align-items:center;gap:10px;height:34px;padding:0 10px;border-radius:6px;font-size:13px;font-weight:500;color:var(--muted-foreground);cursor:pointer" style-hover="background:var(--muted);color:var(--foreground)"><span style="display:inline-block;width:16px;height:16px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/shield.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/shield.svg) center/contain no-repeat"></span>Teams</span>
+<span style="display:flex;align-items:center;gap:10px;height:34px;padding:0 10px;border-radius:6px;font-size:13px;font-weight:500;color:var(--muted-foreground);cursor:pointer" style-hover="background:var(--muted);color:var(--foreground)"><span style="display:inline-block;width:16px;height:16px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/activity.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/activity.svg) center/contain no-repeat"></span>Performance</span>
+<span style="display:flex;align-items:center;gap:10px;height:34px;padding:0 10px;border-radius:6px;font-size:13px;font-weight:500;color:var(--muted-foreground);cursor:pointer" style-hover="background:var(--muted);color:var(--foreground)"><span style="display:inline-block;width:16px;height:16px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/flask-conical.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/flask-conical.svg) center/contain no-repeat"></span>Lab</span>
+</nav>
+<div style="flex:1"></div>
+<div style="display:flex;flex-direction:column;gap:6px;padding:12px;border:1px solid var(--border);border-radius:8px;background:var(--background)">
+<span style="font-size:12px;line-height:16px;color:var(--muted-foreground)">Model · 2026 live</span>
+<span style="display:flex;align-items:baseline;gap:8px"><span style="font-size:16px;font-weight:600">31-24-1</span><span style="font-size:13px">56.4%</span></span>
+<span style="display:flex;align-items:center;gap:8px;font-size:12px;line-height:16px"><span style="color:var(--pos);font-weight:600">+4.6u</span><span style="color:var(--muted-foreground)">CLV +0.9</span><span style="flex:1"></span><span style="color:var(--muted-foreground)">Track record</span></span>
+</div>
+<div style="display:flex;flex-direction:column;gap:2px;padding-top:8px;border-top:1px solid var(--border)">
+<span style="display:flex;align-items:center;gap:10px;height:34px;padding:0 10px;border-radius:6px;font-size:13px;font-weight:500;color:var(--muted-foreground)"><span style="display:inline-block;width:16px;height:16px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/settings.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/settings.svg) center/contain no-repeat"></span>Settings</span>
+<span style="display:flex;align-items:center;gap:10px;height:34px;padding:0 10px;border-radius:6px;font-size:13px;font-weight:500"><span style="width:20px;height:20px;border-radius:50%;background:var(--secondary);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;flex:none">JD</span><span style="flex:1">Account</span></span>
+</div>
+</aside>
+
+<main style="min-width:0;display:flex;flex-direction:column">
+<div style="display:flex;align-items:center;gap:12px;height:56px;padding:0 24px;border-bottom:1px solid var(--border);box-sizing:border-box;flex:none">
+<span style="display:inline-flex;align-items:center;height:32px;border:1px solid var(--input);border-radius:6px;overflow:hidden;box-sizing:border-box;flex:none"><span style="display:inline-flex;align-items:center;justify-content:center;width:30px;height:100%;border-right:1px solid var(--border)"><span style="display:inline-block;width:14px;height:14px;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/chevron-left.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/chevron-left.svg) center/contain no-repeat"></span></span><span style="display:inline-flex;align-items:center;gap:6px;height:100%;padding:0 12px;font-size:13px;font-weight:600;white-space:nowrap">2026 · Week 6<span style="display:inline-block;width:14px;height:14px;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/chevron-down.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/chevron-down.svg) center/contain no-repeat;color:var(--muted-foreground)"></span></span><span style="display:inline-flex;align-items:center;justify-content:center;width:30px;height:100%;border-left:1px solid var(--border)"><span style="display:inline-block;width:14px;height:14px;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/chevron-right.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/chevron-right.svg) center/contain no-repeat"></span></span></span>
+<span style="display:inline-flex;align-items:center;gap:8px;height:32px;padding:0 10px;border-radius:6px;border:1px solid var(--input);width:320px;box-sizing:border-box;font-size:13px;color:var(--muted-foreground)"><span style="display:inline-block;width:14px;height:14px;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/search.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/search.svg) center/contain no-repeat"></span><span style="flex:1">Search teams</span><span style="display:inline-flex;align-items:center;height:20px;padding:0 6px;border-radius:4px;border:1px solid var(--border);background:var(--muted);font:500 11px 'IBM Plex Mono',monospace">⌘K</span></span>
+<span style="flex:1"></span>
+<span style="display:inline-flex;align-items:center;gap:6px;font-size:12px;line-height:16px;color:var(--muted-foreground)"><span style="display:inline-block;width:12px;height:12px;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/clock.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/clock.svg) center/contain no-repeat"></span>{{ nowLbl }} ET</span>
+<span style="position:relative;display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:6px;border:1px solid var(--input);box-sizing:border-box"><span style="display:inline-block;width:16px;height:16px;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/bell.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/bell.svg) center/contain no-repeat"></span><span style="position:absolute;top:-5px;right:-5px;min-width:16px;height:16px;padding:0 4px;box-sizing:border-box;border-radius:8px;background:var(--foreground);color:var(--background);font-size:12px;line-height:16px;font-weight:700;text-align:center;box-shadow:0 0 0 2px var(--background)">1</span></span>
+</div>
+
+<div style="flex:1;display:flex;min-height:0">
+<div style="flex:1;min-width:0;display:flex;flex-direction:column">
+
+<div style="display:flex;align-items:center;gap:24px;padding:16px 24px 12px">
+<div style="display:flex;flex-direction:column;gap:2px;min-width:0">
+<div style="display:flex;align-items:center;gap:10px"><h1 style="margin:0;font-size:24px;line-height:32px;font-weight:600;letter-spacing:-0.005em">Contest</h1><span style="display:inline-flex;align-items:center;gap:6px;height:26px;padding:0 8px 0 10px;border:1px solid var(--border);border-radius:6px;font-size:13px;font-weight:500;cursor:pointer">Splash work league<span style="display:inline-block;width:14px;height:14px;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/chevron-down.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/chevron-down.svg) center/contain no-repeat;color:var(--muted-foreground)"></span></span></div>
+<span style="font-size:12px;line-height:16px;color:var(--muted-foreground);white-space:nowrap">Week 6 · Pick 4 · CFB + NFL · each game locks at its kickoff · 1 pt per correct pick · push = 0</span>
+</div>
+<span style="flex:1"></span>
+<div onClick="{{ goResults }}" style="display:flex;align-items:center;gap:12px;height:40px;padding:0 14px;border:1px solid var(--border);border-radius:6px;background:var(--card);box-sizing:border-box;cursor:pointer;white-space:nowrap" style-hover="border-color:var(--input)">
+<span style="font-size:12px;color:var(--muted-foreground)">Season</span>
+<span style="display:flex;align-items:baseline;gap:5px"><span style="font-size:14px;font-weight:600">12-8</span><span style="font-size:12px;color:var(--muted-foreground)">you</span></span>
+<span style="width:1px;height:16px;background:var(--border)"></span>
+<span style="display:flex;align-items:baseline;gap:5px"><span style="font-size:14px;font-weight:600">11-9</span><span style="font-size:12px;color:var(--muted-foreground)">model top 4</span></span>
+<span style="width:1px;height:16px;background:var(--border)"></span>
+<span style="display:flex;align-items:baseline;gap:5px"><span style="font-size:14px;font-weight:600">3rd</span><span style="font-size:12px;color:var(--muted-foreground)">of 14</span></span>
+<span style="display:inline-block;width:14px;height:14px;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/chevron-right.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/chevron-right.svg) center/contain no-repeat;color:var(--muted-foreground)"></span>
+</div>
+</div>
+
+<div style="display:flex;align-items:center;gap:8px;padding:0 24px 12px">
+<span style="display:inline-flex;height:30px;border:1px solid var(--input);border-radius:6px;overflow:hidden;box-sizing:border-box;flex:none;font-size:13px">
+<span onClick="{{ goPicks }}" style="display:flex;align-items:center;gap:6px;padding:0 12px;cursor:pointer;background:{{ tP.bg }};font-weight:{{ tP.w }};color:{{ tP.c }}">This week's picks</span>
+<span onClick="{{ goResults }}" style="display:flex;align-items:center;padding:0 12px;border-left:1px solid var(--input);cursor:pointer;background:{{ tR.bg }};font-weight:{{ tR.w }};color:{{ tR.c }}">Results &amp; standing</span>
+<span onClick="{{ goSettings }}" style="display:flex;align-items:center;padding:0 12px;border-left:1px solid var(--input);cursor:pointer;background:{{ tS.bg }};font-weight:{{ tS.w }};color:{{ tS.c }}">Rules</span>
+</span>
+<span style="flex:1"></span>
+<sc-if value="{{ isSlate }}" hint-placeholder-val="{{ false }}">
+<span style="display:flex;align-items:center;gap:10px">
+<span style="font-size:12px;line-height:16px;color:var(--muted-foreground);white-space:nowrap">From Splash paste · Thu 9:10 PM · 10 games</span>
+<span onClick="{{ goEmpty }}" style="display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 11px;border-radius:6px;border:1px solid var(--input);font-size:13px;font-weight:500;box-sizing:border-box;cursor:pointer;white-space:nowrap" style-hover="background:var(--accent)"><span style="display:inline-block;width:14px;height:14px;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/clipboard-paste.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/clipboard-paste.svg) center/contain no-repeat"></span>Re-paste to update lines</span>
+<span style="display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 11px;border-radius:6px;border:1px solid var(--border);font-size:13px;font-weight:500;box-sizing:border-box;cursor:pointer;color:var(--muted-foreground);white-space:nowrap" style-hover="background:var(--accent);color:var(--foreground)"><span style="display:inline-block;width:14px;height:14px;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/plus.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/plus.svg) center/contain no-repeat"></span>Add game</span>
+</span>
+</sc-if>
+</div>
+
+<sc-if value="{{ isEmpty }}" hint-placeholder-val="{{ false }}">
+<div style="display:flex;justify-content:center;padding:12px 24px 40px">
+<div style="width:100%;max-width:880px;display:flex;flex-direction:column;gap:14px">
+<div style="display:flex;flex-direction:column;gap:20px;padding:28px;background:var(--card);border:1px solid var(--border);border-radius:8px">
+<div style="display:flex;align-items:flex-start;gap:16px">
+<span style="width:44px;height:44px;border-radius:8px;background:var(--muted);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;flex:none"><span style="display:inline-block;width:22px;height:22px;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/clipboard-paste.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/clipboard-paste.svg) center/contain no-repeat"></span></span>
+<div style="display:flex;flex-direction:column;gap:4px;min-width:0"><h2 style="margin:0;font-size:24px;line-height:30px;font-weight:600">Paste from Splash</h2><span style="font-size:14px;line-height:21px;color:var(--muted-foreground);text-wrap:pretty;max-width:620px">No Week 6 slate yet. Paste the contest page and we'll match every team, read each spread and kickoff, and rank the games against the contest's own lines.</span></div>
+</div>
+<div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px">
+<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--border);border-radius:8px"><span style="width:22px;height:22px;border-radius:50%;background:var(--secondary);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex:none">1</span><span style="font-size:13px;line-height:18px">Open the league's <b style="font-weight:600">Pick against the spread</b> page on Splash</span></div>
+<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--border);border-radius:8px"><span style="width:22px;height:22px;border-radius:50%;background:var(--secondary);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex:none">2</span><span style="font-size:13px;line-height:18px">Select all <span style="font:500 12px 'IBM Plex Mono',monospace;padding:1px 5px;border:1px solid var(--border);border-radius:4px;background:var(--muted)">⌘A</span> and copy <span style="font:500 12px 'IBM Plex Mono',monospace;padding:1px 5px;border:1px solid var(--border);border-radius:4px;background:var(--muted)">⌘C</span></span></div>
+<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--border);border-radius:8px"><span style="width:22px;height:22px;border-radius:50%;background:var(--secondary);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex:none">3</span><span style="font-size:13px;line-height:18px">Click the box below and paste <span style="font:500 12px 'IBM Plex Mono',monospace;padding:1px 5px;border:1px solid var(--border);border-radius:4px;background:var(--muted)">⌘V</span></span></div>
+</div>
+<div style="position:relative;height:280px;border:2px dashed var(--input);border-radius:8px;background:var(--background);overflow:hidden" style-hover="border-color:var(--ring)">
+<textarea onPaste="{{ onPaste }}" placeholder="Pick against the spread&#10;Picks lock:&#10;Sun, Oct 11, 2026, 8:20 PM&#10;PICKS&#10;PTS&#10;STATUS&#10;GAME DETAILS&#10;Friday, Oct 9&#10;UNLV&#10;Boise State&#10;Preview&#10;Fri 8:00pm&#10;…" style="position:absolute;inset:0;width:100%;height:100%;box-sizing:border-box;padding:16px 18px;border:0;outline:none;resize:none;background:transparent;color:var(--foreground);font:400 12px/18px 'IBM Plex Mono',monospace"></textarea>
+<div style="position:absolute;right:18px;bottom:18px;display:flex;flex-direction:column;align-items:flex-end;gap:8px;pointer-events:none">
+<span style="display:flex;align-items:center;gap:8px;pointer-events:auto"><span onClick="{{ goParse }}" style="display:inline-flex;align-items:center;gap:8px;height:40px;padding:0 16px;border-radius:6px;background:var(--primary);color:var(--primary-foreground);font-size:14px;font-weight:600;cursor:pointer"><span style="display:inline-block;width:16px;height:16px;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/clipboard-paste.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/clipboard-paste.svg) center/contain no-repeat"></span>Paste from clipboard</span></span>
+<span style="font-size:12px;line-height:16px;color:var(--muted-foreground)">or click anywhere in the box and press ⌘V</span>
+</div>
+</div>
+<div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px;font-size:12px;line-height:18px">
+<div style="display:flex;gap:8px"><span style="display:inline-block;width:14px;height:14px;margin-top:2px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/check.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/check.svg) center/contain no-repeat;color:var(--pos)"></span><span style="text-wrap:pretty"><b style="font-weight:600">We read</b> <span style="color:var(--muted-foreground)">team names, each side's spread, kickoff day and time, and the "Picks lock" deadline. Sport is inferred (Splash shows NFL teams by nickname).</span></span></div>
+<div style="display:flex;gap:8px"><span style="display:inline-block;width:14px;height:14px;margin-top:2px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/minus.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/minus.svg) center/contain no-repeat;color:var(--muted-foreground)"></span><span style="text-wrap:pretty"><b style="font-weight:600">We skip</b> <span style="color:var(--muted-foreground)">totals (Over/Under), team records, AP ranks, scores of finished games and the page's column headers.</span></span></div>
+</div>
+</div>
+<div style="display:flex;align-items:center;gap:12px;padding:12px 16px;border:1px solid var(--border);border-radius:8px">
+<span style="font-size:13px;color:var(--muted-foreground)">Contest not on Splash, or a game missing?</span>
+<span style="display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 12px;border-radius:6px;border:1px solid var(--input);font-size:13px;font-weight:500;box-sizing:border-box;cursor:pointer" style-hover="background:var(--accent)"><span style="display:inline-block;width:14px;height:14px;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/plus.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/plus.svg) center/contain no-repeat"></span>Add game manually</span>
+<span style="flex:1"></span>
+<span onClick="{{ goSettings }}" style="font-size:12px;color:var(--muted-foreground);cursor:pointer">Rules: Splash preset · <span style="color:var(--foreground);text-decoration:underline;text-underline-offset:2px">Edit</span></span>
+</div>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ isParse }}" hint-placeholder-val="{{ false }}">
+<div style="display:flex;flex-direction:column;gap:12px;padding:0 24px 24px">
+<div style="display:flex;align-items:center;gap:16px;padding:12px 16px;background:var(--card);border:1px solid var(--border);border-radius:8px">
+<span style="display:flex;flex-direction:column;gap:2px;min-width:0">
+<span style="display:flex;align-items:center;gap:10px"><span style="font-size:14px;font-weight:600">Found 10 games</span><span style="font-size:13px;color:var(--muted-foreground)">Fri Oct 9 – Sun Oct 11 · 6 CFB · 4 NFL</span>
+<span style="display:inline-flex;align-items:center;gap:5px;height:22px;padding:0 8px;border-radius:999px;background:var(--secondary);font-size:12px;font-weight:600"><span style="display:inline-block;width:12px;height:12px;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/check.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/check.svg) center/contain no-repeat;color:var(--pos)"></span>{{ matchedTxt }}</span>
+<sc-if value="{{ unresolved }}" hint-placeholder-val="{{ true }}"><span style="display:inline-flex;align-items:center;gap:5px;height:22px;padding:0 8px;border-radius:999px;border:1px solid var(--neg);color:var(--neg);font-size:12px;font-weight:600;box-sizing:border-box"><span style="display:inline-block;width:12px;height:12px;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/circle-alert.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/circle-alert.svg) center/contain no-repeat"></span>1 needs a team</span></sc-if>
+</span>
+<span style="font-size:12px;line-height:16px;color:var(--muted-foreground)">Splash's "Picks lock: Sun, Oct 11, 8:20 PM" is read as the last kickoff — your rules lock each game at its own kickoff. Skipped: 10 totals · 20 records · 1 AP rank · page headers.</span>
+</span>
+<span style="flex:1"></span>
+<span onClick="{{ goEmpty }}" style="display:inline-flex;align-items:center;height:32px;padding:0 12px;border-radius:6px;font-size:13px;font-weight:500;color:var(--muted-foreground);cursor:pointer;white-space:nowrap" style-hover="background:var(--accent);color:var(--foreground)">Paste again</span>
+</div>
+
+<div style="display:grid;grid-template-columns:380px minmax(0,1fr);gap:12px;align-items:start">
+<div style="display:flex;flex-direction:column;background:var(--card);border:1px solid var(--border);border-radius:8px;overflow:hidden">
+<div style="display:flex;align-items:center;gap:8px;height:40px;padding:0 12px;border-bottom:1px solid var(--border)"><span style="font-size:13px;font-weight:600">Your paste</span><span style="font-size:12px;color:var(--muted-foreground)">{{ lineCount }} lines</span><span style="flex:1"></span><span style="display:flex;align-items:center;gap:10px;font-size:12px;line-height:14px;color:var(--muted-foreground)"><span style="display:flex;align-items:center;gap:4px"><span style="width:8px;height:8px;border-radius:2px;background:var(--foreground)"></span>read</span><span style="display:flex;align-items:center;gap:4px"><span style="width:8px;height:8px;border-radius:2px;background:var(--input)"></span>skipped</span></span></div>
+<div ref="{{ rawRef }}" style="height:612px;overflow:auto;padding:6px 0;font:400 12px/18px 'IBM Plex Mono',monospace">
+<sc-for list="{{ rawLines }}" as="l" hint-placeholder-count="30">
+<div style="display:grid;grid-template-columns:38px minmax(0,1fr) auto;column-gap:8px;height:18px;padding-right:10px;background:{{ l.bg }}">
+<span style="text-align:right;color:var(--muted-foreground);user-select:none">{{ l.n }}</span>
+<span style="white-space:pre;overflow:hidden;text-overflow:ellipsis;color:{{ l.color }};text-decoration:{{ l.deco }};text-underline-offset:3px">{{ l.t }}</span>
+<span style="font:500 10px/18px 'IBM Plex Sans',sans-serif;font-variant-numeric:tabular-nums;letter-spacing:.04em;text-transform:uppercase;color:{{ l.tagColor }}">{{ l.tag }}</span>
+</div>
+</sc-for>
+</div>
+</div>
+
+<div style="display:flex;flex-direction:column;background:var(--card);border:1px solid var(--border);border-radius:8px;overflow:hidden">
+<div style="display:flex;align-items:center;gap:8px;height:40px;padding:0 12px;border-bottom:1px solid var(--border)"><span style="font-size:13px;font-weight:600">Parsed slate</span><span style="font-size:12px;color:var(--muted-foreground)">Click a row to see where it came from</span><span style="flex:1"></span><span style="font-size:12px;color:var(--muted-foreground)">Market = consensus now</span></div>
+<div style="display:grid;grid-template-columns:58px 40px 96px minmax(0,1fr) 84px 110px 96px;column-gap:10px;align-items:center;height:30px;padding:0 12px;border-bottom:1px solid var(--border);font-size:12px;line-height:16px;font-weight:500;color:var(--muted-foreground)"><span>Source</span><span>Sport</span><span>Kickoff ET</span><span>Matchup</span><span style="text-align:right">Contest</span><span style="text-align:right">Market</span><span>Status</span></div>
+<sc-for list="{{ parsed }}" as="p" hint-placeholder-count="10">
+<sc-if value="{{ p.showOk }}" hint-placeholder-val="{{ true }}">
+<div onClick="{{ p.onSel }}" style="display:grid;grid-template-columns:58px 40px 96px minmax(0,1fr) 84px 110px 96px;column-gap:10px;align-items:center;height:56px;padding:0 12px;border-bottom:1px solid var(--border);box-sizing:border-box;cursor:pointer;background:{{ p.bg }}" style-hover="background:var(--accent)">
+<span style="font:500 11px 'IBM Plex Mono',monospace;color:var(--muted-foreground)">{{ p.src }}</span>
+<span style="justify-self:start;font-size:12px;line-height:16px;font-weight:600;letter-spacing:.04em;padding:0 4px;border-radius:4px;background:var(--secondary)">{{ p.sport }}</span>
+<span style="font-size:13px;white-space:nowrap">{{ p.kickLbl }}</span>
+<div style="display:flex;flex-direction:column;gap:2px;min-width:0">
+<span style="display:flex;align-items:center;gap:6px;min-width:0"><span style="width:16px;height:16px;border-radius:50%;flex:none;background:{{ p.a.color }};box-shadow:0 0 0 1px var(--border)"></span><span style="font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ p.a.n }}</span><span style="font-size:12px;color:var(--muted-foreground);white-space:nowrap">“{{ p.rawA }}”</span></span>
+<span style="display:flex;align-items:center;gap:6px;min-width:0"><span style="width:16px;height:16px;border-radius:50%;flex:none;background:{{ p.h.color }};box-shadow:0 0 0 1px var(--border)"></span><span style="font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ p.h.n }}</span><span style="font-size:12px;color:var(--muted-foreground);white-space:nowrap">“{{ p.rawH }}”</span><sc-if value="{{ p.isNeutral }}" hint-placeholder-val="{{ false }}"><span title="Neutral site, from our schedule" style="font-size:12px;line-height:14px;font-weight:600;padding:0 4px;border-radius:4px;border:1px solid var(--border);color:var(--muted-foreground);white-space:nowrap">{{ p.neutralTxt }}</span></sc-if></span>
+</div>
+<span style="text-align:right;font-size:13px;font-weight:600;white-space:nowrap">{{ p.contest }}</span>
+<span style="display:flex;flex-direction:column;align-items:flex-end;gap:1px;font-size:12px;line-height:16px;white-space:nowrap"><span>{{ p.mkt }}</span><sc-if value="{{ p.hasGap }}" hint-placeholder-val="{{ false }}"><span style="font-size:12px;color:var(--muted-foreground)">differs · {{ p.gapTxt }}</span></sc-if></span>
+<span style="display:flex;align-items:center;gap:5px;font-size:12px;font-weight:500;color:{{ p.stColor }}"><span style="display:inline-block;width:13px;height:13px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/{{ p.stIcon }}.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/{{ p.stIcon }}.svg) center/contain no-repeat"></span>{{ p.stTxt }}</span>
+</div>
+</sc-if>
+<sc-if value="{{ p.showFix }}" hint-placeholder-val="{{ false }}">
+<div onClick="{{ p.onSel }}" style="display:flex;flex-direction:column;border-bottom:1px solid var(--border);background:color-mix(in oklch, var(--neg) 7%, var(--card));box-shadow:inset 0 0 0 1px var(--neg)">
+<div style="display:grid;grid-template-columns:58px 40px 96px minmax(0,1fr) 84px 110px 96px;column-gap:10px;align-items:center;height:56px;padding:0 12px;box-sizing:border-box">
+<span style="font:500 11px 'IBM Plex Mono',monospace;color:var(--neg)">{{ p.src }}</span>
+<span style="justify-self:start;font-size:12px;line-height:16px;font-weight:600;padding:0 4px;border-radius:4px;border:1px dashed var(--input);color:var(--muted-foreground)">?</span>
+<span style="font-size:13px;white-space:nowrap">{{ p.kickLbl }}</span>
+<div style="display:flex;flex-direction:column;gap:2px;min-width:0">
+<span style="display:flex;align-items:center;gap:6px"><span style="width:16px;height:16px;border-radius:50%;flex:none;border:1px dashed var(--neg);box-sizing:border-box"></span><span style="font-size:13px;font-weight:500;color:var(--neg)">“Hou Texans”</span><span style="font-size:12px;color:var(--muted-foreground)">no match</span></span>
+<span style="display:flex;align-items:center;gap:6px"><span style="width:16px;height:16px;border-radius:50%;flex:none;border:1px dashed var(--neg);box-sizing:border-box"></span><span style="font-size:13px;font-weight:500;color:var(--neg)">“Jax”</span><span style="font-size:12px;color:var(--muted-foreground)">no match</span></span>
+</div>
+<span style="text-align:right;font-size:13px;font-weight:600;white-space:nowrap">−1 / +1</span>
+<span style="font-size:12px;color:var(--muted-foreground)">—</span>
+<span style="display:flex;align-items:center;gap:5px;font-size:12px;font-weight:600;color:var(--neg)"><span style="display:inline-block;width:13px;height:13px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/circle-alert.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/circle-alert.svg) center/contain no-repeat"></span>Needs team</span>
+</div>
+<div style="display:flex;flex-direction:column;gap:10px;padding:0 12px 14px 120px">
+<span style="font-size:12px;line-height:16px;color:var(--muted-foreground)">We couldn't match these two names. Pick the teams — the spread and kickoff were read fine.</span>
+<div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px;align-items:start">
+<div style="display:flex;flex-direction:column;gap:4px">
+<span style="font-size:12px;line-height:14px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--muted-foreground)">Away · “Hou Texans” · −1</span>
+<sc-if value="{{ fixAOpen }}" hint-placeholder-val="{{ true }}">
+<div style="display:flex;flex-direction:column;background:var(--popover);border:1px solid var(--ring);border-radius:6px;overflow:hidden;box-shadow:0 8px 24px rgba(0,0,0,.3)">
+<span style="display:flex;align-items:center;gap:8px;height:34px;padding:0 10px;border-bottom:1px solid var(--border)"><span style="display:inline-block;width:14px;height:14px;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/search.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/search.svg) center/contain no-repeat;color:var(--muted-foreground)"></span><span style="font-size:13px">Hou Texans</span><span style="width:1px;height:16px;background:var(--foreground)"></span></span>
+<sc-for list="{{ optsA }}" as="o" hint-placeholder-count="3">
+<span onClick="{{ o.onPick }}" style="display:flex;align-items:center;gap:8px;height:34px;padding:0 10px;cursor:pointer;background:{{ o.bg }}" style-hover="background:var(--accent)"><span style="width:16px;height:16px;border-radius:50%;flex:none;background:{{ o.color }};box-shadow:0 0 0 1px var(--border)"></span><span style="font-size:13px;font-weight:500">{{ o.n }}</span><span style="font-size:12px;color:var(--muted-foreground)">{{ o.lg }}</span><span style="flex:1"></span><sc-if value="{{ o.best }}" hint-placeholder-val="{{ false }}"><span style="font-size:12px;color:var(--muted-foreground)">best match · ↵</span></sc-if></span>
+</sc-for>
+</div>
+</sc-if>
+<sc-if value="{{ fixADone }}" hint-placeholder-val="{{ false }}">
+<span onClick="{{ reopenA }}" style="display:flex;align-items:center;gap:8px;height:34px;padding:0 10px;border:1px solid var(--input);border-radius:6px;background:var(--background);box-sizing:border-box;cursor:pointer"><span style="width:16px;height:16px;border-radius:50%;background:{{ fixA.color }};box-shadow:0 0 0 1px var(--border)"></span><span style="font-size:13px;font-weight:500">{{ fixA.n }}</span><span style="font-size:12px;color:var(--muted-foreground)">{{ fixA.lg }}</span><span style="flex:1"></span><span style="font-size:12px;color:var(--muted-foreground)">Change</span></span>
+</sc-if>
+</div>
+<div style="display:flex;flex-direction:column;gap:4px">
+<span style="font-size:12px;line-height:14px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--muted-foreground)">Home · “Jax” · +1</span>
+<span style="display:flex;align-items:center;gap:8px;height:34px;padding:0 10px;border:1px solid var(--input);border-radius:6px;background:var(--background);box-sizing:border-box"><span style="width:16px;height:16px;border-radius:50%;background:#006778;box-shadow:0 0 0 1px var(--border)"></span><span style="font-size:13px;font-weight:500">Jacksonville Jaguars</span><span style="font-size:12px;color:var(--muted-foreground)">NFL</span><span style="flex:1"></span><span style="font-size:12px;color:var(--muted-foreground)">Change</span></span>
+<span style="font-size:12px;line-height:14px;color:var(--muted-foreground)">Only NFL team playing Sun 1:00 PM with a “Jacksonville” name</span>
+</div>
+</div>
+<span onClick="{{ toggleRemember }}" style="display:flex;align-items:center;gap:8px;font-size:12px;line-height:16px;cursor:pointer;align-self:flex-start"><span style="width:16px;height:16px;border-radius:4px;border:1px solid {{ remBd }};background:{{ remBg }};color:var(--background);display:flex;align-items:center;justify-content:center;box-sizing:border-box"><span style="display:inline-block;width:12px;height:12px;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/check.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/check.svg) center/contain no-repeat"></span></span>Remember “Hou Texans” and “Jax” for future pastes</span>
+</div>
+</div>
+</sc-if>
+</sc-for>
+<div style="display:flex;align-items:center;gap:12px;padding:12px">
+<span style="flex:1;font-size:12px;line-height:16px;color:var(--muted-foreground);text-wrap:pretty">Re-pasting later only updates lines and kickoffs. Picks you've made keep the line they were locked in at.</span>
+<sc-if value="{{ unresolved }}" hint-placeholder-val="{{ true }}"><span onClick="{{ goSlate }}" style="display:inline-flex;align-items:center;height:36px;padding:0 12px;border-radius:6px;font-size:13px;font-weight:500;color:var(--muted-foreground);cursor:pointer;white-space:nowrap" style-hover="background:var(--accent);color:var(--foreground)">Skip it, confirm 9</span></sc-if>
+<span onClick="{{ confirm }}" style="display:inline-flex;align-items:center;gap:8px;height:36px;padding:0 16px;border-radius:6px;background:{{ cfBg }};color:{{ cfFg }};font-size:14px;font-weight:600;cursor:{{ cfCur }};white-space:nowrap"><span style="display:inline-block;width:15px;height:15px;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/check.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/check.svg) center/contain no-repeat"></span>Confirm 10 games</span>
+</div>
+</div>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ isSlate }}" hint-placeholder-val="{{ false }}">
+<div style="display:flex;flex-direction:column;gap:10px;padding:0 24px 24px">
+<div style="display:flex;align-items:center;gap:6px">
+<span style="display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 11px;border-radius:999px;border:1px solid var(--input);background:var(--accent);font-size:13px;font-weight:600;box-sizing:border-box">All<span style="color:var(--muted-foreground);font-weight:500">10</span></span>
+<span style="display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 11px;border-radius:999px;border:1px solid var(--border);font-size:13px;font-weight:500;box-sizing:border-box;cursor:pointer">CFB<span style="color:var(--muted-foreground)">6</span></span>
+<span style="display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 11px;border-radius:999px;border:1px solid var(--border);font-size:13px;font-weight:500;box-sizing:border-box;cursor:pointer">NFL<span style="color:var(--muted-foreground)">4</span></span>
+<span style="display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 11px;border-radius:999px;border:1px solid var(--border);font-size:13px;font-weight:500;box-sizing:border-box;cursor:pointer">Line ≠ market<span style="color:var(--muted-foreground)">7</span></span>
+<span style="flex:1"></span>
+<span style="font-size:12px;color:var(--muted-foreground)">Ranked by cover % against the contest line</span>
+</div>
+<div style="background:var(--card);border:1px solid var(--border);border-radius:8px;overflow:hidden">
+<div style="display:grid;grid-template-columns:36px minmax(0,1fr) 136px 80px 92px 84px 72px 96px;column-gap:8px;align-items:center;height:32px;padding:0 12px;border-bottom:1px solid var(--border);font-size:12px;line-height:16px;font-weight:500;color:var(--muted-foreground)">
+<span style="text-align:center">#</span><span>Matchup</span><span style="text-align:right;color:var(--foreground)">Contest · market</span><span style="text-align:right">Model</span><span style="text-align:right">Edge</span><span style="display:flex;align-items:center;justify-content:flex-end;gap:3px;color:var(--foreground)">Cover %<span style="display:inline-block;width:12px;height:12px;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/arrow-down.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/arrow-down.svg) center/contain no-repeat"></span></span><span>Locks in</span><span style="text-align:center">Pick</span>
+</div>
+<sc-for list="{{ rows }}" as="r" hint-placeholder-count="10">
+<sc-if value="{{ r.isCut }}" hint-placeholder-val="{{ false }}">
+<div style="display:flex;align-items:center;gap:10px;height:28px;padding:0 12px;border-bottom:1px solid var(--border);background:var(--background);box-sizing:border-box">
+<span style="display:flex;align-items:center;gap:4px;font-size:12px;line-height:14px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--edge);white-space:nowrap"><span style="display:inline-block;width:12px;height:12px;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/arrow-up.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/arrow-up.svg) center/contain no-repeat"></span>Model's top 4</span>
+<span style="flex:1;border-top:2px dashed var(--edge);opacity:.7"></span>
+<span style="display:flex;align-items:center;gap:8px;font-size:12px;line-height:16px;white-space:nowrap"><span style="color:var(--muted-foreground)">Next best</span><span style="font-weight:600">{{ r.cut.next }}</span><span style="color:var(--muted-foreground)">· {{ r.cut.gap }} · still above 50% break-even</span></span>
+</div>
+</sc-if>
+<sc-if value="{{ r.isLockHdr }}" hint-placeholder-val="{{ false }}">
+<div style="display:flex;align-items:center;gap:8px;height:28px;padding:0 12px 0 56px;border-bottom:1px solid var(--border);background:var(--background);box-sizing:border-box;color:var(--muted-foreground)"><span style="display:inline-block;width:12px;height:12px;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/lock.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/lock.svg) center/contain no-repeat"></span><span style="font-size:12px;line-height:16px;font-weight:600;letter-spacing:.04em;text-transform:uppercase">Locked</span><span style="font-size:12px;line-height:16px">kicked off · can't be picked or changed</span></div>
+</sc-if>
+<sc-if value="{{ r.isRow }}" hint-placeholder-val="{{ true }}">
+<div style="display:grid;grid-template-columns:36px minmax(0,1fr) 136px 80px 92px 84px 72px 96px;column-gap:8px;align-items:center;height:64px;padding:0 12px;border-bottom:1px solid var(--border);box-sizing:border-box;background:{{ r.rowBg }};color:{{ r.ink }}">
+<div style="display:flex;flex-direction:column;align-items:center;gap:4px">
+<sc-if value="{{ r.top4 }}" hint-placeholder-val="{{ false }}"><span style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;background:var(--edge);color:var(--edge-foreground);font-size:12px;font-weight:700">{{ r.rank }}</span></sc-if>
+<sc-if value="{{ r.midRank }}" hint-placeholder-val="{{ true }}"><span style="display:inline-flex;align-items:center;justify-content:center;height:22px;font-size:13px;font-weight:600;color:var(--muted-foreground)">{{ r.rank }}</span></sc-if>
+<sc-if value="{{ r.locked }}" hint-placeholder-val="{{ false }}"><span style="display:inline-flex;align-items:center;justify-content:center;height:22px"><span style="display:inline-block;width:14px;height:14px;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/lock.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/lock.svg) center/contain no-repeat"></span></span></sc-if>
+<span style="font-size:12px;line-height:14px;font-weight:600;letter-spacing:.04em;padding:0 4px;border-radius:4px;background:var(--secondary);color:var(--muted-foreground)">{{ r.sport }}</span>
+</div>
+<div style="display:flex;flex-direction:column;gap:4px;min-width:0">
+<div style="display:flex;align-items:center;gap:6px;height:24px;min-width:0"><span style="width:16px;height:16px;border-radius:50%;flex:none;background:{{ r.a.color }};box-shadow:0 0 0 1px var(--border);opacity:{{ r.logoOp }}"></span><span style="width:14px;text-align:right;font-size:12px;color:var(--muted-foreground);flex:none">{{ r.a.rank }}</span><span style="font-size:14px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.a.n }}</span></div>
+<div style="display:flex;align-items:center;gap:6px;height:24px;min-width:0"><span style="width:16px;height:16px;border-radius:50%;flex:none;background:{{ r.h.color }};box-shadow:0 0 0 1px var(--border);opacity:{{ r.logoOp }}"></span><span style="width:14px;text-align:right;font-size:12px;color:var(--muted-foreground);flex:none">{{ r.h.rank }}</span><span style="font-size:14px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.h.n }}</span><sc-if value="{{ r.isNeutral }}" hint-placeholder-val="{{ false }}"><span title="Neutral site · Dallas" style="font-size:12px;line-height:14px;font-weight:600;padding:0 4px;border-radius:4px;border:1px solid var(--border);color:var(--muted-foreground);flex:none">N</span></sc-if></div>
+</div>
+<div style="display:flex;flex-direction:column;align-items:flex-end;gap:3px;min-width:0">
+<span style="font-size:14px;line-height:18px;font-weight:600;white-space:nowrap">{{ r.contest }}</span>
+<span style="display:flex;align-items:center;gap:6px;font-size:12px;line-height:16px;white-space:nowrap"><span style="color:var(--muted-foreground)">mkt {{ r.mktNum }}</span><sc-if value="{{ r.hasGap }}" hint-placeholder-val="{{ false }}"><span title="{{ r.gapNote }}" style="display:inline-flex;align-items:center;gap:2px;height:16px;padding:0 4px;border-radius:4px;border:1px solid currentColor;color:{{ r.gapColor }};font-size:12px;font-weight:600;box-sizing:border-box">≠ {{ r.gapTxt }}</span></sc-if></span>
+</div>
+<span style="display:flex;flex-direction:column;align-items:flex-end;gap:2px">
+<sc-if value="{{ r.hasModel }}" hint-placeholder-val="{{ true }}"><span style="font-size:13px;font-weight:500;white-space:nowrap">{{ r.model }}</span></sc-if>
+<sc-if value="{{ r.noModel }}" hint-placeholder-val="{{ false }}"><span style="font-size:12px;line-height:15px;font-style:italic;color:var(--muted-foreground)">No model yet</span></sc-if>
+</span>
+<span style="display:flex;align-items:center;justify-content:flex-end;gap:5px;min-width:0;text-align:right">
+<sc-if value="{{ r.edgePick }}" hint-placeholder-val="{{ false }}"><span style="display:inline-flex;align-items:center;height:20px;padding:0 7px;border-radius:999px;background:var(--edge);color:var(--edge-foreground);font-size:12px;line-height:16px;font-weight:600;white-space:nowrap">{{ r.edgeTxt }}</span><span style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:4px;background:{{ r.tierBg }};color:{{ r.tierFg }};font-size:12px;font-weight:700;flex:none">{{ r.tier }}</span></sc-if>
+<sc-if value="{{ r.edgeLow }}" hint-placeholder-val="{{ false }}"><span style="display:flex;flex-direction:column;align-items:flex-end"><span style="font-size:12px;line-height:16px;color:var(--muted-foreground);white-space:nowrap">{{ r.edgeTxt }}</span><span style="font-size:12px;line-height:14px;color:var(--muted-foreground)">under 2.5</span></span></sc-if>
+<sc-if value="{{ r.noModel }}" hint-placeholder-val="{{ false }}"><span style="font-size:12px;line-height:14px;color:var(--muted-foreground);text-wrap:pretty">{{ r.nflGap }}</span></sc-if>
+</span>
+<span style="display:flex;flex-direction:column;align-items:flex-end;gap:3px">
+<span style="display:flex;align-items:center;gap:6px"><span style="min-width:30px;text-align:right;font-size:13px;font-weight:600;color:{{ r.coverInk }}">{{ r.cover }}</span><span style="position:relative;width:34px;height:4px;border-radius:2px;background:var(--secondary);overflow:hidden;flex:none"><span style="position:absolute;left:0;top:0;bottom:0;width:{{ r.coverW }};background:{{ r.coverFill }}"></span></span></span>
+<span style="font-size:12px;line-height:14px;color:var(--muted-foreground);white-space:nowrap">{{ r.coverSub }}</span>
+</span>
+<span style="display:flex;flex-direction:column;gap:2px">
+<sc-if value="{{ r.open }}" hint-placeholder-val="{{ true }}"><span style="font-size:13px;font-weight:{{ r.lockW }};color:{{ r.lockColor }};white-space:nowrap">{{ r.lockTxt }}</span></sc-if>
+<sc-if value="{{ r.locked }}" hint-placeholder-val="{{ false }}"><span style="font-size:12px;font-weight:600;white-space:nowrap">Locked</span></sc-if>
+<span style="font-size:12px;line-height:14px;color:var(--muted-foreground);white-space:nowrap">{{ r.kickLbl }}</span>
+</span>
+<sc-if value="{{ r.locked }}" hint-placeholder-val="{{ false }}"><div title="Kicked off — can't be picked" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;height:52px;border-radius:6px;background:repeating-linear-gradient(135deg, transparent 0 5px, var(--border) 5px 6px);color:var(--locked);font-size:12px;line-height:14px;font-weight:600;text-align:center"><span style="display:inline-block;width:14px;height:14px;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/lock.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/lock.svg) center/contain no-repeat"></span>{{ r.lockedPick }}</div></sc-if>
+<sc-if value="{{ r.open }}" hint-placeholder-val="{{ true }}">
+<div style="display:flex;flex-direction:column;gap:4px">
+<span onClick="{{ r.ba.onClick }}" title="{{ r.ba.title }}" style="position:relative;display:flex;align-items:center;justify-content:center;gap:4px;height:24px;border-radius:6px;border:1px solid {{ r.ba.bd }};background:{{ r.ba.bg }};color:{{ r.ba.fg }};font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:{{ r.ba.w }};opacity:{{ r.ba.op }};cursor:{{ r.ba.cur }};box-sizing:border-box;white-space:nowrap;user-select:none"><sc-if value="{{ r.ba.sel }}" hint-placeholder-val="{{ false }}"><span style="display:inline-block;width:12px;height:12px;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/check.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/check.svg) center/contain no-repeat"></span></sc-if>{{ r.ba.label }}<sc-if value="{{ r.ba.isModel }}" hint-placeholder-val="{{ false }}"><span style="position:absolute;top:-4px;right:-4px;width:8px;height:8px;border-radius:50%;background:var(--edge);box-shadow:0 0 0 2px var(--card)"></span></sc-if></span>
+<span onClick="{{ r.bh.onClick }}" title="{{ r.bh.title }}" style="position:relative;display:flex;align-items:center;justify-content:center;gap:4px;height:24px;border-radius:6px;border:1px solid {{ r.bh.bd }};background:{{ r.bh.bg }};color:{{ r.bh.fg }};font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:{{ r.bh.w }};opacity:{{ r.bh.op }};cursor:{{ r.bh.cur }};box-sizing:border-box;white-space:nowrap;user-select:none"><sc-if value="{{ r.bh.sel }}" hint-placeholder-val="{{ false }}"><span style="display:inline-block;width:12px;height:12px;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/check.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/check.svg) center/contain no-repeat"></span></sc-if>{{ r.bh.label }}<sc-if value="{{ r.bh.isModel }}" hint-placeholder-val="{{ false }}"><span style="position:absolute;top:-4px;right:-4px;width:8px;height:8px;border-radius:50%;background:var(--edge);box-shadow:0 0 0 2px var(--card)"></span></sc-if></span>
+</div>
+</sc-if>
+</div>
+</sc-if>
+</sc-for>
+<div style="display:flex;flex-wrap:wrap;align-items:center;gap:6px 16px;padding:10px 12px;font-size:12px;line-height:16px;color:var(--muted-foreground)">
+<span style="display:flex;align-items:center;gap:6px"><span style="width:8px;height:8px;border-radius:50%;background:var(--edge)"></span>Model's side</span>
+<span style="display:flex;align-items:center;gap:6px"><span style="display:inline-flex;height:14px;padding:0 3px;border-radius:4px;border:1px solid var(--pos);color:var(--pos);font-size:12px;font-weight:600;line-height:12px;box-sizing:border-box">≠</span>contest line better than market for the ranked side</span>
+<span style="display:flex;align-items:center;gap:6px"><span style="display:inline-flex;height:14px;padding:0 3px;border-radius:4px;border:1px solid var(--neg);color:var(--neg);font-size:12px;font-weight:600;line-height:12px;box-sizing:border-box">≠</span>worse</span>
+<span>~ = market-implied (NFL, no model yet)</span>
+<span>Tap a side to pick · tap it again to clear · tap the other side to switch</span>
+</div>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ isResults }}" hint-placeholder-val="{{ false }}">
+<div style="display:flex;flex-direction:column;gap:16px;padding:0 24px 32px">
+<div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px">
+<div style="display:flex;flex-direction:column;gap:6px;padding:14px 16px;background:var(--card);border:1px solid var(--border);border-radius:8px"><span style="font-size:12px;line-height:16px;color:var(--muted-foreground)">You · season</span><span style="display:flex;align-items:baseline;gap:8px"><span style="font-size:28px;line-height:34px;font-weight:600">12-8</span><span style="font-size:14px">60.0%</span></span><span style="font-size:12px;line-height:16px;color:var(--muted-foreground)">Through Week 5 · break-even 50%</span></div>
+<div style="display:flex;flex-direction:column;gap:6px;padding:14px 16px;background:var(--card);border:1px solid var(--border);border-radius:8px"><span style="display:flex;align-items:center;gap:6px;font-size:12px;line-height:16px;color:var(--muted-foreground)"><span style="width:8px;height:8px;border-radius:50%;background:var(--edge)"></span>Model's top 4 · season</span><span style="display:flex;align-items:baseline;gap:8px"><span style="font-size:28px;line-height:34px;font-weight:600">11-9</span><span style="font-size:14px">55.0%</span></span><span style="font-size:12px;line-height:16px;color:var(--muted-foreground)">Same contest lines, same lock times</span></div>
+<div style="display:flex;flex-direction:column;gap:6px;padding:14px 16px;background:var(--card);border:1px solid var(--border);border-radius:8px"><span style="font-size:12px;line-height:16px;color:var(--muted-foreground)">You vs model</span><span style="display:flex;align-items:baseline;gap:8px"><span style="font-size:28px;line-height:34px;font-weight:600;color:var(--pos)">+1</span><span style="font-size:14px">pt</span></span><span style="font-size:12px;line-height:16px;color:var(--muted-foreground)">You won 3 weeks, model won 2</span></div>
+<div style="display:flex;flex-direction:column;gap:6px;padding:14px 16px;background:var(--card);border:1px solid var(--border);border-radius:8px">
+<span style="display:flex;align-items:center;gap:6px;font-size:12px;line-height:16px;color:var(--muted-foreground)">League standing<span style="font-size:12px;line-height:14px;font-weight:600;padding:0 4px;border-radius:4px;border:1px solid var(--border)">ENTERED BY HAND</span><span style="flex:1"></span><span onClick="{{ toggleLeague }}" style="color:var(--foreground);cursor:pointer;text-decoration:underline;text-underline-offset:2px">{{ leagueBtn }}</span></span>
+<sc-if value="{{ leagueView }}" hint-placeholder-val="{{ true }}"><span style="display:flex;align-items:baseline;gap:8px"><span style="font-size:28px;line-height:34px;font-weight:600">{{ league.placeTxt }}</span><span style="font-size:14px">of {{ league.of }}</span></span><span style="font-size:12px;line-height:16px;color:var(--muted-foreground)">{{ league.behindTxt }}</span></sc-if>
+<sc-if value="{{ leagueEdit }}" hint-placeholder-val="{{ false }}"><div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px">
+<label style="display:flex;flex-direction:column;gap:2px;font-size:12px;color:var(--muted-foreground)">Place<input type="number" value="{{ league.place }}" onChange="{{ setPlace }}" style="height:30px;padding:0 8px;border:1px solid var(--input);border-radius:6px;background:var(--background);color:var(--foreground);font:500 14px 'IBM Plex Sans',sans-serif;font-variant-numeric:tabular-nums;width:100%;box-sizing:border-box"></label>
+<label style="display:flex;flex-direction:column;gap:2px;font-size:12px;color:var(--muted-foreground)">Of<input type="number" value="{{ league.of }}" onChange="{{ setOf }}" style="height:30px;padding:0 8px;border:1px solid var(--input);border-radius:6px;background:var(--background);color:var(--foreground);font:500 14px 'IBM Plex Sans',sans-serif;font-variant-numeric:tabular-nums;width:100%;box-sizing:border-box"></label>
+<label style="display:flex;flex-direction:column;gap:2px;font-size:12px;color:var(--muted-foreground)">Pts back<input type="number" value="{{ league.behind }}" onChange="{{ setBehind }}" style="height:30px;padding:0 8px;border:1px solid var(--input);border-radius:6px;background:var(--background);color:var(--foreground);font:500 14px 'IBM Plex Sans',sans-serif;font-variant-numeric:tabular-nums;width:100%;box-sizing:border-box"></label>
+</div></sc-if>
+</div>
+</div>
+
+<div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.15fr);gap:16px;align-items:start">
+<div style="display:flex;flex-direction:column;background:var(--card);border:1px solid var(--border);border-radius:8px;overflow:hidden">
+<div style="display:flex;align-items:center;gap:10px;height:44px;padding:0 14px;border-bottom:1px solid var(--border)"><span style="font-size:14px;font-weight:600">This week so far</span><span style="font-size:12px;color:var(--muted-foreground)">Week 6 · 0 of 10 games final · 1 pt per correct pick, push 0</span></div>
+<div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);border-bottom:1px solid var(--border)">
+<div style="display:flex;align-items:baseline;gap:8px;padding:10px 14px;border-right:1px solid var(--border)"><span style="font-size:12px;color:var(--muted-foreground)">You</span><span style="font-size:28px;line-height:34px;font-weight:600">0</span><span style="font-size:13px;color:var(--muted-foreground)">pts</span><span style="flex:1"></span><span style="font-size:12px;color:var(--muted-foreground);white-space:nowrap">{{ tray.countTxt }} picked · all pending</span></div>
+<div style="display:flex;align-items:baseline;gap:8px;padding:10px 14px"><span style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted-foreground)"><span style="width:8px;height:8px;border-radius:50%;background:var(--edge)"></span>Model's top 4</span><span style="font-size:28px;line-height:34px;font-weight:600">0</span><span style="font-size:13px;color:var(--muted-foreground)">pts</span><span style="flex:1"></span><span style="font-size:12px;color:var(--muted-foreground);white-space:nowrap">4 pending</span></div>
+</div>
+<div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr)">
+<div style="display:flex;flex-direction:column;border-right:1px solid var(--border)">
+<span style="display:flex;align-items:center;height:30px;padding:0 14px;font-size:12px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--muted-foreground);border-bottom:1px solid var(--border)">You · {{ tray.countTxt }}</span>
+<sc-for list="{{ tray.items }}" as="t" hint-placeholder-count="2">
+<div style="display:flex;align-items:center;gap:8px;height:52px;padding:0 14px;border-bottom:1px solid var(--border)"><span style="width:18px;height:18px;border-radius:50%;flex:none;background:{{ t.team.color }};box-shadow:0 0 0 1px var(--border)"></span><span style="display:flex;flex-direction:column;min-width:0"><span style="font-size:14px;font-weight:600">{{ t.line }}</span><span style="font-size:12px;line-height:14px;color:var(--muted-foreground)">{{ t.kickLbl }}</span></span><span style="flex:1"></span><span style="font-size:12px;color:var(--muted-foreground)">pending</span></div>
+</sc-for>
+<sc-for list="{{ tray.slots }}" as="s" hint-placeholder-count="2">
+<div style="display:flex;align-items:center;height:52px;padding:0 14px;border-bottom:1px solid var(--border);font-size:12px;color:var(--muted-foreground);font-style:italic">Open slot</div>
+</sc-for>
+</div>
+<div style="display:flex;flex-direction:column">
+<span style="display:flex;align-items:center;gap:6px;height:30px;padding:0 14px;font-size:12px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--muted-foreground);border-bottom:1px solid var(--border)"><span style="width:8px;height:8px;border-radius:50%;background:var(--edge)"></span>Model's top 4</span>
+<sc-for list="{{ modelTop }}" as="m" hint-placeholder-count="4">
+<div style="display:flex;align-items:center;gap:8px;height:52px;padding:0 14px;border-bottom:1px solid var(--border)"><span style="width:18px;height:18px;border-radius:50%;flex:none;background:{{ m.team.color }};box-shadow:0 0 0 1px var(--border)"></span><span style="display:flex;flex-direction:column;min-width:0"><span style="font-size:14px;font-weight:600">{{ m.line }}</span><span style="font-size:12px;line-height:14px;color:var(--muted-foreground)">{{ m.kickLbl }} · {{ m.cover }}</span></span><span style="flex:1"></span><sc-if value="{{ m.shared }}" hint-placeholder-val="{{ false }}"><span style="font-size:12px;line-height:16px;font-weight:600;padding:0 6px;border-radius:999px;background:var(--secondary)">You too</span></sc-if><span style="font-size:12px;color:var(--muted-foreground)">pending</span></div>
+</sc-for>
+</div>
+</div>
+<span style="padding:10px 14px;font-size:12px;line-height:16px;color:var(--muted-foreground);text-wrap:pretty">The model's top 4 is frozen at each game's kickoff, using the same contest line you saw — so the comparison is fair.</span>
+</div>
+
+<div style="display:flex;flex-direction:column;background:var(--card);border:1px solid var(--border);border-radius:8px;overflow:hidden">
+<div style="display:flex;align-items:center;gap:12px;height:44px;padding:0 14px;border-bottom:1px solid var(--border)"><span style="font-size:14px;font-weight:600">Week by week</span><span style="flex:1"></span><span style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted-foreground)"><span style="width:14px;height:2px;background:var(--foreground)"></span>You</span><span style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted-foreground)"><span style="width:14px;height:0;border-top:2px dashed var(--edge)"></span>Model top 4</span></div>
+<div style="padding:14px 14px 6px">
+<svg viewBox="0 0 520 150" style="width:100%;height:150px;display:block;overflow:visible">
+<line x1="40" y1="130" x2="510" y2="130" style="stroke:var(--border)"></line>
+<line x1="40" y1="70" x2="510" y2="70" style="stroke:var(--border);stroke-dasharray:2 4"></line>
+<line x1="40" y1="10" x2="510" y2="10" style="stroke:var(--border);stroke-dasharray:2 4"></line>
+<line x1="40" y1="130" x2="510" y2="70" style="stroke:var(--breakeven);stroke-dasharray:4 4;opacity:.5"></line>
+<text x="32" y="134" style="fill:var(--muted-foreground);font-size:12px;text-anchor:end">0</text>
+<text x="32" y="74" style="fill:var(--muted-foreground);font-size:12px;text-anchor:end">10</text>
+<text x="32" y="14" style="fill:var(--muted-foreground);font-size:12px;text-anchor:end">20</text>
+<text x="510" y="64" style="fill:var(--muted-foreground);font-size:12px;text-anchor:end">50% pace</text>
+<polyline points="40,130 134,112 228,100 322,82 416,76 510,58" style="fill:none;stroke:var(--foreground);stroke-width:2;stroke-linejoin:round"></polyline>
+<polyline points="40,130 134,118 228,100 322,88 416,76 510,64" style="fill:none;stroke:var(--edge);stroke-width:2;stroke-dasharray:5 4;stroke-linejoin:round"></polyline>
+<circle cx="510" cy="58" r="3.5" style="fill:var(--foreground)"></circle><circle cx="510" cy="64" r="3.5" style="fill:var(--edge)"></circle>
+<text x="134" y="146" style="fill:var(--muted-foreground);font-size:12px;text-anchor:middle">W1</text><text x="228" y="146" style="fill:var(--muted-foreground);font-size:12px;text-anchor:middle">W2</text><text x="322" y="146" style="fill:var(--muted-foreground);font-size:12px;text-anchor:middle">W3</text><text x="416" y="146" style="fill:var(--muted-foreground);font-size:12px;text-anchor:middle">W4</text><text x="510" y="146" style="fill:var(--muted-foreground);font-size:12px;text-anchor:middle">W5</text>
+</svg>
+<span style="display:block;padding:2px 0 0 40px;font-size:12px;color:var(--muted-foreground)">Cumulative correct picks</span>
+</div>
+<div style="display:grid;grid-template-columns:56px repeat(4,minmax(0,1fr));column-gap:8px;align-items:center;height:30px;padding:0 14px;border-top:1px solid var(--border);border-bottom:1px solid var(--border);font-size:12px;font-weight:500;color:var(--muted-foreground)"><span>Week</span><span style="text-align:right">You</span><span style="text-align:right">Model top 4</span><span style="text-align:right">Week +/−</span><span style="text-align:right">Season lead</span></div>
+<sc-for list="{{ weeks }}" as="w" hint-placeholder-count="5">
+<div style="display:grid;grid-template-columns:56px repeat(4,minmax(0,1fr));column-gap:8px;align-items:center;height:36px;padding:0 14px;border-bottom:1px solid var(--border);font-size:13px"><span style="font-weight:500">{{ w.w }}</span><span style="text-align:right;font-weight:600">{{ w.you }}</span><span style="text-align:right">{{ w.model }}</span><span style="text-align:right;font-weight:600;color:{{ w.diffColor }}">{{ w.diff }}</span><span style="text-align:right;color:var(--muted-foreground)">{{ w.leadTxt }}</span></div>
+</sc-for>
+<div style="display:grid;grid-template-columns:56px repeat(4,minmax(0,1fr));column-gap:8px;align-items:center;height:38px;padding:0 14px;font-size:13px;font-weight:600"><span>Total</span><span style="text-align:right">12-8</span><span style="text-align:right">11-9</span><span style="text-align:right;color:var(--pos)">+1</span><span></span></div>
+</div>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ isSettings }}" hint-placeholder-val="{{ false }}">
+<div style="display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:16px;align-items:start;padding:0 24px 32px">
+<div style="display:flex;flex-direction:column;background:var(--card);border:1px solid var(--border);border-radius:8px;overflow:hidden">
+<div style="display:grid;grid-template-columns:200px minmax(0,1fr);gap:24px;padding:18px 20px;border-bottom:1px solid var(--border)">
+<span style="display:flex;flex-direction:column;gap:2px"><span style="font-size:14px;font-weight:600">Contest name</span></span>
+<span style="display:flex;align-items:center;height:36px;padding:0 12px;border:1px solid var(--input);border-radius:6px;background:var(--background);font-size:14px;max-width:360px;box-sizing:border-box">Splash work league</span>
+</div>
+<div style="display:grid;grid-template-columns:200px minmax(0,1fr);gap:24px;padding:18px 20px;border-bottom:1px solid var(--border)">
+<span style="display:flex;flex-direction:column;gap:2px"><span style="font-size:14px;font-weight:600">Preset</span><span style="font-size:12px;line-height:16px;color:var(--muted-foreground)">Fills every rule below. Change any rule and it becomes Custom.</span></span>
+<div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px">
+<sc-for list="{{ presets }}" as="p" hint-placeholder-count="3">
+<div onClick="{{ p.onClick }}" style="display:flex;flex-direction:column;gap:4px;padding:12px;border-radius:8px;border:1px solid {{ p.bd }};background:{{ p.bg }};cursor:pointer;box-shadow:{{ p.ring }}">
+<span style="display:flex;align-items:center;gap:8px"><span style="width:16px;height:16px;border-radius:50%;border:1px solid {{ p.dotBd }};box-sizing:border-box;display:flex;align-items:center;justify-content:center"><span style="width:8px;height:8px;border-radius:50%;background:{{ p.dot }}"></span></span><span style="font-size:14px;font-weight:600">{{ p.n }}</span></span>
+<span style="font-size:12px;line-height:16px;color:var(--muted-foreground);text-wrap:pretty">{{ p.d }}</span>
+</div>
+</sc-for>
+</div>
+</div>
+<div style="display:grid;grid-template-columns:200px minmax(0,1fr);gap:24px;padding:18px 20px;border-bottom:1px solid var(--border)">
+<span style="display:flex;flex-direction:column;gap:2px"><span style="font-size:14px;font-weight:600">Sports</span><span style="font-size:12px;line-height:16px;color:var(--muted-foreground)">Which games a paste can include</span></span>
+<div style="display:flex;flex-direction:column;gap:8px">
+<div style="display:flex;gap:8px">
+<span style="display:inline-flex;align-items:center;gap:8px;height:34px;padding:0 12px;border-radius:6px;border:1px solid var(--foreground);background:var(--accent);font-size:13px;font-weight:600;box-sizing:border-box"><span style="width:16px;height:16px;border-radius:4px;background:var(--foreground);color:var(--background);display:flex;align-items:center;justify-content:center"><span style="display:inline-block;width:12px;height:12px;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/check.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/check.svg) center/contain no-repeat"></span></span>College football</span>
+<span style="display:inline-flex;align-items:center;gap:8px;height:34px;padding:0 12px;border-radius:6px;border:1px solid var(--foreground);background:var(--accent);font-size:13px;font-weight:600;box-sizing:border-box"><span style="width:16px;height:16px;border-radius:4px;background:var(--foreground);color:var(--background);display:flex;align-items:center;justify-content:center"><span style="display:inline-block;width:12px;height:12px;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/check.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/check.svg) center/contain no-repeat"></span></span>NFL</span>
+</div>
+<span style="font-size:12px;line-height:16px;color:var(--muted-foreground)">NFL games have no model yet. They're ranked on the contest-vs-market gap only.</span>
+</div>
+</div>
+<div style="display:grid;grid-template-columns:200px minmax(0,1fr);gap:24px;padding:18px 20px;border-bottom:1px solid var(--border)">
+<span style="display:flex;flex-direction:column;gap:2px"><span style="font-size:14px;font-weight:600">Picks per week</span><span style="font-size:12px;line-height:16px;color:var(--muted-foreground)">Sets the cutoff line on the slate</span></span>
+<span style="display:inline-flex;align-items:center;height:36px;border:1px solid var(--input);border-radius:6px;overflow:hidden;align-self:start;justify-self:start;box-sizing:border-box">
+<span onClick="{{ picksDown }}" style="display:flex;align-items:center;justify-content:center;width:36px;height:100%;border-right:1px solid var(--border);cursor:pointer"><span style="display:inline-block;width:14px;height:14px;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/minus.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/minus.svg) center/contain no-repeat"></span></span>
+<span style="display:flex;align-items:center;justify-content:center;width:48px;font-size:14px;font-weight:600">{{ rules.picks }}</span>
+<span onClick="{{ picksUp }}" style="display:flex;align-items:center;justify-content:center;width:36px;height:100%;border-left:1px solid var(--border);cursor:pointer"><span style="display:inline-block;width:14px;height:14px;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/plus.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/plus.svg) center/contain no-repeat"></span></span>
+</span>
+</div>
+<sc-for list="{{ radioGroups }}" as="g" hint-placeholder-count="4">
+<div style="display:grid;grid-template-columns:200px minmax(0,1fr);gap:24px;padding:18px 20px;border-bottom:1px solid var(--border)">
+<span style="display:flex;flex-direction:column;gap:2px"><span style="font-size:14px;font-weight:600">{{ g.label }}</span><span style="font-size:12px;line-height:16px;color:var(--muted-foreground)">{{ g.help }}</span></span>
+<div style="display:flex;flex-direction:column;gap:2px">
+<sc-for list="{{ g.opts }}" as="o" hint-placeholder-count="3">
+<span onClick="{{ o.onClick }}" style="display:flex;align-items:center;gap:10px;min-height:36px;padding:4px 10px;margin:0 -10px;border-radius:6px;cursor:pointer" style-hover="background:var(--accent)"><span style="width:16px;height:16px;border-radius:50%;border:1px solid {{ o.bd }};box-sizing:border-box;display:flex;align-items:center;justify-content:center;flex:none"><span style="width:8px;height:8px;border-radius:50%;background:{{ o.dot }}"></span></span><span style="display:flex;flex-direction:column"><span style="font-size:14px;font-weight:{{ o.w }}">{{ o.n }}</span><span style="font-size:12px;line-height:16px;color:var(--muted-foreground)">{{ o.d }}</span></span></span>
+</sc-for>
+</div>
+</div>
+</sc-for>
+<div style="display:flex;align-items:center;gap:10px;padding:14px 20px;background:var(--background)">
+<span style="flex:1;font-size:12px;line-height:16px;color:var(--muted-foreground)">Changes apply from Week 6. Weeks 1–5 stay scored under the rules they were played with.</span>
+<span style="display:inline-flex;align-items:center;height:36px;padding:0 14px;border-radius:6px;border:1px solid var(--input);font-size:14px;font-weight:500;box-sizing:border-box;cursor:pointer">Cancel</span>
+<span style="display:inline-flex;align-items:center;height:36px;padding:0 16px;border-radius:6px;background:var(--primary);color:var(--primary-foreground);font-size:14px;font-weight:600;cursor:pointer">Save rules</span>
+</div>
+</div>
+<div style="display:flex;flex-direction:column;gap:12px;padding:16px;background:var(--card);border:1px solid var(--border);border-radius:8px">
+<span style="display:flex;align-items:center;gap:8px"><span style="font-size:14px;font-weight:600">This week, in plain English</span><span style="flex:1"></span><span style="font-size:12px;line-height:16px;font-weight:600;padding:0 6px;border-radius:999px;background:var(--secondary)">{{ presetName }}</span></span>
+<sc-for list="{{ summary }}" as="s" hint-placeholder-count="5">
+<span style="display:flex;gap:10px;font-size:13px;line-height:19px"><span style="display:inline-block;width:14px;height:14px;margin-top:3px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/{{ s.icon }}.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/{{ s.icon }}.svg) center/contain no-repeat;color:var(--muted-foreground)"></span><span style="text-wrap:pretty">{{ s.t }}</span></span>
+</sc-for>
+<span style="padding-top:10px;border-top:1px solid var(--border);font-size:12px;line-height:16px;color:var(--muted-foreground);text-wrap:pretty">This app tracks picks and ranks the slate. It never submits to Splash — enter your picks there too.</span>
+</div>
+</div>
+</sc-if>
+</div>
+
+<sc-if value="{{ isSlate }}" hint-placeholder-val="{{ false }}">
+<aside style="width:320px;flex:none;display:flex;flex-direction:column;gap:12px;padding:16px;background:var(--card);border-left:1px solid var(--border);box-sizing:border-box">
+<div style="display:flex;flex-direction:column;gap:8px">
+<span style="display:flex;align-items:baseline;gap:8px"><span style="font-size:16px;font-weight:600">Your picks</span><span style="flex:1"></span><span style="font-size:16px;font-weight:600">{{ tray.countTxt }}</span></span>
+<span style="display:grid;grid-template-columns:repeat(4,1fr);gap:4px"><sc-for list="{{ tray.segs }}" as="s" hint-placeholder-count="4"><span style="height:6px;border-radius:2px;background:{{ s.c }}"></span></sc-for></span>
+<span style="font-size:12px;line-height:16px;color:var(--muted-foreground)">{{ tray.sharedTxt }} · tap a side in the slate to add</span>
+<sc-if value="{{ hasFlash }}" hint-placeholder-val="{{ false }}"><span style="display:flex;align-items:center;gap:6px;padding:8px 10px;border-radius:6px;background:var(--popover);border:1px solid var(--neg);font-size:12px;line-height:16px"><span style="display:inline-block;width:13px;height:13px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/circle-alert.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/circle-alert.svg) center/contain no-repeat;color:var(--neg)"></span>{{ flash }}</span></sc-if>
+</div>
+<sc-for list="{{ tray.items }}" as="t" hint-placeholder-count="2">
+<div style="display:flex;flex-direction:column;gap:8px;padding:12px;background:var(--background);border:1px solid {{ t.bd }};border-radius:8px">
+<div style="display:flex;align-items:center;gap:8px">
+<span style="width:22px;height:22px;border-radius:50%;flex:none;background:{{ t.team.color }};box-shadow:0 0 0 1px var(--border)"></span>
+<span style="font-size:16px;line-height:24px;font-weight:600;white-space:nowrap">{{ t.line }}</span>
+<span style="flex:1"></span>
+<sc-if value="{{ t.match }}" hint-placeholder-val="{{ true }}"><span style="display:inline-flex;align-items:center;gap:4px;height:22px;padding:0 8px;border-radius:999px;background:var(--edge);color:var(--edge-foreground);font-size:12px;font-weight:600;white-space:nowrap"><span style="display:inline-block;width:12px;height:12px;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/check.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/check.svg) center/contain no-repeat"></span>{{ t.badge }}</span></sc-if>
+<sc-if value="{{ t.mismatch }}" hint-placeholder-val="{{ false }}"><span style="display:inline-flex;align-items:center;gap:4px;height:22px;padding:0 8px;border-radius:999px;border:1px dashed var(--foreground);font-size:12px;font-weight:600;white-space:nowrap;box-sizing:border-box"><span style="display:inline-block;width:12px;height:12px;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/user.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/user.svg) center/contain no-repeat"></span>{{ t.badge }}</span></sc-if>
+</div>
+<span style="font-size:12px;line-height:16px;color:var(--muted-foreground)">{{ t.matchup }} · {{ t.kickLbl }}</span>
+<span style="display:flex;align-items:center;gap:6px;font-size:12px;line-height:16px"><span style="display:inline-block;width:12px;height:12px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/lock.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/lock.svg) center/contain no-repeat;color:var(--muted-foreground)"></span><span>Locked in at <b style="font-weight:600">{{ t.line }}</b> · {{ t.at }}</span></span>
+<span style="display:flex;gap:6px;font-size:12px;line-height:16px;color:{{ t.whyColor }}"><span style="display:inline-block;width:12px;height:12px;margin-top:2px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/{{ t.whyIcon }}.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/{{ t.whyIcon }}.svg) center/contain no-repeat"></span><span style="text-wrap:pretty">{{ t.notTopTxt }}{{ t.whySep }}{{ t.why }}</span></span>
+<div style="display:flex;align-items:center;gap:6px;padding-top:8px;border-top:1px solid var(--border)">
+<span onClick="{{ t.onSwitch }}" style="display:inline-flex;align-items:center;gap:5px;height:28px;padding:0 9px;border-radius:6px;border:1px solid var(--input);font-size:12px;font-weight:500;box-sizing:border-box;cursor:pointer;white-space:nowrap" style-hover="background:var(--accent)"><span style="display:inline-block;width:12px;height:12px;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/arrow-left-right.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/arrow-left-right.svg) center/contain no-repeat"></span>{{ t.switchLbl }}</span>
+<span onClick="{{ t.onRemove }}" style="display:inline-flex;align-items:center;height:28px;padding:0 8px;border-radius:6px;font-size:12px;font-weight:500;color:var(--muted-foreground);cursor:pointer" style-hover="background:var(--accent);color:var(--foreground)">Remove</span>
+<span style="flex:1"></span>
+<span style="font-size:12px;line-height:14px;color:var(--muted-foreground);text-align:right;white-space:nowrap">open {{ t.lockTxt }}</span>
+</div>
+</div>
+</sc-for>
+<sc-if value="{{ canFill }}" hint-placeholder-val="{{ true }}"><span onClick="{{ fillModel }}" style="display:flex;align-items:center;justify-content:center;gap:6px;height:34px;border-radius:6px;border:1px solid var(--edge);font-size:13px;font-weight:600;cursor:pointer" style-hover="background:var(--accent)"><span style="width:8px;height:8px;border-radius:50%;background:var(--edge)"></span>{{ fillTxt }}</span></sc-if>
+<sc-for list="{{ tray.slots }}" as="s" hint-placeholder-count="2">
+<div style="display:flex;flex-direction:column;gap:6px;padding:10px 12px;border:1px dashed var(--input);border-radius:8px">
+<span style="font-size:12px;line-height:16px;color:var(--muted-foreground)">Open slot</span>
+<sc-if value="{{ s.hasS }}" hint-placeholder-val="{{ true }}"><span style="display:flex;align-items:center;gap:8px"><span style="width:16px;height:16px;border-radius:50%;flex:none;background:{{ s.s.team.color }};box-shadow:0 0 0 1px var(--border)"></span><span style="display:flex;flex-direction:column;min-width:0"><span style="font-size:14px;font-weight:600">{{ s.s.line }}</span><span style="font-size:12px;line-height:14px;color:var(--muted-foreground)">Model {{ s.s.rank }} · {{ s.s.cover }} · {{ s.s.kickLbl }}</span></span><span style="flex:1"></span><span onClick="{{ s.s.onAdd }}" style="display:inline-flex;align-items:center;gap:4px;height:28px;padding:0 10px;border-radius:6px;border:1px solid var(--edge);font-size:12px;font-weight:600;box-sizing:border-box;cursor:pointer" style-hover="background:var(--accent)"><span style="display:inline-block;width:12px;height:12px;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/plus.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/plus.svg) center/contain no-repeat"></span>Add</span></span></sc-if>
+</div>
+</sc-for>
+<span style="flex:1"></span>
+<div style="display:flex;flex-direction:column;gap:8px;padding-top:12px;border-top:1px solid var(--border)">
+<span style="font-size:12px;line-height:16px;color:var(--muted-foreground);text-wrap:pretty">Picks save the moment you tap. Each one can be switched or removed until its game kicks off.</span>
+<span style="display:inline-flex;align-items:center;justify-content:center;gap:6px;height:34px;border-radius:6px;border:1px solid var(--input);font-size:13px;font-weight:500;cursor:pointer" style-hover="background:var(--accent)"><span style="display:inline-block;width:14px;height:14px;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/copy.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/copy.svg) center/contain no-repeat"></span>Copy picks to enter on Splash</span>
+</div>
+</aside>
+</sc-if>
+</div>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1440,&quot;height&quot;:960},&quot;frame&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;empty&quot;,&quot;parse&quot;,&quot;slate&quot;,&quot;tray&quot;,&quot;results&quot;,&quot;settings&quot;],&quot;default&quot;:&quot;slate&quot;,&quot;tsType&quot;:&quot;'empty'|'parse'|'slate'|'tray'|'results'|'settings'&quot;},&quot;now&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;thu&quot;,&quot;fri&quot;],&quot;default&quot;:&quot;thu&quot;,&quot;tsType&quot;:&quot;'thu'|'fri'&quot;}}">
+class Component extends DCLogic {
+  state = { frame: null, picks: null, sel: 'hou', fixA: null, remember: true, flash: '', editLeague: false, league: null, rules: null, ready: !!window.CT };
+  rawRef = React.createRef();
+  componentDidMount() {
+    if (!window.CT) this.t = setInterval(() => { if (window.CT) { clearInterval(this.t); this.setState({ ready: true }); } }, 50);
+    this.scrollRaw();
+  }
+  componentDidUpdate() { this.scrollRaw(); }
+  componentWillUnmount() { clearInterval(this.t); clearTimeout(this.ft); }
+  scrollRaw() {
+    const el = this.rawRef.current, CT = window.CT;
+    if (!el || !CT || this._scrolled === this.state.sel) return;
+    const r = CT.ranges[this.state.sel]; if (!r) return;
+    el.scrollTop = Math.max(0, (r[0] - 5) * 18); this._scrolled = this.state.sel;
+  }
+  initPicks() { return { ou: { side: 'h', at: 'Thu 9:14 PM', ord: 1, line: 'OU +7' }, buf: { side: 'a', at: 'Thu 9:20 PM', ord: 2, line: 'BUF −3' } }; }
+  renderVals() {
+    const CT = window.CT;
+    const frame = this.state.frame ?? this.props.frame ?? 'slate';
+    const nowKey = this.props.now ?? (frame === 'slate' ? 'fri' : 'thu');
+    const tab = frame === 'results' ? 'results' : frame === 'settings' ? 'settings' : 'picks';
+    const seg = on => ({ bg: on ? 'var(--accent)' : 'transparent', w: on ? '600' : '500', c: on ? 'var(--foreground)' : 'var(--muted-foreground)' });
+    const go = f => () => { this._scrolled = null; this.setState({ frame: f }); };
+    const isSlate = frame === 'slate' || frame === 'tray';
+    const base = {
+      isEmpty: frame === 'empty', isParse: frame === 'parse', isSlate, isResults: frame === 'results', isSettings: frame === 'settings',
+      tP: seg(tab === 'picks'), tR: seg(tab === 'results'), tS: seg(tab === 'settings'),
+      goPicks: go('slate'), goResults: go('results'), goSettings: go('settings'), goEmpty: go('empty'), goParse: go('parse'), goSlate: go('slate'),
+      onPaste: (e) => { e && e.preventDefault && e.preventDefault(); this._scrolled = null; this.setState({ frame: 'parse' }); },
+      nowLbl: CT ? CT.NOW[nowKey].lbl : '', navCount: '',
+    };
+    if (!CT) return { ...base, rows: [], rawLines: [], parsed: [], tray: { items: [], slots: [], segs: [] }, weeks: [], modelTop: [], presets: [], radioGroups: [], summary: [], optsA: [], league: {}, rules: {}, fixA: {} };
+
+    const picks = this.state.picks ?? this.initPicks();
+    const nowLbl = CT.NOW[nowKey].lbl;
+    const flash = msg => { clearTimeout(this.ft); this.setState({ flash: msg }); this.ft = setTimeout(() => this.setState({ flash: '' }), 2600); };
+    const onPick = (id, side) => {
+      const p = { ...picks }, cur = p[id], g = CT.byId[id];
+      if (cur && cur.side === side) delete p[id];
+      else if (cur) p[id] = { ...cur, side, at: nowLbl, line: CT.sideLine(g, side) };
+      else {
+        if (Object.keys(p).length >= 4) return flash(`Tray is full — remove a pick to add ${CT.sideLine(g, side)}`);
+        p[id] = { side, at: nowLbl, ord: Date.now(), line: CT.sideLine(g, side) };
+      }
+      this.setState({ picks: p, flash: '' });
+    };
+    const remove = id => { const p = { ...picks }; delete p[id]; this.setState({ picks: p }); };
+
+    // Slate rows
+    const B = CT.build(nowKey, picks, onPick);
+    const dec = r => ({ ...r, isRow: true, isCut: false, isLockHdr: false, midRank: !r.top4 && !r.locked, logoOp: r.locked ? '.45' : '1', lockW: r.soon ? '600' : '500',
+      ba: { ...r.ba, title: r.locked ? 'Locked at kickoff' : r.ba.sel ? 'Tap to clear' : 'Pick ' + r.ba.label },
+      bh: { ...r.bh, title: r.locked ? 'Locked at kickoff' : r.bh.sel ? 'Tap to clear' : 'Pick ' + r.bh.label } });
+    const rows = [...B.above.map(dec), { isCut: true, cut: B.cut || {} }, ...B.below.map(dec), ...(B.hasLocked ? [{ isLockHdr: true }] : []), ...B.locked.map(dec)];
+
+    // Tray
+    const tr = CT.tray(nowKey, picks, { pick: onPick, remove });
+    tr.items = tr.items.map(t => ({ ...t, bd: t.match ? 'var(--border)' : 'var(--input)', whyColor: t.match ? 'var(--muted-foreground)' : 'var(--foreground)', whyIcon: t.match ? 'sparkles' : 'info', whySep: t.notTopTxt ? ' · ' : '' }));
+    const fillIds = tr.sugg.slice(0, tr.open).map(s => s.id);
+    const fillModel = () => { const p = { ...picks }; fillIds.forEach((id, i) => { const g = CT.byId[id]; p[id] = { side: g.side, at: nowLbl, ord: Date.now() + i, line: CT.sideLine(g, g.side) }; }); this.setState({ picks: p }); };
+    const fillTxt = tr.n === 0 ? "Use the model's top 4" : `Fill ${fillIds.length} open slot${fillIds.length === 1 ? '' : 's'} with model's picks`;
+    const modelTop = tr.top4.map(g => ({ line: CT.sideLine(g, g.side), team: g.side === 'a' ? g.a : g.h, kickLbl: g.kickLbl, cover: g.cover + '%', shared: !!(picks[g.id] && picks[g.id].side === g.side) }));
+
+    // Raw paste + parse
+    const sel = this.state.sel;
+    const fixA = this.state.fixA != null ? CT.aliasOpts.a[this.state.fixA] : null;
+    const fixed = !!fixA && fixA.n === 'Houston Texans';
+    const rawLines = CT.lines.map(l => {
+      const inSel = l.gid === sel, cap = CT.captured(l.kind);
+      return { n: l.n, t: l.t || ' ', bg: inSel ? 'var(--accent)' : 'transparent',
+        color: l.bad && !fixed ? 'var(--neg)' : cap ? 'var(--foreground)' : 'var(--input)',
+        deco: l.bad && !fixed ? 'underline wavy var(--neg)' : 'none',
+        tag: inSel && cap ? CT.tagOf[l.kind] : (l.kind === 'lock' ? 'lock time' : ''), tagColor: l.bad && !fixed ? 'var(--neg)' : 'var(--muted-foreground)' };
+    });
+    const parsed = CT.parsed.map(p => {
+      const ok = p.ok || fixed;
+      return { ...p, showOk: ok, showFix: !ok, bg: p.id === sel ? 'var(--accent)' : 'transparent',
+        rawA: p.rawA, rawH: p.rawH,
+        stTxt: p.bad ? 'Fixed' : 'Matched', stIcon: p.bad ? 'check-check' : 'check', stColor: p.bad ? 'var(--pos)' : 'var(--muted-foreground)',
+        onSel: () => this.setState({ sel: p.id }) };
+    });
+    const optsA = CT.aliasOpts.a.map((o, i) => ({ ...o, bg: o.best ? 'var(--accent)' : 'transparent', onPick: (e) => { e && e.stopPropagation && e.stopPropagation(); this.setState({ fixA: i }); } }));
+    const unresolved = !fixed;
+
+    // Results
+    const lg = this.state.league ?? CT.results.league;
+    const ord = n => n + (['th', 'st', 'nd', 'rd'][(n % 100 - 20) % 10] || ['th', 'st', 'nd', 'rd'][n % 100] || 'th');
+    const league = { ...lg, placeTxt: ord(+lg.place), behindTxt: +lg.place === 1 ? 'Leading the league' : `${lg.behind} pt${+lg.behind === 1 ? '' : 's'} behind 1st` };
+    const setL = k => e => this.setState({ league: { ...lg, [k]: e.target.value } });
+    const weeks = CT.results.weeks.map(w => ({ ...w, leadTxt: w.lead === 0 ? 'tied' : (w.lead > 0 ? 'you +' : 'model +') + Math.abs(w.lead) }));
+
+    // Rules
+    const SPLASH = { picks: 4, lock: 'kick', score: 'one', push: 'zero', line: 'pick' };
+    const rules = this.state.rules ?? { ...SPLASH, preset: 'splash' };
+    const setRule = (k, v) => () => { const r = { ...rules, [k]: v }; const same = ['picks', 'lock', 'score', 'push', 'line'].every(x => r[x] === SPLASH[x]); r.preset = same ? 'splash' : 'custom'; this.setState({ rules: r }); };
+    const radio = (k, opts) => opts.map(([v, n, d]) => { const on = rules[k] === v; return { n, d, onClick: setRule(k, v), bd: on ? 'var(--foreground)' : 'var(--input)', dot: on ? 'var(--foreground)' : 'transparent', w: on ? '600' : '400' }; });
+    const radioGroups = [
+      { label: 'Lock rule', help: 'When a pick can no longer change', opts: radio('lock', [['kick', 'Each game locks at its kickoff', 'Picks on later games stay open'], ['first', 'All picks lock at the first kickoff', 'One deadline for the whole week'], ['fixed', 'All picks lock at a set time', 'e.g. Sat 12:00 PM ET']]) },
+      { label: 'Scoring', help: 'Points for a correct pick', opts: radio('score', [['one', '1 point per correct pick', 'Splash default'], ['conf', 'Confidence points', 'Rank your picks; a correct #1 is worth the most'], ['custom', 'Custom points per pick', 'Set a value on each pick']]) },
+      { label: 'Push rule', help: 'When the result lands exactly on the line', opts: radio('push', [['zero', 'Push = 0 points', 'Counts as a miss'], ['half', 'Push = ½ point', ''], ['win', 'Push = 1 point', 'Counts as correct']]) },
+      { label: 'Line used', help: 'Which line a pick is graded against', opts: radio('line', [['pick', 'The contest line when you picked', 'Re-pasting new lines never changes a made pick'], ['kick', 'The contest line at kickoff', '']]) },
+    ];
+    const pre = (id, n, d) => { const on = rules.preset === id; return { n, d, onClick: id === 'splash' ? () => this.setState({ rules: { ...SPLASH, preset: 'splash' } }) : id === 'conf' ? () => this.setState({ rules: { ...rules, score: 'conf', lock: 'first', preset: 'conf' } }) : setRule('picks', rules.picks), bd: on ? 'var(--foreground)' : 'var(--border)', bg: on ? 'var(--accent)' : 'transparent', ring: on ? '0 0 0 1px var(--foreground)' : 'none', dotBd: on ? 'var(--foreground)' : 'var(--input)', dot: on ? 'var(--foreground)' : 'transparent' }; };
+    const presets = [pre('splash', 'Splash', '4 picks · CFB + NFL · lock at kickoff · 1 pt each · push = 0'), pre('conf', 'Confidence pool', 'Rank every pick 1–N · one deadline'), pre('custom', 'Custom', 'Set each rule yourself')];
+    const lockTxt = { kick: 'Each game locks at its own kickoff — the Fri night game first, Sunday night last.', first: 'Every pick locks at the first kickoff of the week.', fixed: 'Every pick locks at the set time.' }[rules.lock];
+    const scoreTxt = { one: '1 point for each correct pick. Break-even is 50% — there is no juice.', conf: 'Confidence points: a correct pick is worth its rank.', custom: 'Custom points per pick.' }[rules.score];
+    const pushTxt = { zero: 'A push scores 0.', half: 'A push scores ½.', win: 'A push counts as correct.' }[rules.push];
+    const summary = [
+      { icon: 'list-checks', t: `Pick ${rules.picks} games from college and NFL. The slate's cutoff line sits under #${rules.picks}.` },
+      { icon: 'lock', t: lockTxt }, { icon: 'trophy', t: scoreTxt }, { icon: 'equal', t: pushTxt },
+      { icon: 'history', t: rules.line === 'pick' ? 'A pick is graded at the line it was made at, even if Splash moves the line later.' : 'Picks are graded at the line at kickoff.' },
+    ];
+
+    return {
+      ...base, nowLbl, navCount: `${tr.n}/4`, rows, tray: tr, hasFlash: !!this.state.flash, flash: this.state.flash, modelTop,
+      rawRef: this.rawRef, rawLines, lineCount: String(CT.lines.length), parsed, optsA,
+      fixAOpen: !fixA, fixADone: !!fixA, fixA: fixA || {}, reopenA: (e) => { e && e.stopPropagation && e.stopPropagation(); this.setState({ fixA: null }); },
+      unresolved, matchedTxt: fixed ? '10 matched' : '9 matched',
+      remBg: this.state.remember ? 'var(--foreground)' : 'transparent', remBd: this.state.remember ? 'var(--foreground)' : 'var(--input)',
+      toggleRemember: (e) => { e && e.stopPropagation && e.stopPropagation(); this.setState({ remember: !this.state.remember }); },
+      cfBg: fixed ? 'var(--primary)' : 'var(--secondary)', cfFg: fixed ? 'var(--primary-foreground)' : 'var(--muted-foreground)', cfCur: fixed ? 'pointer' : 'not-allowed',
+      confirm: () => { if (fixed) this.setState({ frame: 'slate', picks: {} }); },
+      goSlate: () => this.setState({ frame: 'slate', picks: {} }),
+      canFill: fillIds.length > 0, fillModel, fillTxt,
+      league, leagueView: !this.state.editLeague, leagueEdit: this.state.editLeague, leagueBtn: this.state.editLeague ? 'Done' : 'Edit',
+      toggleLeague: () => this.setState({ editLeague: !this.state.editLeague }), setPlace: setL('place'), setOf: setL('of'), setBehind: setL('behind'),
+      weeks, rules, presets, radioGroups, summary, presetName: rules.preset === 'splash' ? 'Splash preset' : rules.preset === 'conf' ? 'Confidence pool' : 'Custom',
+      picksDown: setRule('picks', Math.max(1, rules.picks - 1)), picksUp: setRule('picks', Math.min(10, rules.picks + 1)),
+    };
+  }
+}
+</script>
+</body>
+</html>

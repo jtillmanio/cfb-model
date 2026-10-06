@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet><style id="dc-token-fallback">:root{--background:#0c0f12;--foreground:#eef0f3;--card:#13161a;--card-foreground:#eef0f3;--popover:#1b1e23;--popover-foreground:#eef0f3;--primary:#e5e8ec;--primary-foreground:#13161a;--secondary:#23272b;--secondary-foreground:#eef0f3;--muted:#1d2125;--muted-foreground:#9fa5ad;--accent:#262a30;--accent-foreground:#eef0f3;--destructive:#ef6661;--destructive-foreground:#0c0f12;--border:#2a2e33;--input:#5f646a;--ring:#67aaed;--edge:#b699eb;--edge-foreground:#0c0f12;--pos:#68b5f5;--neg:#f19a4b;--push:#a7abb1;--tier-a:#bd9ff2;--tier-a-foreground:#0c0f12;--tier-b:#8a70b8;--tier-b-foreground:#0c0f12;--tier-c:#392a51;--tier-c-foreground:#d7c9f3;--live:#52cd86;--locked:#91969b;--breakeven:#c9ced4;--chart-1:#4fa6e9;--chart-2:#e38d3d;--chart-3:#aa8dde;--chart-4:#39bab4;--chart-5:#87909c}</style><link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&amp;family=IBM+Plex+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet"><style>a{color:var(--pos)}a:hover{color:var(--foreground)}input::placeholder{color:var(--muted-foreground)}@keyframes asSpin{to{transform:rotate(360deg)}}@media (prefers-reduced-motion: reduce){[data-spin]{animation:none!important}}</style></helmet>
+<div data-screen-label="{{ label }}" style="position:relative;width:390px;height:844px;overflow:hidden;box-sizing:border-box;display:flex;flex-direction:column;background:var(--background);color:var(--foreground);font-family:'IBM Plex Sans',ui-sans-serif,system-ui,sans-serif;font-size:14px;line-height:20px;font-variant-numeric:tabular-nums lining-nums">
+<div style="display:flex;align-items:center;justify-content:space-between;height:44px;padding:0 24px;font-size:14px;font-weight:600;flex:none"><span>9:41</span><span style="display:flex;align-items:center;gap:6px"><span style="display:inline-block;width:16px;height:16px;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/signal.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/signal.svg) center/contain no-repeat"></span><span style="display:inline-block;width:16px;height:16px;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/{{ wifi }}.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/{{ wifi }}.svg) center/contain no-repeat"></span><span style="display:inline-block;width:22px;height:16px;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/battery-full.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/battery-full.svg) center/contain no-repeat"></span></span></div>
+
+<sc-if value="{{ mainBar }}" hint-placeholder-val="{{ true }}">
+<div style="display:flex;align-items:center;gap:4px;height:52px;padding:0 4px 0 12px;background:var(--card);border-bottom:1px solid var(--border);flex:none">
+<span style="display:inline-flex;align-items:center;gap:4px;height:44px;padding:0 6px;font-size:13px;font-weight:600"><span style="width:7px;height:7px;border-radius:50%;background:var(--live)"></span>CFB<span style="display:inline-block;width:14px;height:14px;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/chevron-down.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/chevron-down.svg) center/contain no-repeat;color:var(--muted-foreground)"></span></span>
+<span style="width:1px;height:20px;background:var(--border)"></span>
+<span style="display:inline-flex;align-items:center;gap:4px;height:44px;padding:0 8px;font-size:14px;font-weight:600">{{ week }}<span style="display:inline-block;width:14px;height:14px;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/chevron-down.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/chevron-down.svg) center/contain no-repeat;color:var(--muted-foreground)"></span></span>
+<span style="flex:1"></span>
+<span style="display:inline-flex;align-items:center;justify-content:center;width:44px;height:44px"><span style="display:inline-block;width:18px;height:18px;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/bell.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/bell.svg) center/contain no-repeat"></span></span>
+<span style="display:inline-flex;align-items:center;justify-content:center;width:44px;height:44px;color:var(--muted-foreground)"><span style="display:inline-block;width:18px;height:18px;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/search.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/search.svg) center/contain no-repeat"></span></span>
+</div>
+</sc-if>
+<sc-if value="{{ backBar }}" hint-placeholder-val="{{ false }}">
+<div style="display:flex;align-items:center;gap:2px;height:52px;padding:0 4px;background:var(--card);border-bottom:1px solid var(--border);flex:none">
+<span style="display:inline-flex;align-items:center;gap:2px;height:44px;padding:0 8px 0 4px;font-size:14px;font-weight:500"><span style="display:inline-block;width:20px;height:20px;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/chevron-left.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/chevron-left.svg) center/contain no-repeat"></span>{{ backLabel }}</span>
+<span style="flex:1;text-align:center;font-size:14px;font-weight:600;margin-right:72px">{{ barTitle }}</span>
+</div>
+</sc-if>
+
+<div style="flex:1;min-height:0;overflow:hidden;display:flex;flex-direction:column">
+
+<sc-if value="{{ isOff }}" hint-placeholder-val="{{ false }}">
+<div style="display:flex;flex-direction:column;gap:2px;padding:14px 16px 12px"><span style="font-size:24px;line-height:28px;font-weight:600">This Week</span><span style="font-size:12px;line-height:16px;color:var(--muted-foreground)">2027 · Week 0 · off-season</span></div>
+<div style="margin:0 12px;display:flex;flex-direction:column;align-items:center;gap:8px;padding:40px 20px 24px;border:1px dashed var(--border);border-radius:8px;background:var(--card);text-align:center">
+<span style="display:inline-block;width:24px;height:24px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/calendar-off.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/calendar-off.svg) center/contain no-repeat;color:var(--muted-foreground)"></span>
+<span style="font-size:16px;line-height:24px;font-weight:600">No games this week</span>
+<span style="font-size:13px;line-height:20px;color:var(--muted-foreground);text-wrap:pretty">The 2026 season ended with the title game on Mon Jan 18. The 2027 slate fills in when books post Week 0 lines, usually in early August.</span>
+<span style="font-size:12px;line-height:16px;color:var(--muted-foreground)">Week 0 kicks off Sat Aug 28, 2027</span>
+<div style="display:flex;flex-direction:column;gap:8px;align-self:stretch;margin-top:12px">
+<span style="display:flex;align-items:center;justify-content:center;gap:6px;height:44px;border-radius:6px;border:1px solid var(--input);font-size:14px;font-weight:500">Final 2026 rankings</span>
+<span style="display:flex;align-items:center;justify-content:center;gap:6px;height:44px;border-radius:6px;border:1px solid var(--input);font-size:14px;font-weight:500">2026 track record</span>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ isNoPicks }}" hint-placeholder-val="{{ false }}">
+<div style="display:flex;flex-direction:column;gap:12px;padding:14px 16px 12px">
+<div style="display:flex;flex-direction:column;gap:2px"><span style="font-size:24px;line-height:28px;font-weight:600">Picks</span><span style="font-size:12px;line-height:16px;color:var(--muted-foreground)">Week 7 · lines updated Sun 6:10 PM</span></div>
+<div style="display:grid;grid-template-columns:1fr 1fr 1fr;height:48px;padding:2px;border-radius:8px;background:var(--muted);box-sizing:border-box;font-size:13px">
+<span style="display:flex;align-items:center;justify-content:center;gap:6px;border-radius:6px;background:var(--accent);font-weight:600">Week 7<span style="font-size:12px;line-height:16px;padding:0 5px;border-radius:999px;background:var(--secondary)">0</span></span>
+<span style="display:flex;align-items:center;justify-content:center;gap:6px;font-weight:500;color:var(--muted-foreground)">Best lines</span>
+<span style="display:flex;align-items:center;justify-content:center;gap:6px;font-weight:500;color:var(--muted-foreground)">Past</span>
+</div>
+<div style="display:flex;align-items:center;gap:14px;padding:10px 12px;border:1px solid var(--border);border-radius:8px;background:var(--card)"><span style="display:flex;flex-direction:column"><span style="font-size:12px;line-height:16px;color:var(--muted-foreground)">2026 · thru Wk 6</span><span style="font-size:16px;line-height:24px;font-weight:600">36-28-1</span></span><span style="display:flex;flex-direction:column"><span style="font-size:12px;line-height:16px;color:var(--muted-foreground)">Win %</span><span style="font-size:14px;line-height:24px;font-weight:600">56.3%</span></span><span style="display:flex;flex-direction:column"><span style="font-size:12px;line-height:16px;color:var(--muted-foreground)">Units</span><span style="font-size:14px;line-height:24px;font-weight:600;color:var(--pos)">+5.2u</span></span><span style="flex:1"></span><span style="display:inline-block;width:14px;height:14px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/chevron-right.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/chevron-right.svg) center/contain no-repeat;color:var(--muted-foreground)"></span></div>
+</div>
+<div style="margin:0 12px;display:flex;flex-direction:column;align-items:center;gap:6px;padding:24px 16px;border:1px dashed var(--border);border-radius:8px;text-align:center">
+<span style="display:inline-block;width:24px;height:24px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/target.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/target.svg) center/contain no-repeat;color:var(--muted-foreground)"></span>
+<span style="font-size:16px;line-height:24px;font-weight:600">No picks this week</span>
+<span style="font-size:13px;line-height:19px;color:var(--muted-foreground);text-wrap:pretty">A game becomes a pick when the model's edge clears 2.5 pts. None of Week 7's 51 lines do yet. A pick can still appear if a line moves.</span>
+</div>
+<div style="display:flex;flex-direction:column;gap:2px;padding:18px 16px 8px"><span style="font-size:12px;line-height:16px;font-weight:600;letter-spacing:.04em;text-transform:uppercase">Closest to the threshold</span><span style="font-size:12px;line-height:16px;color:var(--muted-foreground)">Not picks</span></div>
+<div style="margin:0 12px;background:var(--card);border:1px solid var(--border);border-radius:8px;overflow:hidden">
+<sc-for list="{{ near }}" as="r" hint-placeholder-count="3">
+<div style="display:flex;flex-direction:column;gap:6px;padding:10px 12px;border-bottom:1px solid var(--border)">
+<span style="display:flex;align-items:center;gap:6px;font-size:14px;font-weight:500"><span style="width:14px;height:14px;border-radius:50%;flex:none;background:{{ r.ac }};box-shadow:0 0 0 1px var(--border)"></span>{{ r.a }}<span style="color:var(--muted-foreground);font-weight:400">@</span><span style="width:14px;height:14px;border-radius:50%;flex:none;background:{{ r.hc }};box-shadow:0 0 0 1px var(--border)"></span>{{ r.h }}<span style="flex:1"></span><span style="font-size:12px;font-weight:400;color:var(--muted-foreground)">{{ r.time }}</span></span>
+<span style="display:flex;align-items:center;gap:10px;font-size:12px;line-height:16px;color:var(--muted-foreground)"><span>{{ r.mkt }} → model {{ r.model }}</span><span style="flex:1"></span><span style="position:relative;width:56px;height:5px;border-radius:4px;background:var(--secondary);flex:none"><span style="position:absolute;left:0;top:0;bottom:0;width:{{ r.w }};border-radius:4px;background:var(--muted-foreground)"></span><span style="position:absolute;right:0;top:-3px;bottom:-3px;width:2px;background:var(--edge)"></span></span><span style="color:var(--foreground);font-weight:500;white-space:nowrap">{{ r.edge }}</span></span>
+</div>
+</sc-for>
+</div>
+</sc-if>
+
+<sc-if value="{{ isTeam }}" hint-placeholder-val="{{ false }}">
+<div style="display:flex;flex-direction:column;gap:12px;padding:12px">
+<div style="display:flex;flex-direction:column;gap:12px;padding:14px;background:var(--card);border:1px solid var(--border);border-left:3px solid #BB0000;border-radius:0 8px 8px 0">
+<div style="display:flex;align-items:center;gap:12px"><span style="width:40px;height:40px;border-radius:50%;background:#BB0000;box-shadow:0 0 0 1px var(--border);flex:none"></span><span style="display:flex;flex-direction:column;flex:1;min-width:0"><span style="display:flex;align-items:baseline;gap:6px"><span style="font-size:13px;color:var(--muted-foreground)">2</span><span style="font-size:20px;line-height:26px;font-weight:600">Ohio State</span></span><span style="font-size:12px;line-height:16px;color:var(--muted-foreground)">Big Ten · 0-0 · first game Sat Aug 29</span></span></div>
+<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding-top:10px;border-top:1px solid var(--border)">
+<span style="display:flex;flex-direction:column"><span style="font-size:12px;line-height:16px;color:var(--muted-foreground)">Rating</span><span style="font-size:16px;line-height:24px;font-weight:600">+24.0</span><span style="font-size:12px;line-height:14px;color:var(--muted-foreground)">prior · 2nd</span></span>
+<span style="display:flex;flex-direction:column"><span style="font-size:12px;line-height:16px;color:var(--muted-foreground)">Offense</span><span style="font-size:16px;line-height:24px;font-weight:600">+11.9</span><span style="font-size:12px;line-height:14px;color:var(--muted-foreground)">prior · 5th</span></span>
+<span style="display:flex;flex-direction:column"><span style="font-size:12px;line-height:16px;color:var(--muted-foreground)">Defense</span><span style="font-size:16px;line-height:24px;font-weight:600">+12.1</span><span style="font-size:12px;line-height:14px;color:var(--muted-foreground)">prior · 2nd</span></span>
+</div>
+</div>
+<section style="display:flex;flex-direction:column;gap:10px;padding:12px 14px 14px;background:var(--card);border:1px solid var(--border);border-radius:8px">
+<span style="font-size:14px;font-weight:600">Rating trajectory</span>
+<div style="display:flex;flex-direction:column;align-items:center;gap:6px;padding:20px 12px;border:1px dashed var(--border);border-radius:6px;text-align:center"><span style="display:inline-block;width:22px;height:22px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/chart-line.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/chart-line.svg) center/contain no-repeat;color:var(--muted-foreground)"></span><span style="font-size:14px;font-weight:600">No games yet</span><span style="font-size:13px;line-height:19px;color:var(--muted-foreground);text-wrap:pretty">The line starts after Week 1 vs Akron, Sat Aug 29. Until then the rating is the preseason prior.</span></div>
+</section>
+<section style="display:flex;flex-direction:column;background:var(--card);border:1px solid var(--border);border-radius:8px;overflow:hidden">
+<div style="display:flex;align-items:baseline;gap:8px;padding:12px 14px 10px;border-bottom:1px solid var(--border)"><span style="font-size:14px;font-weight:600">Schedule</span><span style="font-size:12px;line-height:16px;color:var(--muted-foreground)">model line · market when posted</span></div>
+<sc-for list="{{ sched }}" as="s" hint-placeholder-count="6">
+<div style="display:grid;grid-template-columns:28px minmax(0,1fr) auto;column-gap:8px;align-items:center;min-height:52px;padding:6px 14px;border-bottom:1px solid var(--border);box-sizing:border-box">
+<span style="font-size:12px;color:var(--muted-foreground)">{{ s.wk }}</span>
+<span style="display:flex;flex-direction:column;min-width:0"><span style="display:flex;align-items:center;gap:6px;font-size:14px;font-weight:500"><span style="font-size:12px;font-weight:400;color:var(--muted-foreground)">{{ s.at }}</span><span style="width:14px;height:14px;border-radius:50%;flex:none;background:{{ s.c }};box-shadow:0 0 0 1px var(--border)"></span>{{ s.opp }}</span><span style="font-size:12px;line-height:16px;color:var(--muted-foreground)">{{ s.date }} · win {{ s.win }}</span></span>
+<span style="display:flex;flex-direction:column;align-items:flex-end"><span style="font-size:13px;font-weight:500">{{ s.model }}</span><span style="font-size:12px;line-height:16px;color:var(--muted-foreground);font-style:{{ s.fs }}">{{ s.mktTxt }}</span></span>
+</div>
+</sc-for>
+</section>
+</div>
+</sc-if>
+
+<sc-if value="{{ isErr }}" hint-placeholder-val="{{ false }}">
+<div style="display:flex;flex-direction:column;gap:2px;padding:14px 16px 12px"><span style="font-size:24px;line-height:28px;font-weight:600">This Week</span><span style="font-size:12px;line-height:16px;color:var(--muted-foreground)">2026 · Week 6</span></div>
+<div style="margin:0 12px;display:flex;gap:12px;padding:14px;border:1px solid var(--destructive);border-radius:8px;background:color-mix(in oklch, var(--destructive) 8%, transparent)">
+<span style="display:inline-block;width:20px;height:20px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/circle-alert.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/circle-alert.svg) center/contain no-repeat;color:var(--destructive);margin-top:2px"></span>
+<div style="display:flex;flex-direction:column;gap:8px;flex:1;min-width:0">
+<span style="font-size:16px;line-height:24px;font-weight:600">Couldn't reach the server</span>
+<span style="font-size:13px;line-height:20px;text-wrap:pretty">The API didn't answer after {{ attempts }} tries. There's no saved copy of this week on this phone yet.</span>
+<sc-if value="{{ notRetrying }}" hint-placeholder-val="{{ true }}"><span onClick="{{ retry }}" style="display:flex;align-items:center;justify-content:center;gap:6px;height:44px;border-radius:6px;font-size:14px;font-weight:500;background:var(--secondary);color:var(--secondary-foreground);cursor:pointer"><span style="display:inline-block;width:15px;height:15px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/refresh-cw.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/refresh-cw.svg) center/contain no-repeat"></span>Retry</span></sc-if>
+<sc-if value="{{ retrying }}" hint-placeholder-val="{{ false }}"><span style="display:flex;align-items:center;justify-content:center;gap:6px;height:44px;border-radius:6px;font-size:14px;font-weight:500;background:var(--secondary);color:var(--muted-foreground)"><span data-spin="" style="display:inline-block;width:15px;height:15px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/loader-circle.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/loader-circle.svg) center/contain no-repeat;animation:asSpin 1s linear infinite"></span>Retrying…</span></sc-if>
+<sc-if value="{{ notRetrying }}" hint-placeholder-val="{{ true }}"><span style="font-size:12px;line-height:16px;color:var(--muted-foreground);text-align:center">Trying again in {{ cd }}s</span></sc-if>
+</div>
+</div>
+<span style="padding:12px 18px 0;font-size:12px;line-height:16px;color:var(--muted-foreground);text-wrap:pretty">If the server was idle, the database can take up to 30 seconds to start. Screens you've opened before load from a saved copy instead.</span>
+</sc-if>
+
+<sc-if value="{{ isSettings }}" hint-placeholder-val="{{ false }}">
+<div style="display:flex;flex-direction:column;gap:6px;padding:16px 12px">
+<span style="padding:0 4px;font-size:12px;line-height:16px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--muted-foreground)">Theme</span>
+<div style="display:grid;grid-template-columns:repeat(3,1fr);height:48px;padding:2px;border-radius:8px;background:var(--muted);box-sizing:border-box;font-size:14px;margin-bottom:14px">
+<sc-for list="{{ themes }}" as="t" hint-placeholder-count="3"><span onClick="{{ t.pick }}" style="display:flex;align-items:center;justify-content:center;border-radius:6px;background:{{ t.segBg }};font-weight:{{ t.w }};color:{{ t.c }};cursor:pointer">{{ t.short }}</span></sc-for>
+</div>
+<span style="padding:0 4px;font-size:12px;line-height:16px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--muted-foreground)">Default contest</span>
+<div style="background:var(--card);border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-bottom:14px">
+<sc-for list="{{ contests }}" as="c" hint-placeholder-count="2">
+<div onClick="{{ c.pick }}" style="display:flex;align-items:center;gap:12px;min-height:60px;padding:8px 14px;border-bottom:1px solid var(--border);box-sizing:border-box;cursor:pointer">
+<span style="display:flex;flex-direction:column;flex:1;min-width:0"><span style="font-size:14px;font-weight:500">{{ c.l }}</span><span style="font-size:12px;line-height:16px;color:var(--muted-foreground)">{{ c.short }}</span></span>
+<sc-if value="{{ c.on }}" hint-placeholder-val="{{ false }}"><span style="display:inline-block;width:18px;height:18px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/check.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/check.svg) center/contain no-repeat"></span></sc-if>
+</div>
+</sc-for>
+<span style="display:flex;align-items:center;height:48px;padding:0 14px;font-size:14px;color:var(--muted-foreground)">Manage contests</span>
+</div>
+<span style="padding:0 4px;font-size:12px;line-height:16px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--muted-foreground)">Time zone</span>
+<div style="background:var(--card);border:1px solid var(--border);border-radius:8px;overflow:hidden">
+<div onClick="{{ toggleAuto }}" style="display:flex;align-items:center;gap:12px;min-height:60px;padding:8px 14px;border-bottom:1px solid var(--border);box-sizing:border-box;cursor:pointer"><span style="display:flex;flex-direction:column;flex:1"><span style="font-size:14px;font-weight:500">Use this phone's time zone</span><span style="font-size:12px;line-height:16px;color:var(--muted-foreground)">Detected: Eastern Time</span></span><span role="switch" style="position:relative;width:44px;height:26px;border-radius:12px;background:{{ sw.bg }};border:1px solid {{ sw.bd }};box-sizing:border-box;flex:none"><span style="position:absolute;left:{{ sw.x }};top:3px;width:18px;height:18px;border-radius:50%;background:{{ sw.knob }}"></span></span></div>
+<div onClick="{{ cycleTz }}" style="display:flex;align-items:center;gap:8px;height:52px;padding:0 14px;border-bottom:1px solid var(--border);box-sizing:border-box;opacity:{{ tzOp }}"><span style="font-size:14px;flex:1">Time zone</span><span style="font-size:14px;color:var(--muted-foreground)">{{ tzLabel }}</span><span style="display:inline-block;width:14px;height:14px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/chevron-right.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/chevron-right.svg) center/contain no-repeat;color:var(--muted-foreground)"></span></div>
+<div style="display:flex;align-items:center;gap:8px;padding:12px 14px;font-size:13px;line-height:18px"><span style="display:inline-block;width:14px;height:14px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/clock.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/clock.svg) center/contain no-repeat;color:var(--muted-foreground)"></span><span>TEX vs OU kicks off <b style="font-weight:600">{{ tzPreview }}</b></span></div>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ isLogin }}" hint-placeholder-val="{{ false }}">
+<div style="flex:1;display:flex;flex-direction:column;gap:20px;padding:96px 16px 24px">
+<div style="display:flex;align-items:center;justify-content:center;gap:10px"><span style="width:28px;height:28px;border-radius:6px;background:var(--foreground);color:var(--background);display:flex;align-items:center;justify-content:center;font:700 12px/1 'IBM Plex Mono',monospace;flex:none">CF</span><span style="font-size:16px;font-weight:600">CFB Model</span></div>
+<div style="display:flex;flex-direction:column;gap:16px;padding:20px;background:var(--card);border:1px solid var(--border);border-radius:8px">
+<div style="display:flex;flex-direction:column;gap:2px"><span style="font-size:20px;line-height:28px;font-weight:600">Sign in</span><span style="font-size:13px;line-height:18px;color:var(--muted-foreground)">Private app · one account</span></div>
+<label style="display:flex;flex-direction:column;gap:6px"><span style="font-size:13px;font-weight:500">Email</span><input value="{{ email }}" onChange="{{ onEmail }}" style="height:44px;padding:0 12px;border:1px solid var(--input);border-radius:6px;background:var(--background);color:var(--foreground);font:400 16px 'IBM Plex Sans',sans-serif;outline:none;box-sizing:border-box"></input></label>
+<label style="display:flex;flex-direction:column;gap:6px"><span style="font-size:13px;font-weight:500">Password</span><input type="password" value="{{ pw }}" onChange="{{ onPw }}" style="height:44px;padding:0 12px;border:1px solid {{ pwBd }};border-radius:6px;background:var(--background);color:var(--foreground);font:400 16px 'IBM Plex Sans',sans-serif;outline:none;box-sizing:border-box"></input>
+<sc-if value="{{ lErr }}" hint-placeholder-val="{{ false }}"><span style="display:flex;align-items:center;gap:6px;font-size:12px;line-height:16px;color:var(--destructive)"><span style="display:inline-block;width:13px;height:13px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/circle-alert.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/circle-alert.svg) center/contain no-repeat"></span>That password isn't right. 4 tries left.</span></sc-if>
+</label>
+<sc-if value="{{ lIdle }}" hint-placeholder-val="{{ true }}"><span onClick="{{ signIn }}" style="display:flex;align-items:center;justify-content:center;height:44px;border-radius:6px;background:var(--primary);color:var(--primary-foreground);font-size:14px;font-weight:600;cursor:pointer">Sign in</span></sc-if>
+<sc-if value="{{ lWake }}" hint-placeholder-val="{{ false }}"><div style="display:flex;flex-direction:column;gap:8px"><span style="display:flex;align-items:center;justify-content:center;gap:8px;height:44px;border-radius:6px;background:var(--secondary);color:var(--muted-foreground);font-size:14px;font-weight:500"><span data-spin="" style="display:inline-block;width:15px;height:15px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/loader-circle.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/loader-circle.svg) center/contain no-repeat;animation:asSpin 1s linear infinite"></span>Waking up the database…</span><span style="font-size:12px;line-height:16px;color:var(--muted-foreground);text-align:center">The first request after a quiet spell can take a few seconds.</span></div></sc-if>
+</div>
+<span style="font-size:12px;line-height:16px;color:var(--muted-foreground);text-align:center">Stays signed in on this phone for 90 days.</span>
+</div>
+</sc-if>
+</div>
+
+<sc-if value="{{ hasTabs }}" hint-placeholder-val="{{ true }}">
+<div style="display:flex;height:64px;padding-bottom:20px;background:var(--card);border-top:1px solid var(--border);flex:none">
+<sc-for list="{{ tabs }}" as="t" hint-placeholder-count="5"><span style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font-size:12px;line-height:14px;font-weight:{{ t.w }};color:{{ t.c }}"><span style="display:inline-flex;align-items:center;justify-content:center;width:48px;height:28px;border-radius:999px;background:{{ t.bg }}"><span style="display:inline-block;width:18px;height:18px;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/{{ t.icon }}.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/{{ t.icon }}.svg) center/contain no-repeat"></span></span>{{ t.l }}</span></sc-for>
+</div>
+</sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:390,&quot;height&quot;:844},&quot;frame&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;offseason&quot;,&quot;nopicks&quot;,&quot;team&quot;,&quot;apierror&quot;,&quot;settings&quot;,&quot;login&quot;],&quot;default&quot;:&quot;offseason&quot;,&quot;tsType&quot;:&quot;'offseason'|'nopicks'|'team'|'apierror'|'settings'|'login'&quot;},&quot;loginState&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;default&quot;,&quot;error&quot;,&quot;waking&quot;],&quot;default&quot;:&quot;default&quot;,&quot;tsType&quot;:&quot;'default'|'error'|'waking'&quot;}}">
+class Component extends DCLogic {
+  state = { theme: 'dark', contest: 0, auto: true, tz: 0, cd: 15, retrying: false, attempts: 3, pw: 'football', email: 'jd@example.com', wake: false };
+  componentDidMount() {
+    this.iv = setInterval(() => {
+      if ((this.props.frame ?? 'offseason') !== 'apierror' || this.state.retrying) return;
+      if (this.state.cd <= 1) this.retry(); else this.setState({ cd: this.state.cd - 1 });
+    }, 1000);
+  }
+  componentWillUnmount() { clearInterval(this.iv); clearTimeout(this.t1); clearTimeout(this.t2); }
+  retry() {
+    this.setState({ retrying: true });
+    this.t1 = setTimeout(() => this.setState(s => ({ retrying: false, attempts: s.attempts + 1, cd: 30 })), 1600);
+  }
+  renderVals() {
+    const S = this.state;
+    const frame = this.props.frame ?? 'offseason';
+    const L = { offseason: 'This Week · off-season', nopicks: 'Picks · no picks this week', team: 'Team · no games yet', apierror: 'This Week · API unreachable', settings: 'Settings', login: 'Login' };
+    const activeTab = { offseason: 0, apierror: 0, nopicks: 1, team: 3, settings: 4 }[frame];
+    const tabs = [['This Week','calendar-days'],['Picks','target'],['Contest','trophy'],['Rankings','list-ordered'],['More','ellipsis']].map(([l, icon], i) => ({ l, icon, w: i === activeTab ? '600' : '500', c: i === activeTab ? 'var(--foreground)' : 'var(--muted-foreground)', bg: i === activeTab ? 'var(--accent)' : 'transparent' }));
+    const back = frame === 'team' || frame === 'settings';
+    const near = [
+      { a: 'Georgia', ac: '#BA0C2F', h: 'Ole Miss', hc: '#14213D', time: 'Sat 3:30 PM', mkt: 'UGA −2.5', model: 'UGA −0.4', edge: '+2.1 MISS', w: '84%' },
+      { a: 'Utah', ac: '#CC0000', h: 'Kansas State', hc: '#512888', time: 'Sat 7:00 PM', mkt: 'KSU −1.5', model: 'UTAH −0.3', edge: '+1.8 UTAH', w: '72%' },
+      { a: 'Ohio State', ac: '#BB0000', h: 'Penn State', hc: '#041E42', time: 'Sat 7:30 PM', mkt: 'OSU −3.5', model: 'OSU −4.1', edge: '+0.6 OSU', w: '24%' },
+    ];
+    const sched = [
+     [1,'Sat 8/29','vs','Akron','#041E42','OSU −45','OSU −47.1','99%'],[2,'Sat 9/5','vs','Ohio','#00694E','OSU −32.5','OSU −30.8','98%'],
+      [3,'Sat 9/12','@','Rutgers','#CC0033','','OSU −22.0','93%'],[4,'Sat 9/19','@','Minnesota','#7A0019','','OSU −16.2','87%'],
+      [5,'Sat 9/26','vs','Washington','#4B2E83','','OSU −15.0','85%'],[6,'Sat 10/3','vs','Purdue','#CEB888','','OSU −31.2','98%'],
+      [7,'Sat 10/10','@','Penn State','#041E42','','OSU −4.1','61%'],[11,'Sat 11/7','vs','Oregon','#154733','','OSU −4.9','63%'],
+    ].map(([wk, date, at, opp, c, mkt, model, win]) => ({ wk: String(wk), date, at, opp, c, model, win, mktTxt: mkt ? 'mkt ' + mkt : 'No line yet', fs: mkt ? 'normal' : 'italic' }));
+    const themes = [['dark','Dark'],['light','Light'],['system','System']].map(([k, short]) => ({ short, segBg: S.theme === k ? 'var(--accent)' : 'transparent', w: S.theme === k ? '600' : '500', c: S.theme === k ? 'var(--foreground)' : 'var(--muted-foreground)', pick: () => this.setState({ theme: k }) }));
+    const contests = [['Splash work league','Pick 4 · CFB + NFL · locks at kickoff'],['Family confidence pool','Pick 8 · CFB only · confidence points']].map(([l, short], i) => ({ l, short, on: S.contest === i, pick: () => this.setState({ contest: i }) }));
+    const Z = [['Eastern','ET',0],['Central','CT',-1],['Mountain','MT',-2],['Pacific','PT',-3],['Hawaii','HT',-6]];
+    const z = Z[S.auto ? 0 : S.tz];
+    const hr = 19 + z[2];
+    const sw = { bg: S.auto ? 'var(--primary)' : 'var(--secondary)', bd: S.auto ? 'var(--primary)' : 'var(--input)', knob: S.auto ? 'var(--primary-foreground)' : 'var(--muted-foreground)', x: S.auto ? '21px' : '3px' };
+    const lstate = S.wake ? 'waking' : (this.props.loginState ?? 'default');
+    return {
+      label: L[frame] + ' · mobile', wifi: frame === 'apierror' ? 'wifi' : 'wifi',
+      mainBar: !back && frame !== 'login', backBar: back, backLabel: frame === 'team' ? 'Rankings' : 'More', barTitle: frame === 'team' ? '' : 'Settings',
+      week: { offseason: '2027 · Week 0', nopicks: '2026 · Week 7' }[frame] || '2026 · Week 6',
+      isOff: frame === 'offseason', isNoPicks: frame === 'nopicks', isTeam: frame === 'team', isErr: frame === 'apierror', isSettings: frame === 'settings', isLogin: frame === 'login',
+      hasTabs: frame !== 'login', tabs, near, sched,
+      cd: String(S.cd), retrying: S.retrying, notRetrying: !S.retrying, attempts: String(S.attempts), retry: () => this.retry(),
+      themes, contests, sw, toggleAuto: () => this.setState({ auto: !S.auto }),
+      tzLabel: z[0] + ' (' + z[1] + ')', tzOp: S.auto ? '.5' : '1', cycleTz: () => { if (!S.auto) this.setState({ tz: (S.tz + 1) % Z.length }); },
+      tzPreview: `Sat ${hr > 12 ? hr - 12 : hr}:30 PM ${z[1]}`,
+      email: S.email, onEmail: e => this.setState({ email: e.target.value }), pw: S.pw, onPw: e => this.setState({ pw: e.target.value }),
+      lErr: lstate === 'error', lWake: lstate === 'waking', lIdle: lstate !== 'waking', pwBd: lstate === 'error' ? 'var(--destructive)' : 'var(--input)',
+      signIn: () => { this.setState({ wake: true }); this.t2 = setTimeout(() => this.setState({ wake: false }), 2400); },
+    };
+  }
+}
+</script>
+</body>
+</html>

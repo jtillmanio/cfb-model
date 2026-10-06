@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet><link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Kalam:wght@400;700&amp;family=IBM+Plex+Mono:wght@400;500;600;700&amp;display=swap" rel="stylesheet"><style>a{color:#2f62d8}a:hover{color:#1d44a3}</style></helmet>
+<div data-screen-label="{{ screenLabel }}" style="width:1440px;box-sizing:border-box;display:grid;grid-template-columns:224px minmax(0,1fr);background:#fbfaf7;color:#1f1f1f;font-family:Kalam,system-ui,sans-serif;font-size:15px;line-height:21px">
+<aside style="border-right:1.5px solid #222;padding:16px 14px;display:flex;flex-direction:column;gap:12px;background:repeating-linear-gradient(135deg,transparent 0 8px,rgba(0,0,0,.04) 8px 9px)">
+<div style="display:flex;align-items:center;gap:10px;height:32px"><span style="width:26px;height:26px;border:1.5px solid #222;border-radius:6px;flex:none"></span><span style="font-weight:700;font-size:17px">CFB Model</span></div>
+<span style="font:500 12px 'IBM Plex Mono',monospace;color:#777">sidebar as in the app · Lab active</span>
+</aside>
+<main style="min-width:0;display:flex;flex-direction:column">
+<div style="display:flex;align-items:center;gap:16px;padding:18px 28px 0">
+<span style="font-size:26px;font-weight:700">Lab</span>
+<span style="flex:1"></span>
+<span style="display:inline-flex;align-items:center;gap:8px;padding:4px 12px;border:1.5px solid #c2410c;border-radius:6px;color:#c2410c"><span style="font:700 15px 'IBM Plex Mono',monospace">7</span>variants since last promotion</span>
+</div>
+<div style="display:flex;gap:4px;padding:0 28px;margin-top:10px;border-bottom:1.5px solid #222">
+<sc-for list="{{ tabs }}" as="t" hint-placeholder-count="5"><span style="padding:8px 14px;margin-bottom:-1.5px;border-bottom:3px solid {{ t.bc }};font-weight:{{ t.w }}">{{ t.l }}</span></sc-for>
+</div>
+
+<sc-if value="{{ isBuilder }}" hint-placeholder-val="{{ true }}">
+<div style="display:flex;align-items:center;gap:14px;padding:18px 28px;border-bottom:1px dashed #bbb">
+<span style="font:700 20px 'IBM Plex Mono',monospace">v1.2-dev</span>
+<span style="padding:0 10px;border:1.5px dashed #222;border-radius:999px;font-size:13px">○ dev</span>
+<span style="color:#666">cloned from <span style="font-family:'IBM Plex Mono',monospace;color:#1f1f1f">v1.1</span> · changes from parent are marked ●</span>
+<span style="flex:1"></span>
+<span style="padding:4px 14px;border:1.5px solid #999;border-radius:6px;color:#666">Discard</span>
+<span style="padding:4px 14px;border:1.5px solid #222;border-radius:6px">Save draft</span>
+</div>
+<div style="display:grid;grid-template-columns:180px minmax(0,1fr) 300px;gap:28px;padding:20px 28px 28px;align-items:start">
+<nav style="display:flex;flex-direction:column;gap:2px;position:sticky;top:0">
+<span style="font:500 11px 'IBM Plex Mono',monospace;color:#777;margin-bottom:6px">SECTIONS</span>
+<sc-for list="{{ secs }}" as="s" hint-placeholder-count="6"><span style="display:flex;align-items:center;gap:8px;padding:6px 10px;border-radius:6px;background:{{ s.bg }}"><span style="font:600 12px 'IBM Plex Mono',monospace;color:#777">{{ s.n }}</span><span style="flex:1">{{ s.l }}</span><span style="color:#2f62d8">{{ s.dot }}</span></span></sc-for>
+</nav>
+
+<div style="display:flex;flex-direction:column;gap:20px;min-width:0">
+<div style="display:flex;align-items:flex-start;gap:10px;padding:10px 14px;border:1.5px dashed #2f62d8;border-radius:6px;color:#1d44a3;font-size:14px;line-height:20px"><span style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;background:#2f62d8;color:#fff;font:700 11px/1 'IBM Plex Mono',monospace;flex:none;margin-top:1px">1</span><span>Form is generated from the ModelSpec schema, so it can't offer an option the engine doesn't support. Every weight is a <b>Fit from data / Fixed: [value]</b> toggle; the right column shows what the parent learned for reference.</span></div>
+
+<section style="border:1.5px solid #222;border-radius:8px;padding:16px 18px;display:flex;flex-direction:column;gap:4px">
+<div style="display:flex;align-items:baseline;gap:10px"><span style="font:600 12px 'IBM Plex Mono',monospace;color:#777">1</span><span style="font-size:19px;font-weight:700">Inputs</span><span style="color:#666;font-size:14px">which opponent-adjusted stats the model rates · fixed at 0 = left out</span></div>
+<sc-for list="{{ inputs }}" as="r" hint-placeholder-count="4">
+<div style="display:grid;grid-template-columns:minmax(0,1fr) 300px 150px;gap:16px;align-items:center;padding:10px 0;border-top:1px dashed #bbb">
+<div style="min-width:0"><div style="font-weight:700">{{ r.n }}</div><div style="font-size:13px;line-height:18px;color:#666">{{ r.e }}</div></div>
+<div style="display:flex;align-items:stretch;height:34px;border:1.5px solid #222;border-radius:6px;overflow:hidden;box-sizing:border-box">
+<span onClick="{{ r.setFit }}" style="flex:1;display:flex;align-items:center;justify-content:center;cursor:pointer;background:{{ r.fitBg }};color:{{ r.fitC }}">Fit from data</span>
+<span onClick="{{ r.setFix }}" style="flex:1.15;display:flex;align-items:center;justify-content:center;gap:6px;border-left:1.5px solid #222;cursor:pointer;background:{{ r.fixBg }};color:{{ r.fixC }}">Fixed:<span style="min-width:44px;padding:0 6px;border:1.5px solid #222;border-radius:3px;background:#fff;color:#1f1f1f;font:500 13px/20px 'IBM Plex Mono',monospace;text-align:center">{{ r.val }}</span></span>
+</div>
+<span style="font:400 12px 'IBM Plex Mono',monospace;color:#666">{{ r.ref }}</span>
+</div>
+</sc-for>
+<span style="margin-top:6px;align-self:flex-start;padding:4px 12px;border:1.5px dashed #999;border-radius:6px;color:#666">+ Add input</span>
+</section>
+
+<section style="border:1.5px solid #222;border-radius:8px;padding:16px 18px;display:flex;flex-direction:column;gap:4px">
+<div style="display:flex;align-items:baseline;gap:10px"><span style="font:600 12px 'IBM Plex Mono',monospace;color:#777">2</span><span style="font-size:19px;font-weight:700">Hyperparameters</span><span style="color:#666;font-size:14px">settings that control how learning happens</span></div>
+<sc-for list="{{ hypers }}" as="r" hint-placeholder-count="3">
+<div style="display:grid;grid-template-columns:minmax(0,1fr) 300px 150px;gap:16px;align-items:center;padding:10px 0;border-top:1px dashed #bbb">
+<div style="min-width:0"><div style="font-weight:700">{{ r.n }} <span style="color:#2f62d8">{{ r.ch }}</span></div><div style="font-size:13px;line-height:18px;color:#666">{{ r.e }}</div></div>
+<div style="display:flex;align-items:center;gap:12px"><span style="min-width:70px;padding:4px 8px;border:1.5px solid #222;border-radius:4px;background:#fff;font:500 14px 'IBM Plex Mono',monospace">{{ r.v }}</span><span style="color:#666">{{ r.u }}</span><span style="flex:1"></span><span style="display:flex;align-items:center;gap:6px;font-size:14px"><span style="width:14px;height:14px;border:1.5px solid #222;border-radius:3px;display:inline-flex;align-items:center;justify-content:center;font:700 11px/1 'IBM Plex Mono',monospace">{{ r.tune }}</span>tune in backtest</span></div>
+<span style="font:400 12px 'IBM Plex Mono',monospace;color:#666">{{ r.ref }}</span>
+</div>
+</sc-for>
+</section>
+
+<section style="border:1.5px solid #222;border-radius:8px;padding:16px 18px;display:flex;flex-direction:column;gap:4px">
+<div style="display:flex;align-items:baseline;gap:10px"><span style="font:600 12px 'IBM Plex Mono',monospace;color:#777">3</span><span style="font-size:19px;font-weight:700">Home field</span><span style="color:#666;font-size:14px">points for playing at home · neutral sites always 0</span></div>
+<sc-for list="{{ home }}" as="r" hint-placeholder-count="1">
+<div style="display:grid;grid-template-columns:minmax(0,1fr) 300px 150px;gap:16px;align-items:center;padding:10px 0;border-top:1px dashed #bbb">
+<div style="min-width:0"><div style="font-weight:700">{{ r.n }}</div><div style="font-size:13px;line-height:18px;color:#666">{{ r.e }}</div></div>
+<div style="display:flex;align-items:stretch;height:34px;border:1.5px solid #222;border-radius:6px;overflow:hidden;box-sizing:border-box">
+<span onClick="{{ r.setFit }}" style="flex:1;display:flex;align-items:center;justify-content:center;cursor:pointer;background:{{ r.fitBg }};color:{{ r.fitC }}">Fit from data</span>
+<span onClick="{{ r.setFix }}" style="flex:1.15;display:flex;align-items:center;justify-content:center;gap:6px;border-left:1.5px solid #222;cursor:pointer;background:{{ r.fixBg }};color:{{ r.fixC }}">Fixed:<span style="min-width:44px;padding:0 6px;border:1.5px solid #222;border-radius:3px;background:#fff;color:#1f1f1f;font:500 13px/20px 'IBM Plex Mono',monospace;text-align:center">{{ r.val }}</span></span>
+</div>
+<span style="font:400 12px 'IBM Plex Mono',monospace;color:#666">{{ r.ref }}</span>
+</div>
+</sc-for>
+</section>
+
+<section style="border:1.5px solid #222;border-radius:8px;padding:16px 18px;display:flex;flex-direction:column;gap:4px">
+<div style="display:flex;align-items:baseline;gap:10px"><span style="font:600 12px 'IBM Plex Mono',monospace;color:#777">4</span><span style="font-size:19px;font-weight:700">Prior</span><span style="color:#666;font-size:14px">the preseason guess, and how fast it fades</span></div>
+<div style="display:grid;grid-template-columns:minmax(0,1fr) 300px 150px;gap:16px;align-items:center;padding:10px 0;border-top:1px dashed #bbb">
+<div><div style="font-weight:700">Components</div><div style="font-size:13px;line-height:18px;color:#666">what the guess is built from</div></div>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:4px 12px;font-size:14px"><span>☑ last season</span><span>☑ returning production</span><span>☑ talent</span><span>☑ recruiting (4 classes)</span></div>
+<span></span>
+</div>
+<sc-for list="{{ prior }}" as="r" hint-placeholder-count="1">
+<div style="display:grid;grid-template-columns:minmax(0,1fr) 300px 150px;gap:16px;align-items:center;padding:10px 0;border-top:1px dashed #bbb">
+<div style="min-width:0"><div style="font-weight:700">{{ r.n }}</div><div style="font-size:13px;line-height:18px;color:#666">{{ r.e }}</div></div>
+<div style="display:flex;align-items:stretch;height:34px;border:1.5px solid #222;border-radius:6px;overflow:hidden;box-sizing:border-box">
+<span onClick="{{ r.setFit }}" style="flex:1;display:flex;align-items:center;justify-content:center;cursor:pointer;background:{{ r.fitBg }};color:{{ r.fitC }}">Fit from data</span>
+<span onClick="{{ r.setFix }}" style="flex:1.15;display:flex;align-items:center;justify-content:center;gap:6px;border-left:1.5px solid #222;cursor:pointer;background:{{ r.fixBg }};color:{{ r.fixC }}">Fixed:<span style="min-width:44px;padding:0 6px;border:1.5px solid #222;border-radius:3px;background:#fff;color:#1f1f1f;font:500 13px/20px 'IBM Plex Mono',monospace;text-align:center">{{ r.val }}</span></span>
+</div>
+<span style="font:400 12px 'IBM Plex Mono',monospace;color:#666">{{ r.ref }}</span>
+</div>
+</sc-for>
+<div style="display:grid;grid-template-columns:minmax(0,1fr) 300px 150px;gap:16px;align-items:center;padding:10px 0;border-top:1px dashed #bbb">
+<div><div style="font-weight:700">Decay</div><div style="font-size:13px;line-height:18px;color:#666">how the guess hands over to this season's games</div></div>
+<div style="display:flex;flex-direction:column;gap:6px;font-size:14px"><span>◉ Fitted curve (backtest finds it)</span><span style="display:flex;align-items:center;gap:6px">○ Linear, reaches 0 at week <span style="padding:0 8px;border:1.5px solid #222;border-radius:3px;background:#fff;font:500 13px 'IBM Plex Mono',monospace">8</span></span></div>
+<span style="height:52px;border:1.5px dashed #999;border-radius:4px;display:flex;align-items:center;justify-content:center;font:500 11px 'IBM Plex Mono',monospace;color:#777;text-align:center">decay curve preview</span>
+</div>
+</section>
+
+<section style="border:1.5px solid #222;border-radius:8px;padding:16px 18px;display:flex;flex-direction:column;gap:4px">
+<div style="display:flex;align-items:baseline;gap:10px"><span style="font:600 12px 'IBM Plex Mono',monospace;color:#777">5</span><span style="font-size:19px;font-weight:700">Distribution</span><span style="color:#666;font-size:14px">how real results scatter around the prediction</span></div>
+<div style="display:grid;grid-template-columns:minmax(0,1fr) 300px 150px;gap:16px;align-items:center;padding:10px 0;border-top:1px dashed #bbb">
+<div><div style="font-weight:700">Shape</div><div style="font-size:13px;line-height:18px;color:#666">empirical captures key numbers (3, 7, 10, 14) that a bell curve misses</div></div>
+<div style="display:flex;flex-direction:column;gap:6px;font-size:14px"><span>◉ Normal (bell curve)</span><span>○ Empirical (from real CFB margins)</span></div>
+<span></span>
+</div>
+<sc-for list="{{ dist }}" as="r" hint-placeholder-count="1">
+<div style="display:grid;grid-template-columns:minmax(0,1fr) 300px 150px;gap:16px;align-items:center;padding:10px 0;border-top:1px dashed #bbb">
+<div style="min-width:0"><div style="font-weight:700">{{ r.n }}</div><div style="font-size:13px;line-height:18px;color:#666">{{ r.e }}</div></div>
+<div style="display:flex;align-items:stretch;height:34px;border:1.5px solid #222;border-radius:6px;overflow:hidden;box-sizing:border-box">
+<span onClick="{{ r.setFit }}" style="flex:1;display:flex;align-items:center;justify-content:center;cursor:pointer;background:{{ r.fitBg }};color:{{ r.fitC }}">Fit from data</span>
+<span onClick="{{ r.setFix }}" style="flex:1.15;display:flex;align-items:center;justify-content:center;gap:6px;border-left:1.5px solid #222;cursor:pointer;background:{{ r.fixBg }};color:{{ r.fixC }}">Fixed:<span style="min-width:44px;padding:0 6px;border:1.5px solid #222;border-radius:3px;background:#fff;color:#1f1f1f;font:500 13px/20px 'IBM Plex Mono',monospace;text-align:center">{{ r.val }}</span></span>
+</div>
+<span style="font:400 12px 'IBM Plex Mono',monospace;color:#666">{{ r.ref }}</span>
+</div>
+</sc-for>
+</section>
+
+<section style="border:1.5px solid #222;border-radius:8px;padding:16px 18px;display:flex;flex-direction:column;gap:4px">
+<div style="display:flex;align-items:baseline;gap:10px"><span style="font:600 12px 'IBM Plex Mono',monospace;color:#777">6</span><span style="font-size:19px;font-weight:700">Pick rules</span><span style="color:#666;font-size:14px">when a prediction becomes a pick</span></div>
+<sc-for list="{{ rules }}" as="r" hint-placeholder-count="4">
+<div style="display:grid;grid-template-columns:minmax(0,1fr) 300px 150px;gap:16px;align-items:center;padding:10px 0;border-top:1px dashed #bbb">
+<div style="min-width:0"><div style="font-weight:700">{{ r.n }}</div><div style="font-size:13px;line-height:18px;color:#666">{{ r.e }}</div></div>
+<div style="display:flex;align-items:center;gap:10px"><span style="min-width:70px;padding:4px 8px;border:1.5px solid #222;border-radius:4px;background:#fff;font:500 14px 'IBM Plex Mono',monospace">{{ r.v }}</span><span style="color:#666">{{ r.u }}</span></div>
+<span style="font:400 12px 'IBM Plex Mono',monospace;color:#666">{{ r.ref }}</span>
+</div>
+</sc-for>
+</section>
+</div>
+
+<aside style="display:flex;flex-direction:column;gap:14px;position:sticky;top:0">
+<div style="border:2px solid #222;border-radius:8px;padding:16px;display:flex;flex-direction:column;gap:12px;background:#fff">
+<div style="display:flex;align-items:center;gap:8px"><span style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;background:#2f62d8;color:#fff;font:700 11px/1 'IBM Plex Mono',monospace;flex:none">2</span><span style="font-weight:700;font-size:17px">Backtest</span></div>
+<span onClick="{{ runClick }}" style="display:flex;align-items:center;justify-content:center;height:44px;border-radius:6px;background:{{ runBg }};color:{{ runFg }};font-weight:700;font-size:16px;cursor:pointer">{{ runLabel }}</span>
+<div style="display:flex;align-items:center;gap:8px"><span style="font-size:13px;color:#666">Status</span><span style="display:inline-flex;align-items:center;gap:6px;padding:0 10px;border:1.5px {{ pillBs }} {{ pillC }};border-radius:999px;color:{{ pillC }};font:600 13px/24px 'IBM Plex Mono',monospace">{{ pillT }}</span></div>
+<div style="display:flex;align-items:center;gap:4px;font:500 11px 'IBM Plex Mono',monospace">
+<sc-for list="{{ steps }}" as="s" hint-placeholder-count="4"><span style="padding:2px 6px;border:1.5px {{ s.bs }} {{ s.c }};border-radius:4px;color:{{ s.c }};background:{{ s.bg }}">{{ s.l }}</span><span style="color:#999">{{ s.arrow }}</span></sc-for>
+</div>
+<span style="font-size:13px;line-height:18px;color:#666">{{ runNote }}</span>
+<span onClick="{{ failClick }}" style="align-self:flex-start;font:500 11px 'IBM Plex Mono',monospace;color:#777;text-decoration:underline;cursor:pointer">demo: simulate a failed run</span>
+<div style="border-top:1px dashed #bbb;padding-top:10px;display:flex;flex-direction:column;gap:4px;font-size:13px;line-height:18px">
+<span>Seasons: <b>validation 2016–2023</b></span>
+<span style="color:#666">Holdout 2024–2025 stays locked (opened only at Promote)</span>
+<span style="color:#666">Takes a few minutes · runs on the backtest workflow</span>
+</div>
+</div>
+<div style="border:1.5px solid #c2410c;border-radius:8px;padding:14px;display:flex;flex-direction:column;gap:6px;color:#9a3412">
+<div style="display:flex;align-items:center;gap:8px"><span style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;background:#2f62d8;color:#fff;font:700 11px/1 'IBM Plex Mono',monospace;flex:none">3</span><span style="font-weight:700">This run will be variant #8</span></div>
+<span style="font-size:13px;line-height:18px">since v1.0 was promoted. Each try makes a lucky winner more likely; small gains need more proof.</span>
+</div>
+<div style="border:1.5px dashed #999;border-radius:8px;padding:14px;display:flex;flex-direction:column;gap:6px">
+<span style="font-weight:700">Changes vs v1.1</span>
+<span style="font:500 13px 'IBM Plex Mono',monospace">{{ changeT }}</span>
+<span style="font-size:13px;color:#666">When done: opens Compare vs production</span>
+</div>
+</aside>
+</div>
+</sc-if>
+
+<sc-if value="{{ isPromote }}" hint-placeholder-val="{{ false }}">
+<div style="display:flex;align-items:center;gap:14px;padding:18px 28px;border-bottom:1px dashed #bbb">
+<span style="font-size:22px;font-weight:700">Promote <span style="font-family:'IBM Plex Mono',monospace">v1.1</span> → production</span>
+<span style="color:#666">replaces <span style="font-family:'IBM Plex Mono',monospace;color:#1f1f1f">v1.0</span> (production since Aug 20) · candidate since Sep 14</span>
+</div>
+<div style="display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:28px;padding:20px 28px 28px;align-items:start">
+<div style="display:flex;flex-direction:column;gap:14px;min-width:0">
+<div style="display:flex;align-items:center;gap:16px;padding:14px 18px;border:2.5px solid #222;border-radius:8px;background:#fff">
+<span style="font:700 26px 'IBM Plex Mono',monospace;padding:2px 14px;border:2.5px solid #b91c1c;color:#b91c1c;border-radius:6px">NO-GO</span>
+<span style="display:flex;flex-direction:column"><span style="font-size:17px;font-weight:700">2 of 4 gates pass · 1 fails · 1 not run</span><span style="font-size:14px;color:#666">All 4 must pass to promote. Gates come from the go/no-go rules in the model doc.</span></span>
+</div>
+<sc-for list="{{ gates }}" as="g" hint-placeholder-count="4">
+<div style="display:grid;grid-template-columns:44px minmax(0,1fr) 200px;gap:16px;align-items:start;padding:14px 18px;border:1.5px solid #222;border-radius:8px">
+<span style="width:40px;height:40px;border:2px {{ g.bs }} {{ g.c }};border-radius:6px;display:flex;align-items:center;justify-content:center;color:{{ g.c }};font:700 20px 'IBM Plex Mono',monospace">{{ g.mark }}</span>
+<div style="display:flex;flex-direction:column;gap:4px;min-width:0">
+<span style="display:flex;align-items:baseline;gap:10px"><span style="font-size:17px;font-weight:700">{{ g.n }}</span><span style="font:600 11px 'IBM Plex Mono',monospace;color:{{ g.c }}">{{ g.st }}</span></span>
+<span style="font-size:14px;line-height:19px">{{ g.rule }}</span>
+<sc-for list="{{ g.checks }}" as="k" hint-placeholder-count="1"><span style="display:flex;align-items:baseline;gap:8px;font-size:13px;line-height:18px"><span style="font:700 12px 'IBM Plex Mono',monospace;color:{{ k.c }}">{{ k.m }}</span><span>{{ k.t }}</span></span></sc-for>
+<sc-if value="{{ g.hasAction }}" hint-placeholder-val="{{ false }}"><span style="align-self:flex-start;margin-top:4px;padding:3px 12px;border:1.5px solid #222;border-radius:6px;font-size:14px">{{ g.action }}</span></sc-if>
+</div>
+<span style="height:64px;border:1.5px dashed #999;border-radius:4px;display:flex;align-items:center;justify-content:center;padding:0 8px;font:500 11px 'IBM Plex Mono',monospace;color:#777;text-align:center">{{ g.viz }}</span>
+</div>
+</sc-for>
+</div>
+<aside style="display:flex;flex-direction:column;gap:14px">
+<div style="border:2px solid #c2410c;border-radius:8px;padding:16px;display:flex;flex-direction:column;gap:8px;color:#9a3412">
+<span style="font:700 44px/1 'IBM Plex Mono',monospace">7</span>
+<span style="font-weight:700;font-size:17px">variants tried since last promotion</span>
+<span style="font-size:13px;line-height:18px">v1.1 is the best of 7. Some of its edge over v1.0 is probably luck.</span>
+<span onClick="{{ ackClick }}" style="display:flex;align-items:flex-start;gap:8px;margin-top:4px;font-size:14px;line-height:19px;color:#1f1f1f;cursor:pointer"><span style="width:16px;height:16px;border:1.5px solid #222;border-radius:3px;flex:none;margin-top:2px;display:inline-flex;align-items:center;justify-content:center;font:700 12px/1 'IBM Plex Mono',monospace;background:#fff">{{ ackMark }}</span>I understand this is the best of 7 tries, not a fresh test</span>
+</div>
+<div style="border:1.5px solid #222;border-radius:8px;padding:16px;display:flex;flex-direction:column;gap:10px">
+<span style="font-weight:700">Holdout exam · 2024–2025</span>
+<span style="font-size:13px;line-height:18px;color:#666">Locked seasons the model has never been tuned on. Opened once per promotion; every opening is logged.</span>
+<span style="font:500 13px 'IBM Plex Mono',monospace">opened 1× so far (v1.0, Aug 20)</span>
+<span style="align-self:flex-start;padding:3px 12px;border:1.5px solid #222;border-radius:6px;font-size:14px">Run holdout for v1.1</span>
+</div>
+<div style="border:1.5px dashed #999;border-radius:8px;padding:16px;display:flex;flex-direction:column;gap:8px">
+<span style="font-weight:700">Override a failed gate</span>
+<span style="font-size:13px;line-height:18px;color:#666">Allowed with a written reason, saved with the version. (v1.0 shows the same 7.0+ dip.)</span>
+<span style="height:56px;border:1.5px solid #222;border-radius:4px;background:#fff;padding:6px 8px;font-size:13px;color:#999">Reason…</span>
+</div>
+<span style="display:flex;align-items:center;justify-content:center;height:44px;border-radius:6px;border:2px dashed #999;color:#999;font-weight:700;font-size:16px">Promote to production</span>
+<span style="font-size:13px;line-height:18px;color:#666;text-align:center">Disabled until all 4 gates pass (or are overridden) and the box above is checked</span>
+</aside>
+</div>
+</sc-if>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1440,&quot;height&quot;:1500},&quot;screen&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;builder&quot;,&quot;promote&quot;],&quot;default&quot;:&quot;builder&quot;,&quot;tsType&quot;:&quot;'builder'|'promote'&quot;},&quot;run&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;idle&quot;,&quot;queued&quot;,&quot;running&quot;,&quot;done&quot;,&quot;failed&quot;],&quot;default&quot;:&quot;idle&quot;,&quot;tsType&quot;:&quot;string&quot;}}">
+class Component extends DCLogic {
+  state = { fit: { pass: true, rush: true, sr: true, expl: false, hfa: true, pw: true, sd: true }, run: null, ack: false };
+  renderVals() {
+    const screen = this.props.screen ?? 'builder';
+    const S = this.state;
+    const tabs = ['Weights', 'Versions', 'Compare', 'Builder', 'Promote'].map(l => {
+      const on = l.toLowerCase() === screen;
+      return { l, bc: on ? '#222' : 'transparent', w: on ? '700' : '400' };
+    });
+    const ff = (id, n, e, fixVal, ref) => {
+      const fit = S.fit[id];
+      const set = v => () => this.setState(s => ({ fit: { ...s.fit, [id]: v } }));
+      return { n, e, ref, val: fixVal, setFit: set(true), setFix: set(false),
+        fitBg: fit ? '#222' : 'transparent', fitC: fit ? '#fbfaf7' : '#666', fixBg: fit ? 'transparent' : '#222', fixC: fit ? '#666' : '#fbfaf7' };
+    };
+    const inputs = [
+      ff('pass', 'Pass offense EPA/play', 'points per 1.0 EPA/play of passing', '31', 'v1.1 learned ×31'),
+      ff('rush', 'Rush offense EPA/play', 'points per 1.0 EPA/play of rushing', '24', 'v1.1 learned ×24'),
+      ff('sr', 'Success rate', 'points per percentage point of successful plays', '0.31', 'v1.1 learned ×0.31'),
+      ff('expl', 'Explosiveness', 'fixed at 0 = left out of the model', '0.0', 'v1.1: excluded'),
+    ];
+    const home = [ff('hfa', 'Home field advantage', 'fit it, or try a hand-set number to see what it costs', '2.0', 'v1.1 learned +2.3')];
+    const prior = [ff('pw', 'Component weights', 'how much each component counts in the guess', '—', 'v1.1: fit')];
+    const dist = [ff('sd', 'Margin standard deviation', 'how spread out results are around the prediction (normal only)', '14.0', 'v1.1 learned 13.8')];
+    const hypers = [
+      { n: 'Ridge alpha', ch: '', e: 'how strongly ratings are pulled toward average', v: '12.0', u: '', tune: '✓', ref: 'v1.1: 12.0' },
+      { n: 'Recency half-life', ch: '●', e: 'a game this many weeks ago counts half', v: '6', u: 'weeks', tune: '✓', ref: 'v1.1: 5 weeks' },
+      { n: 'Margin cap', ch: '', e: 'blowouts beyond this count as this', v: '28', u: 'pts', tune: '', ref: 'v1.1: 28' },
+    ];
+    const rules = [
+      { n: 'Min edge', e: 'points of edge needed to pick at all', v: '2.5', u: 'pts', ref: 'v1.1: 2.5' },
+      { n: 'Min cover probability', e: 'chance to cover needed to pick', v: '55', u: '%', ref: 'v1.1: 55%' },
+      { n: 'Market shrink k', e: 'final line = k × model + (1 − k) × market', v: '0.6', u: '☑ tune', ref: 'v1.1: 0.6' },
+      { n: 'Tier thresholds', e: 'edge needed for A / B / C', v: '5.0 / 3.5 / 2.5', u: '', ref: 'v1.1: same' },
+    ];
+    const changed = Object.entries({ pass: true, rush: true, sr: true, expl: false, hfa: true, pw: true, sd: true }).filter(([k, v]) => S.fit[k] !== v).map(([k]) => ({ pass: 'pass EPA', rush: 'rush EPA', sr: 'success rate', expl: 'explosiveness', hfa: 'home field', pw: 'prior weights', sd: 'margin SD' })[k]);
+    const changeT = ['half-life 5 → 6 wk', ...changed.map(c => c + ': fit ↔ fixed')].join('\n· ');
+    const secs = ['Inputs', 'Hyperparameters', 'Home field', 'Prior', 'Distribution', 'Pick rules'].map((l, i) => ({ l, n: i + 1, bg: i === 0 ? '#e4e0d7' : 'transparent', dot: i === 1 || (i === 0 && (S.fit.pass !== true || S.fit.rush !== true || S.fit.sr !== true || S.fit.expl !== false)) || (i === 2 && !S.fit.hfa) || (i === 3 && !S.fit.pw) || (i === 4 && !S.fit.sd) ? '●' : '' }));
+    // run status
+    const run = S.run ?? this.props.run ?? 'idle';
+    const order = ['queued', 'running', 'done'];
+    const next = { idle: 'queued', queued: 'running', running: 'done', done: 'idle', failed: 'queued' };
+    const P = {
+      idle: ['not run', '#777', 'dashed', 'Run backtest', 'Nothing queued yet. Click to start.'],
+      queued: ['● queued', '#777', 'solid', 'Queued… (click to advance)', 'Waiting for a runner. You can leave this page.'],
+      running: ['◐ running', '#2f62d8', 'solid', 'Running… (click to advance)', 'Replaying 2016–2023 week by week.'],
+      done: ['✓ done', '#15803d', 'solid', 'Open results', 'Report ready. MAE, ATS, calibration and edge buckets vs production.'],
+      failed: ['✗ failed', '#b91c1c', 'solid', 'Retry backtest', 'Spec failed validation: fixed weight must be a number. Log ↗'],
+    }[run];
+    const reached = run === 'failed' ? 2 : order.indexOf(run);
+    const steps = ['queued', 'running', run === 'failed' ? 'failed' : 'done'].map((l, i) => {
+      const cur = l === run, past = i < reached || (run === 'done' && i <= 2);
+      const c = l === 'failed' ? '#b91c1c' : cur ? '#222' : past ? '#555' : '#aaa';
+      return { l, c, bs: cur ? 'solid' : 'dashed', bg: cur ? (l === 'failed' ? '#fde8e8' : '#e4e0d7') : 'transparent', arrow: i < 2 ? '→' : '' };
+    });
+    // promote gates
+    const PASS = { mark: '✓', c: '#15803d', bs: 'solid', st: 'PASS' }, FAIL = { mark: '✗', c: '#b91c1c', bs: 'solid', st: 'FAIL' }, PEND = { mark: '?', c: '#777', bs: 'dashed', st: 'NOT RUN' };
+    const ok = t => ({ m: '✓', c: '#15803d', t }), no = t => ({ m: '✗', c: '#b91c1c', t }), q = t => ({ m: '?', c: '#777', t });
+    const gates = [
+      { ...PASS, n: '1 · Margin error close to the market', rule: 'Predicted margins miss by no more than 0.5 pts more than the closing line does.', checks: [ok('MAE 12.8 vs closing 12.6 → 0.2 pts behind (limit 0.5)')], viz: 'bar: v1.1 vs closing vs limit' },
+      { ...FAIL, n: '2 · Beats closing lines, bigger edges win more', rule: 'Picks win more than 52.4% against closing lines, and win % rises with edge size.', checks: [ok('54.4% on 1,152 picks (break-even 52.4%)'), no('Trend breaks at 7.0+: 52.4 → 55.6 → 57.5 → 54.1%')], viz: 'mini edge-bucket bars' },
+      { ...PASS, n: '3 · Honest probabilities', rule: 'When it says ~58%, games hit within 55–61%.', checks: [ok('Says 57.5% → hits 56.6%')], viz: 'mini calibration plot' },
+      { ...PEND, n: '4 · Consistent across seasons', rule: 'Results hold up season by season, not carried by one lucky year.', checks: [q('Needs the per-season split (2016–2023)')], hasAction: true, action: 'Run season split', viz: 'per-season ATS strip, 8 cells' },
+    ].map(g => ({ ...g, hasAction: !!g.hasAction }));
+    return {
+      screenLabel: screen === 'builder' ? 'Lab · Builder wireframe' : 'Lab · Promote wireframe',
+      isBuilder: screen === 'builder', isPromote: screen === 'promote', tabs, secs,
+      inputs, home, prior, dist, hypers, rules, changeT,
+      runClick: () => this.setState({ run: next[run] }), failClick: () => this.setState({ run: 'failed' }),
+      runLabel: P[3], runNote: P[4], pillT: P[0], pillC: P[1], pillBs: P[2], steps,
+      runBg: run === 'idle' || run === 'failed' ? '#222' : '#fbfaf7', runFg: run === 'idle' || run === 'failed' ? '#fbfaf7' : '#222',
+      gates, ackMark: S.ack ? '✓' : '', ackClick: () => this.setState(s => ({ ack: !s.ack })),
+    };
+  }
+}
+</script>
+</body>
+</html>

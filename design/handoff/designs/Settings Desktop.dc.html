@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet><style id="dc-token-fallback">:root{--background:#0c0f12;--foreground:#eef0f3;--card:#13161a;--card-foreground:#eef0f3;--popover:#1b1e23;--popover-foreground:#eef0f3;--primary:#e5e8ec;--primary-foreground:#13161a;--secondary:#23272b;--secondary-foreground:#eef0f3;--muted:#1d2125;--muted-foreground:#9fa5ad;--accent:#262a30;--accent-foreground:#eef0f3;--destructive:#ef6661;--destructive-foreground:#0c0f12;--border:#2a2e33;--input:#5f646a;--ring:#67aaed;--edge:#b699eb;--edge-foreground:#0c0f12;--pos:#68b5f5;--neg:#f19a4b;--push:#a7abb1;--tier-a:#bd9ff2;--tier-a-foreground:#0c0f12;--tier-b:#8a70b8;--tier-b-foreground:#0c0f12;--tier-c:#392a51;--tier-c-foreground:#d7c9f3;--live:#52cd86;--locked:#91969b;--breakeven:#c9ced4;--chart-1:#4fa6e9;--chart-2:#e38d3d;--chart-3:#aa8dde;--chart-4:#39bab4;--chart-5:#87909c}</style><link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&amp;family=IBM+Plex+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet"><style>a{color:var(--pos)}a:hover{color:var(--foreground)}</style></helmet>
+<div data-screen-label="Settings · Alerts · desktop" style="width:1440px;min-height:900px;box-sizing:border-box;display:grid;grid-template-columns:224px minmax(0,1fr);background:var(--background);color:var(--foreground);font-family:'IBM Plex Sans',ui-sans-serif,system-ui,sans-serif;font-size:14px;line-height:20px;font-variant-numeric:tabular-nums lining-nums">
+<aside style="display:flex;flex-direction:column;gap:16px;padding:12px;background:var(--card);border-right:1px solid var(--border)">
+<div style="display:flex;align-items:center;gap:10px;height:32px;padding:0 6px"><span style="width:24px;height:24px;border-radius:6px;background:var(--foreground);color:var(--background);display:flex;align-items:center;justify-content:center;font:700 11px/1 'IBM Plex Mono',monospace;flex:none">CF</span><span style="font-size:14px;font-weight:600">CFB Model</span></div>
+<div style="display:flex;align-items:center;gap:8px;height:32px;padding:0 10px;border:1px solid var(--input);border-radius:6px;font-size:13px;font-weight:600"><span style="width:8px;height:8px;border-radius:50%;background:var(--live);flex:none"></span><span style="flex:1">College football</span><span style="display:inline-block;width:14px;height:14px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/chevrons-up-down.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/chevrons-up-down.svg) center/contain no-repeat;color:var(--muted-foreground)"></span></div>
+<nav style="display:flex;flex-direction:column;gap:2px">
+<span style="display:flex;align-items:center;gap:10px;height:34px;padding:0 10px;border-radius:6px;font-size:13px;font-weight:500;color:var(--muted-foreground)"><span style="display:inline-block;width:16px;height:16px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/calendar-days.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/calendar-days.svg) center/contain no-repeat"></span>This Week</span>
+<span style="display:flex;align-items:center;gap:10px;height:34px;padding:0 10px;border-radius:6px;font-size:13px;font-weight:500;color:var(--muted-foreground)"><span style="display:inline-block;width:16px;height:16px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/target.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/target.svg) center/contain no-repeat"></span><span style="flex:1">Picks</span><span style="font-size:12px">9</span></span>
+<span style="display:flex;align-items:center;gap:10px;height:34px;padding:0 10px;border-radius:6px;font-size:13px;font-weight:500;color:var(--muted-foreground)"><span style="display:inline-block;width:16px;height:16px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/trophy.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/trophy.svg) center/contain no-repeat"></span>Contest</span>
+<span style="display:flex;align-items:center;gap:10px;height:34px;padding:0 10px;border-radius:6px;font-size:13px;font-weight:500;color:var(--muted-foreground)"><span style="display:inline-block;width:16px;height:16px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/list-ordered.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/list-ordered.svg) center/contain no-repeat"></span>Rankings</span>
+<span style="display:flex;align-items:center;gap:10px;height:34px;padding:0 10px;border-radius:6px;font-size:13px;font-weight:500;color:var(--muted-foreground)"><span style="display:inline-block;width:16px;height:16px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/shield.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/shield.svg) center/contain no-repeat"></span>Teams</span>
+<span style="display:flex;align-items:center;gap:10px;height:34px;padding:0 10px;border-radius:6px;font-size:13px;font-weight:500;color:var(--muted-foreground)"><span style="display:inline-block;width:16px;height:16px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/activity.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/activity.svg) center/contain no-repeat"></span>Performance</span>
+<span style="display:flex;align-items:center;gap:10px;height:34px;padding:0 10px;border-radius:6px;font-size:13px;font-weight:500;color:var(--muted-foreground)"><span style="display:inline-block;width:16px;height:16px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/flask-conical.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/flask-conical.svg) center/contain no-repeat"></span>Lab</span>
+</nav>
+<div style="flex:1"></div>
+<div style="display:flex;flex-direction:column;gap:2px;padding-top:8px;border-top:1px solid var(--border)">
+<span style="display:flex;align-items:center;gap:10px;height:34px;padding:0 10px;border-radius:6px;background:var(--accent);font-size:13px;font-weight:600"><span style="display:inline-block;width:16px;height:16px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/settings.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/settings.svg) center/contain no-repeat"></span>Settings</span>
+<span style="display:flex;align-items:center;gap:10px;height:34px;padding:0 10px;border-radius:6px;font-size:13px;font-weight:500"><span style="width:20px;height:20px;border-radius:50%;background:var(--secondary);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;flex:none">JD</span><span style="flex:1">Account</span></span>
+</div>
+</aside>
+
+<main style="min-width:0;display:flex;flex-direction:column">
+<div style="display:flex;align-items:center;gap:12px;height:56px;padding:0 24px;border-bottom:1px solid var(--border);box-sizing:border-box">
+<span style="display:inline-flex;align-items:center;gap:8px;height:32px;padding:0 10px;border-radius:6px;border:1px solid var(--input);width:320px;box-sizing:border-box;font-size:13px;color:var(--muted-foreground)"><span style="display:inline-block;width:14px;height:14px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/search.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/search.svg) center/contain no-repeat"></span><span style="flex:1">Search teams</span><span style="display:inline-flex;align-items:center;height:20px;padding:0 6px;border-radius:4px;border:1px solid var(--border);background:var(--muted);font:500 11px 'IBM Plex Mono',monospace">⌘K</span></span>
+<span style="flex:1"></span>
+<span style="position:relative;display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:6px;border:1px solid var(--input);box-sizing:border-box"><span style="display:inline-block;width:16px;height:16px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/bell.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/bell.svg) center/contain no-repeat"></span><span style="position:absolute;top:-5px;right:-5px;min-width:16px;height:16px;padding:0 4px;box-sizing:border-box;border-radius:8px;background:var(--foreground);color:var(--background);font-size:12px;line-height:16px;font-weight:700;text-align:center;box-shadow:0 0 0 2px var(--background)">1</span></span>
+</div>
+
+<div style="display:flex;align-items:baseline;gap:12px;padding:16px 24px 16px"><h1 style="margin:0;font-size:24px;line-height:32px;font-weight:600">Settings</h1><span style="font-size:12px;line-height:16px;color:var(--muted-foreground)">Changes save automatically</span></div>
+
+<div style="display:grid;grid-template-columns:200px minmax(0,720px);gap:32px;padding:0 24px 40px;align-items:start">
+<nav style="display:flex;flex-direction:column;gap:2px">
+<span style="display:flex;align-items:center;height:34px;padding:0 10px;border-radius:6px;font-size:13px;font-weight:500;color:var(--muted-foreground)">Account</span>
+<span style="display:flex;align-items:center;height:34px;padding:0 10px;border-radius:6px;font-size:13px;font-weight:500;color:var(--muted-foreground)">Appearance</span>
+<span style="display:flex;align-items:center;height:34px;padding:0 10px;border-radius:6px;font-size:13px;font-weight:500;color:var(--muted-foreground)">Contests</span>
+<span style="display:flex;align-items:center;gap:8px;height:34px;padding:0 10px;border-radius:6px;background:var(--accent);font-size:13px;font-weight:600"><span style="display:inline-block;width:14px;height:14px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/bell.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/bell.svg) center/contain no-repeat"></span>Alerts</span>
+</nav>
+
+<div style="display:flex;flex-direction:column;gap:16px">
+<section style="display:flex;flex-direction:column;background:var(--card);border:1px solid var(--border);border-radius:8px;overflow:hidden">
+<div style="display:flex;flex-direction:column;gap:2px;padding:14px 16px;border-bottom:1px solid var(--border)"><span style="font-size:14px;font-weight:600">Delivery</span><span style="font-size:12px;line-height:16px;color:var(--muted-foreground)">Where alerts go. They also always appear under the bell.</span></div>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:14px 16px">
+<div onClick="{{ setEmail }}" style="display:flex;align-items:flex-start;gap:10px;padding:12px 14px;border:1px solid {{ dEmail.bd }};border-radius:8px;background:{{ dEmail.bg }};cursor:pointer">
+<span style="display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;margin-top:2px;border-radius:50%;border:1.5px solid {{ dEmail.ring }};box-sizing:border-box;flex:none"><span style="width:8px;height:8px;border-radius:50%;background:{{ dEmail.dot }}"></span></span>
+<span style="display:flex;flex-direction:column;gap:2px"><span style="display:flex;align-items:center;gap:6px;font-size:14px;font-weight:600"><span style="display:inline-block;width:14px;height:14px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/mail.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/mail.svg) center/contain no-repeat"></span>Email</span><span style="font-size:12px;line-height:16px;color:var(--muted-foreground)">To your account address</span></span>
+</div>
+<div onClick="{{ setPush }}" style="display:flex;align-items:flex-start;gap:10px;padding:12px 14px;border:1px solid {{ dPush.bd }};border-radius:8px;background:{{ dPush.bg }};cursor:pointer">
+<span style="display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;margin-top:2px;border-radius:50%;border:1.5px solid {{ dPush.ring }};box-sizing:border-box;flex:none"><span style="width:8px;height:8px;border-radius:50%;background:{{ dPush.dot }}"></span></span>
+<span style="display:flex;flex-direction:column;gap:2px"><span style="display:flex;align-items:center;gap:6px;font-size:14px;font-weight:600"><span style="display:inline-block;width:14px;height:14px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/monitor-smartphone.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/monitor-smartphone.svg) center/contain no-repeat"></span>Push</span><span style="font-size:12px;line-height:16px;color:var(--muted-foreground)">{{ pushSub }}</span></span>
+</div>
+</div>
+</section>
+
+<section style="display:flex;flex-direction:column;background:var(--card);border:1px solid var(--border);border-radius:8px;overflow:hidden">
+<div style="display:flex;flex-direction:column;gap:2px;padding:14px 16px;border-bottom:1px solid var(--border)"><span style="font-size:14px;font-weight:600">Alert me when</span><span style="font-size:12px;line-height:16px;color:var(--muted-foreground)">Star games on This Week, Game Detail or Contest.</span></div>
+<div style="display:flex;align-items:flex-start;gap:10px;margin:12px 16px 4px;padding:12px 14px;border-radius:8px;background:var(--muted);border:1px solid var(--border)">
+<span style="display:inline-block;width:15px;height:15px;margin-top:2px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/clock.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/clock.svg) center/contain no-repeat;color:var(--muted-foreground)"></span>
+<span style="display:flex;flex-direction:column;gap:3px;font-size:13px;line-height:19px"><span style="font-weight:600">Alerts follow the line-snapshot schedule, so they can lag a move by hours.</span><span style="color:var(--muted-foreground);text-wrap:pretty">We only see a new line when the lines job runs, a few times a week. A move is alerted at the next snapshot, not the moment it happens. The last one: Colorado @ BYU, −7 → −6, sent Wed 7:04 PM.</span></span>
+</div>
+<div style="display:grid;grid-template-columns:44px minmax(0,1fr) 168px;gap:12px;align-items:center;padding:14px 16px;border-bottom:1px solid var(--border)">
+<span onClick="{{ toggleEdge }}" role="switch" style="position:relative;width:40px;height:24px;border-radius:12px;background:{{ swEdge.bg }};border:1px solid {{ swEdge.bd }};box-sizing:border-box;cursor:pointer"><span style="position:absolute;left:{{ swEdge.x }};top:3px;width:16px;height:16px;border-radius:50%;background:{{ swEdge.knob }}"></span></span>
+<span style="display:flex;flex-direction:column;gap:2px;opacity:{{ swEdge.op }}"><span style="font-size:14px;font-weight:600">A game's edge crosses the pick threshold</span><span style="font-size:12px;line-height:16px;color:var(--muted-foreground);text-wrap:pretty">When it becomes a pick (edge ≥ 2.5 pts), or stops being one</span></span>
+<span onClick="{{ cycleEdgeScope }}" style="display:flex;align-items:center;gap:6px;height:32px;padding:0 10px;border:1px solid var(--input);border-radius:6px;font-size:13px;box-sizing:border-box;cursor:pointer;opacity:{{ swEdge.op }}"><span style="flex:1">{{ edgeScope }}</span><span style="display:inline-block;width:14px;height:14px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/chevron-down.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/chevron-down.svg) center/contain no-repeat;color:var(--muted-foreground)"></span></span>
+</div>
+<div style="display:grid;grid-template-columns:44px minmax(0,1fr) 168px;gap:12px;align-items:center;padding:14px 16px">
+<span onClick="{{ toggleMove }}" role="switch" style="position:relative;width:40px;height:24px;border-radius:12px;background:{{ swMove.bg }};border:1px solid {{ swMove.bd }};box-sizing:border-box;cursor:pointer"><span style="position:absolute;left:{{ swMove.x }};top:3px;width:16px;height:16px;border-radius:50%;background:{{ swMove.knob }}"></span></span>
+<span style="display:flex;flex-direction:column;gap:6px;opacity:{{ swMove.op }}"><span style="display:flex;align-items:center;gap:8px;font-size:14px;font-weight:600;flex-wrap:wrap">Its line moves by at least
+<span style="display:inline-flex;align-items:center;height:30px;border:1px solid var(--input);border-radius:6px;overflow:hidden;box-sizing:border-box"><span onClick="{{ decN }}" style="display:flex;align-items:center;justify-content:center;width:28px;height:100%;border-right:1px solid var(--border);cursor:pointer;color:var(--muted-foreground)">−</span><span style="display:flex;align-items:center;justify-content:center;min-width:40px;font-size:14px;font-weight:600">{{ nTxt }}</span><span onClick="{{ incN }}" style="display:flex;align-items:center;justify-content:center;width:28px;height:100%;border-left:1px solid var(--border);cursor:pointer;color:var(--muted-foreground)">+</span></span>pts</span>
+<span style="font-size:12px;line-height:16px;color:var(--muted-foreground);text-wrap:pretty">Measured from the line at your last alert, or the opening line. Half-point steps.</span></span>
+<span onClick="{{ cycleMoveScope }}" style="display:flex;align-items:center;gap:6px;height:32px;padding:0 10px;border:1px solid var(--input);border-radius:6px;font-size:13px;box-sizing:border-box;cursor:pointer;opacity:{{ swMove.op }}"><span style="flex:1">{{ moveScope }}</span><span style="display:inline-block;width:14px;height:14px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/chevron-down.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/chevron-down.svg) center/contain no-repeat;color:var(--muted-foreground)"></span></span>
+</div>
+</section>
+
+</div>
+</div>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1440,&quot;height&quot;:900},&quot;delivery&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;email&quot;,&quot;push&quot;],&quot;default&quot;:&quot;email&quot;,&quot;tsType&quot;:&quot;'email'|'push'&quot;}}">
+class Component extends DCLogic {
+  state = { delivery: null, edge: true, move: true, n: 1, edgeScope: 'All games', moveScope: 'Starred games' };
+  renderVals() {
+    const S = this.state;
+    const delivery = S.delivery ?? this.props.delivery ?? 'email';
+    const radio = on => ({ bd: on ? 'var(--foreground)' : 'var(--border)', bg: on ? 'var(--accent)' : 'transparent', ring: on ? 'var(--foreground)' : 'var(--input)', dot: on ? 'var(--foreground)' : 'transparent' });
+    const sw = on => ({ bg: on ? 'var(--primary)' : 'var(--secondary)', bd: on ? 'var(--primary)' : 'var(--input)', knob: on ? 'var(--primary-foreground)' : 'var(--muted-foreground)', x: on ? '19px' : '3px', op: on ? '1' : '.55' });
+    const scopes = ['All games', 'Starred games', 'Picks only'];
+    const next = v => scopes[(scopes.indexOf(v) + 1) % scopes.length];
+    return {
+      dEmail: radio(delivery === 'email'), dPush: radio(delivery === 'push'),
+      setEmail: () => this.setState({ delivery: 'email' }), setPush: () => this.setState({ delivery: 'push' }),
+      pushSub: delivery === 'push' ? 'Allowed in this browser' : 'This browser · asks for permission',
+      swEdge: sw(S.edge), swMove: sw(S.move),
+      toggleEdge: () => this.setState({ edge: !S.edge }), toggleMove: () => this.setState({ move: !S.move }),
+      nTxt: S.n.toFixed(1), decN: () => this.setState({ n: Math.max(0.5, S.n - 0.5) }), incN: () => this.setState({ n: Math.min(7, S.n + 0.5) }),
+      edgeScope: S.edgeScope, moveScope: S.moveScope,
+      cycleEdgeScope: () => this.setState({ edgeScope: next(S.edgeScope) }), cycleMoveScope: () => this.setState({ moveScope: next(S.moveScope) }),
+    };
+  }
+}
+</script>
+</body>
+</html>

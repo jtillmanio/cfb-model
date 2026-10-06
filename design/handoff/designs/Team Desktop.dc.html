@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet><style id="dc-token-fallback">:root{--background:#0c0f12;--foreground:#eef0f3;--card:#13161a;--card-foreground:#eef0f3;--popover:#1b1e23;--popover-foreground:#eef0f3;--primary:#e5e8ec;--primary-foreground:#13161a;--secondary:#23272b;--secondary-foreground:#eef0f3;--muted:#1d2125;--muted-foreground:#9fa5ad;--accent:#262a30;--accent-foreground:#eef0f3;--destructive:#ef6661;--destructive-foreground:#0c0f12;--border:#2a2e33;--input:#5f646a;--ring:#67aaed;--edge:#b699eb;--edge-foreground:#0c0f12;--pos:#68b5f5;--neg:#f19a4b;--push:#a7abb1;--tier-a:#bd9ff2;--tier-a-foreground:#0c0f12;--tier-b:#8a70b8;--tier-b-foreground:#0c0f12;--tier-c:#392a51;--tier-c-foreground:#d7c9f3;--live:#52cd86;--locked:#91969b;--breakeven:#c9ced4;--chart-1:#4fa6e9;--chart-2:#e38d3d;--chart-3:#aa8dde;--chart-4:#39bab4;--chart-5:#87909c}</style><link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&amp;family=IBM+Plex+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet"><script src="./rankings-data.js"></script><style>a{color:var(--pos)}a:hover{color:var(--foreground)}</style></helmet>
+<div data-screen-label="Team · Ohio State · desktop" style="width:1440px;min-height:900px;box-sizing:border-box;display:grid;grid-template-columns:224px minmax(0,1fr);background:var(--background);color:var(--foreground);font-family:'IBM Plex Sans',ui-sans-serif,system-ui,sans-serif;font-size:14px;line-height:20px;font-variant-numeric:tabular-nums lining-nums">
+
+<aside style="display:flex;flex-direction:column;gap:16px;padding:12px;background:var(--card);border-right:1px solid var(--border)">
+<div style="display:flex;align-items:center;gap:10px;height:32px;padding:0 6px"><span style="width:24px;height:24px;border-radius:6px;background:var(--foreground);color:var(--background);display:flex;align-items:center;justify-content:center;font:700 11px/1 'IBM Plex Mono',monospace;flex:none">CF</span><span style="font-size:14px;font-weight:600;letter-spacing:-0.005em">CFB Model</span></div>
+<div style="display:flex;align-items:center;gap:8px;height:32px;padding:0 10px;border:1px solid var(--input);border-radius:6px;font-size:13px;font-weight:600;cursor:pointer"><span style="width:8px;height:8px;border-radius:50%;background:var(--live);flex:none"></span><span style="flex:1">College football</span><span style="display:inline-block;width:14px;height:14px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/chevrons-up-down.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/chevrons-up-down.svg) center/contain no-repeat;color:var(--muted-foreground)"></span></div>
+<nav style="display:flex;flex-direction:column;gap:2px">
+<span style="display:flex;align-items:center;gap:10px;height:34px;padding:0 10px;border-radius:6px;font-size:13px;font-weight:500;color:var(--muted-foreground);cursor:pointer" style-hover="background:var(--muted);color:var(--foreground)"><span style="display:inline-block;width:16px;height:16px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/calendar-days.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/calendar-days.svg) center/contain no-repeat"></span>This Week</span>
+<span style="display:flex;align-items:center;gap:10px;height:34px;padding:0 10px;border-radius:6px;font-size:13px;font-weight:500;color:var(--muted-foreground);cursor:pointer" style-hover="background:var(--muted);color:var(--foreground)"><span style="display:inline-block;width:16px;height:16px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/target.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/target.svg) center/contain no-repeat"></span><span style="flex:1">Picks</span><span style="font-size:12px">14</span></span>
+<span style="display:flex;align-items:center;gap:10px;height:34px;padding:0 10px;border-radius:6px;font-size:13px;font-weight:500;color:var(--muted-foreground);cursor:pointer" style-hover="background:var(--muted);color:var(--foreground)"><span style="display:inline-block;width:16px;height:16px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/trophy.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/trophy.svg) center/contain no-repeat"></span>Contest</span>
+<span style="display:flex;align-items:center;gap:10px;height:34px;padding:0 10px;border-radius:6px;font-size:13px;font-weight:500;color:var(--muted-foreground);cursor:pointer" style-hover="background:var(--muted);color:var(--foreground)"><span style="display:inline-block;width:16px;height:16px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/list-ordered.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/list-ordered.svg) center/contain no-repeat"></span>Rankings</span>
+<span style="display:flex;align-items:center;gap:10px;height:34px;padding:0 10px;border-radius:6px;background:var(--accent);font-size:13px;font-weight:600"><span style="display:inline-block;width:16px;height:16px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/shield.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/shield.svg) center/contain no-repeat"></span>Teams</span>
+<span style="display:flex;align-items:center;gap:10px;height:34px;padding:0 10px;border-radius:6px;font-size:13px;font-weight:500;color:var(--muted-foreground);cursor:pointer" style-hover="background:var(--muted);color:var(--foreground)"><span style="display:inline-block;width:16px;height:16px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/activity.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/activity.svg) center/contain no-repeat"></span>Performance</span>
+<span style="display:flex;align-items:center;gap:10px;height:34px;padding:0 10px;border-radius:6px;font-size:13px;font-weight:500;color:var(--muted-foreground);cursor:pointer" style-hover="background:var(--muted);color:var(--foreground)"><span style="display:inline-block;width:16px;height:16px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/flask-conical.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/flask-conical.svg) center/contain no-repeat"></span>Lab</span>
+</nav>
+<div style="flex:1"></div>
+<div style="display:flex;flex-direction:column;gap:6px;padding:12px;border:1px solid var(--border);border-radius:8px;background:var(--background);cursor:pointer" style-hover="border-color:var(--input)">
+<span style="font-size:12px;line-height:16px;color:var(--muted-foreground)">Model · 2026 live</span>
+<span style="display:flex;align-items:baseline;gap:8px"><span style="font-size:16px;font-weight:600">31-24-1</span><span style="font-size:13px">56.4%</span></span>
+<span style="display:flex;align-items:center;gap:8px;font-size:12px;line-height:16px"><span style="color:var(--pos);font-weight:600">+4.6u</span><span style="color:var(--muted-foreground)">CLV +0.9</span><span style="flex:1"></span><span style="color:var(--muted-foreground)">Track record</span></span>
+</div>
+<div style="display:flex;flex-direction:column;gap:2px;padding-top:8px;border-top:1px solid var(--border)">
+<span style="display:flex;align-items:center;gap:10px;height:34px;padding:0 10px;border-radius:6px;font-size:13px;font-weight:500;color:var(--muted-foreground)"><span style="display:inline-block;width:16px;height:16px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/settings.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/settings.svg) center/contain no-repeat"></span>Settings</span>
+<span style="display:flex;align-items:center;gap:10px;height:34px;padding:0 10px;border-radius:6px;font-size:13px;font-weight:500"><span style="width:20px;height:20px;border-radius:50%;background:var(--secondary);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;flex:none">JD</span><span style="flex:1">Account</span></span>
+</div>
+</aside>
+
+<main style="min-width:0;display:flex;flex-direction:column">
+<div style="display:flex;align-items:center;gap:12px;height:56px;padding:0 24px;border-bottom:1px solid var(--border);box-sizing:border-box;flex:none">
+<span style="display:inline-flex;align-items:center;height:32px;border:1px solid var(--input);border-radius:6px;overflow:hidden;box-sizing:border-box;flex:none"><span style="display:inline-flex;align-items:center;justify-content:center;width:30px;height:100%;border-right:1px solid var(--border)"><span style="display:inline-block;width:14px;height:14px;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/chevron-left.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/chevron-left.svg) center/contain no-repeat"></span></span><span style="display:inline-flex;align-items:center;gap:6px;height:100%;padding:0 12px;font-size:13px;font-weight:600;white-space:nowrap">2026 · Week 6<span style="display:inline-block;width:14px;height:14px;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/chevron-down.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/chevron-down.svg) center/contain no-repeat;color:var(--muted-foreground)"></span></span><span style="display:inline-flex;align-items:center;justify-content:center;width:30px;height:100%;border-left:1px solid var(--border)"><span style="display:inline-block;width:14px;height:14px;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/chevron-right.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/chevron-right.svg) center/contain no-repeat"></span></span></span>
+<span style="display:inline-flex;align-items:center;gap:8px;height:32px;padding:0 10px;border-radius:6px;border:1px solid var(--input);width:320px;box-sizing:border-box;font-size:13px;color:var(--muted-foreground)"><span style="display:inline-block;width:14px;height:14px;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/search.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/search.svg) center/contain no-repeat"></span><span style="flex:1">Search teams</span><span style="display:inline-flex;align-items:center;height:20px;padding:0 6px;border-radius:4px;border:1px solid var(--border);background:var(--muted);font:500 11px 'IBM Plex Mono',monospace">⌘K</span></span>
+<span style="flex:1"></span>
+<span style="display:inline-flex;align-items:center;gap:6px;font-size:12px;line-height:16px;color:var(--muted-foreground)"><span style="display:inline-block;width:12px;height:12px;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/clock.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/clock.svg) center/contain no-repeat"></span>Sat 2:15 PM ET</span>
+<span style="position:relative;display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:6px;border:1px solid var(--input);box-sizing:border-box"><span style="display:inline-block;width:16px;height:16px;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/bell.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/bell.svg) center/contain no-repeat"></span><span style="position:absolute;top:-5px;right:-5px;min-width:16px;height:16px;padding:0 4px;box-sizing:border-box;border-radius:8px;background:var(--foreground);color:var(--background);font-size:12px;line-height:16px;font-weight:700;text-align:center;box-shadow:0 0 0 2px var(--background)">1</span></span>
+</div>
+
+<div style="display:flex;flex-direction:column;gap:16px;padding:14px 24px 32px">
+<div style="display:flex;align-items:center;gap:6px;font-size:12px;line-height:16px;color:var(--muted-foreground)"><span style="display:inline-block;width:12px;height:12px;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/arrow-left.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/arrow-left.svg) center/contain no-repeat"></span><span style="color:var(--foreground)">Rankings</span><span>/</span><span>Ohio State</span></div>
+
+<div style="display:flex;align-items:center;gap:24px;padding:16px 20px;background:var(--card);border:1px solid var(--border);border-left:3px solid #BB0000;border-radius:0 8px 8px 0">
+<div style="display:flex;align-items:center;gap:14px;flex:none">
+<span style="width:48px;height:48px;border-radius:50%;background:#BB0000;box-shadow:0 0 0 1px var(--border);flex:none"></span>
+<div style="display:flex;flex-direction:column"><span style="display:flex;align-items:baseline;gap:8px"><span style="font-size:14px;color:var(--muted-foreground)">1</span><span style="font-size:24px;line-height:32px;font-weight:600;letter-spacing:-0.01em">Ohio State</span></span><span style="font-size:13px;line-height:18px;color:var(--muted-foreground)">Big Ten · <span style="color:var(--foreground);font-weight:500">5-0</span> · ATS <span style="color:var(--foreground);font-weight:500">3-2</span> · 2026</span></div>
+</div>
+<span style="width:1px;height:44px;background:var(--border);flex:none"></span>
+<div style="display:grid;grid-template-columns:repeat(4,auto);column-gap:32px">
+<div style="display:flex;flex-direction:column"><span style="font-size:12px;line-height:16px;color:var(--muted-foreground)">Rating</span><span style="font-size:24px;line-height:28px;font-weight:600">+27.4</span><span style="font-size:12px;line-height:16px;color:var(--pos)">▲1 · now 1st</span></div>
+<div style="display:flex;flex-direction:column"><span style="font-size:12px;line-height:16px;color:var(--muted-foreground)">Offense</span><span style="font-size:24px;line-height:28px;font-weight:600">+14.1</span><span style="font-size:12px;line-height:16px;color:var(--muted-foreground)">3rd</span></div>
+<div style="display:flex;flex-direction:column"><span style="font-size:12px;line-height:16px;color:var(--muted-foreground)">Defense</span><span style="font-size:24px;line-height:28px;font-weight:600">+13.3</span><span style="font-size:12px;line-height:16px;color:var(--muted-foreground)">1st</span></div>
+<div style="display:flex;flex-direction:column"><span style="font-size:12px;line-height:16px;color:var(--muted-foreground)">Schedule</span><span style="font-size:24px;line-height:28px;font-weight:600">34th</span><span style="font-size:12px;line-height:16px;color:var(--muted-foreground)">SOS rank</span></div>
+</div>
+<span style="flex:1"></span>
+<div style="display:flex;align-items:center;gap:14px;height:56px;padding:0 6px 0 14px;border:1px solid var(--border);border-radius:8px;background:var(--background);cursor:pointer" style-hover="border-color:var(--input)">
+<div style="display:flex;flex-direction:column;gap:2px"><span style="display:flex;align-items:center;gap:6px;font:500 12px/16px 'IBM Plex Mono',monospace;color:var(--live)"><span style="width:6px;height:6px;border-radius:50%;background:currentColor"></span>Q3 9:12 · Week 6</span><span style="display:flex;align-items:center;gap:6px;font-size:14px;font-weight:500"><span style="width:14px;height:14px;border-radius:50%;background:#CEB888;box-shadow:0 0 0 1px var(--border)"></span>Purdue <span style="font:600 14px 'IBM Plex Mono',monospace">3</span><span style="color:var(--muted-foreground)">·</span>OSU <span style="font:600 14px 'IBM Plex Mono',monospace">24</span></span></div>
+<div style="display:flex;flex-direction:column;align-items:flex-end;gap:2px;padding-left:14px;border-left:1px solid var(--border)"><span style="display:flex;align-items:center;gap:6px"><span style="display:inline-flex;align-items:center;height:20px;padding:0 8px;border-radius:999px;background:var(--edge);color:var(--edge-foreground);font-size:12px;font-weight:600">+3.7 OSU</span><span style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:4px;background:var(--tier-b);color:var(--tier-b-foreground);font-size:12px;font-weight:700">B</span></span><span style="font-size:12px;line-height:16px;color:var(--neg)">OSU −27.5 · behind by 6.5</span></div>
+<span style="display:inline-block;width:14px;height:14px;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/chevron-right.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/chevron-right.svg) center/contain no-repeat;color:var(--muted-foreground)"></span>
+</div>
+</div>
+
+<div style="display:grid;grid-template-columns:minmax(0,1.55fr) minmax(0,1fr);gap:16px;align-items:start">
+<section style="display:flex;flex-direction:column;background:var(--card);border:1px solid var(--border);border-radius:8px;overflow:hidden">
+<div style="display:flex;align-items:center;gap:10px;height:44px;padding:0 16px;border-bottom:1px solid var(--border)"><span style="font-size:14px;font-weight:600">Rating trajectory</span><span style="font-size:12px;color:var(--muted-foreground)">2026 · points vs an average FBS team</span><span style="flex:1"></span><span style="display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--muted-foreground)"><svg width="18" height="4" style="display:block"><line x1="0" y1="2" x2="18" y2="2" style="stroke:var(--breakeven);stroke-width:1.5;stroke-dasharray:6 3"></line></svg>Preseason prior</span></div>
+<div style="padding:12px 16px 4px">
+<div onMouseLeave="{{ clearHover }}" style="position:relative;width:{{ chW }};height:{{ chH }}">
+<svg width="{{ ch.W }}" height="{{ ch.H }}" style="display:block;overflow:visible;font-family:'IBM Plex Sans',sans-serif">
+<sc-for list="{{ ch.yt }}" as="t" hint-placeholder-count="5"><line x1="{{ ch.x0 }}" x2="{{ ch.x1 }}" y1="{{ t.y }}" y2="{{ t.y }}" style="stroke:{{ t.stroke }};stroke-width:1"></line><text x="30" y="{{ t.ty }}" text-anchor="end" style="font-size:12px;fill:var(--muted-foreground)">{{ t.t }}</text></sc-for>
+<sc-for list="{{ ch.xt }}" as="t" hint-placeholder-count="6"><text x="{{ t.x }}" y="{{ t.ty }}" text-anchor="middle" style="font-size:12px;fill:var(--muted-foreground)">{{ t.l }}</text></sc-for>
+<line x1="{{ ch.x0 }}" x2="{{ ch.x1 }}" y1="{{ ch.priorY }}" y2="{{ ch.priorY }}" style="stroke:var(--breakeven);stroke-width:1.5;stroke-dasharray:6 3"></line>
+<text x="{{ ch.lx }}" y="{{ ch.priorLy }}" style="font-size:12px;fill:var(--foreground)">Prior +24.0</text>
+<sc-if value="{{ hasHover }}" hint-placeholder-val="{{ false }}"><line x1="{{ hov.cx }}" x2="{{ hov.cx }}" y1="8" y2="{{ chPlotB }}" style="stroke:var(--input);stroke-width:1;stroke-dasharray:3 3"></line></sc-if>
+<sc-for list="{{ ch.ser }}" as="s" hint-placeholder-count="3">
+<polyline points="{{ s.points }}" style="fill:none;stroke:{{ s.c }};stroke-width:2;stroke-linejoin:round;stroke-linecap:round"></polyline>
+<sc-for list="{{ s.dots }}" as="d" hint-placeholder-count="6"><circle cx="{{ d.cx }}" cy="{{ d.cy }}" r="3" style="fill:{{ s.c }};stroke:var(--card);stroke-width:1.5"></circle></sc-for>
+<text x="{{ ch.lx }}" y="{{ s.ly }}" style="font-size:12px;font-weight:600;fill:var(--foreground)">{{ s.endT }}</text>
+</sc-for>
+<sc-for list="{{ ch.cols }}" as="c" hint-placeholder-count="6"><rect x="{{ c.x }}" y="0" width="{{ c.w }}" height="{{ ch.H }}" onMouseEnter="{{ c.enter }}" style="fill:transparent;cursor:crosshair"></rect></sc-for>
+</svg>
+<sc-if value="{{ hasHover }}" hint-placeholder-val="{{ false }}">
+<div style="position:absolute;top:8px;left:{{ tipX }};width:148px;display:flex;flex-direction:column;gap:2px;padding:8px 10px;background:var(--popover);border:1px solid var(--border);border-radius:6px;box-shadow:0 8px 20px rgba(0,0,0,.3);font-size:12px;line-height:16px;pointer-events:none">
+<span style="font-weight:600">{{ hov.tip.l }}</span>
+<span style="display:flex;justify-content:space-between"><span style="display:flex;align-items:center;gap:6px;color:var(--muted-foreground)"><span style="width:8px;height:2px;background:var(--chart-1)"></span>Overall</span><span style="font-weight:600">{{ hov.tip.overall }}</span></span>
+<span style="display:flex;justify-content:space-between"><span style="display:flex;align-items:center;gap:6px;color:var(--muted-foreground)"><span style="width:8px;height:2px;background:var(--chart-2)"></span>Offense</span><span style="font-weight:500">{{ hov.tip.off }}</span></span>
+<span style="display:flex;justify-content:space-between"><span style="display:flex;align-items:center;gap:6px;color:var(--muted-foreground)"><span style="width:8px;height:2px;background:var(--chart-3)"></span>Defense</span><span style="font-weight:500">{{ hov.tip.def }}</span></span>
+</div>
+</sc-if>
+</div>
+</div>
+<p style="margin:0;padding:0 16px 14px;font-size:12px;line-height:16px;color:var(--muted-foreground);text-wrap:pretty">Overall = offense + defense, so the two lower lines add up to the top one. Up 3.4 points since the preseason prior.</p>
+</section>
+
+<section style="display:flex;flex-direction:column;background:var(--card);border:1px solid var(--border);border-radius:8px;overflow:hidden">
+<div style="display:flex;align-items:center;gap:10px;height:44px;padding:0 16px;border-bottom:1px solid var(--border)"><span style="font-size:14px;font-weight:600">Path to the playoff</span><span style="flex:1"></span><span style="font-size:12px;color:var(--muted-foreground);cursor:pointer">Season Outlook →</span></div>
+<div style="display:flex;flex-direction:column;gap:16px;padding:14px 16px 16px">
+<div style="display:grid;grid-template-columns:1.2fr 1fr 1fr;gap:8px">
+<div style="display:flex;flex-direction:column;gap:4px"><span style="font-size:12px;line-height:16px;color:var(--foreground);font-weight:600">Make the CFP</span><div style="position:relative;display:flex;align-items:center;height:40px;padding:0 10px;border-radius:6px;overflow:hidden;background:color-mix(in oklch, var(--secondary) 50%, transparent)"><span style="position:absolute;left:0;top:0;bottom:0;width:89%;background:color-mix(in oklch, var(--chart-1) 24%, transparent)"></span><span style="position:relative;font-size:24px;line-height:28px;font-weight:600">89%</span></div></div>
+<div style="display:flex;flex-direction:column;gap:4px"><span style="font-size:12px;line-height:16px;color:var(--muted-foreground)">Big Ten title game</span><div style="position:relative;display:flex;align-items:center;height:40px;padding:0 10px;border-radius:6px;overflow:hidden;background:color-mix(in oklch, var(--secondary) 50%, transparent)"><span style="position:absolute;left:0;top:0;bottom:0;width:71%;background:color-mix(in oklch, var(--chart-1) 24%, transparent)"></span><span style="position:relative;font-size:16px;font-weight:600">71%</span></div></div>
+<div style="display:flex;flex-direction:column;gap:4px"><span style="font-size:12px;line-height:16px;color:var(--muted-foreground)">Win Big Ten</span><div style="position:relative;display:flex;align-items:center;height:40px;padding:0 10px;border-radius:6px;overflow:hidden;background:color-mix(in oklch, var(--secondary) 50%, transparent)"><span style="position:absolute;left:0;top:0;bottom:0;width:48%;background:color-mix(in oklch, var(--chart-1) 24%, transparent)"></span><span style="position:relative;font-size:16px;font-weight:600">48%</span></div></div>
+</div>
+<div style="display:flex;align-items:flex-end;gap:20px">
+<div style="display:flex;flex-direction:column;gap:6px">
+<span style="font-size:12px;line-height:16px;color:var(--muted-foreground)">Final wins</span>
+<span style="display:flex;flex-direction:column;gap:4px"><span style="display:flex;align-items:flex-end;gap:6px;height:76px;border-bottom:1px solid var(--input)"><sc-for list="{{ pathBars }}" as="b" hint-placeholder-count="5"><span style="display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:2px;width:38px"><span style="font-size:12px;line-height:14px;color:var(--muted-foreground)">{{ b.p }}</span><span style="width:100%;height:{{ b.h }};background:{{ b.bg }};border-radius:2px 2px 0 0"></span></span></sc-for></span><span style="display:flex;gap:6px"><sc-for list="{{ pathBars }}" as="b" hint-placeholder-count="5"><span style="width:38px;text-align:center;font-size:12px;line-height:14px;font-weight:500">{{ b.lab }}</span></sc-for></span></span>
+</div>
+<div style="display:flex;flex-direction:column;gap:2px;padding-bottom:18px"><span style="font-size:12px;line-height:16px;color:var(--muted-foreground)">Projected</span><span style="font-size:24px;line-height:28px;font-weight:600">11.2-0.8</span><span style="font-size:12px;line-height:16px;color:var(--muted-foreground);text-wrap:pretty">81% to finish 11-1 or better</span></div>
+</div>
+<div style="display:flex;flex-direction:column;border-top:1px solid var(--border);padding-top:12px;gap:8px">
+<span style="display:flex;align-items:baseline;gap:8px"><span style="font-size:13px;font-weight:600">Swing games</span><span style="font-size:12px;color:var(--muted-foreground)">the two remaining games the model is least sure of</span></span>
+<sc-for list="{{ swing }}" as="s" hint-placeholder-count="2">
+<div style="display:grid;grid-template-columns:44px minmax(0,1fr) 84px 108px;gap:8px;align-items:center;height:40px;padding:0 10px;border:1px solid var(--border);border-radius:6px;background:var(--background)">
+<span style="font-size:12px;color:var(--muted-foreground)">{{ s.wk }}</span>
+<span style="display:flex;align-items:center;gap:6px;min-width:0"><span style="width:18px;font-size:12px;color:var(--muted-foreground)">{{ s.ha }}</span><span style="width:16px;height:16px;border-radius:50%;flex:none;background:{{ s.opp.color }};box-shadow:0 0 0 1px var(--border)"></span><span style="font-size:12px;color:var(--muted-foreground)">{{ s.opp.rank }}</span><span style="font-size:14px;font-weight:500;white-space:nowrap">{{ s.opp.n }}</span></span>
+<span style="text-align:right;font-size:13px;font-weight:500;white-space:nowrap">{{ s.line }}</span>
+<span style="display:flex;align-items:center;justify-content:flex-end;gap:6px"><span style="font-size:13px;font-weight:600">{{ s.winT }}</span><span style="position:relative;width:44px;height:4px;border-radius:2px;background:var(--secondary);overflow:hidden"><span style="position:absolute;left:0;top:0;bottom:0;width:{{ s.winW }};background:var(--foreground)"></span><span style="position:absolute;left:50%;top:0;bottom:0;width:1px;background:var(--muted-foreground)"></span></span></span>
+</div>
+</sc-for>
+<span style="font-size:12px;line-height:16px;color:var(--muted-foreground);text-wrap:pretty">Win % is the model's straight-up chance. The other four remaining games average about 99%.</span>
+</div>
+</div>
+</section>
+</div>
+
+<section style="display:flex;flex-direction:column;background:var(--card);border:1px solid var(--border);border-radius:8px;overflow:hidden">
+<div style="display:flex;align-items:center;gap:10px;height:44px;padding:0 16px;border-bottom:1px solid var(--border)"><span style="font-size:14px;font-weight:600">Schedule</span><span style="font-size:12px;color:var(--muted-foreground)">Lines from Ohio State's side · ATS at the closing market line</span><span style="flex:1"></span><span style="font-size:12px;color:var(--muted-foreground)">ATS <span style="color:var(--foreground);font-weight:600">3-2</span> · SU <span style="color:var(--foreground);font-weight:600">5-0</span></span></div>
+<div style="display:grid;grid-template-columns:40px minmax(0,1fr) 340px 64px 130px 120px 170px 16px;column-gap:8px;align-items:stretch;height:32px;padding:0 12px;border-bottom:1px solid var(--border);font-size:12px;line-height:16px;font-weight:500;color:var(--muted-foreground)">
+<span style="display:flex;align-items:center;justify-content:flex-end">Wk</span><span style="display:flex;align-items:center">Opponent</span>
+<div style="display:grid;grid-template-columns:100px 100px minmax(0,1fr);background:var(--muted);border-left:1px solid var(--border);border-right:1px solid var(--border);color:var(--foreground)"><span style="display:flex;align-items:center;justify-content:flex-end;padding:0 10px">Market</span><span style="display:flex;align-items:center;justify-content:flex-end;padding:0 10px">Model</span><span style="display:flex;align-items:center;justify-content:flex-end;padding:0 10px">Edge</span></div>
+<span style="display:flex;align-items:center;justify-content:flex-end">Win %</span><span style="display:flex;align-items:center;padding-left:8px">Result</span><span style="display:flex;align-items:center">ATS</span><span style="display:flex;align-items:center">Note</span><span></span>
+</div>
+<sc-for list="{{ sched }}" as="s" hint-placeholder-count="8">
+<div style="display:grid;grid-template-columns:40px minmax(0,1fr) 340px 64px 130px 120px 170px 16px;column-gap:8px;align-items:center;height:48px;padding:0 12px;border-bottom:1px solid var(--border);box-sizing:border-box;cursor:pointer" style-hover="background:var(--accent)">
+<span style="text-align:right;font-size:13px;color:var(--muted-foreground)">{{ s.wk }}</span>
+<span style="display:flex;align-items:center;gap:6px;min-width:0"><span style="width:20px;font-size:12px;color:var(--muted-foreground);flex:none">{{ s.ha }}</span><span style="width:16px;height:16px;border-radius:50%;flex:none;background:{{ s.opp.color }};box-shadow:0 0 0 1px var(--border)"></span><span style="width:12px;text-align:right;font-size:12px;color:var(--muted-foreground);flex:none">{{ s.opp.rank }}</span><span style="font-size:14px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ s.opp.n }}</span></span>
+<div style="align-self:stretch;display:grid;grid-template-columns:100px 100px minmax(0,1fr);align-items:center;background:var(--muted);border-left:1px solid var(--border);border-right:1px solid var(--border)">
+<span style="display:flex;justify-content:flex-end;padding:0 10px;white-space:nowrap"><sc-if value="{{ s.hasMkt }}" hint-placeholder-val="{{ true }}"><span style="font-size:13px;font-weight:500">{{ s.mkt }}</span></sc-if><sc-if value="{{ s.noMkt }}" hint-placeholder-val="{{ false }}"><span style="font-size:12px;font-style:italic;color:var(--muted-foreground)">No line</span></sc-if></span>
+<span style="text-align:right;padding:0 10px;font-size:13px;font-weight:500;white-space:nowrap">{{ s.model }}</span>
+<span style="display:flex;justify-content:flex-end;align-items:center;gap:4px;padding:0 8px">
+<sc-if value="{{ s.isPick }}" hint-placeholder-val="{{ false }}"><span style="display:inline-flex;align-items:center;height:20px;padding:0 8px;border-radius:999px;background:var(--edge);color:var(--edge-foreground);font-size:12px;line-height:16px;font-weight:600;white-space:nowrap">{{ s.edge }}</span><span style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:4px;background:{{ s.tierBg }};color:{{ s.tierFg }};font-size:12px;font-weight:700">{{ s.tier }}</span></sc-if>
+<sc-if value="{{ s.lowEdge }}" hint-placeholder-val="{{ true }}"><span style="font-size:12px;color:var(--muted-foreground);white-space:nowrap">{{ s.edge }}</span></sc-if>
+<sc-if value="{{ s.noEdge }}" hint-placeholder-val="{{ false }}"><span style="font-size:12px;color:var(--muted-foreground)">—</span></sc-if>
+</span>
+</div>
+<span style="text-align:right;font-size:12px;color:var(--muted-foreground)">{{ s.win }}</span>
+<span style="padding-left:8px;white-space:nowrap">
+<sc-if value="{{ s.isFinal }}" hint-placeholder-val="{{ true }}"><span style="font:600 13px 'IBM Plex Mono',monospace">{{ s.res }}</span></sc-if>
+<sc-if value="{{ s.isLive }}" hint-placeholder-val="{{ false }}"><span style="display:inline-flex;align-items:center;gap:6px;font:500 12px 'IBM Plex Mono',monospace;color:var(--live)"><span style="width:6px;height:6px;border-radius:50%;background:currentColor"></span>{{ s.res }}</span></sc-if>
+<sc-if value="{{ s.isUp }}" hint-placeholder-val="{{ false }}"><span style="font-size:13px;color:var(--muted-foreground)">{{ s.res }}</span></sc-if>
+</span>
+<span style="display:flex;align-items:center;gap:6px;font-size:13px;white-space:nowrap"><sc-if value="{{ s.hasAts }}" hint-placeholder-val="{{ true }}"><span style="display:inline-flex;align-items:center;gap:6px;color:{{ s.atsC }};font-weight:500"><span style="font-weight:700">{{ s.atsG }}</span>{{ s.atsT }}</span></sc-if><sc-if value="{{ s.isLive }}" hint-placeholder-val="{{ false }}"><span style="color:var(--muted-foreground)">—</span></sc-if></span>
+<span style="display:flex;align-items:center;gap:6px;min-width:0;font-size:12px;line-height:16px">
+<sc-if value="{{ s.hasNote }}" hint-placeholder-val="{{ false }}"><span style="color:var(--neg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ s.note }}</span></sc-if>
+<sc-if value="{{ s.swing }}" hint-placeholder-val="{{ false }}"><span style="font-size:12px;line-height:16px;font-weight:600;letter-spacing:.06em;padding:0 5px;border-radius:4px;border:1px solid var(--border);color:var(--muted-foreground)">SWING GAME</span></sc-if>
+</span>
+<span style="display:inline-block;width:14px;height:14px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/chevron-right.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/chevron-right.svg) center/contain no-repeat;color:var(--muted-foreground)"></span>
+</div>
+</sc-for>
+<div style="display:flex;align-items:center;justify-content:space-between;height:40px;padding:0 12px 0 60px;font-size:12px;line-height:16px;color:var(--muted-foreground)"><span style="color:var(--foreground);font-weight:500;cursor:pointer">Show 4 more games</span><span>No picks in Weeks 1–5: every edge was under the 2.5-pt threshold</span></div>
+</section>
+
+<div style="display:grid;grid-template-columns:minmax(0,1.55fr) minmax(0,1fr);gap:16px;align-items:stretch">
+<section style="display:flex;flex-direction:column;background:var(--card);border:1px solid var(--border);border-radius:8px;overflow:hidden">
+<div style="display:flex;align-items:center;gap:10px;height:44px;padding:0 16px;border-bottom:1px solid var(--border)"><span style="font-size:14px;font-weight:600">Unit profile</span><span style="font-size:12px;color:var(--muted-foreground)">percentile among FBS · higher = better for that unit</span></div>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;padding:14px 16px 16px">
+<sc-for list="{{ units }}" as="g" hint-placeholder-count="2">
+<div style="display:flex;flex-direction:column;gap:10px">
+<span style="font-size:12px;line-height:16px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--muted-foreground)">{{ g.grp }}</span>
+<sc-for list="{{ g.rows }}" as="u" hint-placeholder-count="4">
+<div style="display:grid;grid-template-columns:128px minmax(0,1fr) 40px;gap:10px;align-items:center;height:24px">
+<span style="font-size:13px;white-space:nowrap">{{ u.l }}</span>
+<span style="position:relative;height:8px;border-radius:4px;background:var(--secondary)"><span style="position:absolute;left:0;top:0;bottom:0;width:{{ u.w }};border-radius:4px;background:var(--chart-1)"></span><span style="position:absolute;left:50%;top:-3px;bottom:-3px;width:1px;background:var(--muted-foreground)"></span></span>
+<span style="text-align:right;font-size:13px;font-weight:600">{{ u.p }}</span>
+</div>
+</sc-for>
+</div>
+</sc-for>
+</div>
+</section>
+
+<section style="display:flex;flex-direction:column;background:var(--card);border:1px solid var(--border);border-radius:8px;overflow:hidden">
+<div style="display:flex;align-items:center;gap:10px;height:44px;padding:0 16px;border-bottom:1px solid var(--border)"><span style="font-size:14px;font-weight:600">Preseason vs now</span></div>
+<div style="display:flex;flex-direction:column;gap:14px;padding:16px 16px 16px">
+<div style="display:flex;flex-direction:column;gap:6px">
+<div style="position:relative;height:44px">
+<span style="position:absolute;left:0;right:0;top:28px;height:1px;background:var(--input)"></span>
+<span style="position:absolute;left:40%;right:26%;top:27px;height:3px;background:var(--foreground);border-radius:2px"></span>
+<span style="position:absolute;left:40%;top:22px;width:12px;height:12px;margin-left:-6px;border-radius:50%;border:2px solid var(--foreground);background:var(--card);box-sizing:border-box"></span>
+<span style="position:absolute;left:74%;top:22px;width:12px;height:12px;margin-left:-6px;border-radius:50%;background:var(--foreground)"></span>
+<span style="position:absolute;left:40%;top:0;transform:translateX(-50%);font-size:12px;line-height:16px;color:var(--muted-foreground);white-space:nowrap">Prior +24.0</span>
+<span style="position:absolute;left:74%;top:0;transform:translateX(-50%);font-size:12px;line-height:16px;font-weight:600;white-space:nowrap">Now +27.4</span>
+</div>
+<div style="display:flex;justify-content:space-between;font-size:12px;line-height:14px;color:var(--muted-foreground)"><span>+20</span><span>+25</span><span>+30</span></div>
+</div>
+<div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px">
+<div style="display:flex;flex-direction:column;gap:2px;padding:10px 12px;border:1px solid var(--border);border-radius:6px;background:var(--background)"><span style="font-size:12px;line-height:16px;color:var(--muted-foreground)">Change</span><span style="font-size:16px;font-weight:600;color:var(--pos)">+3.4</span></div>
+<div style="display:flex;flex-direction:column;gap:2px;padding:10px 12px;border:1px solid var(--border);border-radius:6px;background:var(--background)"><span style="font-size:12px;line-height:16px;color:var(--muted-foreground)">Returning prod.</span><span style="font-size:16px;font-weight:600">58%</span></div>
+<div style="display:flex;flex-direction:column;gap:2px;padding:10px 12px;border:1px solid var(--border);border-radius:6px;background:var(--background)"><span style="font-size:12px;line-height:16px;color:var(--muted-foreground)">Talent rank</span><span style="font-size:16px;font-weight:600">2nd</span></div>
+</div>
+<p style="margin:0;font-size:12px;line-height:16px;color:var(--muted-foreground);text-wrap:pretty">The preseason guess still carries about 30% of the weight this week. It fades from 50% at Week 4 to 10% by Week 8, so from here the rating mostly reflects games played.</p>
+</div>
+</section>
+</div>
+</div>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1440,&quot;height&quot;:1400}}">
+class Component extends DCLogic {
+  state = { hover: null, ready: !!window.RK };
+  componentDidMount() {
+    if (!window.RK) this.t = setInterval(() => { if (window.RK) { clearInterval(this.t); this.setState({ ready: true }); } }, 50);
+  }
+  componentWillUnmount() { clearInterval(this.t); }
+  renderVals() {
+    const RK = window.RK;
+    const W = 668, H = 240, pad = { l: 40, r: 104, t: 12, b: 28 };
+    const base = { chW: W + 'px', chH: H + 'px', chPlotB: String(H - pad.b), clearHover: () => this.setState({ hover: null }) };
+    if (!RK) return { ...base, ch: { yt: [], xt: [], ser: [], cols: [] }, hasHover: false, hov: { tip: {} }, tipX: '0px', pathBars: [], swing: [], sched: [], units: [] };
+    const ch = RK.chart(W, H, pad);
+    ch.cols = ch.cols.map(c => ({ ...c, enter: () => this.setState({ hover: c.i }) }));
+    const h = this.state.hover;
+    const hov = h == null ? { tip: {} } : ch.cols[h];
+    const hx = h == null ? 0 : ch.xAt(h);
+    return { ...base, ch, hasHover: h != null, hov, tipX: (h >= 3 ? hx - 160 : hx + 12) + 'px',
+      pathBars: RK.path.bars, swing: RK.path.swing, sched: RK.schedRows, units: RK.unitGroups };
+  }
+}
+</script>
+</body>
+</html>

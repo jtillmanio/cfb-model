@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet><style id="dc-token-fallback">:root{--background:#0c0f12;--foreground:#eef0f3;--card:#13161a;--card-foreground:#eef0f3;--popover:#1b1e23;--popover-foreground:#eef0f3;--primary:#e5e8ec;--primary-foreground:#13161a;--secondary:#23272b;--secondary-foreground:#eef0f3;--muted:#1d2125;--muted-foreground:#9fa5ad;--accent:#262a30;--accent-foreground:#eef0f3;--destructive:#ef6661;--destructive-foreground:#0c0f12;--border:#2a2e33;--input:#5f646a;--ring:#67aaed;--edge:#b699eb;--edge-foreground:#0c0f12;--pos:#68b5f5;--neg:#f19a4b;--push:#a7abb1;--tier-a:#bd9ff2;--tier-a-foreground:#0c0f12;--tier-b:#8a70b8;--tier-b-foreground:#0c0f12;--tier-c:#392a51;--tier-c-foreground:#d7c9f3;--live:#52cd86;--locked:#91969b;--breakeven:#c9ced4;--chart-1:#4fa6e9;--chart-2:#e38d3d;--chart-3:#aa8dde;--chart-4:#39bab4;--chart-5:#87909c}</style><link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&amp;family=IBM+Plex+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet"><script src="./rankings-data.js"></script><style>a{color:var(--pos)}a:hover{color:var(--foreground)}</style></helmet>
+<div data-screen-label="Rankings · desktop" style="width:1440px;min-height:900px;box-sizing:border-box;display:grid;grid-template-columns:224px minmax(0,1fr);background:var(--background);color:var(--foreground);font-family:'IBM Plex Sans',ui-sans-serif,system-ui,sans-serif;font-size:14px;line-height:20px;font-variant-numeric:tabular-nums lining-nums">
+
+<aside style="display:flex;flex-direction:column;gap:16px;padding:12px;background:var(--card);border-right:1px solid var(--border)">
+<div style="display:flex;align-items:center;gap:10px;height:32px;padding:0 6px"><span style="width:24px;height:24px;border-radius:6px;background:var(--foreground);color:var(--background);display:flex;align-items:center;justify-content:center;font:700 11px/1 'IBM Plex Mono',monospace;flex:none">CF</span><span style="font-size:14px;font-weight:600;letter-spacing:-0.005em">CFB Model</span></div>
+<div style="display:flex;align-items:center;gap:8px;height:32px;padding:0 10px;border:1px solid var(--input);border-radius:6px;font-size:13px;font-weight:600;cursor:pointer"><span style="width:8px;height:8px;border-radius:50%;background:var(--live);flex:none"></span><span style="flex:1">College football</span><span style="display:inline-block;width:14px;height:14px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/chevrons-up-down.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/chevrons-up-down.svg) center/contain no-repeat;color:var(--muted-foreground)"></span></div>
+<nav style="display:flex;flex-direction:column;gap:2px">
+<span style="display:flex;align-items:center;gap:10px;height:34px;padding:0 10px;border-radius:6px;font-size:13px;font-weight:500;color:var(--muted-foreground);cursor:pointer" style-hover="background:var(--muted);color:var(--foreground)"><span style="display:inline-block;width:16px;height:16px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/calendar-days.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/calendar-days.svg) center/contain no-repeat"></span>This Week</span>
+<span style="display:flex;align-items:center;gap:10px;height:34px;padding:0 10px;border-radius:6px;font-size:13px;font-weight:500;color:var(--muted-foreground);cursor:pointer" style-hover="background:var(--muted);color:var(--foreground)"><span style="display:inline-block;width:16px;height:16px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/target.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/target.svg) center/contain no-repeat"></span><span style="flex:1">Picks</span><span style="font-size:12px">14</span></span>
+<span style="display:flex;align-items:center;gap:10px;height:34px;padding:0 10px;border-radius:6px;font-size:13px;font-weight:500;color:var(--muted-foreground);cursor:pointer" style-hover="background:var(--muted);color:var(--foreground)"><span style="display:inline-block;width:16px;height:16px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/trophy.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/trophy.svg) center/contain no-repeat"></span>Contest</span>
+<span style="display:flex;align-items:center;gap:10px;height:34px;padding:0 10px;border-radius:6px;background:var(--accent);font-size:13px;font-weight:600"><span style="display:inline-block;width:16px;height:16px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/list-ordered.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/list-ordered.svg) center/contain no-repeat"></span>Rankings</span>
+<span style="display:flex;align-items:center;gap:10px;height:34px;padding:0 10px;border-radius:6px;font-size:13px;font-weight:500;color:var(--muted-foreground);cursor:pointer" style-hover="background:var(--muted);color:var(--foreground)"><span style="display:inline-block;width:16px;height:16px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/shield.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/shield.svg) center/contain no-repeat"></span>Teams</span>
+<span style="display:flex;align-items:center;gap:10px;height:34px;padding:0 10px;border-radius:6px;font-size:13px;font-weight:500;color:var(--muted-foreground);cursor:pointer" style-hover="background:var(--muted);color:var(--foreground)"><span style="display:inline-block;width:16px;height:16px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/activity.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/activity.svg) center/contain no-repeat"></span>Performance</span>
+<span style="display:flex;align-items:center;gap:10px;height:34px;padding:0 10px;border-radius:6px;font-size:13px;font-weight:500;color:var(--muted-foreground);cursor:pointer" style-hover="background:var(--muted);color:var(--foreground)"><span style="display:inline-block;width:16px;height:16px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/flask-conical.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/flask-conical.svg) center/contain no-repeat"></span>Lab</span>
+</nav>
+<div style="flex:1"></div>
+<div style="display:flex;flex-direction:column;gap:6px;padding:12px;border:1px solid var(--border);border-radius:8px;background:var(--background);cursor:pointer" style-hover="border-color:var(--input)">
+<span style="font-size:12px;line-height:16px;color:var(--muted-foreground)">Model · 2026 live</span>
+<span style="display:flex;align-items:baseline;gap:8px"><span style="font-size:16px;font-weight:600">31-24-1</span><span style="font-size:13px">56.4%</span></span>
+<span style="display:flex;align-items:center;gap:8px;font-size:12px;line-height:16px"><span style="color:var(--pos);font-weight:600">+4.6u</span><span style="color:var(--muted-foreground)">CLV +0.9</span><span style="flex:1"></span><span style="color:var(--muted-foreground)">Track record</span><span style="display:inline-block;width:12px;height:12px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/chevron-right.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/chevron-right.svg) center/contain no-repeat;color:var(--muted-foreground)"></span></span>
+</div>
+<div style="display:flex;flex-direction:column;gap:2px;padding-top:8px;border-top:1px solid var(--border)">
+<span style="display:flex;align-items:center;gap:10px;height:34px;padding:0 10px;border-radius:6px;font-size:13px;font-weight:500;color:var(--muted-foreground)"><span style="display:inline-block;width:16px;height:16px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/settings.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/settings.svg) center/contain no-repeat"></span>Settings</span>
+<span style="display:flex;align-items:center;gap:10px;height:34px;padding:0 10px;border-radius:6px;font-size:13px;font-weight:500"><span style="width:20px;height:20px;border-radius:50%;background:var(--secondary);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;flex:none">JD</span><span style="flex:1">Account</span><span style="display:inline-block;width:14px;height:14px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/chevrons-up-down.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/chevrons-up-down.svg) center/contain no-repeat;color:var(--muted-foreground)"></span></span>
+</div>
+</aside>
+
+<main style="min-width:0;display:flex;flex-direction:column">
+<div style="display:flex;align-items:center;gap:12px;height:56px;padding:0 24px;border-bottom:1px solid var(--border);box-sizing:border-box;flex:none">
+<span style="display:inline-flex;align-items:center;height:32px;border:1px solid var(--input);border-radius:6px;overflow:hidden;box-sizing:border-box;flex:none"><span style="display:inline-flex;align-items:center;justify-content:center;width:30px;height:100%;border-right:1px solid var(--border);cursor:pointer"><span style="display:inline-block;width:14px;height:14px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/chevron-left.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/chevron-left.svg) center/contain no-repeat"></span></span><span style="display:inline-flex;align-items:center;gap:6px;height:100%;padding:0 12px;font-size:13px;font-weight:600;white-space:nowrap">2026 · Week 6<span style="display:inline-block;width:14px;height:14px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/chevron-down.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/chevron-down.svg) center/contain no-repeat;color:var(--muted-foreground)"></span></span><span style="display:inline-flex;align-items:center;justify-content:center;width:30px;height:100%;border-left:1px solid var(--border);cursor:pointer"><span style="display:inline-block;width:14px;height:14px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/chevron-right.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/chevron-right.svg) center/contain no-repeat"></span></span></span>
+<span style="display:inline-flex;align-items:center;gap:8px;height:32px;padding:0 10px;border-radius:6px;border:1px solid var(--input);width:320px;box-sizing:border-box;font-size:13px;color:var(--muted-foreground)"><span style="display:inline-block;width:14px;height:14px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/search.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/search.svg) center/contain no-repeat"></span><span style="flex:1">Search teams</span><span style="display:inline-flex;align-items:center;height:20px;padding:0 6px;border-radius:4px;border:1px solid var(--border);background:var(--muted);font:500 11px 'IBM Plex Mono',monospace">⌘K</span></span>
+<span style="flex:1"></span>
+<span style="font-size:12px;line-height:16px;color:var(--muted-foreground)">Ratings updated Sun 6:10 AM ET</span>
+<span style="position:relative;display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:6px;border:1px solid var(--input);box-sizing:border-box;cursor:pointer"><span style="display:inline-block;width:16px;height:16px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/bell.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/bell.svg) center/contain no-repeat"></span><span style="position:absolute;top:-5px;right:-5px;min-width:16px;height:16px;padding:0 4px;box-sizing:border-box;border-radius:8px;background:var(--foreground);color:var(--background);font-size:12px;line-height:16px;font-weight:700;text-align:center;box-shadow:0 0 0 2px var(--background)">1</span></span>
+</div>
+
+<div style="position:relative;z-index:5;display:flex;align-items:center;gap:24px;padding:16px 24px 12px">
+<div style="display:flex;align-items:baseline;gap:12px;min-width:0"><h1 style="margin:0;font-size:24px;line-height:32px;font-weight:600;letter-spacing:-0.005em">Rankings</h1><span style="font-size:12px;line-height:16px;color:var(--muted-foreground);white-space:nowrap">{{ subLabel }}</span></div>
+<span style="flex:1"></span>
+<div style="display:flex;align-items:center;gap:10px;height:40px;padding:0 4px 0 14px;border:1px solid {{ tmBorder }};border-radius:6px;background:var(--card);box-sizing:border-box">
+<span style="display:inline-flex;align-items:center;gap:6px;font-size:12px;line-height:16px;color:var(--muted-foreground);white-space:nowrap"><span style="display:inline-block;width:13px;height:13px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/history.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/history.svg) center/contain no-repeat"></span>Ratings as of</span>
+<span onClick="{{ stepBack }}" title="Previous week" style="display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:4px;cursor:pointer" style-hover="background:var(--accent)"><span style="display:inline-block;width:14px;height:14px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/chevron-left.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/chevron-left.svg) center/contain no-repeat"></span></span>
+<span onClick="{{ toggleMachine }}" style="display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 8px;border-radius:4px;font-size:13px;font-weight:600;white-space:nowrap;cursor:pointer;background:{{ tmBg }}" style-hover="background:var(--accent)">{{ asOf }}<span style="display:inline-block;width:14px;height:14px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/chevron-down.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/chevron-down.svg) center/contain no-repeat;color:var(--muted-foreground)"></span></span>
+<span onClick="{{ stepFwd }}" title="Next week" style="display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:4px;cursor:pointer;color:{{ fwdC }}" style-hover="background:var(--accent)"><span style="display:inline-block;width:14px;height:14px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/chevron-right.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/chevron-right.svg) center/contain no-repeat"></span></span>
+<sc-if value="{{ isLatest }}" hint-placeholder-val="{{ true }}"><span style="display:inline-flex;align-items:center;gap:5px;height:24px;padding:0 8px;margin-right:4px;border-radius:999px;background:var(--muted);font-size:12px;line-height:16px;font-weight:500;color:var(--muted-foreground)"><span style="width:6px;height:6px;border-radius:50%;background:var(--live)"></span>Latest</span></sc-if>
+<sc-if value="{{ isPast }}" hint-placeholder-val="{{ false }}"><span onClick="{{ goLatest }}" style="display:inline-flex;align-items:center;height:28px;padding:0 10px;border-radius:4px;background:var(--primary);color:var(--primary-foreground);font-size:12px;font-weight:600;cursor:pointer">Back to latest</span></sc-if>
+</div>
+
+<sc-if value="{{ machineOpen }}" hint-placeholder-val="{{ false }}">
+<div style="position:absolute;top:60px;right:24px;width:456px;background:var(--popover);color:var(--popover-foreground);border:1px solid var(--border);border-radius:8px;box-shadow:0 12px 32px rgba(0,0,0,.35);overflow:hidden">
+<div style="display:flex;align-items:center;gap:8px;height:44px;padding:0 14px;border-bottom:1px solid var(--border)"><span style="font-size:14px;font-weight:600">Time machine</span><span style="font-size:12px;color:var(--muted-foreground)">any week back to 2014</span><span style="flex:1"></span><span onClick="{{ toggleMachine }}" style="display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:4px;cursor:pointer;color:var(--muted-foreground)" style-hover="background:var(--accent)"><span style="display:inline-block;width:14px;height:14px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/x.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/x.svg) center/contain no-repeat"></span></span></div>
+<div style="display:grid;grid-template-columns:96px minmax(0,1fr)">
+<div style="display:flex;flex-direction:column;gap:1px;max-height:244px;overflow:auto;padding:8px 6px;border-right:1px solid var(--border)">
+<sc-for list="{{ seasons }}" as="s" hint-placeholder-count="8"><span onClick="{{ s.pick }}" style="display:flex;align-items:center;justify-content:space-between;height:28px;padding:0 8px;border-radius:4px;font-size:13px;cursor:pointer;background:{{ s.bg }};font-weight:{{ s.w }};flex:none" style-hover="background:var(--accent)">{{ s.y }}<sc-if value="{{ s.isNow }}" hint-placeholder-val="{{ false }}"><span style="width:6px;height:6px;border-radius:50%;background:var(--live)"></span></sc-if></span></sc-for>
+</div>
+<div style="display:flex;flex-direction:column;gap:8px;padding:10px 12px 12px">
+<span style="font-size:12px;line-height:16px;font-weight:500;color:var(--muted-foreground)">{{ selSeason }} · entering week</span>
+<div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:4px">
+<sc-for list="{{ weeks }}" as="w" hint-placeholder-count="16"><span onClick="{{ w.pick }}" title="{{ w.title }}" style="display:flex;align-items:center;justify-content:center;height:36px;border-radius:4px;border:1px solid {{ w.border }};background:{{ w.bg }};color:{{ w.c }};font-size:13px;font-weight:{{ w.fw }};box-sizing:border-box;cursor:{{ w.cursor }}" style-hover="border-color:var(--input)">{{ w.l }}</span></sc-for>
+</div>
+</div>
+</div>
+<div style="display:flex;gap:8px;padding:10px 14px;border-top:1px solid var(--border);font-size:12px;line-height:16px;color:var(--muted-foreground)"><span style="display:inline-block;width:13px;height:13px;flex:none;margin-top:2px;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/info.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/info.svg) center/contain no-repeat"></span><span style="text-wrap:pretty">Ratings exactly as the model saw them that week, before any later games. No hindsight. Hindsight season finals will live in History.</span></div>
+</div>
+</sc-if>
+</div>
+
+<sc-if value="{{ isPast }}" hint-placeholder-val="{{ false }}">
+<div style="display:flex;align-items:center;gap:10px;margin:0 24px 12px;padding:10px 14px;border:1px solid var(--border);border-radius:6px;background:var(--muted);font-size:13px"><span style="display:inline-block;width:14px;height:14px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/history.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/history.svg) center/contain no-repeat"></span><span style="font-weight:600;white-space:nowrap">Past week · {{ asOf }}</span><span style="color:var(--muted-foreground);text-wrap:pretty">Ratings, ranks and Δ as they stood then. Next game shows the model line at the time and the result.</span><span style="flex:1"></span><span onClick="{{ goLatest }}" style="font-weight:500;white-space:nowrap;cursor:pointer">Back to latest</span></div>
+</sc-if>
+
+<div style="display:flex;align-items:center;gap:6px;padding:0 24px 12px">
+<span style="display:inline-flex;height:28px;border:1px solid var(--input);border-radius:6px;overflow:hidden;box-sizing:border-box;flex:none;font-size:13px">
+<span onClick="{{ setPower }}" style="display:flex;align-items:center;padding:0 12px;cursor:pointer;background:{{ tP.bg }};font-weight:{{ tP.w }};color:{{ tP.c }}">Power</span>
+<span onClick="{{ setOutlook }}" style="display:flex;align-items:center;padding:0 12px;border-left:1px solid var(--input);cursor:pointer;background:{{ tO.bg }};font-weight:{{ tO.w }};color:{{ tO.c }}">Season Outlook</span>
+<span title="Coming later: season finals, programs, coaches" aria-disabled="true" style="display:flex;align-items:center;gap:6px;padding:0 12px;border-left:1px solid var(--input);cursor:not-allowed;color:var(--muted-foreground);font-weight:500;background:repeating-linear-gradient(135deg,transparent 0 5px,var(--muted) 5px 6px)">History<span style="font-size:12px;line-height:14px;font-weight:600;letter-spacing:.04em;padding:0 5px;border-radius:4px;border:1px solid var(--border)">LATER</span></span>
+</span>
+<span style="width:1px;height:20px;background:var(--border);margin:0 6px;flex:none"></span>
+<sc-for list="{{ confs }}" as="c" hint-placeholder-count="6"><span onClick="{{ c.pick }}" style="display:inline-flex;align-items:center;height:28px;padding:0 11px;border-radius:999px;border:1px solid {{ c.border }};background:{{ c.bg }};font-size:13px;font-weight:{{ c.w }};box-sizing:border-box;flex:none;cursor:pointer" style-hover="border-color:var(--input)">{{ c.l }}</span></sc-for>
+<span style="display:inline-flex;align-items:center;gap:4px;height:28px;padding:0 9px 0 11px;border-radius:999px;border:1px solid var(--border);font-size:13px;font-weight:500;box-sizing:border-box;flex:none;cursor:pointer" style-hover="border-color:var(--input)">More<span style="display:inline-block;width:14px;height:14px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/chevron-down.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/chevron-down.svg) center/contain no-repeat;color:var(--muted-foreground)"></span></span>
+<span style="flex:1"></span>
+<span onClick="{{ toggleFbs }}" style="display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 11px;border-radius:6px;border:1px solid var(--input);background:{{ fbsBg }};font-size:13px;font-weight:500;box-sizing:border-box;flex:none;cursor:pointer"><span style="display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;border-radius:4px;border:1px solid var(--input);background:{{ fbsBox }};color:var(--background);box-sizing:border-box"><sc-if value="{{ fbsOnly }}" hint-placeholder-val="{{ true }}"><span style="display:inline-block;width:10px;height:10px;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/check.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/check.svg) center/contain no-repeat"></span></sc-if></span>FBS only</span>
+</div>
+
+<div style="margin:0 24px 24px;background:var(--card);border:1px solid var(--border);border-radius:8px;overflow:hidden">
+
+<sc-if value="{{ isPower }}" hint-placeholder-val="{{ true }}">
+<div style="display:grid;grid-template-columns:32px 40px minmax(0,1fr) 72px 56px 300px 56px 236px 16px;column-gap:8px;align-items:stretch;height:32px;padding:0 12px;border-bottom:1px solid var(--border);font-size:12px;line-height:16px;font-weight:500;color:var(--muted-foreground)">
+<span style="display:flex;align-items:center;justify-content:flex-end">Rk</span>
+<span style="display:flex;align-items:center" title="Change since last week">Δ</span>
+<span style="display:flex;align-items:center">Team</span>
+<span style="display:flex;align-items:center">Conf</span>
+<span style="display:flex;align-items:center;justify-content:flex-end">Record</span>
+<div style="display:grid;grid-template-columns:72px 80px 74px 74px;background:var(--muted);border-left:1px solid var(--border);border-right:1px solid var(--border)">
+<span onClick="{{ sR.set }}" title="Points better than an average FBS team, neutral field" style="display:flex;align-items:center;justify-content:flex-end;gap:4px;padding:0 10px;cursor:pointer;color:{{ sR.c }}">Rating<sc-if value="{{ sR.on }}" hint-placeholder-val="{{ true }}"><span style="display:inline-block;width:12px;height:12px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/arrow-down.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/arrow-down.svg) center/contain no-repeat"></span></sc-if></span>
+<span style="display:flex;align-items:center;justify-content:center" title="Preseason → now">Trend</span>
+<span onClick="{{ sO.set }}" style="display:flex;align-items:center;justify-content:flex-end;gap:4px;padding:0 8px;cursor:pointer;color:{{ sO.c }}">Off · rk<sc-if value="{{ sO.on }}" hint-placeholder-val="{{ false }}"><span style="display:inline-block;width:12px;height:12px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/arrow-down.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/arrow-down.svg) center/contain no-repeat"></span></sc-if></span>
+<span onClick="{{ sD.set }}" style="display:flex;align-items:center;justify-content:flex-end;gap:4px;padding:0 8px;cursor:pointer;color:{{ sD.c }}">Def · rk<sc-if value="{{ sD.on }}" hint-placeholder-val="{{ false }}"><span style="display:inline-block;width:12px;height:12px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/arrow-down.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/arrow-down.svg) center/contain no-repeat"></span></sc-if></span>
+</div>
+<span onClick="{{ sS.set }}" title="Strength of schedule rank (1 = hardest)" style="display:flex;align-items:center;justify-content:flex-end;gap:4px;cursor:pointer;color:{{ sS.c }}">SOS<sc-if value="{{ sS.on }}" hint-placeholder-val="{{ false }}"><span style="display:inline-block;width:12px;height:12px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/arrow-up.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/arrow-up.svg) center/contain no-repeat"></span></sc-if></span>
+<span style="display:flex;align-items:center;padding-left:8px">Next game · model line</span>
+<span></span>
+</div>
+
+<sc-for list="{{ rows }}" as="r" hint-placeholder-count="10">
+<div style="display:grid;grid-template-columns:32px 40px minmax(0,1fr) 72px 56px 300px 56px 236px 16px;column-gap:8px;align-items:center;height:52px;padding:0 12px;border-bottom:1px solid var(--border);box-sizing:border-box;cursor:pointer" style-hover="background:var(--accent)">
+<span style="text-align:right;font-size:14px;font-weight:600">{{ r.rk }}</span>
+<span title="{{ r.delta.aria }}" style="font-size:12px;font-weight:500;color:{{ r.delta.c }};white-space:nowrap">{{ r.delta.t }}</span>
+<span style="display:flex;align-items:center;gap:8px;min-width:0"><span style="width:18px;height:18px;border-radius:50%;flex:none;background:{{ r.team.color }};box-shadow:0 0 0 1px var(--border)"></span><span style="font-size:14px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.team.n }}</span></span>
+<span style="font-size:13px;color:var(--muted-foreground);white-space:nowrap">{{ r.conf }}</span>
+<span style="text-align:right;font-size:13px;font-weight:500">{{ r.rec }}</span>
+<div style="align-self:stretch;display:grid;grid-template-columns:72px 80px 74px 74px;align-items:center;background:var(--muted);border-left:1px solid var(--border);border-right:1px solid var(--border)">
+<span style="text-align:right;padding:0 10px;font-size:14px;font-weight:600">{{ r.ratingT }}</span>
+<span title="{{ r.trajT }}" style="display:flex;justify-content:center"><svg width="64" height="20" style="display:block;overflow:visible"><polyline points="{{ r.spark }}" style="fill:none;stroke:var(--foreground);stroke-width:1.5;stroke-linejoin:round;stroke-linecap:round"></polyline><circle cx="{{ r.sx }}" cy="{{ r.sy }}" r="2.5" style="fill:var(--foreground)"></circle></svg></span>
+<span style="display:flex;align-items:baseline;justify-content:flex-end;gap:6px;padding:0 8px"><span style="font-size:13px;font-weight:500">{{ r.offT }}</span><span style="width:16px;text-align:right;font-size:12px;color:var(--muted-foreground)">{{ r.offRkT }}</span></span>
+<span style="display:flex;align-items:baseline;justify-content:flex-end;gap:6px;padding:0 8px"><span style="font-size:13px;font-weight:500">{{ r.defT }}</span><span style="width:16px;text-align:right;font-size:12px;color:var(--muted-foreground)">{{ r.defRkT }}</span></span>
+</div>
+<span style="text-align:right;font-size:13px">{{ r.sosT }}</span>
+<div style="display:flex;align-items:center;gap:8px;min-width:0;padding-left:8px">
+<sc-if value="{{ r.hasNext }}" hint-placeholder-val="{{ true }}">
+<div style="display:flex;flex-direction:column;gap:1px;min-width:0;flex:1">
+<span style="display:flex;align-items:center;gap:5px;min-width:0;height:18px"><span style="width:22px;font-size:12px;color:var(--muted-foreground);flex:none">{{ r.nextHa }}</span><span style="width:14px;height:14px;border-radius:50%;flex:none;background:{{ r.opp.color }};box-shadow:0 0 0 1px var(--border)"></span><span style="font-size:12px;color:var(--muted-foreground);flex:none">{{ r.opp.rank }}</span><span style="font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.opp.n }}</span><sc-if value="{{ r.isNeutral }}" hint-placeholder-val="{{ false }}"><span title="Neutral site · Dallas" style="font-size:12px;line-height:14px;font-weight:600;padding:0 4px;border-radius:4px;border:1px solid var(--border);color:var(--muted-foreground);flex:none">N</span></sc-if></span>
+<span style="padding-left:27px;font-size:12px;line-height:16px;color:var(--muted-foreground);white-space:nowrap">Model <span style="color:var(--foreground);font-weight:500">{{ r.nextLine }}</span></span>
+</div>
+<sc-if value="{{ r.isPick }}" hint-placeholder-val="{{ false }}"><span style="display:flex;align-items:center;gap:4px;flex:none"><span style="display:inline-flex;align-items:center;height:20px;padding:0 7px;border-radius:999px;background:var(--edge);color:var(--edge-foreground);font-size:12px;line-height:16px;font-weight:600;white-space:nowrap">{{ r.edge }}</span><span style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:4px;background:{{ r.tierBg }};color:{{ r.tierFg }};font-size:12px;font-weight:700">{{ r.tier }}</span></span></sc-if>
+</sc-if>
+<sc-if value="{{ r.bye }}" hint-placeholder-val="{{ false }}"><span style="padding-left:27px;font-size:13px;color:var(--muted-foreground)">Bye week</span></sc-if>
+</div>
+<span style="display:inline-block;width:14px;height:14px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/chevron-right.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/chevron-right.svg) center/contain no-repeat;color:var(--muted-foreground)"></span>
+</div>
+</sc-for>
+<sc-if value="{{ isEmpty }}" hint-placeholder-val="{{ false }}"><div style="display:flex;flex-direction:column;align-items:center;gap:4px;padding:40px 12px;border-bottom:1px solid var(--border)"><span style="font-size:14px;font-weight:600">No {{ conf }} teams in this view</span><span style="font-size:12px;color:var(--muted-foreground)">The sample covers the top 10 only. Try All.</span></div></sc-if>
+<div style="display:flex;align-items:center;justify-content:space-between;gap:24px;height:40px;padding:0 12px 0 52px;font-size:12px;line-height:16px;color:var(--muted-foreground)"><span style="white-space:nowrap">{{ footLeft }}</span><span style="text-align:right">Rating = points vs an average FBS team, neutral field · Home field +2.3 · Trend = preseason → now, own scale (min 3 pts) · Edge pill = model pick this week</span></div>
+</sc-if>
+
+<sc-if value="{{ isOutlook }}" hint-placeholder-val="{{ false }}">
+<div style="display:flex;align-items:center;gap:12px;height:44px;padding:0 12px;border-bottom:1px solid var(--border)"><span style="font-size:13px;font-weight:600">Season outlook</span><span style="font-size:12px;line-height:16px;color:var(--muted-foreground)">Projected from the model's win probability for every remaining game. Seed projections later.</span></div>
+<div style="display:grid;grid-template-columns:32px minmax(0,1fr) 72px 56px 96px 128px 112px 112px 112px 16px;column-gap:8px;align-items:center;height:32px;padding:0 12px;border-bottom:1px solid var(--border);font-size:12px;line-height:16px;font-weight:500;color:var(--muted-foreground)">
+<span style="text-align:right">Rk</span><span>Team</span><span>Conf</span><span style="text-align:right">Record</span>
+<span onClick="{{ oP.set }}" title="Expected final wins-losses" style="display:flex;align-items:center;justify-content:flex-end;gap:4px;cursor:pointer;color:{{ oP.c }}">Proj. record<sc-if value="{{ oP.on }}" hint-placeholder-val="{{ false }}"><span style="display:inline-block;width:12px;height:12px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/arrow-down.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/arrow-down.svg) center/contain no-repeat"></span></sc-if></span>
+<span style="display:flex;align-items:center;justify-content:center" title="Chance of each final win total: ≤8, 9, 10, 11, 12">Final wins ≤8 → 12</span>
+<span onClick="{{ oTG.set }}" style="display:flex;align-items:center;justify-content:flex-end;gap:4px;padding-right:8px;cursor:pointer;color:{{ oTG.c }}">P(title game)<sc-if value="{{ oTG.on }}" hint-placeholder-val="{{ false }}"><span style="display:inline-block;width:12px;height:12px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/arrow-down.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/arrow-down.svg) center/contain no-repeat"></span></sc-if></span>
+<span onClick="{{ oT.set }}" style="display:flex;align-items:center;justify-content:flex-end;gap:4px;padding-right:8px;cursor:pointer;color:{{ oT.c }}">P(conf title)<sc-if value="{{ oT.on }}" hint-placeholder-val="{{ false }}"><span style="display:inline-block;width:12px;height:12px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/arrow-down.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/arrow-down.svg) center/contain no-repeat"></span></sc-if></span>
+<span onClick="{{ oC.set }}" style="display:flex;align-items:center;justify-content:flex-end;gap:4px;padding-right:8px;cursor:pointer;color:{{ oC.c }}">P(CFP)<sc-if value="{{ oC.on }}" hint-placeholder-val="{{ true }}"><span style="display:inline-block;width:12px;height:12px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/arrow-down.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/arrow-down.svg) center/contain no-repeat"></span></sc-if></span>
+<span></span>
+</div>
+<sc-for list="{{ orows }}" as="o" hint-placeholder-count="5">
+<div style="display:grid;grid-template-columns:32px minmax(0,1fr) 72px 56px 96px 128px 112px 112px 112px 16px;column-gap:8px;align-items:center;height:56px;padding:0 12px;border-bottom:1px solid var(--border);box-sizing:border-box;cursor:pointer" style-hover="background:var(--accent)">
+<span style="text-align:right;font-size:14px;font-weight:600">{{ o.rk }}</span>
+<span style="display:flex;align-items:center;gap:8px;min-width:0"><span style="width:18px;height:18px;border-radius:50%;flex:none;background:{{ o.team.color }};box-shadow:0 0 0 1px var(--border)"></span><span style="font-size:14px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ o.team.n }}</span></span>
+<span style="font-size:13px;color:var(--muted-foreground)">{{ o.conf }}</span>
+<span style="text-align:right;font-size:13px;font-weight:500">{{ o.rec }}</span>
+<span style="text-align:right;font-size:14px;font-weight:600">{{ o.proj }}</span>
+<span style="display:flex;justify-content:center"><span style="display:flex;flex-direction:column;gap:2px"><span style="display:flex;align-items:flex-end;gap:3px;height:20px;padding-bottom:1px;border-bottom:1px solid var(--input)"><sc-for list="{{ o.bars }}" as="b" hint-placeholder-count="5"><span title="{{ b.lab }} wins · {{ b.p }}" style="width:12px;height:{{ b.h }};background:{{ b.bg }};border-radius:2px 2px 0 0"></span></sc-for></span><span style="display:flex;gap:3px;font-size:12px;line-height:10px;color:var(--muted-foreground)"><sc-for list="{{ o.bars }}" as="b" hint-placeholder-count="5"><span style="width:12px;text-align:center;white-space:nowrap;letter-spacing:-.02em">{{ b.lab }}</span></sc-for></span></span></span>
+<div style="position:relative;height:28px;display:flex;align-items:center;justify-content:flex-end;padding:0 8px;border-radius:4px;overflow:hidden;background:color-mix(in oklch, var(--secondary) 50%, transparent)"><span style="position:absolute;left:0;top:0;bottom:0;width:{{ o.ptgC.w }};background:color-mix(in oklch, var(--chart-1) 24%, transparent)"></span><span style="position:relative;font-size:13px;font-weight:500">{{ o.ptgC.t }}</span></div>
+<div style="position:relative;height:28px;display:flex;align-items:center;justify-content:flex-end;padding:0 8px;border-radius:4px;overflow:hidden;background:color-mix(in oklch, var(--secondary) 50%, transparent)"><span style="position:absolute;left:0;top:0;bottom:0;width:{{ o.ptC.w }};background:color-mix(in oklch, var(--chart-1) 24%, transparent)"></span><span style="position:relative;font-size:13px;font-weight:500">{{ o.ptC.t }}</span></div>
+<div style="position:relative;height:28px;display:flex;align-items:center;justify-content:flex-end;padding:0 8px;border-radius:4px;overflow:hidden;background:color-mix(in oklch, var(--secondary) 50%, transparent)"><span style="position:absolute;left:0;top:0;bottom:0;width:{{ o.pcfpC.w }};background:color-mix(in oklch, var(--chart-1) 24%, transparent)"></span><span style="position:relative;font-size:13px;font-weight:600">{{ o.pcfpC.t }}</span></div>
+<span style="display:inline-block;width:14px;height:14px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/chevron-right.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/chevron-right.svg) center/contain no-repeat;color:var(--muted-foreground)"></span>
+</div>
+</sc-for>
+<sc-if value="{{ oEmpty }}" hint-placeholder-val="{{ false }}"><div style="display:flex;flex-direction:column;align-items:center;gap:4px;padding:40px 12px;border-bottom:1px solid var(--border)"><span style="font-size:14px;font-weight:600">No {{ conf }} teams in this view</span><span style="font-size:12px;color:var(--muted-foreground)">The outlook sample covers five teams. Try All.</span></div></sc-if>
+<div style="display:flex;align-items:center;justify-content:space-between;gap:24px;height:40px;padding:0 12px 0 52px;font-size:12px;line-height:16px;color:var(--muted-foreground)"><span style="white-space:nowrap">{{ oFoot }}</span><span style="text-align:right">Bars share one scale across rows, so shapes compare · Odds fill = probability (length only, 0–100%)</span></div>
+</sc-if>
+</div>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1440,&quot;height&quot;:900},&quot;tab&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;power&quot;,&quot;outlook&quot;],&quot;default&quot;:&quot;power&quot;,&quot;tsType&quot;:&quot;'power'|'outlook'&quot;},&quot;machineOpen&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;}}">
+class Component extends DCLogic {
+  state = { tab: null, conf: 'All', fbs: true, sort: 'rating', osort: 'pcfp', open: null, selSeason: 2026, applied: null, ready: !!window.RK };
+  componentDidMount() {
+    if (!window.RK) this.t = setInterval(() => { if (window.RK) { clearInterval(this.t); this.setState({ ready: true }); } }, 50);
+  }
+  componentWillUnmount() { clearInterval(this.t); }
+  renderVals() {
+    const RK = window.RK;
+    const WEEKS = ['Pre', ...Array.from({ length: 14 }, (_, i) => String(i + 2)), 'Final'];
+    const LATEST = { s: 2026, w: '6' };
+    const tab = this.state.tab ?? this.props.tab ?? 'power';
+    const open = this.state.open ?? !!this.props.machineOpen;
+    const applied = this.state.applied ?? LATEST;
+    const isLatest = applied.s === LATEST.s && applied.w === LATEST.w;
+    const seg = x => ({ bg: x ? 'var(--accent)' : 'transparent', w: x ? '600' : '500', c: x ? 'var(--foreground)' : 'var(--muted-foreground)' });
+    const lab = a => a.w === 'Pre' ? `${a.s} · preseason` : a.w === 'Final' ? `${a.s} · final` : `${a.s} · entering Week ${a.w}`;
+    const avail = (s, w) => s < 2026 || WEEKS.indexOf(w) <= WEEKS.indexOf('6');
+    const flat = []; for (let s = 2014; s <= 2026; s++) WEEKS.forEach(w => { if (avail(s, w)) flat.push({ s, w }); });
+    const idx = flat.findIndex(x => x.s === applied.s && x.w === applied.w);
+    const go = a => this.setState({ applied: a, open: false, selSeason: a.s });
+    const selSeason = this.state.selSeason;
+    const conf = this.state.conf;
+    const confs = ['All', 'SEC', 'Big Ten', 'Big 12', 'ACC', 'Ind'].map(l => ({ l, pick: () => this.setState({ conf: l }),
+      border: l === conf ? 'var(--input)' : 'var(--border)', bg: l === conf ? 'var(--accent)' : 'transparent', w: l === conf ? '600' : '500' }));
+    const sortHdr = (k, key = 'sort') => ({ on: this.state[key] === k, c: this.state[key] === k ? 'var(--foreground)' : 'var(--muted-foreground)', set: () => this.setState({ [key]: k }) });
+    const base = {
+      isPower: tab === 'power', isOutlook: tab === 'outlook', tP: seg(tab === 'power'), tO: seg(tab === 'outlook'),
+      setPower: () => this.setState({ tab: 'power' }), setOutlook: () => this.setState({ tab: 'outlook' }),
+      machineOpen: open, toggleMachine: () => this.setState({ open: !open }),
+      tmBorder: open ? 'var(--foreground)' : 'var(--border)', tmBg: open ? 'var(--accent)' : 'transparent',
+      asOf: lab(applied), isLatest, isPast: !isLatest, goLatest: () => go(LATEST),
+      stepBack: () => idx > 0 && go(flat[idx - 1]), stepFwd: () => idx < flat.length - 1 && go(flat[idx + 1]),
+      fwdC: isLatest ? 'var(--border)' : 'var(--foreground)',
+      subLabel: tab === 'power' ? 'Model power ratings · points vs an average FBS team' : 'Projected records, conference and playoff odds',
+      confs, conf, fbsOnly: this.state.fbs, toggleFbs: () => this.setState({ fbs: !this.state.fbs }),
+      fbsBg: 'transparent', fbsBox: this.state.fbs ? 'var(--foreground)' : 'transparent',
+      selSeason: String(selSeason),
+      seasons: (RK ? RK.seasons : []).map(y => ({ y: String(y), isNow: y === 2026, pick: () => this.setState({ selSeason: y }),
+        bg: y === selSeason ? 'var(--accent)' : 'transparent', w: y === selSeason ? '600' : '400' })),
+      weeks: WEEKS.map(w => {
+        const ok = avail(selSeason, w), cur = applied.s === selSeason && applied.w === w, latest = selSeason === 2026 && w === '6';
+        return { l: w === 'Pre' ? 'Pre' : w === 'Final' ? 'Final' : 'Wk ' + w, pick: () => ok && go({ s: selSeason, w }),
+          title: ok ? (latest ? 'Latest' : '') : 'Not played yet',
+          border: cur ? 'var(--foreground)' : latest ? 'var(--input)' : 'var(--border)', bg: cur ? 'var(--accent)' : 'transparent',
+          c: ok ? 'var(--foreground)' : 'var(--locked)', fw: cur ? '600' : '400', cursor: ok ? 'pointer' : 'not-allowed' };
+      }),
+      sR: sortHdr('rating'), sO: sortHdr('off'), sD: sortHdr('def'), sS: sortHdr('sos'),
+      oP: sortHdr('projN', 'osort'), oTG: sortHdr('ptg', 'osort'), oT: sortHdr('pt', 'osort'), oC: sortHdr('pcfp', 'osort'),
+    };
+    if (!RK) return { ...base, rows: [], orows: [], isEmpty: false, oEmpty: false, footLeft: '', oFoot: '' };
+    const filt = r => conf === 'All' || r.conf === conf;
+    const s = this.state.sort;
+    const rows = RK.powerRows.filter(filt).slice().sort((a, b) => s === 'sos' ? a.sos - b.sos : b[s] - a[s]);
+    const os = this.state.osort;
+    const orows = RK.outlookRows.filter(filt).slice().sort((a, b) => b[os] - a[os]);
+    const scope = this.state.fbs ? 'FBS only' : 'FBS + FCS';
+    const sortName = { rating: 'rating', off: 'offense', def: 'defense', sos: 'SOS' }[s];
+    const oName = { projN: 'projected wins', ptg: 'P(title game)', pt: 'P(conf title)', pcfp: 'P(CFP)' }[os];
+    return { ...base, rows, orows, isEmpty: rows.length === 0, oEmpty: orows.length === 0,
+      footLeft: `Showing ${rows.length} · ${scope} · sorted by ${sortName}`, oFoot: `Showing ${orows.length} · ${scope} · sorted by ${oName}` };
+  }
+}
+</script>
+</body>
+</html>

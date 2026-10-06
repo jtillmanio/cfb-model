@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet><style id="dc-token-fallback">:root{--background:#0c0f12;--foreground:#eef0f3;--card:#13161a;--card-foreground:#eef0f3;--popover:#1b1e23;--popover-foreground:#eef0f3;--primary:#e5e8ec;--primary-foreground:#13161a;--secondary:#23272b;--secondary-foreground:#eef0f3;--muted:#1d2125;--muted-foreground:#9fa5ad;--accent:#262a30;--accent-foreground:#eef0f3;--destructive:#ef6661;--destructive-foreground:#0c0f12;--border:#2a2e33;--input:#5f646a;--ring:#67aaed;--edge:#b699eb;--edge-foreground:#0c0f12;--pos:#68b5f5;--neg:#f19a4b;--push:#a7abb1;--tier-a:#bd9ff2;--tier-a-foreground:#0c0f12;--tier-b:#8a70b8;--tier-b-foreground:#0c0f12;--tier-c:#392a51;--tier-c-foreground:#d7c9f3;--live:#52cd86;--locked:#91969b;--breakeven:#c9ced4;--chart-1:#4fa6e9;--chart-2:#e38d3d;--chart-3:#aa8dde;--chart-4:#39bab4;--chart-5:#87909c}</style></helmet>
+<div style="background:var(--background);color:var(--foreground);font-family:'IBM Plex Sans',ui-sans-serif,system-ui,sans-serif;font-variant-numeric:tabular-nums lining-nums;font-size:14px;line-height:20px;padding:40px;width:1280px;box-sizing:border-box;display:flex;flex-direction:column;gap:32px">
+<div style="display:flex;align-items:baseline;gap:12px;border-bottom:1px solid var(--border);padding-bottom:12px"><h2 style="margin:0;font-size:20px;line-height:28px;font-weight:600">Color tokens</h2><span style="font-size:12px;line-height:16px;color:var(--muted-foreground)">{{ modeLabel }} · ratios computed from the hex values below · source: tokens.css</span></div>
+
+<sc-for list="{{ groups }}" as="g" hint-placeholder-count="3">
+<div style="display:flex;flex-direction:column;gap:12px">
+<div style="display:flex;align-items:baseline;gap:12px"><h3 style="margin:0;font-size:16px;line-height:24px;font-weight:600">{{ g.title }}</h3><span style="font-size:12px;line-height:16px;color:var(--muted-foreground)">{{ g.note }}</span></div>
+<div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px">
+<sc-for list="{{ g.items }}" as="t" hint-placeholder-count="8">
+<div style="background:var(--card);border:1px solid var(--border);border-radius:8px;overflow:hidden;display:flex;flex-direction:column">
+<div style="{{ t.swatchStyle }}">{{ t.sampleOnFill }}</div>
+<div style="padding:12px;display:flex;flex-direction:column;gap:8px">
+<div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px"><span style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:13px;font-weight:600">{{ t.varName }}</span><span style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:12px;color:var(--muted-foreground)">{{ t.hex }}</span></div>
+<div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:12px;line-height:16px;color:var(--muted-foreground)">{{ t.ok }}</div>
+<div style="{{ t.textSampleStyle }}">{{ t.textSample }}</div>
+<div style="display:flex;flex-direction:column;gap:4px;border-top:1px solid var(--border);padding-top:8px">
+<sc-for list="{{ t.checks }}" as="c" hint-placeholder-count="1">
+<div style="display:flex;justify-content:space-between;gap:8px;font-size:12px;line-height:16px"><span style="color:var(--muted-foreground)">{{ c.label }} <span style="font-family:'IBM Plex Mono',ui-monospace,monospace">{{ c.againstName }}</span></span><span style="display:flex;gap:8px"><span style="font-weight:600">{{ c.text }}</span><span style="{{ c.vStyle }}">{{ c.verdict }}</span></span></div>
+</sc-for>
+</div>
+<div style="font-size:12px;line-height:16px;color:var(--muted-foreground);text-wrap:pretty">{{ t.note }}</div>
+</div>
+</div>
+</sc-for>
+</div>
+</div>
+</sc-for>
+
+<div style="display:flex;flex-direction:column;gap:12px">
+<div style="display:flex;align-items:baseline;gap:12px"><h3 style="margin:0;font-size:16px;line-height:24px;font-weight:600">Team colors — accent only</h3><span style="font-size:12px;line-height:16px;color:var(--muted-foreground)">Logo disc or 3px bar. Never a fill behind text unless the check below passes. Dark team colors get a 1px --border ring so they hold on the dark canvas.</span></div>
+<div style="display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px">
+<sc-for list="{{ teams }}" as="tm" hint-placeholder-count="10">
+<div style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:12px;display:flex;flex-direction:column;gap:8px">
+<div style="display:flex;align-items:center;gap:8px"><span style="{{ tm.discStyle }}"></span><span style="font-weight:600">{{ tm.abbr }}</span><span style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:12px;color:var(--muted-foreground);margin-left:auto">{{ tm.hex }}</span></div>
+<div style="{{ tm.barStyle }}"></div>
+<div style="font-size:12px;line-height:16px;color:var(--muted-foreground)">White text {{ tm.white }} · vs canvas {{ tm.canvas }}</div>
+</div>
+</sc-for>
+</div>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;mode&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;dark&quot;,&quot;light&quot;],&quot;default&quot;:&quot;dark&quot;,&quot;tsType&quot;:&quot;'dark'|'light'&quot;}}">
+class Component extends DCLogic {
+  state = { data: null };
+  componentDidMount() { fetch('./tokens.json').then(r => r.json()).then(d => this.setState({ data: d })).catch(() => {}); }
+  lum(h) { const n = h.replace('#', ''); const v = [0, 2, 4].map(i => parseInt(n.slice(i, i + 2), 16) / 255).map(c => c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4); return 0.2126 * v[0] + 0.7152 * v[1] + 0.0722 * v[2]; }
+  cr(a, b) { const x = this.lum(a), y = this.lum(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); }
+  renderVals() {
+    const mode = this.props.mode || 'dark';
+    const all = (this.state.data && this.state.data[mode]) || [];
+    const textish = ['destructive', 'edge', 'pos', 'neg', 'push', 'live', 'locked'];
+    const samples = { destructive: 'Couldn’t load lines', edge: '+5.2 OU', pos: '✓ Covered  ▲3  +4.6u', neg: '✗ Not covered  ▼1  −1.1u', push: '= Push  —', live: '● Live  Q3 9:12', locked: 'Locked  Fri 8:00 PM' };
+    const fillSample = { background: 'Aa 59%', card: 'Aa 59%', popover: 'Aa 59%', primary: 'Lock pick', secondary: 'Cancel', muted: 'Updated Thu 9:02 PM ET', accent: 'Row hover', destructive: 'Delete', edge: '+5.2 OU', 'tier-a': 'A', 'tier-b': 'B', 'tier-c': 'C' };
+    const map = t => ({
+      ...t,
+      varName: '--' + t.name,
+      swatchStyle: { background: t.hex, color: t.fgHex || 'transparent', height: 64, display: 'flex', alignItems: 'center', padding: '0 12px', fontWeight: 600, fontSize: t.name.startsWith('tier') ? 20 : 15, borderBottom: '1px solid var(--border)' },
+      sampleOnFill: t.fgHex ? (fillSample[t.name] || 'Aa') : '',
+      textSample: textish.includes(t.name) ? samples[t.name] : '',
+      textSampleStyle: textish.includes(t.name) ? { color: t.hex, fontWeight: 600, fontSize: 14 } : { display: 'none' },
+      checks: t.checks.map(c => ({
+        ...c, againstName: '--' + c.against, text: c.ratio + ':1',
+        verdict: c.need ? (c.pass ? '✓ AA ' + c.need : '✗ < ' + c.need) : 'n/a',
+        vStyle: { color: c.need ? (c.pass ? 'var(--foreground)' : 'var(--destructive)') : 'var(--muted-foreground)', minWidth: 52, textAlign: 'right' }
+      }))
+    });
+    const by = g => all.filter(t => t.group === g).map(map);
+    const bg = mode === 'dark' ? '#0c0f12' : '#f5f7f9';
+    const teams = [['OSU', '#BB0000'], ['PUR', '#CEB888'], ['TEX', '#BF5700'], ['OU', '#841617'], ['MISS', '#14213D'], ['LSU', '#461D7C'], ['UTAH', '#CC0000'], ['KSU', '#512888'], ['UNLV', '#CF0A2C'], ['BSU', '#0033A0']].map(([abbr, hex]) => {
+      const w = this.cr(hex, '#ffffff'), c = this.cr(hex, bg);
+      return { abbr, hex, white: w.toFixed(1) + ':1 ' + (w >= 4.5 ? '✓' : '✗'), canvas: c.toFixed(1) + ':1',
+        discStyle: { width: 20, height: 20, borderRadius: '50%', background: hex, boxShadow: c < 1.6 ? '0 0 0 1px var(--input)' : '0 0 0 1px var(--border)', flex: 'none' },
+        barStyle: { height: 3, borderRadius: 2, background: hex } };
+    });
+    return {
+      modeLabel: mode === 'dark' ? 'Dark (default)' : 'Light',
+      groups: [
+        { title: 'Base (shadcn/ui names)', note: 'Each *-foreground is the text color for its surface. Neutrals share hue 255 at chroma ≤ 0.014.', items: by('Base') },
+        { title: 'Semantic', note: 'Blue/orange = outcome & direction. Violet = pick (edge + tiers). Green = live. Every one ships with a glyph or label.', items: by('Semantic') },
+        { title: 'Chart', note: 'Equal lightness, hue-spaced. Checked at 3:1 against --card (graphics).', items: by('Chart') }
+      ],
+      teams
+    };
+  }
+}
+</script>
+</body>
+</html>
