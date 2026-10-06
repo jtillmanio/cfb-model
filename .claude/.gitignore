@@ -1,0 +1,6 @@
+# Claude Code starter kit v2 - local-only state
+settings.local.json
+agent-memory-local/
+worktrees/
+state/
+tmp/
