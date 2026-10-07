@@ -243,9 +243,9 @@ Outcomes use the 2026 Week 6 fixture (`design/sample-data.md`, seeded as describ
 2. The "UNCALIBRATED" label shows on every cover % in the app until the calibration check in [04-model.md § 9](04-model.md#9-evaluation-protocol-fixed-2026-10-07) passes, then disappears everywhere at once.
 
 **F-42 Sign-in**
-1. Signed out, any page redirects to `/login`, which has a single "Sign in with GitHub" button. The allowlisted account lands on This Week, and any other GitHub account is rejected.
+1. Signed out, any page redirects to `/login`, which has a single "Sign in with GitHub" button and the note "Stays signed in on this device for 90 days". The allowlisted account lands on This Week. Any other GitHub account comes back to `/login` with "This GitHub account isn't allowed" and a "Use a different account" link.
 2. A stale or badly signed session redirects to `/login`, never a 500.
-3. On a cold database the sign-in button reads "Waking the database…" instead of spinning with no explanation.
+3. On a cold database the sign-in button reads "Waking up the database…" with a one-line reason, instead of spinning with no explanation.
 
 **F-43 ⌘K command palette**
 1. ⌘K (desktop) or the search icon (mobile) opens the palette. Before you type, it shows Recent teams (e.g. "Oklahoma · 4 · SEC · 4-1 · +24.4") and Jump-to screens with "G then a letter" shortcuts ("G W" This Week, "⌘ ," Settings).
@@ -253,9 +253,10 @@ Outcomes use the 2026 Week 6 fixture (`design/sample-data.md`, seeded as describ
 3. On mobile the palette is a full-screen sheet.
 
 **F-44 Teams index**
-1. The Teams nav item opens a list of FBS teams, each with team chip, conference and record, plus conference filter chips. A row click opens the team page.
-2. It isn't designed yet, so it reuses the Rankings table components and row grammar. It starts life as the walking skeleton's team list ([02-architecture.md › Walking skeleton](02-architecture.md#walking-skeleton)).
+1. The Teams nav item (More › Teams on mobile) opens "Teams · Every FBS team · 136 · ratings entering Week 6". It's sorted by rating, with columns Team, Conf, Record, Rating (rank) and Next game · model line. Row 1 reads "Ohio State · Big Ten · 5-0 · +27.4 (1) · vs Purdue, Model OSU −31.2, +3.7 OSU, B". A row click opens the team page.
+2. The "Filter by team name" box filters as you type and highlights the match, and the conference chips are single-select. The two stack: "ohio" with the MAC chip shows only Ohio. A search with no match shows its own empty state with "Clear filters"; before the first data sync the page reads "No teams yet".
+3. It grows from the walking skeleton's team list ([02-architecture.md › Walking skeleton](02-architecture.md#walking-skeleton)), which shows only team chip, school and conference.
 
 **F-45 Settings › General**
-1. Settings › General holds theme (dark default, light), default contest ("Splash work league") and time zone, with "Use this device's time zone" on by default. Turning that off shows a zone picker with a live preview time.
+1. Settings (General · Contests · Alerts · Account) opens on General, which holds theme (Dark default, Light, Match system), default contest ("Splash work league · You 12-8 · 3rd of 14") and time zone, with "Use this device's time zone" on by default. Turning that off shows a zone picker with a live preview time.
 2. Kickoff times everywhere render in the chosen zone. With ET selected, the fixture shows "Sat 3:30 PM ET".

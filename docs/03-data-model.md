@@ -194,7 +194,7 @@ Line movement, the best lines board and this week's record need no new tables: t
 The handoff shows data that no table above holds. Like the Phase 5 and Phase 6 proposals, this is a rough shape to review before any migration (CLAUDE.md: schema changes need approval first). Feature and screen IDs: [01 › Feature index](01-product.md#feature-index-ids-priorities-outcomes), [05 › Screen inventory](05-ui-design-brief.md#screen-inventory-from-handoff).
 
 **Needed for the MVP (Phase 4)**
-- **user_settings** (F-45, S-13): one row per `user_id` holding `theme` (`dark|light`), `time_zone` (IANA name; NULL = use the device's zone), and `default_contest_id NULL`. It's per-user data, so it gets its own table rather than columns on `users`.
+- **user_settings** (F-45, S-13): one row per `user_id` holding `theme` (`dark|light|system`), `time_zone` (IANA name; NULL = use the device's zone), and `default_contest_id NULL`. It's per-user data, so it gets its own table rather than columns on `users`.
 - **contest_standings** (F-33, S-02 Results & standing): the league standing you enter by hand. `id PK`, `contest_id`, `period` (season week), `position` (e.g. 3), `field_size` (e.g. 14), `points_behind_leader NULL`, `note NULL`, `entered_at`. Append-only; the current standing is the latest row per contest, read through a view.
 
 **Needed with watchlist & alerts (Phase 5), extending the proposal above**

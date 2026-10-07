@@ -172,8 +172,8 @@ Playbook: [07-claude-design-playbook.md](07-claude-design-playbook.md). Design w
 - [ ] Design-system handoff, then implement it as its own PR (needs the Phase 0 `web/` scaffold). **Review gate**
 
 **Gap-fill pass (2026-10-07, before Phase 4 handoffs)**
-- [ ] Prompt 12: decisions applied to existing frames, Teams index, More menu, mobile Performance sections, missing states, light mode ([07 § Prompt 12](07-claude-design-playbook.md#prompt-12-gap-fill-after-the-starter-kit-review-2026-10-07))
-- [ ] Re-export the handoff; update the states columns in [05 › Screen inventory](05-ui-design-brief.md#screen-inventory-from-handoff)
+- [x] Prompt 12: decisions applied to existing frames, Teams index, More menu, mobile Performance sections, missing states, light mode ([07 § Prompt 12](07-claude-design-playbook.md#prompt-12-gap-fill-after-the-starter-kit-review-2026-10-07))
+- [x] Re-export the handoff; update the states columns in [05 › Screen inventory](05-ui-design-brief.md#screen-inventory-from-handoff)
 
 **Per-screen handoff:** each Phase 4 screen is handed off and implemented one at a time (see the Phase 4 checklist).
 
