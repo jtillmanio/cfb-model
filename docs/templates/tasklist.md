@@ -1,6 +1,6 @@
 # Task list: {{PROJECT_NAME}}
 
-_Written by `/milestones`. Each milestone is a demoable increment. Convert one milestone at a time with `/new-task docs/tasklist.md M1`._
+_Written by `/milestones`. Each milestone is a demoable increment. Convert one milestone at a time with `/new-task docs/08-tasklist.md M1`._
 
 ## Coverage
 

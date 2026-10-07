@@ -54,8 +54,8 @@ Only rules a reviewer can check against a diff. The spec-reviewer agent enforces
 
 ## Git
 
-- Work on `task/<id>-<slug>` branches. Commit freely on them (conventional commits, task ID in the scope).
-- Push only the task branch (`git push -u origin task/...`). Never push, force-push, or merge the base branch. Permissions deny it and branch protection enforces it.
+- Work on `<type>/<id>-<slug>` branches, `<type>` from `.claude/rules/git.md` (`feat`, `fix`, `chore`, `docs`, `model`). Commit freely on them (conventional commits, task ID in the scope), staging by path.
+- Push only the task branch (`git push -u origin <type>/...`). Never push, force-push, or merge the base branch. Permissions deny it and branch protection enforces it.
 - PRs open as drafts and are marked ready only after CI passes.
 
 ## Gotchas

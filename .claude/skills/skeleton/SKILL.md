@@ -10,7 +10,7 @@ Goal: the smallest running system that exercises every layer once, with every ch
 ## Phase 0: Preflight
 
 1. Read the stack, testing strategy and walking-skeleton spec in `docs/02-architecture.md` (Components, Hosting & cost plan, Environments & databases, Tooling), `docs/06-roadmap.md` › Phase 0, and `docs/decisions.md`. These docs don't use the template's §2/§8/§9 numbering. If no walking-skeleton spec exists in `docs/02-architecture.md`, stop and suggest `/architecture`.
-2. The working tree must be clean. Create branch `task/skeleton`.
+2. The working tree must be clean. Create branch `chore/skeleton` (branch prefixes follow `.claude/rules/git.md`).
 3. Confirm the toolchain exists locally: runtime versions, package manager, database access. List anything missing with the install command (PowerShell) and stop.
 4. Secrets: you write `.env.example` with placeholder values only. If the app needs real secrets (a database URL, API keys), ask the user to create `.env.local` from it. That file is protected, so you can't and shouldn't write it.
 
@@ -44,6 +44,6 @@ Present a plan of at most 30 lines covering:
 
 ## Phase 4: Hand off
 
-1. Commit (`chore(skeleton): walking skeleton`), push `task/skeleton`, and open a PR with `gh pr create`. The user merges after CI passes.
+1. Stage by path (never `git add -A`), commit (`chore(skeleton): walking skeleton`), push `chore/skeleton`, and open a PR with `gh pr create`. The user merges after CI passes.
 2. Report: the script table, the slice URL, the PR link, and what was deliberately left out.
 3. Next step, after merge: `/customize-kit`. It will now detect these scripts and fill `kit.json`.

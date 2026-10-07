@@ -45,7 +45,7 @@ Run every `verify.fast` and `verify.full` command, and `testAudit.run` with one 
 
 1. In `.claude/settings.json`, add `permissions.allow` rules so verification and PR steps don't prompt in unattended sessions:
    - For each `verify.*` and `testAudit.run` command: `Bash(<command>)` and `Bash(<command> *)`
-   - `Bash(git add *)`, `Bash(git commit *)`, `Bash(git checkout *)`, `Bash(git push -u origin task/*)`, `Bash(git branch -m *)`
+   - `Bash(git add *)`, `Bash(git commit *)`, `Bash(git checkout *)`, `Bash(git push -u origin feat/*)`, `Bash(git push -u origin fix/*)`, `Bash(git push -u origin chore/*)`, `Bash(git push -u origin docs/*)`, `Bash(git push -u origin model/*)` (the branch prefixes in `.claude/rules/git.md`), `Bash(git branch -m *)`
    - `Bash(gh pr create *)`, `Bash(gh pr checks *)`, `Bash(gh pr ready *)`, `Bash(gh run view *)`
    - Each `workflow.worktreeSetup` command
    

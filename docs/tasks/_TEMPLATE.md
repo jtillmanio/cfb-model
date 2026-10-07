@@ -19,8 +19,9 @@ planned_at_commit:        # set when the plan is written; used for the staleness
 
 ## Context
 
-- Architecture: `docs/architecture.md` § <section>
-- Design: `<design file>` § <screen/component>
+- Feature / screen: F-<##> (`docs/01-product.md` › Feature index) · S-<##> (`docs/05-ui-design-brief.md` › Screen inventory)
+- Architecture: `docs/02-architecture.md` § <section> · data model: `docs/03-data-model.md` § <section> · model: `docs/04-model.md` § <section>
+- Design: `design/handoff/designs/<file>.dc.html` (board note <1a…>) · screenshot `design/handoff/screenshots/<file>.png`
 - Decisions: D-<###>
 
 ## Acceptance criteria

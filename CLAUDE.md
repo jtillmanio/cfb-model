@@ -11,13 +11,13 @@ Personal sports-analytics app. A college football model makes game predictions, 
 - **Precedence when sources disagree:** code and migrations > this file and `.claude/rules/` > `docs/`. Fix the loser in the same PR. Take counts and numbers from code or data, never from prose.
 
 ### Project docs (which file fills each starter-kit role)
-The kit's skills and agents use these paths. `docs/claude-kit/` holds the kit's own guides, which use generic names (`docs/product/*`, `docs/architecture.md`, `docs/tasklist.md`); read them through this map.
+The kit's skills and agents use these paths. `docs/claude-kit/` holds the kit's own guides, which use generic names (`docs/product/*`, `docs/architecture.md`, `docs/tasklist.md`); read them through this map. Where a kit guide or skill conflicts with `.claude/rules/git.md` (branch names, staging, committing to `main`), `git.md` wins.
 
 | Kit role | This project |
 |---|---|
 | Brief (problem, users, goals, non-goals) | `docs/01-product.md` (What we're building · Who it's for · What "good" looks like · Non-goals) |
-| Features (priorities, MVP cut) | `docs/01-product.md` › Feature set (MVP = end of Phase 4) |
-| Screen inventory | `docs/05-ui-design-brief.md` › Screens; the as-designed list is `design/README.md` › Screens |
+| Features (IDs, priorities, MVP cut, outcomes) | `docs/01-product.md` › Feature index (F-01…; MVP = end of Phase 4) |
+| Screen inventory | `docs/05-ui-design-brief.md` › Screen inventory (from handoff) (S-01…) |
 | Architecture | `docs/02-architecture.md` |
 | Data model | `docs/03-data-model.md` (`python/db/` wins once it exists) |
 | Model spec | `docs/04-model.md` |
@@ -38,6 +38,15 @@ The kit's skills and agents use these paths. `docs/claude-kit/` holds the kit's 
 - **Point-in-time:** anything used to predict a game uses only data available before kickoff. Ratings at `(season, week=N)` mean "entering week N". Never use season-aggregate stats in a backtest.
 - Ratings, predictions and picks are **immutable**; re-runs insert new rows tied to a `model_run`. Results, records, ranks and CLV are **views**, never stored.
 - The raw lake is append-only; transforms must rebuild from raw with zero API calls. Never re-fetch completed CFBD weeks (call budget).
+
+## Hard rules
+Checkable against a diff; the spec-reviewer agent enforces them. Each restates a rule already in this file or `.claude/rules/`.
+1. Never store derived values (results, records, ranks, CLV, current pick, current contest line). They are SQL views.
+2. Ratings, predictions and picks are insert-only: no UPDATE or DELETE, ever.
+3. Reference rows are upserted by `(source, source_id)`: never truncated and reloaded, and IDs never derived from load order.
+4. Anything that predicts a game reads only data from before kickoff, and every feature table and backtest path asserts it.
+5. `python/api` imports only the engine's light core, and the browser never calls the API directly (one server-side API call per page).
+6. Never edit files matched by `protectedPaths` in `.claude/kit.json` (including `design/**` and `.env.live`) or a migration already on `main`. If one must change, stop and ask.
 
 ## Stop and ask before
 - Any schema change (new table or column, a type change, a dropped column) or changing how a stored date or line is interpreted
