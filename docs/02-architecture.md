@@ -238,6 +238,7 @@ cfb-model/
 - **Data leakage in backtests:** "as-of week" is a first-class concept in the data model and the harness (see [04-model.md](04-model.md)).
 - **Backtest overfitting through the model lab:** trying many variants and keeping the best one fools you. Holdout seasons stay locked, and the lab shows how many variants were tried (see [04-model.md §6](04-model.md)).
 - **Vercel function limits** (bundle 250 MB, 300s on Hobby): the API stays light, and heavy compute never runs there.
+- **Splash paste format** (added 2026-10-07): the Thursday contest flow depends on parsing a page we don't control, and its text shape can change without notice. The parser is tested against a real page copy (`design/sample-splash.txt`); unmatched rows fall back to an inline team picker, and manual entry always works. Spike the parser on a fresh paste at the start of Phase 4, before the Contest screen is built on it.
 
 ## Testing strategy
 
@@ -343,3 +344,27 @@ _Added 2026-10-07 (D-079). The thinnest slice that crosses every layer once. `/s
   - CI is green.
   - The PR's preview renders `/teams` (the empty state, on the empty preview DB) and `/api/health` with the right commit SHA.
 - **Not in the skeleton:** sign-in, `release`, `backup`, Dependabot, hooks, real CFBD data, and any design-system component beyond the tokens and fonts.
+
+## Non-functional requirements
+
+_Added 2026-10-07 (D-092). Numbers already fixed elsewhere in this doc are restated with their source. The new ones are starting targets, set from those constraints, for the owner to adjust. Latency targets are measured from Vercel and job logs, never asserted in tests (`.claude/rules/database.md`)._
+
+| Area | Requirement | Source |
+|---|---|---|
+| Page speed (database awake) | Each data page's single API call completes in ≤ 500 ms at p95, and the page renders in ≤ 1.5 s at p95 on desktop broadband | New |
+| Cold start | The loading skeleton shows immediately; a "Waking up the database…" note appears after 1.5 s; the page is usable within 8 s of a cold start | Neon wake time 1.5–6 s (§ Components 3); wake note (design) |
+| Query budget | By default each endpoint runs ≤ 6 queries, all in one concurrent wave. A task that needs more records why | Rule in `.claude/rules/database.md`; number new |
+| On-demand compute | Hypothetical matchups and what-if adjustments respond in ≤ 2 s; no request runs longer than 10 s | New; Vercel Hobby limit is 300 s |
+| API bundle | ≤ 250 MB hard limit; investigate when it passes 200 MB | Vercel (§ Components 2) |
+| Data freshness | Next week's predictions are published by Sun 10:00 AM ET. Lines are refreshed at least daily, plus Thu–Fri evenings. Saturday scores are ≤ 60 min old (30-min cadence plus up to 30 min scheduler delay). Every data page shows its "Updated" time, and a stale-data banner appears when lines are more than 24 h old | Job table (§ Components 4); banner (design) |
+| Alerts | Sent on the first `lines` run after the trigger, so they may lag a move by hours; the UI says so | § Components 4; design |
+| Job budget | Each scheduled run finishes in ≤ 10 min (backfill excepted). Monthly Actions use stays ≤ 1,500 of the 2,000 free minutes | New; free minutes (§ Components 4) |
+| CFBD calls | ≤ 5,000 per month; in-season steady state ≤ 40 per week; the ingest budget tracker warns at 80% of the month | Tier 1 (§ Hosting); weekly estimate (03) |
+| Storage | Neon < 100 MB expected, hard cap 0.5 GB; R2 under 10 GB | 03 › Sizing; free tiers |
+| Cost | About $1/month expected; $5/month ceiling before revisiting | § Hosting & cost plan |
+| Availability | Best effort on free tiers. No uptime target and no paging; a failed job shows as an old "Updated" time and a failed workflow run | New |
+| Backups | Recovery point ≤ 24 h (nightly, restore-verified). Recovery time ≤ 2 h, following a written restore runbook (to be written in the Phase 0 backup task) | § Release & operations; RTO new |
+| Security | One allowlisted GitHub account. `/api/health` is the only unauthenticated route and returns no data. Secrets live in the environment, never the repo, and production's URL only in `.env.live` | § Auth; § Environments |
+| Accessibility | WCAG AA contrast in both themes (4.5:1 text, 3:1 UI); tap targets ≥ 44 px at 390; every control reachable by keyboard with a visible focus ring; color never the only signal; reduced motion respected | `design/README.md`; `tokens.json` contrast checks |
+| Devices | Desktop at 1280+ and phones at 390+ on current evergreen browsers (Chrome, Edge, Safari, mobile Safari and Chrome) | 05 (desktop and phone both first-class); browsers new |
+| Data correctness | Publishing stops when a data-quality check (03) or a point-in-time assertion fails; nothing partial reaches Postgres | 03 › Data quality checks; new |
