@@ -325,6 +325,57 @@ No injury indicators: injuries are tracked by hand and entered as manual adjustm
 - [ ] The alerts note ("can lag by hours") is visible where alerts are configured, not buried.
 - [ ] Any new component is added to the design system project too, not just drawn on a frame.
 
+### Prompt 12: Gap fill after the starter-kit review (2026-10-07)
+
+**When:** before the Phase 4 screens are handed off. It applies the 2026-10-07 decisions to the existing frames and draws the states the screen inventory lists as missing.
+
+**Attach:** `docs/05-ui-design-brief.md` (its last two sections, "Screen inventory (from handoff)" and "Mismatches … (resolved 2026-10-07)", are the point), `docs/01-product.md` (Feature index), and `design/sample-data.md`. Work in the screens project, since it edits existing frames.
+
+```
+This pass updates the existing frames to match decisions made after the 2026-10-06 handoff, and draws the states that are still missing. Attached: 05-ui-design-brief.md (read its last two sections first: "Screen inventory (from handoff)" and "Mismatches between the handoff and the brief (resolved 2026-10-07)"; they override older board notes), 01-product.md (Feature index) and sample-data.md.
+
+Rules:
+- Reuse existing components. If you add one, add it to the design system too and list it at the end.
+- Numbers come only from sample-data.md. Where a new state needs a value it doesn't have, choose one consistent with it and mark that frame "illustrative".
+- Name every new or changed frame with its screen ID from the inventory, e.g. "S-15 Login · desktop · default".
+- Desktop 1440 and mobile 390, dark, unless an item says otherwise.
+
+A. Make existing frames match the decisions
+1. S-15 Login. Sign-in is GitHub only, for one allowlisted account. Replace the password form with a single "Sign in with GitHub" button. States: default; waking the database (keep the current button wording); "This GitHub account isn't allowed" with a "Use a different account" link. Remove the wrong-password state.
+2. Settings navigation is General · Contests · Alerts · Account on every settings frame. Rename "Appearance" on the Settings › Alerts frames to General. Draw the two sections that don't exist yet, kept minimal: Contests (your contests with platform and a rules summary, the default-contest marker, a link to each contest's Rules) and Account (GitHub username and avatar, Sign out).
+3. Weather flags trip at sustained wind ≥ 15 mph, rain or snow ≥ 60% likely, or ≤ 25°F. Update every note and tooltip that says "rain ≥ 50%" (This Week board, the handoff README), and add tooltip examples for snow and for cold.
+4. The line-move alert defaults to 1.0 pt (half-point steps, starred games). Fix the This Week board note that says 0.5.
+5. S-06 Team page, "Path to the playoff": add two earlier versions of the page. (a) Before season simulations exist: the module is absent and the layout closes up. (b) Simulations but no CFP model yet: "Big Ten title game 71%", "Win Big Ten 48%" and the win distribution, with no "Make the CFP" tile. The current frame (CFP 89%) stays as the later state.
+6. Handoff README: point to design/sample-data.md and design/sample-splash.txt (not docs/…), drop the bundled docs/ entry, use the weather thresholds from item 3, and say that pick and tier thresholds come from the active model's spec (v1.0: pick ≥ 2.5, C ≥ 2.5, B ≥ 3.5, A ≥ 5.0).
+
+B. New screens
+7. S-17 Teams index (where the Teams nav item goes). Every FBS team, using the Rankings table, team chip and conference chips: Team, Conf, Record, Rating (rank), Next game. A search box filters the list; row click opens the team page. States: default, one conference selected, loading skeleton, empty ("No teams yet").
+8. S-16 mobile "More" menu (the fifth tab): Teams, Performance, Lab and Settings, plus the sport switcher and account. Lab carries a "best on desktop" note.
+9. S-08 Performance: the mobile screen that "Edge buckets, calibration & breakdowns ›" opens: the desktop sections stacked in one column at 390 (edge-bucket chart, calibration chart with its gap table, breakdowns as cards). Also draw the All-time scope, desktop and mobile.
+
+C. Missing states (follow the patterns on the Loading and Empty & Error boards)
+- S-01 This Week: Best lines with nothing above the threshold; a week whose lines aren't posted yet (model lines only, "No line" in Market).
+- S-02 Contest: a paste that matches nothing or can't be parsed; a pick that failed to save (error toast, the row returns to unpicked); every game locked (Saturday night); a re-paste that moved lines since the last paste (which rows changed, old → new).
+- S-03 Game Detail: live (scores, clock, covering / not yet); final (result, ✓ or ✗, final CLV); no line yet (Furman @ Clemson, FCS); not a pick (Michigan @ Northwestern, +0.6 NW); dome and no-data weather on mobile.
+- S-04 Rankings: a conference filter with no teams; preseason week 0 with no ratings yet; error.
+- S-05 Season Outlook: loading skeleton; preseason with no simulations; error.
+- S-06 Team: loading; error; an FCS team (no rating, schedule only).
+- S-07 Picks: loading; error; Best lines empty; Past weeks empty (week 1).
+- S-08 Performance: no live picks yet (season start: live tiles empty, backtest frame still shown); error.
+- S-09 Lab (desktop only): loading; error; no versions yet; Versions with a backtest running.
+- S-11 Alerts: loading; error; many alerts across weeks, grouped by week, with "Mark all read".
+- S-12 Settings › Alerts: browser push permission denied; save failed.
+- S-13 Settings › General: save failed.
+- S-14 ⌘K: no results; first use with no recent teams.
+- S-16 Shell: the stale-data banner ("Lines last updated Thu 9:02 PM ET · Refresh"); This Week at 768 to show the tablet layout with priority columns.
+
+D. Light mode: one light frame per screen, S-02 to S-15, desktop only, same markup as its dark frame.
+
+When everything is drawn, run the consistency audit (sample-data agreement, sign convention, component drift, tabular right-aligned numbers, color never alone, WCAG AA in both modes, no horizontal scroll and 44 px targets on mobile) on every new or changed frame. Then list the frames you added or changed, by screen ID, and any new components.
+```
+
+**After it:** re-export the handoff and replace `design/handoff/` and `design/README.md` in their own commit. Then ask Claude Code to update the "States designed / States missing" columns in 05's screen inventory from the new bundle.
+
 ### Reusable follow-up prompts
 - *"Tighter: increase information density by ~20% without shrinking body text below [13px]."*
 - *"This feels like a sportsbook. Make it calmer: more like an analytics tool."*
