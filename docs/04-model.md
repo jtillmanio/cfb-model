@@ -319,3 +319,98 @@ Scores go back to the 1800s; the play-level stats behind the efficiency model on
 6. **Pick logic + thresholds**: edge buckets, market shrinkage.
 
 Recommended reading as we go: *The Logic of Sports Betting* (Miller & Davidow); Bill Connelly's SP+ methodology write-ups; CFBD blog tutorials (their opponent-adjusted stats and ridge regression posts follow this approach closely).
+
+## 9. Evaluation protocol (fixed 2026-10-07)
+
+This section fixes how every model version is judged. It wins over § 5 where the two differ: it replaces § 5's season split and turns "monotonic edge-bucket trend" and "consistent across seasons" into numbers (D-076, D-077). § 5's metric list and § 6's holdout and variant-counter rules still apply. Everything here runs through the walk-forward harness, the same code path as production.
+
+### 9.1 Seasons
+
+| Seasons | Role | Why |
+|---|---|---|
+| 2014 | Warm-up only: ratings are computed, nothing is scored | The preseason prior needs last season's final rating, and the lake starts in 2014 |
+| 2015 | Tuning only | The first season with a full prior. It gives the 2016 evaluation something to tune on |
+| 2016–2023 | Validation, rolling-origin (below) | Eight seasons, about 1,200 qualifying picks |
+| 2024–2025 | Holdout, locked | The final exam, run only at promotion |
+| 2026 | Live paper trading | From the end of Phase 3 |
+| 2027 | First fully live season | The roadmap's real target |
+
+**Concept: rolling-origin validation.** To score validation season Y:
+1. Choose the settings (hyperparameters and pick rules) using only seasons 2015 through Y−1.
+2. Fit the learned weights only on games played before the one being predicted.
+3. Predict Y week by week, then move on to Y+1.
+
+Every validation prediction is a true out-of-sample prediction, made with settings chosen without seeing that season. Eight seasons of that is about four times the evidence of § 5's two-season split. With ~300 picks, a win % has a standard error of about ±3 points, so 52.4% and 55% look alike; with ~1,200 it's about ±1.5. The costs: settings are re-tuned eight times, and 2016's settings are tuned on 2015 alone, so they're noisier. Both are accepted.
+
+The **pooled validation result** is all 2016–2023 predictions taken together. It's what the Performance and Lab screens label "Validation 2016–2023".
+
+**Holdout.** At promotion, settings are tuned on 2015–2023 and the candidate runs once on 2024–2025. The harness refuses holdout seasons unless it gets a holdout flag and a written reason, and it records every holdout run, so the Lab can show how often the final exam has been opened. A failed holdout sends the candidate back. The next variant may not be tuned to fix the holdout specifically, because that turns the holdout into another validation set.
+
+### 9.2 Leakage rules
+
+**Concept: leakage**, again (§ 5): any path by which information from after kickoff reaches a prediction. Each rule below closes one path, and each gets a test ([02 › Testing strategy](02-architecture.md#testing-strategy)).
+- **Unit of work is (season, week).** Ratings "entering week N" use only games that finished before week N. Feature rows carry `as_of`, and the harness asserts no input postdates it.
+- **Learned weights are fit on seasons before the one being predicted** (an expanding window). This covers the margin-model coefficients, prior weights, decay curve, σ and the empirical margin distribution. They are refit once per season; team ratings update weekly.
+- **Preseason inputs** (talent, returning production, recruiting) use the values published before that season.
+- **Market lines are targets and pick-time inputs, never rating features.** Market shrinkage blends with the line being evaluated, which is known at pick time. No rating or margin model trains on lines.
+- **SP+, FPI and Elo are benchmarks only.** A benchmark counts only if its value was published before the game. If CFBD provides only season-final values, the comparison is labeled "hindsight benchmark" and can't count as a baseline the model beat.
+- **Hindsight ratings (§ 7) are never read** by the harness or by production predictions.
+- **Weather uses forecast snapshots only.** Seasons without snapshots run the totals backtest without weather (D-040).
+- **Tuning targets:** model settings are tuned to minimize margin MAE, not ATS. ATS is far noisier, and tuning on it overfits faster. Pick rules (min edge, min cover, market shrink k, tier thresholds) are tuned on ATS against closing lines over the tuning seasons, and only on choices backed by at least 200 picks.
+
+### 9.3 Lines, games and grading
+- **Closing line (backtest):** from CFBD `/lines`, the "consensus" provider's spread when present, otherwise the median spread across providers. Each game records which source it used. The **opening line** is the same source's opening spread. Live, the closing line is the last snapshot before kickoff (the `game_market` view).
+- **Eligible games:** FBS vs FBS with a final score and a closing line, for both MAE and picks (no picks on FBS-vs-FCS games, D-047). Postseason games are included and also reported on their own.
+- **Pushes** count in records (W-L-P), are left out of win % (31-24-1 is 31 / 55 = 56.4%), and earn 0 units.
+- **Units** are priced at −110: a win is +1.0u, a loss −1.1u. ROI = units won ÷ units risked.
+- **Contest backtest:** historical contest lines don't exist, so closing lines stand in for them, with the Splash rules (4 picks a week, push = 0).
+- **CLV in the backtest** is measured on picks made at the opening line, against the close. Picks made at the close have CLV 0 by definition. Live CLV is measured from each pick's own snapshot.
+
+### 9.4 Metrics and targets
+
+"Gate" means a target in the go/no-go to `production` (§ 5). The other rows are reported on every backtest.
+
+| Metric | How it's computed | Target | Gate? |
+|---|---|---|---|
+| Margin MAE vs the closing line | Pooled validation: model MAE − closing-line MAE, on the same games | ≤ +0.5 pts | Gate |
+| Margin RMSE | Same games | Reported | — |
+| ATS win % vs closing | Qualifying picks, pooled validation, pushes excluded, 95% interval shown | > 52.4% | Gate |
+| Edge trend | For every eligible game: does the edge side cover, regressed on the edge size (logistic regression). The § 5 buckets (0–1.5, 1.5–3, 3–5, 5+) are shown alongside | Slope's 95% interval above zero. One bucket may dip | Gate |
+| Consistency | ATS per validation season | No more than 2 of 8 seasons below 50%, and pooled ATS stays > 52.4% with the best season removed | Gate |
+| Calibration | The cover probability the app displays (after market shrinkage), in 2.5-point bins from 50–52.5% up to 65%+ | Every bin with ≥ 100 picks within ±3 points of its actual hit rate | Gate; it also turns off the "uncalibrated" label everywhere |
+| Avg CLV | Opening-line picks against the close | > 0 pts | Reported; ≤ 0 is a warning |
+| ROI | Units at −110 | Reported (it follows from ATS) | — |
+| Win % by pick bucket | Picks only: 2.5–3.5, 3.5–5.0, 5.0–7.0, 7.0+ | Display only | — |
+| Contest top 4 | Each week's top 4 by cover % against the close, pooled | Hit rate > 50%. Average predicted cover minus actual hit rate ≤ 3 pts | Reported. A larger gap is the winner's curse (§ 4) and calls for more shrinkage |
+| Win probability | Brier score of `home_win_prob` vs the market-implied probability | Reported | — |
+| Breakdowns | By week of season, conference tier, spread size, favorite/underdog | Reported | — |
+| Holdout (at promotion only) | 2024–2025, ~260 picks | ATS > 50% and MAE gap ≤ +0.5 | Promotion check. With so few picks this can catch a broken model but can't prove a good one |
+
+The design fixture shows v1.0 in production while its calibration table is overconfident at the top (62.5% predicted → 58.9% hit). Under this rule that can only happen if those bins hold fewer than 100 picks. The fixture is illustrative, and real numbers replace it.
+
+### 9.5 What "beats" means
+
+**Concept: paired comparison and the bootstrap.** To compare model A with baseline B:
+1. Score both on exactly the same games and take, per game, the difference in absolute error.
+2. Resample whole **weeks** with replacement 10,000 times, recomputing the mean difference each time.
+3. If the middle 95% of those means lies entirely below zero, A beats B. If the interval includes zero, the gain could be luck.
+
+Why weeks: games in the same week share news, weather and line moves, so treating them as independent overstates certainty. The same procedure applies to ATS comparisons, on win %.
+
+### 9.6 The baseline each phase must beat
+
+| Phase | What's new | Must beat | Bar |
+|---|---|---|---|
+| 0 | Nothing modeled | — | — |
+| 1 | Data pipeline | — | Records the benchmark: closing-line MAE for 2014–2025, the number every later phase is compared with. Data-quality checks pass |
+| 2 | Rung 1 power ratings | Home-field only (home by the fitted home-field value), and last season's final ratings carried over | Lower MAE than both on pooled validation (§ 9.5). The closing line and SP+/FPI are reported alongside, but beating them isn't required yet |
+| 3 | Rung 2 (v1): efficiency ratings, priors, margin model, pick rules | Rung 1 | Lower MAE than Rung 1 (§ 9.5) **and** every gate in § 9.4. Market shrinkage stays only if validation ATS with it is at least as good as without it (k = 1) |
+| 4 | No model change (the web app) | — | The app shows exactly what the engine computed: API values equal engine output for the fixture and for each live week |
+| 5 | Season simulations | The same simulation with ratings frozen at the preseason prior | Lower Brier score (the mean squared error of a probability; lower is better) for final win totals and conference-title odds, measured at weeks 4, 8 and 12 of 2016–2023 |
+| 5 | CLV, weather flags, manual adjustments | — | Information only. Adjusted and pure-model results are tracked separately, with no gate |
+| 6 | Hindsight ratings, résumé, programs, coaches | No predictive baseline: these answer questions about the past | Correctness checks: exact strength of record matches a 100,000-run simulation within 0.5 points; the leakage test proves predictions can't read hindsight ratings; efficiency and scores-only hindsight ratings are reported side by side for 2014–2025 |
+| 7 | ML residual layer (Rung 3) | Production Rung 2 | Lower MAE (§ 9.5), with ATS and calibration no worse on validation |
+| 7 | Totals model | The closing total | The spread gates applied to totals: MAE within +0.5 of the closing total, O/U win % > 52.4%, the edge trend and calibration |
+| 7 | Drive-level simulator | The empirical margin distribution | Lower Brier score on cover probability for games whose line is within 1 point of 3, 7, 10 or 14, with overall calibration no worse |
+| 7 | CFP odds | "The 12 best by our rating, with the 5 highest-rated conference champions in" | Lower Brier score on past committee selections |
+| 8 | NFL model | NFL home-field only, and last season's ratings carried over | The Phase 2 and Phase 3 bars, against NFL closing lines. Until it passes, NFL contest games are ranked on the contest-vs-market gap only |
