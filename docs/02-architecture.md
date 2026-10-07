@@ -238,3 +238,133 @@ cfb-model/
 - **Data leakage in backtests:** "as-of week" is a first-class concept in the data model and the harness (see [04-model.md](04-model.md)).
 - **Backtest overfitting through the model lab:** trying many variants and keeping the best one fools you. Holdout seasons stay locked, and the lab shows how many variants were tried (see [04-model.md §6](04-model.md)).
 - **Vercel function limits** (bundle 250 MB, 300s on Hobby): the API stays light, and heavy compute never runs there.
+- **Splash paste format** (added 2026-10-07): the Thursday contest flow depends on parsing a page we don't control, and its text shape can change without notice. The parser is tested against a real page copy (`design/sample-splash.txt`); unmatched rows fall back to an inline team picker, and manual entry always works. Spike the parser on a fresh paste at the start of Phase 4, before the Contest screen is built on it.
+
+## Testing strategy
+
+_Added 2026-10-07 (D-089, D-090). The tools come from the Tooling section above. This section fixes what each level covers and which seed data acceptance criteria may cite. The rules in `.claude/rules/` still apply: no wall-clock assertions, and tests read only `TEST_DATABASE_URL` through the single guard function._
+
+### Levels
+| Level | Tool | Covers | Runs in |
+|---|---|---|---|
+| Unit: engine | pytest | Probability math (Φ(edge/σ), edge, EV); pick and tier rules read from a `ModelSpec`; `ModelSpec` and `ContestRules` validation; the Splash paste parser, run on `design/sample-splash.txt` (a real page copy) and on the Week 6 paste; point-in-time assertions; the test-DB guard and the `LIVE` guard | `verify.full`, CI |
+| Unit: web | Vitest | `format.ts` against every example on the number-format card (`OSU −27.5`, `BSU −10` padded, `PK`, `−110`, `CLEM −34.0`, `+3.7 OSU`, `59%`, `~54%`, `TEX 54%`, `+27.4`, `▲3 ▼1 —`, `31-24-1`, `5-0`, `+4.6u`, `−1.1u`, `+0.9 pts`, `Sat 3:30 PM ET`, `Locks in 1d 14h`, `PUR 3 · OSU 24`, `Q3 9:12`); component states (edge pill threshold, tier badge, result marker, lock countdown); pick-tray logic (tap, re-tap to clear, switch side) | `verify.full`, CI |
+| Integration: database | pytest against Postgres: a CI service container on `PG_MAJOR`, or the Neon `test` branch locally | Migrations: one head, `alembic check`, up → down → up for destructive changes. Every view in [03 › Views](03-data-model.md#views-derived-data-lives-here) against the fixture with expected values (e.g. `model_record` for v1.0 in 2026 = 31-24-1, +4.6u). `EXPLAIN` shows no full scan for single-item reads. Upsert by `(source, source_id)` is idempotent. Ratings, predictions and picks are never UPDATEd or DELETEd | CI |
+| Integration: API | pytest with FastAPI's TestClient on the seeded test DB | Each screen endpoint returns the fixture values; every route except `/api/health` requires the JWT; each endpoint's query count stays within its budget; a contest entry after kickoff is rejected | CI |
+| Contract | `openapi-typescript` + `tsc` | The generated client matches the API's current OpenAPI schema; CI fails on drift | CI |
+| Data / ETL | pytest on a small lake fixture of recorded CFBD responses (no network) | `transform --rebuild` from raw with zero API calls; the data-quality checks in [03](03-data-model.md#data-quality-checks-run-after-each-ingest); "no future data" (max source time < `as_of`); the call-budget tracker counts every call | CI |
+| Model / backtest | pytest on a tiny lake fixture (a two-season subset) | Determinism: same spec + same inputs → identical metrics, checked against golden numbers that change only in a commit that says why. Leakage: changing any game after week N leaves week-N predictions unchanged. The harness refuses hindsight ratings, and refuses holdout seasons without the holdout flag ([04 § 9](04-model.md#9-evaluation-protocol-fixed-2026-10-07)) | CI |
+| End to end | Playwright against `next start` + `uvicorn` on the seeded test DB, fixed clock, viewports 390×844 and 1440×900 | The journeys below | CI (e2e job); ui-verifier agent |
+| Visual reference | Playwright screenshots reviewed against `design/handoff/screenshots/` | Layout and component drift. No pixel-diff assertions (font rendering differs), but with the fixture the numbers on screen should match the reference shots exactly | ui-verifier, PR review |
+| Operations | GitHub Actions run on the branch (`gh workflow run <file> --ref <branch>`) | `release` dry run; `backup` restore verification | On demand |
+
+### End-to-end journeys
+Screen and feature IDs: [05 › Screen inventory](05-ui-design-brief.md#screen-inventory-from-handoff), [01 › Feature index](01-product.md#feature-index-ids-priorities-outcomes).
+1. Signed out, `/` redirects to `/login`, which shows "Sign in with GitHub". With the test session, This Week shows "2026 · Week 6 · 54 games · 9 picks" (S-15, S-01).
+2. This Week → Texas vs Oklahoma: The Number reads "TEX −6.5 · TEX −1.3 · +5.2 OU · 63%" (S-01 → S-03).
+3. Contest at Thu 10:00 PM: paste the Week 6 text → "9 rows match · 1 unmatched" → map "Hou Texans" / "Jax" → Confirm → ranked slate with the cutoff under #4 (S-02).
+4. Contest: pick OU +7 and BUF −3 → the tray reads "2 of 4". At Fri 8:12 PM, UNLV @ Boise State shows "Picks closed" and the API rejects an entry for it (S-02).
+5. Picks › Best lines → the "Splash only" chip drops Iowa, Kentucky, Northwestern and Utah (S-07).
+6. Rankings → the "SEC" chip leaves 5 rows; the time machine one week back shows the past-week banner (S-04).
+7. At 390 px: This Week renders cards and the bottom tab bar, with no horizontal scroll and every tap target ≥ 44 px (S-01, S-16).
+8. With the API stopped, the page shows the "API unreachable" state with Retry; after the API restarts, data loads (S-16).
+
+### Test-only sign-in and clock
+- **Sign-in:** e2e mints a session cookie with the test `AUTH_SECRET`. The helper lives in the Playwright fixtures, never in `web/` source, so production has no way in except GitHub.
+- **Clock:** the engine and the web app each read "now" from one clock function, which honors `FIXTURE_NOW` only when `APP_ENV=test`. The fixture uses four times:
+  - Thu 2026-10-08 10:00 PM ET: Contest, Best lines.
+  - Fri 2026-10-09 8:12 PM ET: the locked game.
+  - Sat 2026-10-10 2:15 PM ET: slate, Picks, Game Detail, Team.
+  - Mon 2027-02-08 6:00 AM ET: off-season.
+
+### Seed data (what acceptance criteria cite)
+- **Source:** `design/sample-data.md` §1–8, plus the illustrative rows the boards added (e.g. week 1–5 picks and the Week 6 paste in `design/handoff/designs/contest-data.js`). These are copied into a fixture under `python/db/seeds/fixture/`; nothing reads `design/` at runtime. Every fixture row has `source = 'fixture'`, so it can never collide with a real CFBD row.
+- **Where it loads:** the test DB only (CI and local e2e). `db:seed` refuses any target except `TEST_DATABASE_URL`, using the same guard as the tests, and refuses under `LIVE=true`. Dev, preview and production never receive fixture rows.
+- **Generated rows:** where the sample gives only totals (filler games, graded picks for weeks 1–5), rows are generated deterministically with a fixed random seed so the totals come out exact.
+- **Screenshot vs sample-data:** where a screenshot and `sample-data.md` disagree on something the app computes, the screenshot is the expected value. Example: `03-contest-desktop.png` ranks ND (55%) #5, above BUF (~54%), while `sample-data.md` lists BUF #5.
+
+| Area | Fixture contents | Values ACs cite (reference shot) |
+|---|---|---|
+| Season and clock | 2026, current week 6; the four fixed times above | "2026 · Week 6" (01) |
+| Teams and venues | Every team in sample-data §1–6, plus filler FBS teams, with team colors from `*-data.js`; the NFL teams on the contest slate; Cotton Bowl (neutral site) and Camp Randall (outdoor) | Team chips everywhere |
+| Week 6 games | 54 CFB games. The 11 slate rows with their statuses and scores (UNLV 24, BSU 31 final; PUR 3, OSU 24, Q3 9:12; IOWA 10, WIS 7, Q2 2:41). Tulane @ Memphis Thursday, final 27-24. Iowa State @ Cincinnati and Arizona State @ Baylor. Filler games with edges under 1.0. The 5 NFL games from §3 | "54 games · 9 picks", "Showing 11 of 54 games" (01) |
+| Line snapshots | Opening and current lines per §1. Texas vs Oklahoma: Sun −7 → Tue −6.5 → Thu −6 → Sat −6.5. BYU −7 → −6 on Wed 7:04 PM. Ohio State's weeks 1–7 lines per §6. None for Furman @ Clemson | "−28 ⟍ OSU −27.5", "No line" (01, 05) |
+| Model registry | v1.0 production (spec and fitted params per §8), v1.1 candidate, v1.2-dev; 7 variants since the last promotion. Backtest metrics in `model_runs.metrics`: Validation 2016–2023 54.1%, 1,184 picks, ROI +3.3%; Holdout 2024–2025 53.2%, 263 picks, ROI +1.6%; MAE 12.9 vs closing 12.6; the edge-bucket and calibration tables in §7 | (13, 15) |
+| Ratings | Entering week 6 for the top 10 (§4) and the filler teams; entering week 5, so Δ computes; Ohio State's trajectory +24.0 → +27.4 | (07, 09) |
+| Predictions and picks | Week 6 predictions for every game, with Texas vs Oklahoma's drivers and σ 13.8 per §2. The 9 week-6 picks (Ole Miss picked at LSU −2.5, Sun 6:10 AM). 56 graded 2026 picks in weeks 1–5 adding up to 31-24-1, +4.6u, ROI +7.6%, avg CLV +0.9; tiers A 7-3, B 12-9-1, C 12-12; cumulative units W1 +1.8 … W5 +4.6 | (01, 11, 13) |
+| Contest | "Splash work league" with the Splash preset rules; week 6 contest lines from the Week 6 paste; entries OU +7 (Thu 9:14 PM) and BUF −3 (Thu 9:20 PM); weeks 1–5 entries giving you 12-8 and the model top 4 11-9; standing 3rd of 14 | (03, 04) |
+| User | One allowlisted user; theme dark, time zone America/New_York, default contest "Splash work league" | — |
+| Phase 5 rows (added with their migrations) | Season simulations per §5 (no P(CFP) until Phase 7); weather snapshots (Iowa @ Wisconsin: wind 17 mph, gusts 26; Kentucky @ Georgia: rain 80%); the BYU alert; Texas vs Oklahoma and Iowa @ Wisconsin starred | (01, 18) |
+| State fixtures | "offseason": 2027 week 0, no games, 2026 final record 61-48-2, +8.2u, CLV +0.8. "preseason team": Ohio State before week 1. Loaded per test | (20, 21) |
+
+## Walking skeleton
+
+_Added 2026-10-07 (D-079). The thinnest slice that crosses every layer once. `/skeleton` builds it as the first Phase 0 task. The rest of Phase 0 (sign-in, `release`, `backup`, Dependabot, the read-guard hook, `/customize-kit`) follows as separate tasks, sign-in first._
+
+- **Slice: the Teams index** (S-17, F-44).
+  - The API reads `teams` and `team_seasons` from Postgres and returns each team's school, conference and color.
+  - The `/teams` page is a server component that calls the API and renders a team chip (color dot), school and conference.
+  - A `loading.tsx` skeleton is drawn at the loaded size, and an empty state reads "No teams yet".
+  - The page stays public reference data until the sign-in task lands.
+- **Health:** `/api/health` (see Components § 2) returns the commit SHA, whether the DB is reachable, and the migration head. Whether it sits under `/api/py` is settled together with D-013.
+- **Data:**
+  - The first migration creates `sports`, `teams`, `team_seasons`, `venues` and `games`, as in Phase 0.
+  - The view-apply step runs even while `python/db/views/` is empty.
+  - The fixture seeds the test DB. Dev, preview and production start empty and show the empty state; real teams arrive with the CFBD publish.
+- **Styling:**
+  - `design/handoff/tokens/tokens.css` is loaded once, with Tailwind v4 `@theme inline` mappings.
+  - IBM Plex Sans and Mono load via `next/font`; dark is the default.
+  - Nothing else from the design system.
+- **Scripts** (proposed; the `/skeleton` plan gate confirms). One root `package.json`, so every command runs under `cmd.exe /c`:
+
+  | Script | Runs |
+  |---|---|
+  | `dev` | `next dev` in `web/` and `uvicorn` for `python/api`, together |
+  | `typecheck` | `pnpm --dir web exec tsc --noEmit` and `uv run pyright` |
+  | `lint` | `pnpm --dir web lint` and `uv run ruff check .` |
+  | `test` | `pnpm --dir web exec vitest run` and `uv run pytest` |
+  | `test:e2e` | `pnpm --dir web exec playwright test` |
+  | `build` | `pnpm --dir web build` |
+  | `db:migrate` | `uv run alembic upgrade head`, then apply `python/db/views/*.sql` |
+  | `db:seed` | the engine CLI's fixture seed (test DB only) |
+
+- **Tests:**
+  - Python unit: the test-DB guard refuses when `TEST_DATABASE_URL` is unset or names the same host and database as `DATABASE_URL`.
+  - Web unit: one Vitest test on the team list's ordering (conference, then school).
+  - E2E: Playwright loads `/teams` on the seeded test DB and sees "Ohio State" with "Big Ten", then requests `/api/health` and gets a reachable DB.
+- **CI:** the `verify` job in `.github/workflows/ci.yml`:
+  - sets up uv (Python 3.13) and pnpm, with a Postgres service on `PG_MAJOR`;
+  - runs `db:migrate` and `db:seed`;
+  - then typecheck → lint → test → build → `test:e2e`.
+
+  It keeps the kit's task-file parse step and the job name `verify`.
+- **Deploy:** each PR gets a Vercel preview serving Next.js and the FastAPI function from one project. This settles D-013's open check; if one project can't do it, the fallback is recorded as a new decision.
+- **Exit criteria:**
+  - Every script exits 0 from a clean checkout on Windows.
+  - CI is green.
+  - The PR's preview renders `/teams` (the empty state, on the empty preview DB) and `/api/health` with the right commit SHA.
+- **Not in the skeleton:** sign-in, `release`, `backup`, Dependabot, hooks, real CFBD data, and any design-system component beyond the tokens and fonts.
+
+## Non-functional requirements
+
+_Added 2026-10-07 (D-092). Numbers already fixed elsewhere in this doc are restated with their source. The new ones are starting targets, set from those constraints, for the owner to adjust. Latency targets are measured from Vercel and job logs, never asserted in tests (`.claude/rules/database.md`)._
+
+| Area | Requirement | Source |
+|---|---|---|
+| Page speed (database awake) | Each data page's single API call completes in ≤ 500 ms at p95, and the page renders in ≤ 1.5 s at p95 on desktop broadband | New |
+| Cold start | The loading skeleton shows immediately; a "Waking up the database…" note appears after 1.5 s; the page is usable within 8 s of a cold start | Neon wake time 1.5–6 s (§ Components 3); wake note (design) |
+| Query budget | By default each endpoint runs ≤ 6 queries, all in one concurrent wave. A task that needs more records why | Rule in `.claude/rules/database.md`; number new |
+| On-demand compute | Hypothetical matchups and what-if adjustments respond in ≤ 2 s; no request runs longer than 10 s | New; Vercel Hobby limit is 300 s |
+| API bundle | ≤ 250 MB hard limit; investigate when it passes 200 MB | Vercel (§ Components 2) |
+| Data freshness | Next week's predictions are published by Sun 10:00 AM ET. Lines are refreshed at least daily, plus Thu–Fri evenings. Saturday scores are ≤ 60 min old (30-min cadence plus up to 30 min scheduler delay). Every data page shows its "Updated" time, and a stale-data banner appears when lines are more than 24 h old | Job table (§ Components 4); banner (design) |
+| Alerts | Sent on the first `lines` run after the trigger, so they may lag a move by hours; the UI says so | § Components 4; design |
+| Job budget | Each scheduled run finishes in ≤ 10 min (backfill excepted). Monthly Actions use stays ≤ 1,500 of the 2,000 free minutes | New; free minutes (§ Components 4) |
+| CFBD calls | ≤ 5,000 per month; in-season steady state ≤ 40 per week; the ingest budget tracker warns at 80% of the month | Tier 1 (§ Hosting); weekly estimate (03) |
+| Storage | Neon < 100 MB expected, hard cap 0.5 GB; R2 under 10 GB | 03 › Sizing; free tiers |
+| Cost | About $1/month expected; $5/month ceiling before revisiting | § Hosting & cost plan |
+| Availability | Best effort on free tiers. No uptime target and no paging; a failed job shows as an old "Updated" time and a failed workflow run | New |
+| Backups | Recovery point ≤ 24 h (nightly, restore-verified). Recovery time ≤ 2 h, following a written restore runbook (to be written in the Phase 0 backup task) | § Release & operations; RTO new |
+| Security | One allowlisted GitHub account. `/api/health` is the only unauthenticated route and returns no data. Secrets live in the environment, never the repo, and production's URL only in `.env.live` | § Auth; § Environments |
+| Accessibility | WCAG AA contrast in both themes (4.5:1 text, 3:1 UI); tap targets ≥ 44 px at 390; every control reachable by keyboard with a visible focus ring; color never the only signal; reduced motion respected | `design/README.md`; `tokens.json` contrast checks |
+| Devices | Desktop at 1280+ and phones at 390+ on current evergreen browsers (Chrome, Edge, Safari, mobile Safari and Chrome) | 05 (desktop and phone both first-class); browsers new |
+| Data correctness | Publishing stops when a data-quality check (03) or a point-in-time assertion fails; nothing partial reaches Postgres | 03 › Data quality checks; new |

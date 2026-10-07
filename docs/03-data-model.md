@@ -189,6 +189,26 @@ Rough shape, to be proposed and reviewed before any migration:
 
 Line movement, the best lines board and this week's record need no new tables: they read `line_snapshots`, `game_market`, `current_contest_lines`, `pick_outcomes` and `contest_results`.
 
+### Proposed additions from the design handoff (2026-10-07, not approved)
+
+The handoff shows data that no table above holds. Like the Phase 5 and Phase 6 proposals, this is a rough shape to review before any migration (CLAUDE.md: schema changes need approval first). Feature and screen IDs: [01 › Feature index](01-product.md#feature-index-ids-priorities-outcomes), [05 › Screen inventory](05-ui-design-brief.md#screen-inventory-from-handoff).
+
+**Needed for the MVP (Phase 4)**
+- **user_settings** (F-45, S-13): one row per `user_id` holding `theme` (`dark|light`), `time_zone` (IANA name; NULL = use the device's zone), and `default_contest_id NULL`. It's per-user data, so it gets its own table rather than columns on `users`.
+- **contest_standings** (F-33, S-02 Results & standing): the league standing you enter by hand. `id PK`, `contest_id`, `period` (season week), `position` (e.g. 3), `field_size` (e.g. 14), `points_behind_leader NULL`, `note NULL`, `entered_at`. Append-only; the current standing is the latest row per contest, read through a view.
+
+**Needed with watchlist & alerts (Phase 5), extending the proposal above**
+- **alert_rules** (F-14, S-12): `user_id`, `kind` (`edge_crossed|line_moved`), `scope` (`all|starred`), `threshold_pts NULL` (line moves only, in half-point steps, default 1.0), `enabled`. Defaults follow D-082: edge_crossed on all games, line_moved ≥ 1.0 on starred games.
+- **Alert delivery** (`email|push`) is a column on `user_settings`.
+- **The alert log** gains `read_at NULL`, which drives the bell's unread badge.
+- **push_subscriptions** (only if push delivery is built): `user_id`, `endpoint`, `keys jsonb`, `created_at`, `deleted_at`.
+
+**Not stored in Postgres**
+- ⌘K recent teams (S-14) are a per-device convenience, kept in browser storage.
+- Sign-in has no password or lockout data; GitHub OAuth only (D-078).
+
+**Fixture rows:** every `source` column must accept `'fixture'` for the test seed (D-089). The seed refuses non-test databases, so production never holds that value.
+
 ### Later: history & coaches (proposed, not approved)
 Phase 6 ([04-model.md §7](04-model.md)) will need a way to mark a rating as *predictive* or *hindsight* (so predictions can never read hindsight ratings), plus `coaches` and `coach_tenures` with game-level attribution for mid-season changes. Program and coach rankings themselves are views. The exact schema is proposed and reviewed at the start of Phase 6.
 

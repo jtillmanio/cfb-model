@@ -12,7 +12,7 @@ A college football prediction model and web app: game predictions, picks against
 | [05 — UI design brief](docs/05-ui-design-brief.md) | Brief for Claude Design |
 | [06 — Roadmap](docs/06-roadmap.md) | Phases, acceptance criteria, open questions |
 | [07 — Claude Design playbook](docs/07-claude-design-playbook.md) | Prompts, review checks and handoff for the UI design |
-| [07 — Claude Design playbook](docs/07-claude-design-playbook.md) | Prompts, review checks and handoff for the UI design |
+| [Decisions](docs/decisions.md) | Settled decisions, each with its source |
 
 ## Stack
 Python (uv, DuckDB, scikit-learn, FastAPI) · Next.js + Tailwind + shadcn/ui · Postgres (Neon) · Parquet on Cloudflare R2 · GitHub Actions · Vercel
