@@ -1,18 +1,18 @@
 ---
 name: architecture
-description: Produces docs/architecture.md and seeds docs/decisions.md from the product brief, feature list, and design — presenting each key technical decision as options with trade-offs for the user to choose. Use when the user runs /architecture or asks to design the system, pick a stack, or write the architecture doc.
+description: Amends docs/02-architecture.md and docs/03-data-model.md and seeds docs/decisions.md from the product brief, feature list, and design — presenting each key technical decision as options with trade-offs for the user to choose. Use when the user runs /architecture or asks to design the system, pick a stack, or write the architecture doc.
 argument-hint: (optional) focus area or constraint, e.g. "must use Postgres"
 ---
 
 # Architecture $ARGUMENTS
 
-Output: `docs/architecture.md`, following `docs/templates/architecture.md` section by section, plus seeded rows in `docs/decisions.md`.
+Output: this project's architecture is split across `docs/02-architecture.md` (system) and `docs/03-data-model.md` (data model), checked section by section against `docs/templates/architecture.md`, plus rows in `docs/decisions.md`. Both docs already exist: amend them in place (add missing template sections, fix stale ones) and never regenerate or restructure them. See "Project docs" in `CLAUDE.md`.
 
 ## Phase 1: Read (read-only)
 
-1. Read `docs/product/brief.md` and `docs/product/features.md`. If either is missing, stop and suggest `/product-brief`.
+1. Read `docs/01-product.md` (brief and Feature set) and `docs/05-ui-design-brief.md` (screen inventory). If either is missing, stop and suggest `/product-brief`.
 2. Read the design:
-   - Everything under `design/`, including a Claude Design handoff bundle if present.
+   - `design/handoff/designs/` (source of truth; board notes are the spec), `design/README.md` (bundle README), `design/handoff/tokens/`, and `design/handoff/screenshots/`.
    - Note the screens, components, design tokens, and any data the screens display. That data implies the entities and queries.
 3. Read existing code, `CLAUDE.md`, and `docs/decisions.md` if present.
 4. Infer the entities from three sources: the features' data columns, what the screens display, and the import sources. List any conflicts between them.
@@ -29,8 +29,8 @@ Recommend boring, well-documented choices with free tiers that fit the stated sc
 
 ## Phase 3: Write
 
-1. **docs/architecture.md** with every template section:
-   - Data model: a mermaid ER diagram plus a table per entity (fields, types, keys, constraints, indexes). Explicitly state what is stored vs. derived.
+1. **docs/02-architecture.md** and **docs/03-data-model.md**, covering every template section between them:
+   - Data model (in `03-data-model.md`): a mermaid ER diagram plus a table per entity (fields, types, keys, constraints, indexes). Explicitly state what is stored vs. derived.
    - Feature traceability: every MVP feature maps to screens, components, and entities. Flag any MVP feature that maps to nothing.
    - NFRs: each one with a number.
    - Testing strategy: tools, coverage per level, and the seed data that ACs will cite.

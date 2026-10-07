@@ -10,6 +10,29 @@ Personal sports-analytics app. A college football model makes game predictions, 
 - `.claude/rules/`: area rules (git always; python, database and web by path).
 - **Precedence when sources disagree:** code and migrations > this file and `.claude/rules/` > `docs/`. Fix the loser in the same PR. Take counts and numbers from code or data, never from prose.
 
+### Project docs (which file fills each starter-kit role)
+The kit's skills and agents use these paths. `docs/claude-kit/` holds the kit's own guides, which use generic names (`docs/product/*`, `docs/architecture.md`, `docs/tasklist.md`); read them through this map.
+
+| Kit role | This project |
+|---|---|
+| Brief (problem, users, goals, non-goals) | `docs/01-product.md` (What we're building · Who it's for · What "good" looks like · Non-goals) |
+| Features (priorities, MVP cut) | `docs/01-product.md` › Feature set (MVP = end of Phase 4) |
+| Screen inventory | `docs/05-ui-design-brief.md` › Screens; the as-designed list is `design/README.md` › Screens |
+| Architecture | `docs/02-architecture.md` |
+| Data model | `docs/03-data-model.md` (`python/db/` wins once it exists) |
+| Model spec | `docs/04-model.md` |
+| Design intent | `docs/05-ui-design-brief.md` |
+| Design source of truth | `design/handoff/designs/` (board notes are the spec; bundle README is `design/README.md`) |
+| Design tokens | `design/handoff/tokens/` (color; type, spacing, radius and elevation values are in `design/README.md` › Design tokens) |
+| Reference screenshots | `design/handoff/screenshots/` (default state, dark, 1440 and 390) |
+| Design playbook | `docs/07-claude-design-playbook.md` |
+| Roadmap (status source of truth) | `docs/06-roadmap.md` |
+| Task list | `docs/08-tasklist.md` (written by `/milestones`; task files in `docs/tasks/`) |
+| Decisions | `docs/decisions.md` |
+| Sample data / fixture seeds | `design/sample-data.md`, `design/sample-splash.txt`, `design/handoff/designs/*-data.js` |
+
+**Designs vs 05:** where `design/handoff/designs/` and `docs/05-ui-design-brief.md` disagree, the designs win unless the user says otherwise. What the model computes and how numbers are defined still follow `04-model.md` and this file.
+
 ## Domain conventions
 - `margin = home_points − away_points`. `spread_home` is negative when home is favored (CFBD convention). Home covers if `margin + spread_home > 0`; push if `= 0`.
 - **Point-in-time:** anything used to predict a game uses only data available before kickoff. Ratings at `(season, week=N)` mean "entering week N". Never use season-aggregate stats in a backtest.

@@ -1,6 +1,6 @@
 ---
 name: skeleton
-description: Builds the walking skeleton defined in docs/architecture.md — project scaffold, toolchain scripts, one thin end-to-end slice with a unit test and an e2e smoke test, CI, and dev setup — so /customize-kit has a real stack to configure. Use when the user runs /skeleton or asks to scaffold or bootstrap the project.
+description: Builds the walking skeleton defined in docs/02-architecture.md (Phase 0 of docs/06-roadmap.md) — project scaffold, toolchain scripts, one thin end-to-end slice with a unit test and an e2e smoke test, CI, and dev setup — so /customize-kit has a real stack to configure. Use when the user runs /skeleton or asks to scaffold or bootstrap the project.
 ---
 
 # Walking skeleton
@@ -9,7 +9,7 @@ Goal: the smallest running system that exercises every layer once, with every ch
 
 ## Phase 0: Preflight
 
-1. Read `docs/architecture.md` §2 (Stack), §8 (Testing strategy), §9 (Walking skeleton spec), and `docs/decisions.md`. If §9 is missing, stop and suggest `/architecture`.
+1. Read the stack, testing strategy and walking-skeleton spec in `docs/02-architecture.md` (Components, Hosting & cost plan, Environments & databases, Tooling), `docs/06-roadmap.md` › Phase 0, and `docs/decisions.md`. These docs don't use the template's §2/§8/§9 numbering. If no walking-skeleton spec exists in `docs/02-architecture.md`, stop and suggest `/architecture`.
 2. The working tree must be clean. Create branch `task/skeleton`.
 3. Confirm the toolchain exists locally: runtime versions, package manager, database access. List anything missing with the install command (PowerShell) and stop.
 4. Secrets: you write `.env.example` with placeholder values only. If the app needs real secrets (a database URL, API keys), ask the user to create `.env.local` from it. That file is protected, so you can't and shouldn't write it.
@@ -33,7 +33,7 @@ Present a plan of at most 30 lines covering:
 
 1. Scaffold with the generator. Don't hand-write what the generator produces.
 2. Add the scripts, the slice, the migration, the seed, the tests, `.env.example`, and the CI changes.
-3. Apply the design tokens from `design/` (colors, type, spacing) as the base styles, so later UI tasks start on-brand. Build only the slice's screen.
+3. Apply the design tokens from `design/handoff/tokens/tokens.css` (colors, fonts, base radius) and the type, spacing and radius scales in `design/README.md` › Design tokens as the base styles, so later UI tasks start on-brand. Build only the slice's screen.
 4. Write `README.md` dev setup: prerequisites, install, env setup, migrate, seed, run, test. Use PowerShell commands.
 
 ## Phase 3: Verify (gate)

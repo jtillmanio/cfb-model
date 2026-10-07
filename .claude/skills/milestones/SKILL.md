@@ -1,20 +1,21 @@
 ---
 name: milestones
-description: Breaks the MVP into demoable milestones and task stubs in docs/tasklist.md, ordered by dependency and risk, with a coverage check that every MVP feature, screen, and entity lands in a task. Use when the user runs /milestones or asks for a task list, roadmap, backlog, or build plan.
+description: Breaks the MVP into demoable milestones and task stubs in docs/08-tasklist.md, ordered by dependency and risk, with a coverage check that every MVP feature, screen, and entity lands in a task. Use when the user runs /milestones or asks for a task list, roadmap, backlog, or build plan.
 argument-hint: (optional) scope, e.g. "MVP" (default) or "Next"
 ---
 
 # Milestones and task list: $ARGUMENTS
 
-Output: `docs/tasklist.md`, following `docs/templates/tasklist.md`. This is a stub-level plan. Full task files come later, one milestone at a time, via `/new-task docs/tasklist.md M1`.
+Output: `docs/08-tasklist.md`, following `docs/templates/tasklist.md`. This is a stub-level plan. Full task files come later, one milestone at a time, via `/new-task docs/08-tasklist.md M1`. Paths follow "Project docs" in `CLAUDE.md`.
 
 ## Phase 1: Read (read-only)
 
 Read:
-- `docs/product/features.md` (scope = MVP unless `$ARGUMENTS` says otherwise)
-- `docs/architecture.md` (data model, components, feature traceability, risks)
+- `docs/01-product.md` › Feature set (scope = MVP unless `$ARGUMENTS` says otherwise)
+- `docs/02-architecture.md` (components, feature traceability, risks) and `docs/03-data-model.md` (data model)
+- `docs/06-roadmap.md` (phases, acceptance and status; milestones must not contradict it without saying so)
 - `docs/decisions.md`
-- `design/`
+- the design: `design/README.md`, `design/handoff/designs/`, `design/handoff/screenshots/`
 - the current code; the walking skeleton should already exist
 
 If the architecture doc is missing, stop and suggest `/architecture`.
@@ -45,13 +46,13 @@ List any gaps and fix them before showing the result.
 ## Phase 4: Gate and write
 
 1. Show the milestone outline (name, goal, demo, task count, the riskiest item) in under 25 lines. **Stop for approval or changes.**
-2. Write `docs/tasklist.md` and commit (`docs: task list`).
+2. Write `docs/08-tasklist.md` and commit (`docs: task list`).
 
 ## Hand-off
 
 Next steps:
 
-1. Run `/new-task docs/tasklist.md M1` to create full task files for the first milestone only. Writing specs just in time keeps them accurate.
+1. Run `/new-task docs/08-tasklist.md M1` to create full task files for the first milestone only. Writing specs just in time keeps them accurate.
 2. Review those files and set them to `Ready`.
 3. Run `/next-task`.
 4. Repeat for M2 when M1 is close to done.
