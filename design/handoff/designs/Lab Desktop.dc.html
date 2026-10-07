@@ -34,7 +34,7 @@
 </aside>
 <main style="min-width:0;display:flex;flex-direction:column">
 <div style="display:flex;align-items:center;gap:12px;height:56px;padding:0 24px;border-bottom:1px solid var(--border);box-sizing:border-box;flex:none">
-<span style="display:inline-flex;align-items:center;gap:8px;height:32px;padding:0 10px;border-radius:6px;border:1px solid var(--input);width:320px;box-sizing:border-box;font-size:13px;color:var(--muted-foreground)"><span style="display:inline-block;width:14px;height:14px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/search.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/search.svg) center/contain no-repeat"></span><span style="flex:1">Search teams</span><span style="display:inline-flex;align-items:center;height:20px;padding:0 6px;border-radius:4px;border:1px solid var(--border);background:var(--muted);font:500 11px 'IBM Plex Mono',monospace">⌘K</span></span>
+<span style="display:inline-flex;align-items:center;gap:8px;height:32px;padding:0 10px;border-radius:6px;border:1px solid var(--input);width:320px;box-sizing:border-box;font-size:13px;color:var(--muted-foreground)"><span style="display:inline-block;width:14px;height:14px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/search.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/search.svg) center/contain no-repeat"></span><span style="flex:1">Search teams</span><span style="display:inline-flex;align-items:center;height:20px;padding:0 6px;border-radius:4px;border:1px solid var(--border);background:var(--muted);font:500 12px 'IBM Plex Mono',monospace">⌘K</span></span>
 <span style="flex:1"></span>
 <span style="font-size:12px;line-height:16px;color:var(--muted-foreground)">All Lab numbers are backtest results unless marked live</span>
 <span style="position:relative;display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:6px;border:1px solid var(--input);box-sizing:border-box;cursor:pointer"><span style="display:inline-block;width:16px;height:16px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/bell.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/bell.svg) center/contain no-repeat"></span><span style="position:absolute;top:-5px;right:-5px;min-width:16px;height:16px;padding:0 4px;box-sizing:border-box;border-radius:8px;background:var(--foreground);color:var(--background);font-size:12px;line-height:16px;font-weight:700;text-align:center;box-shadow:0 0 0 2px var(--background)">1</span></span>
@@ -71,7 +71,7 @@
 <sc-for list="{{ chosen }}" as="r" hint-placeholder-count="7">
 <div style="display:grid;grid-template-columns:minmax(0,1fr) auto;column-gap:20px;align-items:start;padding:12px 16px;border-top:1px solid var(--border)">
 <div style="display:flex;flex-direction:column;gap:3px;min-width:0">
-<span style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap"><span style="font-size:14px;font-weight:600">{{ r.n }}</span><span style="font:400 11px/16px 'IBM Plex Mono',monospace;color:var(--muted-foreground)">{{ r.k }}</span></span>
+<span style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap"><span style="font-size:14px;font-weight:600">{{ r.n }}</span><span style="font:400 12px/16px 'IBM Plex Mono',monospace;color:var(--muted-foreground)">{{ r.k }}</span></span>
 <span style="font-size:13px;line-height:18px;text-wrap:pretty">{{ r.e }}</span>
 </div>
 <div style="display:flex;flex-direction:column;align-items:flex-end;gap:5px">
@@ -115,7 +115,7 @@
 <sc-for list="{{ learned }}" as="r" hint-placeholder-count="5">
 <div style="display:grid;grid-template-columns:minmax(0,1fr) auto;column-gap:20px;align-items:start;padding:12px 16px;border-top:1px solid var(--border)">
 <div style="display:flex;flex-direction:column;gap:3px;min-width:0">
-<span style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap"><span style="font-size:14px;font-weight:600">{{ r.n }}</span><span style="font:400 11px/16px 'IBM Plex Mono',monospace;color:var(--muted-foreground)">{{ r.k }}</span></span>
+<span style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap"><span style="font-size:14px;font-weight:600">{{ r.n }}</span><span style="font:400 12px/16px 'IBM Plex Mono',monospace;color:var(--muted-foreground)">{{ r.k }}</span></span>
 <span style="font-size:13px;line-height:18px;text-wrap:pretty">{{ r.e }}</span>
 </div>
 <div style="display:flex;flex-direction:column;align-items:flex-end;gap:2px">
@@ -152,7 +152,7 @@
 <sc-if value="{{ isVersions }}" hint-placeholder-val="{{ false }}">
 <div style="display:flex;flex-direction:column;gap:16px;padding:16px 24px 32px">
 <section style="display:grid;grid-template-columns:auto minmax(0,1fr) auto;column-gap:28px;align-items:center;padding:20px 24px;border:1px solid color-mix(in oklch, var(--neg) 55%, transparent);border-radius:8px;background:color-mix(in oklch, var(--neg) 8%, var(--card))">
-<span style="font-size:32px;line-height:40px;font-weight:600;letter-spacing:-0.02em;color:var(--neg)">7</span>
+<span style="font-size:32px;line-height:40px;font-weight:600;letter-spacing:-0.02em;color:var(--neg)">{{ triedN }}</span>
 <div style="display:flex;flex-direction:column;gap:6px;min-width:0">
 <span style="font-size:16px;line-height:24px;font-weight:600">Variants tried since last promotion</span>
 <span style="font-size:13px;line-height:19px;max-width:720px;text-wrap:pretty">Every backtest since v1.0 went to production on Aug 20 counts, including ones you didn't keep. Try enough variants and one will look better by luck alone, so the more tries, the bigger a gain has to be before you believe it.</span>
@@ -178,7 +178,7 @@
 <sc-for list="{{ versions }}" as="r" hint-placeholder-count="3">
 <div style="display:grid;grid-template-columns:200px 200px 80px 112px minmax(0,1fr) minmax(0,1fr) 80px 176px;column-gap:14px;align-items:center;min-height:68px;padding:10px 16px;box-sizing:border-box;border-bottom:1px solid var(--border);font-size:13px">
 <span style="display:flex;flex-direction:column;min-width:0"><span style="font-size:14px;line-height:20px;font-weight:600">{{ r.v }}</span><span style="font-size:12px;line-height:16px;color:var(--muted-foreground)">{{ r.sub }}</span></span>
-<span style="display:flex;flex-wrap:wrap;align-items:center;gap:6px"><span style="display:inline-flex;align-items:center;gap:6px;height:22px;padding:0 8px;border-radius:999px;border:1px {{ r.p.bs }} var(--border);background:var(--muted);box-sizing:border-box;font-size:12px;font-weight:500;color:{{ r.p.tc }};white-space:nowrap"><span style="width:7px;height:7px;border-radius:50%;box-sizing:border-box;background:{{ r.p.dot }};border:{{ r.p.db }}"></span>{{ r.p.l }}</span><sc-if value="{{ r.running }}" hint-placeholder-val="{{ false }}"><span style="display:inline-flex;align-items:center;gap:6px;height:22px;padding:0 8px;border-radius:4px;border:1px solid color-mix(in oklch, var(--chart-1) 50%, transparent);background:color-mix(in oklch, var(--chart-1) 12%, transparent);box-sizing:border-box;font-size:12px;font-weight:500;white-space:nowrap"><span style="width:10px;height:10px;border-radius:50%;box-sizing:border-box;border:2px solid var(--chart-1);border-right-color:transparent"></span>Backtest running</span></sc-if></span>
+<span style="display:flex;flex-wrap:wrap;align-items:center;gap:6px"><span style="display:inline-flex;align-items:center;gap:6px;height:22px;padding:0 8px;border-radius:999px;border:1px {{ r.p.bs }} var(--border);background:var(--muted);box-sizing:border-box;font-size:12px;font-weight:500;color:{{ r.p.tc }};white-space:nowrap"><span style="width:7px;height:7px;border-radius:50%;box-sizing:border-box;background:{{ r.p.dot }};border:{{ r.p.db }}"></span>{{ r.p.l }}</span><sc-if value="{{ r.running }}" hint-placeholder-val="{{ false }}"><span style="display:inline-flex;align-items:center;gap:6px;height:22px;padding:0 8px;border-radius:4px;border:1px solid color-mix(in oklch, var(--chart-1) 50%, transparent);background:color-mix(in oklch, var(--chart-1) 12%, transparent);box-sizing:border-box;font-size:12px;font-weight:500;white-space:nowrap"><span style="width:10px;height:10px;border-radius:50%;box-sizing:border-box;border:2px solid var(--chart-1);border-right-color:transparent"></span>Backtest running · season 4 of 10 · ~6 min</span></sc-if></span>
 <span style="color:{{ r.parC }};font-weight:500">{{ r.parent }}</span>
 <span style="color:var(--muted-foreground)">{{ r.created }}</span>
 <span style="display:flex;flex-direction:column"><span style="font-size:14px;font-weight:600">{{ r.mae }}</span><span style="font-size:12px;line-height:16px;color:var(--muted-foreground)">{{ r.maeN }}</span></span>
@@ -187,6 +187,7 @@
 <span style="display:flex;justify-content:flex-end;gap:6px"><sc-for list="{{ r.acts }}" as="a" hint-placeholder-count="1"><span onClick="{{ a.click }}" style="display:inline-flex;align-items:center;height:28px;padding:0 10px;border:1px solid var(--input);border-radius:6px;box-sizing:border-box;font-size:12px;font-weight:500;cursor:pointer;white-space:nowrap" style-hover="background:var(--accent)">{{ a.l }}</span></sc-for></span>
 </div>
 </sc-for>
+<sc-if value="{{ noVersions }}" hint-placeholder-val="{{ false }}"><div style="padding:16px 12px"><div style="display:flex;flex-direction:column;align-items:center;gap:8px;padding:48px 16px;border:1px dashed var(--border);border-radius:6px;text-align:center"><span style="display:inline-block;width:24px;height:24px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/flask-conical.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/flask-conical.svg) center/contain no-repeat;color:var(--muted-foreground)"></span><span style="font-size:16px;line-height:24px;font-weight:600">No model versions yet</span><span style="max-width:560px;font-size:13px;line-height:20px;color:var(--muted-foreground);text-wrap:pretty">Build v1.0 in Builder, run its backtest, then promote it. Until a version is in production there are no model lines, picks or Performance numbers anywhere in the app.</span><span style="display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 12px;margin-top:6px;border-radius:6px;background:var(--primary);color:var(--primary-foreground);font-size:13px;font-weight:600"><span style="display:inline-block;width:14px;height:14px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/plus.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/plus.svg) center/contain no-repeat;"></span>Open Builder</span></div></div></sc-if>
 <div style="display:flex;align-items:center;gap:8px;padding:12px 16px;font-size:12px;line-height:16px;color:var(--muted-foreground)"><span style="display:inline-flex;align-items:center;gap:6px;height:22px;padding:0 8px;border-radius:999px;border:1px solid var(--border);box-sizing:border-box;font-weight:500"><span style="width:7px;height:7px;border-radius:50%;background:var(--locked)"></span>retired</span>None yet. v1.0 is the first version to reach production; when it's replaced it moves here with its live record intact.</div>
 </section>
 <p style="margin:0;font-size:12px;line-height:16px;color:var(--muted-foreground);text-wrap:pretty">Backtest columns use the 2016–2023 validation seasons for every version, so rows compare like for like. The 2024–2025 holdout is only opened at promotion.</p>
@@ -208,7 +209,7 @@
 
 <div style="display:flex;align-items:flex-start;gap:12px;padding:14px 16px;border:1px solid var(--border);border-radius:8px;background:var(--muted)">
 <span style="display:inline-block;width:18px;height:18px;flex:none;margin-top:1px;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/scale.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/scale.svg) center/contain no-repeat"></span>
-<span style="font-size:14px;line-height:20px;text-wrap:pretty"><span style="font-weight:600">Slightly better everywhere, proven nowhere.</span> Every gain below is inside the noise, and v1.1 is the best of 7 variants tried. On its own this isn't a reason to promote.</span>
+<span style="font-size:14px;line-height:20px;text-wrap:pretty"><span style="font-weight:600">Slightly better everywhere, proven nowhere.</span> Every gain below is inside the noise, and v1.1 is the best of {{ triedN }} variants tried. On its own this isn't a reason to promote.</span>
 </div>
 
 <div style="display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px">
@@ -298,7 +299,7 @@
 </main>
 </div>
 </x-dc>
-<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1440,&quot;height&quot;:1300},&quot;view&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;weights&quot;,&quot;versions&quot;,&quot;compare&quot;],&quot;default&quot;:&quot;weights&quot;,&quot;tsType&quot;:&quot;'weights'|'versions'|'compare'&quot;}}">
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1440,&quot;height&quot;:1300},&quot;noVersions&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;},&quot;view&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;weights&quot;,&quot;versions&quot;,&quot;compare&quot;],&quot;default&quot;:&quot;weights&quot;,&quot;tsType&quot;:&quot;'weights'|'versions'|'compare'&quot;}}">
 class Component extends DCLogic {
   state = { view: null };
   renderVals() {
@@ -397,7 +398,7 @@ class Component extends DCLogic {
     return {
       tabs, isWeights: view === 'weights', isVersions: view === 'versions', isCompare: view === 'compare', goVersions: go('versions'),
       chosen, learned, dCurve, dPrior, dSeason, dGrid, dX, dMarks, dNowX: px(44 + DX(6)), dNowLx: px(44 + DX(6) + 6), imp,
-      tally: [1, 2, 3, 4, 5, 6, 7], legend, versions,
+      tally: this.props.noVersions ? [] : [1, 2, 3, 4, 5, 6, 7], triedN: this.props.noVersions ? '0' : '7', noVersions: !!this.props.noVersions, legend, versions: this.props.noVersions ? [] : versions,
       deltas, cGridY, cGridX, cA: line(calA), cB: line(calB), cPtsA: pts(calA, 'v1.0'), cPtsB: pts(calB, 'v1.1'), cRows,
       bGrid, bBars, bX, beY: px(BY(52.4)), beLy: px(BY(52.4) - 16), dis,
     };

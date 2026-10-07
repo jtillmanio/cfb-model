@@ -3,9 +3,11 @@
 ## Overview
 A private college-football analytics app for one user. A statistical model predicts every FBS game, compares its numbers to sportsbook and pick'em-contest spreads, recommends picks where it disagrees, ranks teams, projects seasons, and tracks its own record honestly. The user researches at a desk on weekday evenings, makes Splash pick'em picks Thu/Fri, and follows results on a phone on Saturday.
 
-This bundle covers: the design system (tokens, type, spacing, number formats, components, charts) and hi-fi screens for This Week, Contest, Game Detail, Rankings + Season Outlook, Team, Picks, Performance, Model Lab, Watchlist/Alerts, ⌘K palette, Login, Settings, plus loading / empty / error states. Desktop (1440) and mobile (390) for each, dark default with light mode.
+This bundle covers: the design system (tokens, type, spacing, number formats, components, charts) and hi-fi screens for This Week, Contest, Game Detail, Rankings + Season Outlook, Team, Teams index, Picks, Performance, Model Lab, Watchlist/Alerts, ⌘K palette, Login, Settings, plus loading / empty / error states. Desktop (1440) and mobile (390) for each, a 768 tablet This Week, dark default with a light frame per screen.
 
-Product context: `docs/01-product.md`, `docs/05-ui-design-brief.md`, `docs/04-model.md`. All mock numbers come from `docs/sample-data.md` (internally consistent — use it for fixtures/tests).
+**Updated 2026-10-07.** Decisions made after the 2026-10-06 handoff, the missing states and the light frames are on the `Pass … .dc.html` boards (A Decisions · B New screens · C1–C3 States · D Light mode · Audit). Where a Pass board disagrees with an older board, the Pass board wins. `Pass Audit.dc.html` lists every added or changed frame by screen ID (S-01…S-17).
+
+Product context lives in the repo's `docs/` (01-product, 04-model, 05-ui-design-brief) — not bundled here. All mock numbers come from `design/sample-data.md` (internally consistent — use it for fixtures/tests); the sample Splash paste is `design/sample-splash.txt`.
 
 ## About the design files
 Files in `designs/` are **design references built in HTML** — prototypes showing intended look and behavior, not production code. Recreate them in the target codebase: **Next.js App Router + Tailwind + shadcn/ui + Recharts (or visx) + lucide icons** in `web/` (per the brief). Don't port the HTML/inline styles; use them to read exact values.
@@ -99,7 +101,7 @@ Comfortable (default): header 40, row 48. Compact (per-table toggle on Rankings,
 - **Kickoff:** `Sat 3:30 PM ET` + network muted; drop "ET" inside tables whose header says ET.
 - **Lock countdown:** two largest units (`Locks in 1d 14h`, `3h 20m`, `12m`) → "Locked" + lucide `lock` in `--locked`.
 - **Live score:** mono, away first `PUR 3 · OSU 24` + live dot + `Q3 9:12` (never dot alone). Final: `Final · UNLV 24, BSU 31`.
-- **Pick thresholds:** pick = edge ≥ 2.5 · Tier C ≥ 2.5 · B ≥ 3.5 · A ≥ 5.0.
+- **Pick thresholds:** read from the active model version's spec, never hard-coded. v1.0: pick = edge ≥ 2.5 · Tier C ≥ 2.5 · B ≥ 3.5 · A ≥ 5.0. Legends and empty states print whatever the active spec says.
 
 ### Motion
 Skeleton pulse: opacity 1 → 0.5 → 1 over 1.6s, all bars in sync; static fill under `prefers-reduced-motion: reduce`. Tooltips open after 300ms on hover/focus. Toasts 5s, pause on hover, bottom-right desktop / above tab bar mobile.
@@ -124,7 +126,7 @@ Skeleton pulse: opacity 1 → 0.5 → 1 over 1.6s, all bars in sync; static fill
 - *LineMovementCell* — opening line + sparkline muted *before* the current line inside the Market column (market → model → edge still reads left to right). Flat line when unchanged; past seasons = two dots open/close, dashed join.
 - *LineHistoryChart* — step line through each snapshot, labelled where value changed, kickoff marker.
 - *StarToggle* — 24px desktop / 44px mobile target; shape (outline vs filled star) carries state.
-- *WeatherFlag* — icon next to network, only when wind ≥ 15 mph or rain ≥ 50%; hover (desktop) / tap (mobile) for forecast + which threshold tripped.
+- *WeatherFlag* — outdoor games only; icon next to network only when sustained wind ≥ 15 mph, rain or snow ≥ 60% likely, or ≤ 25°F at kickoff. Hover (desktop) / tap (mobile) for forecast + which threshold tripped. Wind, rain, snow and cold tooltips drawn in `Market Extras.dc.html`; dome and no-data never show an icon. Info only, not a model input.
 - *LiveRecordStrip* — "This week 1-0 · 2 live (IOWA covering, OSU not yet) · 6 to play · +1.0u", one segment per pick (won/lost/live/to play); click toggles Picks-only filter.
 
 **Tables & lists**
@@ -171,7 +173,7 @@ Props/states: `view` slate|best · `markets` spread|total|both · `filter` all|p
 ### 2. Contest (pick'em) — `Contest.dc.html` → `Contest Desktop` / `Contest Mobile`
 Props: `frame` empty|parse|slate|tray|results|settings · `now` thu|fri. Default rules = Splash preset: 4 picks/week, CFB+NFL, each game locks at kickoff, 1 pt per correct, push 0.
 - **Empty:** large "Paste from Splash" textarea is the hero; "Add game manually" secondary.
-- **Parse preview:** raw paste (mono) beside parsed rows; skipped lines dimmed; clicking a row jumps to its source lines; unmatched rows highlighted first with team picker ("Hou Texans" @ "Jax" → pick Houston Texans) — Confirm disabled until resolved. Splash text format: one value per line (day headers, team names / NFL nicknames, "Preview / Sun 1:00pm", records, each side's spread, O/U) — see `docs/sample-splash.txt` and `contest-data.js`.
+- **Parse preview:** raw paste (mono) beside parsed rows; skipped lines dimmed; clicking a row jumps to its source lines; unmatched rows highlighted first with team picker ("Hou Texans" @ "Jax" → pick Houston Texans) — Confirm disabled until resolved. Splash text format: one value per line (day headers, team names / NFL nicknames, "Preview / Sun 1:00pm", records, each side's spread, O/U) — see `design/sample-splash.txt` and `contest-data.js`.
 - **Ranked slate:** sorted by cover % vs the **contest's** line; visible cutoff line under #4. Row: sport tag (CFB/NFL), matchup, contest line, market line beneath with ≠ chip when different (blue if contest gives ranked side a better number, orange if worse), model line, edge, cover %, kickoff + lock countdown, two side buttons ("TEX −7" / "OU +7") — tap to pick, tap again to clear, tap other to switch; purple dot marks model's side. NFL: "No model yet", ranked on contest-vs-market gap with ~market-implied %. Locked rows greyed with hatched "Picks closed" block.
 - **Pick tray:** desktop persistent right panel (~380px); mobile bottom bar → bottom sheet. "Your picks: 2 of 4"; each pick shows line locked at + when; matches to model rank noted; open slots offer the model's next pick; "Use the model's top 4" fills all.
 - **Results & standing:** scoreboard you vs model's top 4 (pts), season + by week, league standing entered by hand (Edit).
@@ -220,10 +222,10 @@ Props: `view` weights|versions|compare; wireframe `screen` builder|promote, `run
 - Promote (lo-fi): go/no-go checklist (MAE vs closing, ATS vs closing, calibration, consistency across seasons) pass/fail.
 
 ### 9. Watchlist & Alerts — `Watchlist - Alerts.dc.html` → `This Week Desktop` (alertsOpen), `Settings Desktop`, `Alerts Mobile`
-Bell with unread badge. Panel newest first: game, time, what changed, new edge + tier, delivery channel; item opens game; footer repeats snapshot-lag note + settings link. Settings → Alerts: delivery email|push; rules "edge crosses pick threshold" (all games default) and "line moves ≥ N pts" (starred, half-point stepper). State plainly that alerts follow the line-snapshot schedule and can lag hours.
+Bell with unread badge. Panel newest first: game, time, what changed, new edge + tier, delivery channel; item opens game; footer repeats snapshot-lag note + settings link. Settings → Alerts: delivery email|push; rules "edge crosses pick threshold" (all games default, scope menu All / Starred) and "line moves ≥ N pts" (default **1.0 pt**, half-point stepper, starred games). State plainly that alerts follow the line-snapshot schedule and can lag hours.
 
 ### 10. ⌘K, Login, Settings — `Palette Login Settings.dc.html` → `Command Palette`, `App States Desktop/Mobile`
-Login: single account (no sign-up/reset); states default / wrong password / "waking the database" (button says so). Settings › General: theme, default contest, time zone ("Use this device's time zone" toggle; off → picker with live preview time).
+Login: GitHub OAuth only, one allowlisted account (no password, sign-up or reset). States: default ("Sign in with GitHub"), waking the database (button reads "Waking up the database…"), and "This GitHub account isn't allowed" with "Use a different account". Settings nav on every frame: General · Contests · Alerts · Account. General: theme, default contest, time zone ("Use this device's time zone" toggle; off → picker with live preview time). Contests: your contests with platform + rules summary, default marker, link to each contest's Rules. Account: GitHub username + avatar, Sign out. Boards: `Pass A - Decisions.dc.html`.
 
 ### 11. Loading / Empty / Error — `Loading States.dc.html`, `Empty and Error States.dc.html`
 Skeletons for This Week, Contest, Game Detail, Rankings, Performance (tweaks `showLoaded` overlay to check fit, `reducedMotion`). Empty: off-season (filters hidden, sidebar shows final record), no picks this week (record stays, 3 games nearest threshold listed as not picks), contest no slate, team preseason. Error: API unreachable (frame stays, filters dimmed, auto-retry with backoff, Details), one panel failed (Game Detail unit matchup).
@@ -240,7 +242,7 @@ Skeletons for This Week, Contest, Game Detail, Rankings, Performance (tweaks `sh
 - Mobile: sheets (radius 12) for filters/sort, week picker, time machine, pick tray, ⌘K.
 
 ## State / data
-Per screen (server components + client islands): season/week (URL), filters/sort/view (URL search params), starred game ids (persisted), contest slate + parsed rows + user picks (persisted, picks store line + timestamp at pick time), alert rules + read state, theme + time zone, model version selection. Data shapes: see `designs/*-data.js` (`window.TW`, `window.CT`, etc.) — these mirror `docs/sample-data.md` and are good fixture seeds. Expect slow first query (DB cold start) — every data view needs its skeleton.
+Per screen (server components + client islands): season/week (URL), filters/sort/view (URL search params), starred game ids (persisted), contest slate + parsed rows + user picks (persisted, picks store line + timestamp at pick time), alert rules + read state, theme + time zone, model version selection. Data shapes: see `designs/*-data.js` (`window.TW`, `window.CT`, etc.) — these mirror `design/sample-data.md` and are good fixture seeds. Expect slow first query (DB cold start) — every data view needs its skeleton.
 
 ## Assets
 - Icons: lucide (loaded from unpkg in mocks → use `lucide-react`): calendar-days, target, trophy, list-ordered, shield, activity, flask-conical, chevrons-up-down, chevron-right, lock, star, bell, search, cloud/wind/rain weather icons.
@@ -248,8 +250,20 @@ Per screen (server components + client islands): season/week (URL), filters/sort
 - Team logos: not supplied — mocks use a team-color dot (max 20px). Team colors live in the data files. Real logos (e.g. from CFBD) drop into the same slot.
 - No other imagery.
 
+### 12. Teams index (S-17) — `Teams Desktop` / `Teams Mobile` (Pass B)
+Props: `state` default|conf|search|empty · `query`. Every FBS team in the Rankings row grammar: Team · Conf · Record · Rating (rank) · Next game · model line (edge pill + tier only for picks). Search filters by name as you type with a match highlight; conference chips single-select; both stack. Row opens the team page. Loading = skeleton; empty = "No teams yet" (before the first data sync); no-match empty with Clear filters. Mobile reached from More › Teams.
+
+### Props added 2026-10-07 (states on the Pass C boards)
+- `This Week Desktop/Mobile`: `week` live|noLines|bestEmpty · `stale` · (desktop) `alertsState` one|many|loading|error. `This Week Tablet` (768): priority columns.
+- `Contest Desktop`: `pasteError` none|unparsed|nomatch · `repaste` · `now` thu|fri|sun (sun = every game locked).
+- `Game Detail States`: `layout` desktop|mobile · `game` texou|furclem|minw · `status` upcoming|live|final (header + The Number).
+- `Rankings Desktop/Mobile`: `conf`. `Team Desktop/Mobile`: `phase` none|sims|cfp.
+- `Picks Desktop/Mobile`: `empty`. `Performance Desktop/Mobile`: `noLive`; mobile `screen` summary|detail.
+- `Lab Desktop`: `noVersions`. `Alerts Mobile`: `screen` adds history|loading|error. `Command Palette`: `firstUse`.
+- `App States Desktop/Mobile`: `loginState` default|waking|denied · `section` general|contests|account · `saveError`; mobile `frame` adds more.
+
 ## Files
-- `screenshots/` — 2x PNGs of every screen's default state, dark mode (01 This Week desktop … 21 off-season mobile). Mobile shots are full scroll length. Other states live in the boards.
+- `screenshots/` — 2x PNGs of every screen's default state, dark mode. 01–21 from the original handoff; 01, 03, 05, 07, 09, 11, 13, 15, 17 and 19 re-captured 2026-10-07 (Settings nav, ⌘K data, 12px keycaps). New: 22 Login desktop, 23 Login mobile (GitHub only), 24 Settings › General desktop, 25 Teams desktop, 26 Teams mobile, 27 More mobile, 28 This Week tablet 768. Mobile shots are full scroll length without the tab bar. Other states live in the boards.
 - `tokens/tokens.css` — production-ready CSS variables (light/dark). `tokens/tokens.json` — token notes + contrast checks.
 - `designs/CFB Design System.dc.html` — design-system board (Color Tokens, Foundations, Components, Market Extras, Charts, Specimen, Review Checks; dark + light side-by-side).
 - `designs/This Week.dc.html`, `Contest.dc.html`, `Game Detail.dc.html`, `Rankings.dc.html`, `Picks - Performance.dc.html`, `Model Lab.dc.html`, `Watchlist - Alerts.dc.html`, `Loading States.dc.html`, `Empty and Error States.dc.html`, `Palette Login Settings.dc.html` — screen boards with annotated states.
@@ -257,4 +271,6 @@ Per screen (server components + client islands): season/week (URL), filters/sort
 - `designs/Review Checks.dc.html` — accessibility/consistency audit board.
 - `designs/*-data.js` — sample data; `support.js` — runtime needed only to view the mocks.
 - `designs/This Week Wireframe.dc.html` — superseded, reference only.
-- `docs/` — product vision, UI brief, model doc, sample data, sample Splash paste.
+- `designs/Pass A - Decisions.dc.html` — frames changed or added after the 2026-10-06 handoff (Login, Settings, Team phases, More menu, Teams index, missing states, light frames). Where it disagrees with an older board, it wins.
+- `sample-data.md`, `sample-splash.txt` — at the bundle root, i.e. `design/sample-data.md` and `design/sample-splash.txt` in the repo.
+- New screen files: `Teams Desktop`, `Teams Mobile`, `This Week Tablet`, `Game Detail States`.

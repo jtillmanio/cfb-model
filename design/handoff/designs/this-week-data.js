@@ -104,13 +104,13 @@ window.TW = (() => {
       isPickIn: lines.some(l => l.isPick),
     };
   };
-  const slate = (mkt, stars, filter = 'all') => groups.map((gr, i) => ({
-    ...gr, rows: games.filter(g => g.grp === i).map(g => ({ ...decorate(g, mkt), starred: stars ? stars.has(g.id) : !!g.star }))
+  const slate = (mkt, stars, filter = 'all', list = games) => groups.map((gr, i) => ({
+    ...gr, rows: list.filter(g => g.grp === i).map(g => ({ ...decorate(g, mkt), starred: stars ? stars.has(g.id) : !!g.star }))
       .filter(r => filter === 'starred' ? r.starred : filter === 'picks' ? r.isPickIn : true),
   })).filter(gr => gr.rows.length > 0);
-  const best = (mkt, stars) => {
+  const best = (mkt, stars, list = games) => {
     const all = [];
-    games.forEach(g => ['ats', 'ou'].forEach(k => {
+    list.forEach(g => ['ats', 'ou'].forEach(k => {
       if (!g[k].tier) return;
       if (mkt === 'spread' && k === 'ou') return;
       if (mkt === 'total' && k === 'ats') return;
@@ -133,5 +133,16 @@ window.TW = (() => {
       ...Array.from({ length: 6 }, () => ({ t: 'To play', bg: 'transparent', bd: 'var(--input)' })),
     ],
   };
-  return { games, groups, alerts, slate, best, week, spark };
+  // Before lines post (Sun–Mon): model lines only, no market, no picks. Same games, illustrative state.
+  const preLines = games.map(g => ({ ...g, status: 'up', clock: undefined, time: g.time || '12:00 PM', away: { ...g.away, score: '' }, home: { ...g.home, score: '' },
+    ats: { model: g.ats.model }, ou: g.ou.model ? { model: g.ou.model } : {}, gnote: g.away.tag === 'FCS' ? g.gnote : P('No line posted yet', 'muted', 'clock'), notes: { ats: [], ou: [] } }));
+  // Alert history across weeks (Week 6 rows from sample-data; Weeks 3–5 illustrative, built from Ohio State's schedule lines).
+  const alertsHistory = [
+    { ...alerts[0], hdr: 'This week · Week 6', hasHdr: true },
+    { icon: 'move-horizontal', game: 'Iowa @ Wisconsin', title: 'Line moved WIS −2.5 → −1.5', body: 'Edge now +2.7 IOWA, tier C (was +3.7, tier B)', when: 'Tue 11:20 AM', via: 'Sent by email', unread: true, gid: 'wis', hasHdr: false },
+    { icon: 'move-horizontal', game: 'Washington @ Ohio State', title: 'Line moved OSU −15 → −13.5', body: 'Edge now +1.5 OSU, below the threshold', when: 'Thu 6:02 PM', via: 'Sent by email', unread: false, gid: '', hdr: 'Week 5', hasHdr: true },
+    { icon: 'move-horizontal', game: 'Ohio State @ Minnesota', title: 'Line moved OSU −16 → −17.5', body: 'Edge now +1.3 MINN, below the threshold', when: 'Wed 8:45 PM', via: 'Sent by email', unread: false, gid: '', hdr: 'Week 4', hasHdr: true },
+    { icon: 'move-horizontal', game: 'Ohio State @ Rutgers', title: 'Line moved OSU −19.5 → −20.5', body: 'Edge now +1.5 OSU, below the threshold', when: 'Tue 9:30 AM', via: 'Sent by email', unread: false, gid: '', hdr: 'Week 3', hasHdr: true },
+  ];
+  return { games, groups, alerts, alertsHistory, slate, best, week, spark, preLines };
 })();

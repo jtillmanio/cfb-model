@@ -58,7 +58,7 @@
 <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;padding-top:2px"><span style="font-size:16px;line-height:22px;font-weight:600">{{ r.ratingT }}</span><svg width="56" height="18" style="display:block;overflow:visible"><polyline points="{{ r.sparkM }}" style="fill:none;stroke:var(--foreground);stroke-width:1.5;stroke-linejoin:round;stroke-linecap:round"></polyline><circle cx="{{ r.sxM }}" cy="{{ r.syM }}" r="2.5" style="fill:var(--foreground)"></circle></svg></div>
 </div>
 </sc-for>
-<sc-if value="{{ isEmpty }}" hint-placeholder-val="{{ false }}"><div style="display:flex;flex-direction:column;align-items:center;gap:4px;padding:32px 12px"><span style="font-size:14px;font-weight:600">No {{ conf }} teams in this view</span><span style="font-size:12px;color:var(--muted-foreground)">The sample covers the top 10 only.</span></div></sc-if>
+<sc-if value="{{ isEmpty }}" hint-placeholder-val="{{ false }}"><div style="padding:12px;border-bottom:1px solid var(--border)"><div style="display:flex;flex-direction:column;align-items:center;gap:6px;padding:28px 18px;border:1px dashed var(--border);border-radius:8px;text-align:center"><span style="display:inline-block;width:24px;height:24px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/filter-x.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/filter-x.svg) center/contain no-repeat;color:var(--muted-foreground)"></span><span style="font-size:16px;line-height:24px;font-weight:600">No {{ conf }} teams in this view</span><span style="font-size:13px;line-height:20px;color:var(--muted-foreground);text-wrap:pretty">Nothing in {{ conf }} matches the current filters: FBS only, ratings as of this week.</span><span onClick="{{ confAll }}" style="display:flex;align-items:center;justify-content:center;align-self:stretch;height:44px;font-size:14px;padding:0 12px;margin-top:6px;border-radius:6px;border:1px solid var(--input);font-weight:500;box-sizing:border-box;cursor:pointer">Show all conferences</span></div></div></sc-if>
 </div>
 <div style="padding:10px 16px 14px;font-size:12px;line-height:16px;color:var(--muted-foreground);text-wrap:pretty;flex:none">Rating = points vs an average FBS team, neutral field. Line = preseason → now. Edge pill = model pick this week.</div>
 </sc-if>
@@ -81,7 +81,7 @@
 </div>
 </div>
 </sc-for>
-<sc-if value="{{ oEmpty }}" hint-placeholder-val="{{ false }}"><div style="display:flex;flex-direction:column;align-items:center;gap:4px;padding:32px 12px;background:var(--card);border:1px solid var(--border);border-radius:8px"><span style="font-size:14px;font-weight:600">No {{ conf }} teams in this view</span><span style="font-size:12px;color:var(--muted-foreground)">The outlook sample covers five teams.</span></div></sc-if>
+<sc-if value="{{ oEmpty }}" hint-placeholder-val="{{ false }}"><div style="padding:12px;border-bottom:1px solid var(--border)"><div style="display:flex;flex-direction:column;align-items:center;gap:6px;padding:28px 18px;border:1px dashed var(--border);border-radius:8px;text-align:center"><span style="display:inline-block;width:24px;height:24px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/filter-x.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/filter-x.svg) center/contain no-repeat;color:var(--muted-foreground)"></span><span style="font-size:16px;line-height:24px;font-weight:600">No {{ conf }} teams in this view</span><span style="font-size:13px;line-height:20px;color:var(--muted-foreground);text-wrap:pretty">No {{ conf }} team has a season projection with the current filters.</span><span onClick="{{ confAll }}" style="display:flex;align-items:center;justify-content:center;align-self:stretch;height:44px;font-size:14px;padding:0 12px;margin-top:6px;border-radius:6px;border:1px solid var(--input);font-weight:500;box-sizing:border-box;cursor:pointer">Show all conferences</span></div></div></sc-if>
 </div>
 <div style="padding:10px 16px 14px;font-size:12px;line-height:16px;color:var(--muted-foreground);text-wrap:pretty;flex:none">Bars = chance of each final win total, one scale for every team. Seed projections later.</div>
 </sc-if>
@@ -109,9 +109,9 @@
 </sc-if>
 </div>
 </x-dc>
-<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:390,&quot;height&quot;:844},&quot;tab&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;power&quot;,&quot;outlook&quot;],&quot;default&quot;:&quot;power&quot;,&quot;tsType&quot;:&quot;'power'|'outlook'&quot;},&quot;sheet&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;}}">
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:390,&quot;height&quot;:844},&quot;conf&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;All&quot;,&quot;SEC&quot;,&quot;Big Ten&quot;,&quot;Big 12&quot;,&quot;ACC&quot;,&quot;Ind&quot;],&quot;default&quot;:&quot;All&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;tab&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;power&quot;,&quot;outlook&quot;],&quot;default&quot;:&quot;power&quot;,&quot;tsType&quot;:&quot;'power'|'outlook'&quot;},&quot;sheet&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;}}">
 class Component extends DCLogic {
-  state = { tab: null, conf: 'All', sheet: null, selSeason: 2026, pending: null, applied: null, ready: !!window.RK };
+  state = { tab: null, conf: null, sheet: null, selSeason: 2026, pending: null, applied: null, ready: !!window.RK };
   componentDidMount() {
     if (!window.RK) this.t = setInterval(() => { if (window.RK) { clearInterval(this.t); this.setState({ ready: true }); } }, 50);
   }
@@ -128,7 +128,8 @@ class Component extends DCLogic {
     const seg = x => ({ bg: x ? 'var(--card)' : 'transparent', w: x ? '600' : '500', c: x ? 'var(--foreground)' : 'var(--muted-foreground)' });
     const lab = a => a.w === 'Pre' ? `${a.s} · preseason` : a.w === 'Final' ? `${a.s} · final` : `${a.s} · entering Wk ${a.w}`;
     const avail = (s, w) => s < 2026 || WEEKS.indexOf(w) <= WEEKS.indexOf('6');
-    const conf = this.state.conf;
+    const conf = this.state.conf ?? this.props.conf ?? 'All';
+    const confAll = () => this.setState({ conf: 'All' });
     const confs = ['All', 'SEC', 'Big Ten', 'Big 12', 'ACC', 'Ind'].map(l => ({ l, pick: () => this.setState({ conf: l }),
       border: l === conf ? 'var(--input)' : 'var(--border)', bg: l === conf ? 'var(--accent)' : 'transparent', w: l === conf ? '600' : '500' }));
     const base = {
@@ -139,7 +140,7 @@ class Component extends DCLogic {
       isPower: tab === 'power', isOutlook: tab === 'outlook', tP: seg(tab === 'power'), tO: seg(tab === 'outlook'),
       setPower: () => this.setState({ tab: 'power' }), setOutlook: () => this.setState({ tab: 'outlook' }),
       subLabel: tab === 'power' ? 'Model power ratings · FBS' : 'Projected records and odds · FBS',
-      asOf: lab(applied), pendingLabel: lab(pending), confs, conf, selSeason: String(selSeason),
+      asOf: lab(applied), pendingLabel: lab(pending), confs, conf, confAll, selSeason: String(selSeason),
       seasons: (RK ? RK.seasons : []).map(y => ({ y: String(y), pick: () => this.setState({ selSeason: y }),
         border: y === selSeason ? 'var(--input)' : 'var(--border)', bg: y === selSeason ? 'var(--accent)' : 'transparent', w: y === selSeason ? '600' : '400' })),
       weeks: WEEKS.map(w => {

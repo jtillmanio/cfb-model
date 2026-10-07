@@ -25,7 +25,7 @@
 <sc-if value="{{ r.isGame }}" hint-placeholder-val="{{ false }}"><span style="position:relative;width:20px;height:20px;flex:none"><span style="position:absolute;left:0;top:0;width:14px;height:14px;border-radius:50%;background:{{ r.color }};box-shadow:0 0 0 1px var(--border)"></span><span style="position:absolute;right:0;bottom:0;width:14px;height:14px;border-radius:50%;background:{{ r.color2 }};box-shadow:0 0 0 1px var(--border),0 0 0 2px var(--popover)"></span></span></sc-if>
 <sc-if value="{{ r.isScreen }}" hint-placeholder-val="{{ false }}"><span style="display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;flex:none"><span style="display:inline-block;width:16px;height:16px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/{{ r.icon }}.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/{{ r.icon }}.svg) center/contain no-repeat;color:var(--muted-foreground)"></span></span></sc-if>
 <span style="display:flex;flex-direction:column;flex:1;min-width:0"><span style="font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.title }}</span><sc-if value="{{ r.hasSub }}" hint-placeholder-val="{{ true }}"><span style="font-size:12px;line-height:16px;color:var(--muted-foreground);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.sub }}</span></sc-if></span>
-<sc-if value="{{ r.hasKbd }}" hint-placeholder-val="{{ false }}"><span style="display:flex;gap:4px;flex:none"><sc-for list="{{ r.kbd }}" as="k" hint-placeholder-count="2"><span style="display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;padding:0 5px;box-sizing:border-box;border-radius:4px;border:1px solid var(--border);background:var(--muted);font:500 11px/16px 'IBM Plex Mono',monospace;color:var(--muted-foreground)">{{ k }}</span></sc-for></span></sc-if>
+<sc-if value="{{ r.hasKbd }}" hint-placeholder-val="{{ false }}"><span style="display:flex;gap:4px;flex:none"><sc-for list="{{ r.kbd }}" as="k" hint-placeholder-count="2"><span style="display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;padding:0 5px;box-sizing:border-box;border-radius:4px;border:1px solid var(--border);background:var(--muted);font:500 12px/16px 'IBM Plex Mono',monospace;color:var(--muted-foreground)">{{ k }}</span></sc-for></span></sc-if>
 <sc-if value="{{ r.sel }}" hint-placeholder-val="{{ false }}"><span style="display:inline-block;width:14px;height:14px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/corner-down-left.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/corner-down-left.svg) center/contain no-repeat;color:var(--muted-foreground)"></span></sc-if>
 </div>
 </sc-for>
@@ -68,17 +68,17 @@
 </div>
 </sc-if>
 </x-dc>
-<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:560,&quot;height&quot;:560},&quot;query&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;layout&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;dialog&quot;,&quot;sheet&quot;],&quot;default&quot;:&quot;dialog&quot;,&quot;tsType&quot;:&quot;'dialog'|'sheet'&quot;}}">
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:560,&quot;height&quot;:560},&quot;firstUse&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;},&quot;query&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;layout&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;dialog&quot;,&quot;sheet&quot;],&quot;default&quot;:&quot;dialog&quot;,&quot;tsType&quot;:&quot;'dialog'|'sheet'&quot;}}">
 class Component extends DCLogic {
-  state = { q: null, sel: 0, recent: true };
+  state = { q: null, sel: 0, recent: null };
   renderVals() {
     const T = [
       ['Ohio State','OSU','#BB0000',1,'Big Ten','5-0','+27.4'],['Texas','TEX','#BF5700',2,'SEC','5-0','+25.9'],['Oregon','ORE','#154733',3,'Big Ten','5-0','+24.8'],
-      ['Oklahoma','OU','#841617',4,'SEC','4-1','+24.4'],['Georgia','UGA','#BA0C2F',5,'SEC','4-1','+23.1'],['Ole Miss','MISS','#14213D',6,'SEC','5-0','+22.0'],
-      ['Penn State','PSU','#041E42',7,'Big Ten','4-1','+21.2'],['LSU','LSU','#461D7C',9,'SEC','4-1','+19.6'],['Utah','UTAH','#CC0000',10,'Big 12','4-1','+18.9'],
-      ['Iowa','IOWA','#FFCD00',22,'Big Ten','4-1','+12.0'],['Kansas State','KSU','#512888',24,'Big 12','3-2','+11.3'],['Boise State','BSU','#0033A0',31,'Mountain West','4-1','+8.4'],
-      ['Wisconsin','WIS','#C5050C',41,'Big Ten','2-3','+5.5'],['UNLV','UNLV','#CF0A2C',48,'Mountain West','4-1','+3.2'],['Ohio','OHIO','#00694E',72,'MAC','3-2','−1.8'],
-      ['Purdue','PUR','#CEB888',88,'Big Ten','1-4','−6.1'],
+      ['Oklahoma','OU','#841617',4,'SEC','4-1','+24.4'],['Georgia','UGA','#BA0C2F',5,'SEC','4-1','+23.1'],['Ole Miss','MISS','#CE1126',6,'SEC','5-0','+22.0'],
+      ['Notre Dame','ND','#0C2340',7,'Ind','4-1','+21.7'],['Penn State','PSU','#041E42',8,'Big Ten','4-1','+21.0'],['LSU','LSU','#461D7C',9,'SEC','4-1','+19.4'],['Utah','UTAH','#CC0000',10,'Big 12','5-0','+15.8'],
+      ['Iowa','IOWA','#FFCD00',22,'Big Ten','4-1','+12.0'],['Kansas State','KSU','#512888',16,'Big 12','4-1','+13.5'],['Boise State','BSU','#0033A0',31,'Mountain West','4-1','+8.4'],
+      ['Wisconsin','WIS','#C5050C',41,'Big Ten','2-3','+5.5'],['UNLV','UNLV','#CF0A2C',48,'Mountain West','4-1','+3.2'],['Ohio','OHIO','#00694E',72,'MAC','3-2','−1.6'],
+      ['Purdue','PUR','#CEB888',68,'Big Ten','2-3','−1.5'],
     ].map(([n,a,c,rk,conf,rec,r]) => ({ n, a, c, sub: `${rk} · ${conf} · ${rec} · ${r}` }));
     const by = n => T.find(t => t.n === n);
     const G = [
@@ -86,7 +86,7 @@ class Component extends DCLogic {
       ['Kansas State','Utah','@','Sat 7:00 PM · ESPN · UTAH −4 · edge +0.6'],['Texas','Oklahoma','vs','Sat 7:30 PM · ABC · Dallas · TEX −6.5 · edge +5.2 OU'],
       ['UNLV','Boise State','@','Fri 8:00 PM · FS1 · BSU −10 · edge +0.9'],
     ];
-    const S = [['This Week','calendar-days',['G','W']],['Picks','target',['G','P']],['Contest','trophy',['G','C']],['Rankings','list-ordered',['G','R']],['Performance','activity',['G','F']],['Lab','flask-conical',['G','L']],['Settings','settings',['⌘',',']]];
+    const S = [['This Week','calendar-days',['G','W']],['Picks','target',['G','P']],['Contest','trophy',['G','C']],['Rankings','list-ordered',['G','R']],['Teams','shield',['G','T']],['Performance','activity',['G','F']],['Lab','flask-conical',['G','L']],['Settings','settings',['⌘',',']]];
     const q = (this.state.q ?? this.props.query ?? '').trim();
     const ql = q.toLowerCase();
     const sheet = (this.props.layout ?? 'dialog') === 'sheet';
@@ -94,7 +94,7 @@ class Component extends DCLogic {
     const screenRow = s => ({ kind: 'screen', title: s[0], sub: '', icon: s[1], kbd: s[2] });
     let groups = [];
     if (!ql) {
-      if (this.state.recent) groups.push({ label: 'Recent teams', note: 'Clear', onNote: () => this.setState({ recent: false }), rows: ['Oklahoma','Texas','Ole Miss','Boise State'].map(n => teamRow(by(n))) });
+      if (this.state.recent ?? !this.props.firstUse) groups.push({ label: 'Recent teams', note: 'Clear', onNote: () => this.setState({ recent: false }), rows: ['Oklahoma','Texas','Ole Miss','Boise State'].map(n => teamRow(by(n))) });
       groups.push({ label: 'Jump to', rows: S.map(screenRow) });
     } else {
       const tm = T.filter(t => t.n.toLowerCase().includes(ql) || t.a.toLowerCase().startsWith(ql)).slice(0, 5);

@@ -37,7 +37,7 @@
 <main style="min-width:0;display:flex;flex-direction:column">
 <div style="display:flex;align-items:center;gap:12px;height:56px;padding:0 24px;border-bottom:1px solid var(--border);box-sizing:border-box;flex:none">
 <span style="display:inline-flex;align-items:center;height:32px;border:1px solid var(--input);border-radius:6px;overflow:hidden;box-sizing:border-box;flex:none"><span style="display:inline-flex;align-items:center;justify-content:center;width:30px;height:100%;border-right:1px solid var(--border)"><span style="display:inline-block;width:14px;height:14px;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/chevron-left.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/chevron-left.svg) center/contain no-repeat"></span></span><span style="display:inline-flex;align-items:center;gap:6px;height:100%;padding:0 12px;font-size:13px;font-weight:600;white-space:nowrap">2026 · Week 6<span style="display:inline-block;width:14px;height:14px;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/chevron-down.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/chevron-down.svg) center/contain no-repeat;color:var(--muted-foreground)"></span></span><span style="display:inline-flex;align-items:center;justify-content:center;width:30px;height:100%;border-left:1px solid var(--border)"><span style="display:inline-block;width:14px;height:14px;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/chevron-right.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/chevron-right.svg) center/contain no-repeat"></span></span></span>
-<span style="display:inline-flex;align-items:center;gap:8px;height:32px;padding:0 10px;border-radius:6px;border:1px solid var(--input);width:320px;box-sizing:border-box;font-size:13px;color:var(--muted-foreground)"><span style="display:inline-block;width:14px;height:14px;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/search.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/search.svg) center/contain no-repeat"></span><span style="flex:1">Search teams</span><span style="display:inline-flex;align-items:center;height:20px;padding:0 6px;border-radius:4px;border:1px solid var(--border);background:var(--muted);font:500 11px 'IBM Plex Mono',monospace">⌘K</span></span>
+<span style="display:inline-flex;align-items:center;gap:8px;height:32px;padding:0 10px;border-radius:6px;border:1px solid var(--input);width:320px;box-sizing:border-box;font-size:13px;color:var(--muted-foreground)"><span style="display:inline-block;width:14px;height:14px;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/search.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/search.svg) center/contain no-repeat"></span><span style="flex:1">Search teams</span><span style="display:inline-flex;align-items:center;height:20px;padding:0 6px;border-radius:4px;border:1px solid var(--border);background:var(--muted);font:500 12px 'IBM Plex Mono',monospace">⌘K</span></span>
 <span style="flex:1"></span>
 <span style="display:inline-flex;align-items:center;gap:6px;font-size:12px;line-height:16px;color:var(--muted-foreground)"><span style="display:inline-block;width:12px;height:12px;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/clock.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/clock.svg) center/contain no-repeat"></span>Sat 2:15 PM ET</span>
 <span style="position:relative;display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:6px;border:1px solid var(--input);box-sizing:border-box"><span style="display:inline-block;width:16px;height:16px;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/bell.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/bell.svg) center/contain no-repeat"></span><span style="position:absolute;top:-5px;right:-5px;min-width:16px;height:16px;padding:0 4px;box-sizing:border-box;border-radius:8px;background:var(--foreground);color:var(--background);font-size:12px;line-height:16px;font-weight:700;text-align:center;box-shadow:0 0 0 2px var(--background)">1</span></span>
@@ -97,14 +97,15 @@
 <p style="margin:0;padding:0 16px 14px;font-size:12px;line-height:16px;color:var(--muted-foreground);text-wrap:pretty">Overall = offense + defense, so the two lower lines add up to the top one. Up 3.4 points since the preseason prior.</p>
 </section>
 
-<section style="display:flex;flex-direction:column;background:var(--card);border:1px solid var(--border);border-radius:8px;overflow:hidden">
+<sc-if value="{{ hasPath }}" hint-placeholder-val="{{ true }}"><section style="display:flex;flex-direction:column;background:var(--card);border:1px solid var(--border);border-radius:8px;overflow:hidden">
 <div style="display:flex;align-items:center;gap:10px;height:44px;padding:0 16px;border-bottom:1px solid var(--border)"><span style="font-size:14px;font-weight:600">Path to the playoff</span><span style="flex:1"></span><span style="font-size:12px;color:var(--muted-foreground);cursor:pointer">Season Outlook →</span></div>
 <div style="display:flex;flex-direction:column;gap:16px;padding:14px 16px 16px">
-<div style="display:grid;grid-template-columns:1.2fr 1fr 1fr;gap:8px">
-<div style="display:flex;flex-direction:column;gap:4px"><span style="font-size:12px;line-height:16px;color:var(--foreground);font-weight:600">Make the CFP</span><div style="position:relative;display:flex;align-items:center;height:40px;padding:0 10px;border-radius:6px;overflow:hidden;background:color-mix(in oklch, var(--secondary) 50%, transparent)"><span style="position:absolute;left:0;top:0;bottom:0;width:89%;background:color-mix(in oklch, var(--chart-1) 24%, transparent)"></span><span style="position:relative;font-size:24px;line-height:28px;font-weight:600">89%</span></div></div>
+<div style="display:grid;grid-template-columns:{{ tileCols }};gap:8px">
+<sc-if value="{{ hasCfp }}" hint-placeholder-val="{{ true }}"><div style="display:flex;flex-direction:column;gap:4px"><span style="font-size:12px;line-height:16px;color:var(--foreground);font-weight:600">Make the CFP</span><div style="position:relative;display:flex;align-items:center;height:40px;padding:0 10px;border-radius:6px;overflow:hidden;background:color-mix(in oklch, var(--secondary) 50%, transparent)"><span style="position:absolute;left:0;top:0;bottom:0;width:89%;background:color-mix(in oklch, var(--chart-1) 24%, transparent)"></span><span style="position:relative;font-size:24px;line-height:28px;font-weight:600">89%</span></div></div></sc-if>
 <div style="display:flex;flex-direction:column;gap:4px"><span style="font-size:12px;line-height:16px;color:var(--muted-foreground)">Big Ten title game</span><div style="position:relative;display:flex;align-items:center;height:40px;padding:0 10px;border-radius:6px;overflow:hidden;background:color-mix(in oklch, var(--secondary) 50%, transparent)"><span style="position:absolute;left:0;top:0;bottom:0;width:71%;background:color-mix(in oklch, var(--chart-1) 24%, transparent)"></span><span style="position:relative;font-size:16px;font-weight:600">71%</span></div></div>
 <div style="display:flex;flex-direction:column;gap:4px"><span style="font-size:12px;line-height:16px;color:var(--muted-foreground)">Win Big Ten</span><div style="position:relative;display:flex;align-items:center;height:40px;padding:0 10px;border-radius:6px;overflow:hidden;background:color-mix(in oklch, var(--secondary) 50%, transparent)"><span style="position:absolute;left:0;top:0;bottom:0;width:48%;background:color-mix(in oklch, var(--chart-1) 24%, transparent)"></span><span style="position:relative;font-size:16px;font-weight:600">48%</span></div></div>
 </div>
+<sc-if value="{{ noCfp }}" hint-placeholder-val="{{ false }}"><span style="margin-top:-6px;font-size:12px;line-height:16px;color:var(--muted-foreground);text-wrap:pretty">Conference odds from the season simulations. Playoff odds need a model of the selection committee and come later.</span></sc-if>
 <div style="display:flex;align-items:flex-end;gap:20px">
 <div style="display:flex;flex-direction:column;gap:6px">
 <span style="font-size:12px;line-height:16px;color:var(--muted-foreground)">Final wins</span>
@@ -125,7 +126,29 @@
 <span style="font-size:12px;line-height:16px;color:var(--muted-foreground);text-wrap:pretty">Win % is the model's straight-up chance. The other four remaining games average about 99%.</span>
 </div>
 </div>
-</section>
+</section></sc-if>
+<sc-if value="{{ noPath }}" hint-placeholder-val="{{ false }}"><section style="display:flex;flex-direction:column;background:var(--card);border:1px solid var(--border);border-radius:8px;overflow:hidden">
+<div style="display:flex;align-items:center;gap:10px;height:44px;padding:0 16px;border-bottom:1px solid var(--border)"><span style="font-size:14px;font-weight:600">Preseason vs now</span></div>
+<div style="display:flex;flex-direction:column;gap:14px;padding:16px 16px 16px">
+<div style="display:flex;flex-direction:column;gap:6px">
+<div style="position:relative;height:44px">
+<span style="position:absolute;left:0;right:0;top:28px;height:1px;background:var(--input)"></span>
+<span style="position:absolute;left:40%;right:26%;top:27px;height:3px;background:var(--foreground);border-radius:2px"></span>
+<span style="position:absolute;left:40%;top:22px;width:12px;height:12px;margin-left:-6px;border-radius:50%;border:2px solid var(--foreground);background:var(--card);box-sizing:border-box"></span>
+<span style="position:absolute;left:74%;top:22px;width:12px;height:12px;margin-left:-6px;border-radius:50%;background:var(--foreground)"></span>
+<span style="position:absolute;left:40%;top:0;transform:translateX(-50%);font-size:12px;line-height:16px;color:var(--muted-foreground);white-space:nowrap">Prior +24.0</span>
+<span style="position:absolute;left:74%;top:0;transform:translateX(-50%);font-size:12px;line-height:16px;font-weight:600;white-space:nowrap">Now +27.4</span>
+</div>
+<div style="display:flex;justify-content:space-between;font-size:12px;line-height:14px;color:var(--muted-foreground)"><span>+20</span><span>+25</span><span>+30</span></div>
+</div>
+<div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px">
+<div style="display:flex;flex-direction:column;gap:2px;padding:10px 12px;border:1px solid var(--border);border-radius:6px;background:var(--background)"><span style="font-size:12px;line-height:16px;color:var(--muted-foreground)">Change</span><span style="font-size:16px;font-weight:600;color:var(--pos)">+3.4</span></div>
+<div style="display:flex;flex-direction:column;gap:2px;padding:10px 12px;border:1px solid var(--border);border-radius:6px;background:var(--background)"><span style="font-size:12px;line-height:16px;color:var(--muted-foreground)">Returning prod.</span><span style="font-size:16px;font-weight:600">58%</span></div>
+<div style="display:flex;flex-direction:column;gap:2px;padding:10px 12px;border:1px solid var(--border);border-radius:6px;background:var(--background)"><span style="font-size:12px;line-height:16px;color:var(--muted-foreground)">Talent rank</span><span style="font-size:16px;font-weight:600">2nd</span></div>
+</div>
+<p style="margin:0;font-size:12px;line-height:16px;color:var(--muted-foreground);text-wrap:pretty">The preseason guess still carries about 30% of the weight this week. It fades from 50% at Week 4 to 10% by Week 8, so from here the rating mostly reflects games played.</p>
+</div>
+</section></sc-if>
 </div>
 
 <section style="display:flex;flex-direction:column;background:var(--card);border:1px solid var(--border);border-radius:8px;overflow:hidden">
@@ -165,7 +188,7 @@
 <div style="display:flex;align-items:center;justify-content:space-between;height:40px;padding:0 12px 0 60px;font-size:12px;line-height:16px;color:var(--muted-foreground)"><span style="color:var(--foreground);font-weight:500;cursor:pointer">Show 4 more games</span><span>No picks in Weeks 1–5: every edge was under the 2.5-pt threshold</span></div>
 </section>
 
-<div style="display:grid;grid-template-columns:minmax(0,1.55fr) minmax(0,1fr);gap:16px;align-items:stretch">
+<div style="display:grid;grid-template-columns:{{ botCols }};gap:16px;align-items:stretch">
 <section style="display:flex;flex-direction:column;background:var(--card);border:1px solid var(--border);border-radius:8px;overflow:hidden">
 <div style="display:flex;align-items:center;gap:10px;height:44px;padding:0 16px;border-bottom:1px solid var(--border)"><span style="font-size:14px;font-weight:600">Unit profile</span><span style="font-size:12px;color:var(--muted-foreground)">percentile among FBS · higher = better for that unit</span></div>
 <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;padding:14px 16px 16px">
@@ -184,7 +207,7 @@
 </div>
 </section>
 
-<section style="display:flex;flex-direction:column;background:var(--card);border:1px solid var(--border);border-radius:8px;overflow:hidden">
+<sc-if value="{{ hasPath }}" hint-placeholder-val="{{ true }}"><section style="display:flex;flex-direction:column;background:var(--card);border:1px solid var(--border);border-radius:8px;overflow:hidden">
 <div style="display:flex;align-items:center;gap:10px;height:44px;padding:0 16px;border-bottom:1px solid var(--border)"><span style="font-size:14px;font-weight:600">Preseason vs now</span></div>
 <div style="display:flex;flex-direction:column;gap:14px;padding:16px 16px 16px">
 <div style="display:flex;flex-direction:column;gap:6px">
@@ -205,13 +228,13 @@
 </div>
 <p style="margin:0;font-size:12px;line-height:16px;color:var(--muted-foreground);text-wrap:pretty">The preseason guess still carries about 30% of the weight this week. It fades from 50% at Week 4 to 10% by Week 8, so from here the rating mostly reflects games played.</p>
 </div>
-</section>
+</section></sc-if>
 </div>
 </div>
 </main>
 </div>
 </x-dc>
-<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1440,&quot;height&quot;:1400}}">
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1440,&quot;height&quot;:1400},&quot;phase&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;none&quot;,&quot;sims&quot;,&quot;cfp&quot;],&quot;default&quot;:&quot;cfp&quot;,&quot;tsType&quot;:&quot;'none'|'sims'|'cfp'&quot;}}">
 class Component extends DCLogic {
   state = { hover: null, ready: !!window.RK };
   componentDidMount() {
@@ -219,16 +242,18 @@ class Component extends DCLogic {
   }
   componentWillUnmount() { clearInterval(this.t); }
   renderVals() {
+    const phase = this.props.phase ?? 'cfp';
+    const PH = { hasPath: phase !== 'none', noPath: phase === 'none', hasCfp: phase === 'cfp', noCfp: phase === 'sims', tileCols: phase === 'cfp' ? '1.2fr 1fr 1fr' : '1fr 1fr', botCols: phase === 'none' ? 'minmax(0,1fr)' : 'minmax(0,1.55fr) minmax(0,1fr)' };
     const RK = window.RK;
     const W = 668, H = 240, pad = { l: 40, r: 104, t: 12, b: 28 };
     const base = { chW: W + 'px', chH: H + 'px', chPlotB: String(H - pad.b), clearHover: () => this.setState({ hover: null }) };
-    if (!RK) return { ...base, ch: { yt: [], xt: [], ser: [], cols: [] }, hasHover: false, hov: { tip: {} }, tipX: '0px', pathBars: [], swing: [], sched: [], units: [] };
+    if (!RK) return { ...PH, ...base, ch: { yt: [], xt: [], ser: [], cols: [] }, hasHover: false, hov: { tip: {} }, tipX: '0px', pathBars: [], swing: [], sched: [], units: [] };
     const ch = RK.chart(W, H, pad);
     ch.cols = ch.cols.map(c => ({ ...c, enter: () => this.setState({ hover: c.i }) }));
     const h = this.state.hover;
     const hov = h == null ? { tip: {} } : ch.cols[h];
     const hx = h == null ? 0 : ch.xAt(h);
-    return { ...base, ch, hasHover: h != null, hov, tipX: (h >= 3 ? hx - 160 : hx + 12) + 'px',
+    return { ...PH, ...base, ch, hasHover: h != null, hov, tipX: (h >= 3 ? hx - 160 : hx + 12) + 'px',
       pathBars: RK.path.bars, swing: RK.path.swing, sched: RK.schedRows, units: RK.unitGroups };
   }
 }

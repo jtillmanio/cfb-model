@@ -34,7 +34,7 @@
 </div>
 <div style="display:grid;grid-template-columns:180px minmax(0,1fr) 300px;gap:28px;padding:20px 28px 28px;align-items:start">
 <nav style="display:flex;flex-direction:column;gap:2px;position:sticky;top:0">
-<span style="font:500 11px 'IBM Plex Mono',monospace;color:#777;margin-bottom:6px">SECTIONS</span>
+<span style="font:500 12px 'IBM Plex Mono',monospace;color:#777;margin-bottom:6px">SECTIONS</span>
 <sc-for list="{{ secs }}" as="s" hint-placeholder-count="6"><span style="display:flex;align-items:center;gap:8px;padding:6px 10px;border-radius:6px;background:{{ s.bg }}"><span style="font:600 12px 'IBM Plex Mono',monospace;color:#777">{{ s.n }}</span><span style="flex:1">{{ s.l }}</span><span style="color:#2f62d8">{{ s.dot }}</span></span></sc-for>
 </nav>
 
@@ -101,7 +101,7 @@
 <div style="display:grid;grid-template-columns:minmax(0,1fr) 300px 150px;gap:16px;align-items:center;padding:10px 0;border-top:1px dashed #bbb">
 <div><div style="font-weight:700">Decay</div><div style="font-size:13px;line-height:18px;color:#666">how the guess hands over to this season's games</div></div>
 <div style="display:flex;flex-direction:column;gap:6px;font-size:14px"><span>◉ Fitted curve (backtest finds it)</span><span style="display:flex;align-items:center;gap:6px">○ Linear, reaches 0 at week <span style="padding:0 8px;border:1.5px solid #222;border-radius:3px;background:#fff;font:500 13px 'IBM Plex Mono',monospace">8</span></span></div>
-<span style="height:52px;border:1.5px dashed #999;border-radius:4px;display:flex;align-items:center;justify-content:center;font:500 11px 'IBM Plex Mono',monospace;color:#777;text-align:center">decay curve preview</span>
+<span style="height:52px;border:1.5px dashed #999;border-radius:4px;display:flex;align-items:center;justify-content:center;font:500 12px 'IBM Plex Mono',monospace;color:#777;text-align:center">decay curve preview</span>
 </div>
 </section>
 
@@ -141,11 +141,11 @@
 <div style="display:flex;align-items:center;gap:8px"><span style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;background:#2f62d8;color:#fff;font:700 11px/1 'IBM Plex Mono',monospace;flex:none">2</span><span style="font-weight:700;font-size:17px">Backtest</span></div>
 <span onClick="{{ runClick }}" style="display:flex;align-items:center;justify-content:center;height:44px;border-radius:6px;background:{{ runBg }};color:{{ runFg }};font-weight:700;font-size:16px;cursor:pointer">{{ runLabel }}</span>
 <div style="display:flex;align-items:center;gap:8px"><span style="font-size:13px;color:#666">Status</span><span style="display:inline-flex;align-items:center;gap:6px;padding:0 10px;border:1.5px {{ pillBs }} {{ pillC }};border-radius:999px;color:{{ pillC }};font:600 13px/24px 'IBM Plex Mono',monospace">{{ pillT }}</span></div>
-<div style="display:flex;align-items:center;gap:4px;font:500 11px 'IBM Plex Mono',monospace">
+<div style="display:flex;align-items:center;gap:4px;font:500 12px 'IBM Plex Mono',monospace">
 <sc-for list="{{ steps }}" as="s" hint-placeholder-count="4"><span style="padding:2px 6px;border:1.5px {{ s.bs }} {{ s.c }};border-radius:4px;color:{{ s.c }};background:{{ s.bg }}">{{ s.l }}</span><span style="color:#999">{{ s.arrow }}</span></sc-for>
 </div>
 <span style="font-size:13px;line-height:18px;color:#666">{{ runNote }}</span>
-<span onClick="{{ failClick }}" style="align-self:flex-start;font:500 11px 'IBM Plex Mono',monospace;color:#777;text-decoration:underline;cursor:pointer">demo: simulate a failed run</span>
+<span onClick="{{ failClick }}" style="align-self:flex-start;font:500 12px 'IBM Plex Mono',monospace;color:#777;text-decoration:underline;cursor:pointer">demo: simulate a failed run</span>
 <div style="border-top:1px dashed #bbb;padding-top:10px;display:flex;flex-direction:column;gap:4px;font-size:13px;line-height:18px">
 <span>Seasons: <b>validation 2016–2023</b></span>
 <span style="color:#666">Holdout 2024–2025 stays locked (opened only at Promote)</span>
@@ -185,7 +185,7 @@
 <sc-for list="{{ g.checks }}" as="k" hint-placeholder-count="1"><span style="display:flex;align-items:baseline;gap:8px;font-size:13px;line-height:18px"><span style="font:700 12px 'IBM Plex Mono',monospace;color:{{ k.c }}">{{ k.m }}</span><span>{{ k.t }}</span></span></sc-for>
 <sc-if value="{{ g.hasAction }}" hint-placeholder-val="{{ false }}"><span style="align-self:flex-start;margin-top:4px;padding:3px 12px;border:1.5px solid #222;border-radius:6px;font-size:14px">{{ g.action }}</span></sc-if>
 </div>
-<span style="height:64px;border:1.5px dashed #999;border-radius:4px;display:flex;align-items:center;justify-content:center;padding:0 8px;font:500 11px 'IBM Plex Mono',monospace;color:#777;text-align:center">{{ g.viz }}</span>
+<span style="height:64px;border:1.5px dashed #999;border-radius:4px;display:flex;align-items:center;justify-content:center;padding:0 8px;font:500 12px 'IBM Plex Mono',monospace;color:#777;text-align:center">{{ g.viz }}</span>
 </div>
 </sc-for>
 </div>
