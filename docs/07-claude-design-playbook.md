@@ -461,5 +461,5 @@ Then take Playwright screenshots at 1440 and 390 and list remaining differences 
 ## Design links
 | What | Link | Last export |
 |---|---|---|
-| Design project (design system board + all screens) | [claude.ai/design/p/2730c87c…](https://claude.ai/design/p/2730c87c-4f7e-4cbe-87f7-a41113416ce8) (needs the owner's login) | 2026-10-06, handoff bundle in `design/handoff/` |
+| Design project (design system board + all screens) | [claude.ai/design/p/2730c87c…](https://claude.ai/design/p/2730c87c-4f7e-4cbe-87f7-a41113416ce8) (needs the owner's login) | 2026-10-07 (Prompt 12 re-export; first export 2026-10-06), handoff bundle in `design/handoff/` |
 | This Week Mobile (example screen link) | [This Week Mobile.dc.html](https://claude.ai/design/p/2730c87c-4f7e-4cbe-87f7-a41113416ce8?file=This+Week+Mobile.dc.html) | same |

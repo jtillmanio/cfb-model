@@ -113,6 +113,8 @@
 </sc-if>
 
 <sc-if value="{{ isSettings }}" hint-placeholder-val="{{ false }}">
+<div style="display:grid;grid-template-columns:repeat(4,1fr);height:48px;padding:2px;margin:12px 12px 0;border-radius:8px;background:var(--muted);box-sizing:border-box;font-size:13px;flex:none"><sc-for list="{{ setNav }}" as="n" hint-placeholder-count="4"><span onClick="{{ n.go }}" style="display:flex;align-items:center;justify-content:center;border-radius:6px;background:{{ n.segBg }};font-weight:{{ n.w }};color:{{ n.c }};cursor:pointer">{{ n.l }}</span></sc-for></div>
+<sc-if value="{{ secGeneral }}" hint-placeholder-val="{{ true }}">
 <div style="display:flex;flex-direction:column;gap:6px;padding:16px 12px">
 <span style="padding:0 4px;font-size:12px;line-height:16px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--muted-foreground)">Theme</span>
 <div style="display:grid;grid-template-columns:repeat(3,1fr);height:48px;padding:2px;border-radius:8px;background:var(--muted);box-sizing:border-box;font-size:14px;margin-bottom:14px">
@@ -132,8 +134,59 @@
 <div style="background:var(--card);border:1px solid var(--border);border-radius:8px;overflow:hidden">
 <div onClick="{{ toggleAuto }}" style="display:flex;align-items:center;gap:12px;min-height:60px;padding:8px 14px;border-bottom:1px solid var(--border);box-sizing:border-box;cursor:pointer"><span style="display:flex;flex-direction:column;flex:1"><span style="font-size:14px;font-weight:500">Use this phone's time zone</span><span style="font-size:12px;line-height:16px;color:var(--muted-foreground)">Detected: Eastern Time</span></span><span role="switch" style="position:relative;width:44px;height:26px;border-radius:12px;background:{{ sw.bg }};border:1px solid {{ sw.bd }};box-sizing:border-box;flex:none"><span style="position:absolute;left:{{ sw.x }};top:3px;width:18px;height:18px;border-radius:50%;background:{{ sw.knob }}"></span></span></div>
 <div onClick="{{ cycleTz }}" style="display:flex;align-items:center;gap:8px;height:52px;padding:0 14px;border-bottom:1px solid var(--border);box-sizing:border-box;opacity:{{ tzOp }}"><span style="font-size:14px;flex:1">Time zone</span><span style="font-size:14px;color:var(--muted-foreground)">{{ tzLabel }}</span><span style="display:inline-block;width:14px;height:14px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/chevron-right.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/chevron-right.svg) center/contain no-repeat;color:var(--muted-foreground)"></span></div>
+<sc-if value="{{ saveErr }}" hint-placeholder-val="{{ false }}"><div style="display:flex;gap:10px;margin:12px 14px 0;padding:10px 12px;border:1px solid var(--destructive);border-radius:6px;background:color-mix(in oklch, var(--destructive) 8%, transparent);font-size:13px;line-height:19px"><span style="display:inline-block;width:16px;height:16px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/circle-alert.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/circle-alert.svg) center/contain no-repeat;margin-top:2px;color:var(--destructive)"></span><span style="display:flex;flex-direction:column;gap:6px;flex:1;min-width:0"><span style="text-wrap:pretty"><b style="font-weight:600">Couldn't save the change to Central.</b> Still using Eastern Time.</span><span onClick="{{ retrySave }}" style="display:flex;align-items:center;justify-content:center;gap:6px;height:44px;border-radius:6px;font-size:14px;font-weight:500;background:var(--secondary);color:var(--secondary-foreground);cursor:pointer"><span style="display:inline-block;width:15px;height:15px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/refresh-cw.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/refresh-cw.svg) center/contain no-repeat;"></span>Retry</span></span></div></sc-if>
 <div style="display:flex;align-items:center;gap:8px;padding:12px 14px;font-size:13px;line-height:18px"><span style="display:inline-block;width:14px;height:14px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/clock.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/clock.svg) center/contain no-repeat;color:var(--muted-foreground)"></span><span>TEX vs OU kicks off <b style="font-weight:600">{{ tzPreview }}</b></span></div>
 </div>
+</div>
+</sc-if>
+<sc-if value="{{ secContests }}" hint-placeholder-val="{{ false }}">
+<div style="display:flex;flex-direction:column;gap:6px;padding:16px 12px">
+<span style="padding:0 4px;font-size:12px;line-height:16px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--muted-foreground)">Your contests</span>
+<div style="background:var(--card);border:1px solid var(--border);border-radius:8px;overflow:hidden">
+<sc-for list="{{ contestRows }}" as="c" hint-placeholder-count="2">
+<div style="display:flex;align-items:center;gap:10px;min-height:84px;padding:10px 8px 10px 14px;border-bottom:1px solid var(--border);box-sizing:border-box;cursor:pointer">
+<span style="display:flex;flex-direction:column;gap:3px;flex:1;min-width:0"><span style="display:flex;align-items:center;gap:6px;flex-wrap:wrap"><span style="font-size:14px;font-weight:600">{{ c.l }}</span><sc-if value="{{ c.isDef }}" hint-placeholder-val="{{ false }}"><span style="display:inline-flex;align-items:center;gap:3px;height:20px;padding:0 7px;border-radius:999px;background:var(--primary);color:var(--primary-foreground);font-size:12px;font-weight:600"><span style="display:inline-block;width:11px;height:11px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/check.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/check.svg) center/contain no-repeat;"></span>Default</span></sc-if></span><span style="font-size:12px;line-height:16px;color:var(--muted-foreground);text-wrap:pretty">{{ c.short }}</span><span style="font-size:12px;line-height:16px">{{ c.platform }} · {{ c.rec }}</span></span>
+<span style="display:inline-flex;align-items:center;gap:2px;height:44px;padding:0 6px;font-size:13px;font-weight:500;color:var(--pos)">Rules<span style="display:inline-block;width:14px;height:14px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/chevron-right.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/chevron-right.svg) center/contain no-repeat;"></span></span>
+</div>
+</sc-for>
+<span style="display:flex;align-items:center;justify-content:center;gap:6px;height:48px;font-size:14px;font-weight:500"><span style="display:inline-block;width:14px;height:14px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/plus.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/plus.svg) center/contain no-repeat;"></span>Add contest</span>
+</div>
+<span style="padding:4px 4px 0;font-size:12px;line-height:16px;color:var(--muted-foreground);text-wrap:pretty">Change the default in General. Each contest keeps its own picks, results and standing.</span>
+</div>
+</sc-if>
+<sc-if value="{{ secAccount }}" hint-placeholder-val="{{ false }}">
+<div style="display:flex;flex-direction:column;gap:6px;padding:16px 12px">
+<span style="padding:0 4px;font-size:12px;line-height:16px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--muted-foreground)">GitHub account</span>
+<div style="display:flex;flex-direction:column;gap:14px;padding:14px;background:var(--card);border:1px solid var(--border);border-radius:8px">
+<div style="display:flex;align-items:center;gap:12px"><span style="width:44px;height:44px;border-radius:50%;background:var(--secondary);box-shadow:0 0 0 1px var(--border);display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:600;flex:none">JD</span><span style="display:flex;flex-direction:column;min-width:0"><span style="font-size:16px;line-height:24px;font-weight:600">jdavis</span><span style="font-size:12px;line-height:16px;color:var(--muted-foreground)">Signed in with GitHub · allowlisted</span></span></div>
+<span style="font-size:12px;line-height:16px;color:var(--muted-foreground);text-wrap:pretty">Sign-in is GitHub only, for one account. This phone: signed in Sun Oct 4, stays signed in for 90 days.</span>
+<span style="display:flex;align-items:center;justify-content:center;gap:6px;height:44px;border-radius:6px;border:1px solid var(--input);font-size:14px;font-weight:500"><span style="display:inline-block;width:15px;height:15px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/log-out.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/log-out.svg) center/contain no-repeat;"></span>Sign out</span>
+</div>
+</div>
+</sc-if>
+<sc-if value="{{ saveErr }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;left:12px;right:12px;bottom:76px;z-index:30;display:flex;align-items:center;gap:12px;padding:12px 8px 12px 14px;background:var(--popover);border:1px solid var(--destructive);border-radius:8px;box-shadow:0 8px 24px -8px rgba(0,0,0,.35)"><span style="display:inline-block;width:16px;height:16px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/circle-alert.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/circle-alert.svg) center/contain no-repeat;color:var(--destructive)"></span><span style="display:flex;flex-direction:column;flex:1;min-width:0"><span style="font-weight:500">Couldn't save time zone</span><span style="font-size:12px;line-height:16px;color:var(--muted-foreground)">Still Eastern Time.</span></span><span onClick="{{ retrySave }}" style="display:inline-flex;align-items:center;justify-content:center;height:44px;padding:0 12px;border-radius:6px;font-size:14px;font-weight:500;cursor:pointer">Retry</span></div></sc-if>
+</sc-if>
+
+<sc-if value="{{ isMore }}" hint-placeholder-val="{{ false }}">
+<div style="display:flex;flex-direction:column;gap:6px;padding:16px 12px;overflow:hidden">
+<span style="padding:0 4px;font-size:24px;line-height:28px;font-weight:600;margin-bottom:10px">More</span>
+<div style="background:var(--card);border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-bottom:14px">
+<sc-for list="{{ moreRows }}" as="m" hint-placeholder-count="4">
+<div style="display:flex;align-items:center;gap:12px;min-height:60px;padding:8px 14px;border-bottom:1px solid var(--border);box-sizing:border-box;cursor:pointer" style-active="background:var(--accent)">
+<span style="width:32px;height:32px;border-radius:8px;background:var(--muted);display:flex;align-items:center;justify-content:center;flex:none"><span style="display:inline-block;width:16px;height:16px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/{{ m.icon }}.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/{{ m.icon }}.svg) center/contain no-repeat"></span></span>
+<span style="display:flex;flex-direction:column;flex:1;min-width:0"><span style="font-size:14px;font-weight:500">{{ m.l }}</span><span style="font-size:12px;line-height:16px;color:var(--muted-foreground)">{{ m.sub }}</span></span>
+<sc-if value="{{ m.desk }}" hint-placeholder-val="{{ false }}"><span style="display:inline-flex;align-items:center;gap:4px;height:22px;padding:0 8px;border-radius:999px;border:1px solid var(--border);font-size:12px;font-weight:500;color:var(--muted-foreground);white-space:nowrap"><span style="display:inline-block;width:12px;height:12px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/monitor.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/monitor.svg) center/contain no-repeat;"></span>Best on desktop</span></sc-if>
+<span style="display:inline-block;width:14px;height:14px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/chevron-right.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/chevron-right.svg) center/contain no-repeat;color:var(--muted-foreground)"></span>
+</div>
+</sc-for>
+</div>
+<span style="padding:0 4px;font-size:12px;line-height:16px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--muted-foreground)">Sport</span>
+<div style="background:var(--card);border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-bottom:14px">
+<div style="display:flex;align-items:center;gap:12px;min-height:52px;padding:0 14px;border-bottom:1px solid var(--border)"><span style="width:8px;height:8px;border-radius:50%;background:var(--live);flex:none"></span><span style="flex:1;font-size:14px;font-weight:600">College football</span><span style="display:inline-block;width:18px;height:18px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/check.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/check.svg) center/contain no-repeat;"></span></div>
+<div style="display:flex;align-items:center;gap:12px;min-height:52px;padding:0 14px;color:var(--muted-foreground)"><span style="width:8px;height:8px;border-radius:50%;border:1px solid var(--input);box-sizing:border-box;flex:none"></span><span style="flex:1;font-size:14px">NFL</span><span style="font-size:12px;font-weight:600;letter-spacing:.04em">LATER</span></div>
+</div>
+<span style="padding:0 4px;font-size:12px;line-height:16px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--muted-foreground)">Account</span>
+<div style="display:flex;align-items:center;gap:12px;min-height:60px;padding:8px 14px;background:var(--card);border:1px solid var(--border);border-radius:8px;box-sizing:border-box;cursor:pointer"><span style="width:32px;height:32px;border-radius:50%;background:var(--secondary);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;flex:none">JD</span><span style="display:flex;flex-direction:column;flex:1;min-width:0"><span style="font-size:14px;font-weight:500">jdavis</span><span style="font-size:12px;line-height:16px;color:var(--muted-foreground)">Signed in with GitHub</span></span><span style="display:inline-block;width:14px;height:14px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/chevron-right.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/chevron-right.svg) center/contain no-repeat;color:var(--muted-foreground)"></span></div>
 </div>
 </sc-if>
 
@@ -141,13 +194,10 @@
 <div style="flex:1;display:flex;flex-direction:column;gap:20px;padding:96px 16px 24px">
 <div style="display:flex;align-items:center;justify-content:center;gap:10px"><span style="width:28px;height:28px;border-radius:6px;background:var(--foreground);color:var(--background);display:flex;align-items:center;justify-content:center;font:700 12px/1 'IBM Plex Mono',monospace;flex:none">CF</span><span style="font-size:16px;font-weight:600">CFB Model</span></div>
 <div style="display:flex;flex-direction:column;gap:16px;padding:20px;background:var(--card);border:1px solid var(--border);border-radius:8px">
-<div style="display:flex;flex-direction:column;gap:2px"><span style="font-size:20px;line-height:28px;font-weight:600">Sign in</span><span style="font-size:13px;line-height:18px;color:var(--muted-foreground)">Private app · one account</span></div>
-<label style="display:flex;flex-direction:column;gap:6px"><span style="font-size:13px;font-weight:500">Email</span><input value="{{ email }}" onChange="{{ onEmail }}" style="height:44px;padding:0 12px;border:1px solid var(--input);border-radius:6px;background:var(--background);color:var(--foreground);font:400 16px 'IBM Plex Sans',sans-serif;outline:none;box-sizing:border-box"></input></label>
-<label style="display:flex;flex-direction:column;gap:6px"><span style="font-size:13px;font-weight:500">Password</span><input type="password" value="{{ pw }}" onChange="{{ onPw }}" style="height:44px;padding:0 12px;border:1px solid {{ pwBd }};border-radius:6px;background:var(--background);color:var(--foreground);font:400 16px 'IBM Plex Sans',sans-serif;outline:none;box-sizing:border-box"></input>
-<sc-if value="{{ lErr }}" hint-placeholder-val="{{ false }}"><span style="display:flex;align-items:center;gap:6px;font-size:12px;line-height:16px;color:var(--destructive)"><span style="display:inline-block;width:13px;height:13px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/circle-alert.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/circle-alert.svg) center/contain no-repeat"></span>That password isn't right. 4 tries left.</span></sc-if>
-</label>
-<sc-if value="{{ lIdle }}" hint-placeholder-val="{{ true }}"><span onClick="{{ signIn }}" style="display:flex;align-items:center;justify-content:center;height:44px;border-radius:6px;background:var(--primary);color:var(--primary-foreground);font-size:14px;font-weight:600;cursor:pointer">Sign in</span></sc-if>
-<sc-if value="{{ lWake }}" hint-placeholder-val="{{ false }}"><div style="display:flex;flex-direction:column;gap:8px"><span style="display:flex;align-items:center;justify-content:center;gap:8px;height:44px;border-radius:6px;background:var(--secondary);color:var(--muted-foreground);font-size:14px;font-weight:500"><span data-spin="" style="display:inline-block;width:15px;height:15px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/loader-circle.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/loader-circle.svg) center/contain no-repeat;animation:asSpin 1s linear infinite"></span>Waking up the database…</span><span style="font-size:12px;line-height:16px;color:var(--muted-foreground);text-align:center">The first request after a quiet spell can take a few seconds.</span></div></sc-if>
+<div style="display:flex;flex-direction:column;gap:2px"><span style="font-size:20px;line-height:28px;font-weight:600">Sign in</span><span style="font-size:13px;line-height:18px;color:var(--muted-foreground)">Private app · one GitHub account</span></div>
+<sc-if value="{{ lDenied }}" hint-placeholder-val="{{ false }}"><div style="display:flex;gap:10px;padding:12px;border:1px solid var(--destructive);border-radius:6px;background:color-mix(in oklch, var(--destructive) 8%, transparent)"><span style="display:inline-block;width:16px;height:16px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/circle-alert.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/circle-alert.svg) center/contain no-repeat;margin-top:2px;color:var(--destructive)"></span><span style="display:flex;flex-direction:column;gap:4px;min-width:0"><span style="font-size:14px;line-height:20px;font-weight:600">This GitHub account isn't allowed</span><span style="font-size:13px;line-height:19px;text-wrap:pretty">You're signed in to GitHub as <b style="font-weight:600">jdavis-work</b>. Only the one allowlisted account can use this app.</span><a href="#" onClick="{{ useOther }}" style="align-self:flex-start;display:inline-flex;align-items:center;min-height:44px;font-size:14px;font-weight:500">Use a different account</a></span></div></sc-if>
+<sc-if value="{{ lIdle }}" hint-placeholder-val="{{ true }}"><span onClick="{{ signIn }}" style="display:flex;align-items:center;justify-content:center;gap:8px;height:44px;border-radius:6px;background:var(--primary);color:var(--primary-foreground);font-size:14px;font-weight:600;cursor:pointer"><span style="display:inline-block;width:16px;height:16px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static@0.400.0/icons/github.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static@0.400.0/icons/github.svg) center/contain no-repeat"></span>Sign in with GitHub</span></sc-if>
+<sc-if value="{{ lWake }}" hint-placeholder-val="{{ false }}"><div style="display:flex;flex-direction:column;gap:8px"><span style="display:flex;align-items:center;justify-content:center;gap:8px;height:44px;border-radius:6px;background:var(--secondary);color:var(--muted-foreground);font-size:14px;font-weight:500"><span data-spin="" style="display:inline-block;width:15px;height:15px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/loader-circle.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/loader-circle.svg) center/contain no-repeat;animation:asSpin 1s linear infinite"></span>Waking up the database…</span><span style="font-size:12px;line-height:16px;color:var(--muted-foreground);text-align:center;text-wrap:pretty">GitHub said yes. The first request after a quiet spell can take a few seconds.</span></div></sc-if>
 </div>
 <span style="font-size:12px;line-height:16px;color:var(--muted-foreground);text-align:center">Stays signed in on this phone for 90 days.</span>
 </div>
@@ -161,9 +211,9 @@
 </sc-if>
 </div>
 </x-dc>
-<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:390,&quot;height&quot;:844},&quot;frame&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;offseason&quot;,&quot;nopicks&quot;,&quot;team&quot;,&quot;apierror&quot;,&quot;settings&quot;,&quot;login&quot;],&quot;default&quot;:&quot;offseason&quot;,&quot;tsType&quot;:&quot;'offseason'|'nopicks'|'team'|'apierror'|'settings'|'login'&quot;},&quot;loginState&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;default&quot;,&quot;error&quot;,&quot;waking&quot;],&quot;default&quot;:&quot;default&quot;,&quot;tsType&quot;:&quot;'default'|'error'|'waking'&quot;}}">
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:390,&quot;height&quot;:844},&quot;frame&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;offseason&quot;,&quot;nopicks&quot;,&quot;team&quot;,&quot;apierror&quot;,&quot;settings&quot;,&quot;login&quot;,&quot;more&quot;],&quot;default&quot;:&quot;offseason&quot;,&quot;tsType&quot;:&quot;'offseason'|'nopicks'|'team'|'apierror'|'settings'|'login'|'more'&quot;},&quot;loginState&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;default&quot;,&quot;waking&quot;,&quot;denied&quot;],&quot;default&quot;:&quot;default&quot;,&quot;tsType&quot;:&quot;'default'|'waking'|'denied'&quot;},&quot;section&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;general&quot;,&quot;contests&quot;,&quot;account&quot;],&quot;default&quot;:&quot;general&quot;,&quot;tsType&quot;:&quot;'general'|'contests'|'account'&quot;},&quot;saveError&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;}}">
 class Component extends DCLogic {
-  state = { theme: 'dark', contest: 0, auto: true, tz: 0, cd: 15, retrying: false, attempts: 3, pw: 'football', email: 'jd@example.com', wake: false };
+  state = { theme: 'dark', contest: 0, auto: true, tz: 0, cd: 15, retrying: false, attempts: 3, wake: false, denied: null, saved: null, sec: null };
   componentDidMount() {
     this.iv = setInterval(() => {
       if ((this.props.frame ?? 'offseason') !== 'apierror' || this.state.retrying) return;
@@ -178,8 +228,8 @@ class Component extends DCLogic {
   renderVals() {
     const S = this.state;
     const frame = this.props.frame ?? 'offseason';
-    const L = { offseason: 'This Week · off-season', nopicks: 'Picks · no picks this week', team: 'Team · no games yet', apierror: 'This Week · API unreachable', settings: 'Settings', login: 'Login' };
-    const activeTab = { offseason: 0, apierror: 0, nopicks: 1, team: 3, settings: 4 }[frame];
+    const L = { offseason: 'This Week · off-season', nopicks: 'Picks · no picks this week', team: 'Team · no games yet', apierror: 'This Week · API unreachable', settings: 'Settings', login: 'Login', more: 'More' };
+    const activeTab = { offseason: 0, apierror: 0, nopicks: 1, team: 3, settings: 4, more: 4 }[frame];
     const tabs = [['This Week','calendar-days'],['Picks','target'],['Contest','trophy'],['Rankings','list-ordered'],['More','ellipsis']].map(([l, icon], i) => ({ l, icon, w: i === activeTab ? '600' : '500', c: i === activeTab ? 'var(--foreground)' : 'var(--muted-foreground)', bg: i === activeTab ? 'var(--accent)' : 'transparent' }));
     const back = frame === 'team' || frame === 'settings';
     const near = [
@@ -199,9 +249,23 @@ class Component extends DCLogic {
     const z = Z[S.auto ? 0 : S.tz];
     const hr = 19 + z[2];
     const sw = { bg: S.auto ? 'var(--primary)' : 'var(--secondary)', bd: S.auto ? 'var(--primary)' : 'var(--input)', knob: S.auto ? 'var(--primary-foreground)' : 'var(--muted-foreground)', x: S.auto ? '21px' : '3px' };
-    const lstate = S.wake ? 'waking' : (this.props.loginState ?? 'default');
+    const lp = this.props.loginState ?? 'default';
+    const lstate = S.wake ? 'waking' : (lp === 'denied' && S.denied === false ? 'default' : lp);
+    const sec = S.sec ?? this.props.section ?? 'general';
+    const setNav = [['general','General'],['contests','Contests'],['alerts','Alerts'],['account','Account']].map(([k, l]) => ({ l, segBg: k === sec ? 'var(--accent)' : 'transparent', w: k === sec ? '600' : '500', c: k === sec ? 'var(--foreground)' : 'var(--muted-foreground)', go: () => { if (k !== 'alerts') this.setState({ sec: k }); } }));
+    const saveErr = frame === 'settings' && sec === 'general' && !!this.props.saveError && S.saved !== true;
+    const contestRows = [
+      { l: 'Splash work league', isDef: true, platform: 'Splash', short: 'Pick 4 · CFB + NFL · locks at kickoff · 1 pt per win · push 0', rec: 'You 12-8 · 3rd of 14' },
+      { l: 'Family confidence pool', isDef: false, platform: 'Hand-entered', short: 'Pick 8 · CFB only · confidence points · locks Sat noon', rec: 'You 41 pts · 2nd of 6' },
+    ];
+    const moreRows = [
+      { l: 'Teams', sub: 'Every FBS team', icon: 'shield', desk: false },
+      { l: 'Performance', sub: 'Track record · 31-24-1 · +4.6u', icon: 'activity', desk: false },
+      { l: 'Lab', sub: 'Weights, versions, compare', icon: 'flask-conical', desk: true },
+      { l: 'Settings', sub: 'General, contests, alerts, account', icon: 'settings', desk: false },
+    ];
     return {
-      label: L[frame] + ' · mobile', wifi: frame === 'apierror' ? 'wifi' : 'wifi',
+      label: (frame === 'settings' ? 'Settings · ' + { general: 'General', contests: 'Contests', account: 'Account' }[sec] : L[frame]) + ' · mobile', wifi: frame === 'apierror' ? 'wifi' : 'wifi',
       mainBar: !back && frame !== 'login', backBar: back, backLabel: frame === 'team' ? 'Rankings' : 'More', barTitle: frame === 'team' ? '' : 'Settings',
       week: { offseason: '2027 · Week 0', nopicks: '2026 · Week 7' }[frame] || '2026 · Week 6',
       isOff: frame === 'offseason', isNoPicks: frame === 'nopicks', isTeam: frame === 'team', isErr: frame === 'apierror', isSettings: frame === 'settings', isLogin: frame === 'login',
@@ -210,8 +274,9 @@ class Component extends DCLogic {
       themes, contests, sw, toggleAuto: () => this.setState({ auto: !S.auto }),
       tzLabel: z[0] + ' (' + z[1] + ')', tzOp: S.auto ? '.5' : '1', cycleTz: () => { if (!S.auto) this.setState({ tz: (S.tz + 1) % Z.length }); },
       tzPreview: `Sat ${hr > 12 ? hr - 12 : hr}:30 PM ${z[1]}`,
-      email: S.email, onEmail: e => this.setState({ email: e.target.value }), pw: S.pw, onPw: e => this.setState({ pw: e.target.value }),
-      lErr: lstate === 'error', lWake: lstate === 'waking', lIdle: lstate !== 'waking', pwBd: lstate === 'error' ? 'var(--destructive)' : 'var(--input)',
+      lDenied: lstate === 'denied', lWake: lstate === 'waking', lIdle: lstate === 'default', useOther: e => { e.preventDefault(); this.setState({ denied: false }); },
+      setNav, secGeneral: sec === 'general', secContests: sec === 'contests', secAccount: sec === 'account', contestRows, saveErr, retrySave: () => this.setState({ saved: true }),
+      isMore: frame === 'more', moreRows,
       signIn: () => { this.setState({ wake: true }); this.t2 = setTimeout(() => this.setState({ wake: false }), 2400); },
     };
   }

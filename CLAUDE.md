@@ -22,9 +22,9 @@ The kit's skills and agents use these paths. `docs/claude-kit/` holds the kit's 
 | Data model | `docs/03-data-model.md` (`python/db/` wins once it exists) |
 | Model spec | `docs/04-model.md` |
 | Design intent | `docs/05-ui-design-brief.md` |
-| Design source of truth | `design/handoff/designs/` (board notes are the spec; bundle README is `design/README.md`) |
+| Design source of truth | `design/handoff/designs/` (board notes are the spec; the `Pass … .dc.html` boards win over older boards; bundle README is `design/README.md`) |
 | Design tokens | `design/handoff/tokens/` (color; type, spacing, radius and elevation values are in `design/README.md` › Design tokens) |
-| Reference screenshots | `design/handoff/screenshots/` (default state, dark, 1440 and 390) |
+| Reference screenshots | `design/handoff/screenshots/` (default state, dark, 1440 and 390; This Week also at 768) |
 | Design playbook | `docs/07-claude-design-playbook.md` |
 | Roadmap (status source of truth) | `docs/06-roadmap.md` |
 | Task list | `docs/08-tasklist.md` (written by `/milestones`; task files in `docs/tasks/`) |

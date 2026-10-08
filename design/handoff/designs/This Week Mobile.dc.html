@@ -20,7 +20,9 @@
 </div>
 
 <div style="display:flex;flex-direction:column;gap:12px;padding:14px 16px 10px;flex:none">
-<div style="display:flex;flex-direction:column;gap:2px"><h1 style="margin:0;font-size:20px;line-height:28px;font-weight:600">This Week</h1><span style="font-size:12px;line-height:16px;color:var(--muted-foreground)">54 games · 9 picks · Updated Thu 9:02 PM</span></div>
+<sc-if value="{{ stale }}" hint-placeholder-val="{{ false }}"><div role="status" style="display:flex;align-items:center;gap:10px;padding:4px 4px 4px 12px;border:1px solid var(--border);border-radius:8px;background:var(--muted);font-size:13px;line-height:18px"><span style="display:inline-block;width:15px;height:15px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/cloud-off.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/cloud-off.svg) center/contain no-repeat;"></span><span style="display:flex;flex-direction:column;flex:1;min-width:0"><span style="font-weight:600">Lines last updated Thu 9:02 PM</span><span style="font-size:12px;line-height:16px;color:var(--muted-foreground)">Offline copy · retrying every minute</span></span><span style="display:inline-flex;align-items:center;justify-content:center;height:44px;padding:0 12px;font-size:14px;font-weight:500">Refresh</span></div></sc-if>
+<div style="display:flex;flex-direction:column;gap:2px"><h1 style="margin:0;font-size:20px;line-height:28px;font-weight:600">This Week</h1><sc-if value="{{ wkLive }}" hint-placeholder-val="{{ true }}"><span style="font-size:12px;line-height:16px;color:var(--muted-foreground)">54 games · 9 picks · Updated Thu 9:02 PM</span></sc-if><sc-if value="{{ wkAlt }}" hint-placeholder-val="{{ false }}"><span style="font-size:12px;line-height:16px;color:var(--muted-foreground)">54 games · 0 picks · Updated Thu 9:02 PM</span></sc-if></div>
+<sc-if value="{{ wkLive }}" hint-placeholder-val="{{ true }}">
 <div onClick="{{ stripClick }}" style="display:flex;align-items:center;gap:10px;min-height:56px;padding:8px 12px;border:1px solid {{ stripBd }};border-radius:8px;background:var(--card);box-sizing:border-box;cursor:pointer">
 <div style="display:flex;flex-direction:column;gap:5px;min-width:0;flex:1">
 <span style="display:flex;align-items:center;gap:7px;font-size:13px;line-height:18px;white-space:nowrap"><span style="font-size:12px;color:var(--muted-foreground)">This week</span><span style="font-size:14px;font-weight:600">1-0</span><span style="color:var(--muted-foreground)">·</span><span style="display:inline-flex;align-items:center;gap:4px;font-weight:600;color:var(--live)"><span style="width:6px;height:6px;border-radius:50%;background:currentColor"></span>2 live</span><span style="color:var(--muted-foreground)">·</span><span><b style="font-weight:600">6</b> <span style="color:var(--muted-foreground)">to play</span></span><span style="color:var(--muted-foreground)">·</span><span style="font-weight:600;color:var(--pos)">+1.0u</span></span>
@@ -28,6 +30,8 @@
 </div>
 <span style="display:inline-block;width:14px;height:14px;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/chevron-right.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/chevron-right.svg) center/contain no-repeat;color:var(--muted-foreground)"></span>
 </div>
+</sc-if>
+<sc-if value="{{ wkAlt }}" hint-placeholder-val="{{ false }}"><div style="display:flex;align-items:flex-start;gap:10px;min-height:56px;padding:10px 12px;border:1px dashed var(--border);border-radius:8px;box-sizing:border-box;font-size:13px;line-height:18px"><span style="display:inline-block;width:14px;height:14px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/clock.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/clock.svg) center/contain no-repeat;margin-top:2px;color:var(--muted-foreground)"></span><span style="display:flex;flex-direction:column;gap:2px;min-width:0"><span style="font-weight:600">{{ altStripTitle }}</span><span style="font-size:12px;line-height:16px;color:var(--muted-foreground);text-wrap:pretty">{{ altStripBody }}</span></span></div></sc-if>
 <div style="display:grid;grid-template-columns:1fr 1fr;height:48px;padding:2px;border-radius:8px;background:var(--muted);box-sizing:border-box;font-size:13px">
 <span onClick="{{ setSlate }}" style="display:flex;align-items:center;justify-content:center;border-radius:6px;cursor:pointer;background:{{ vSlateBg }};font-weight:{{ vSlateW }};color:{{ vSlateC }}">Slate</span>
 <span onClick="{{ setBest }}" style="display:flex;align-items:center;justify-content:center;gap:6px;border-radius:6px;cursor:pointer;background:{{ vBestBg }};font-weight:{{ vBestW }};color:{{ vBestC }}">Best lines<span style="font-size:12px;line-height:16px;padding:0 5px;border-radius:999px;background:var(--secondary);color:var(--foreground);font-weight:600">{{ bestCount }}</span></span>
@@ -105,7 +109,8 @@
 </div>
 </div>
 </sc-for>
-<div style="display:flex;align-items:center;height:32px;padding:0 12px 0 44px;background:var(--background);border-bottom:1px solid var(--border);font-size:12px;line-height:16px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--muted-foreground)">Already kicked off</div>
+<sc-if value="{{ bestNone }}" hint-placeholder-val="{{ false }}"><div style="padding:12px"><div style="display:flex;flex-direction:column;align-items:center;gap:6px;padding:28px 18px;border:1px dashed var(--border);border-radius:8px;text-align:center"><span style="display:inline-block;width:24px;height:24px;flex:none;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/{{ bestNoneIcon }}.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/{{ bestNoneIcon }}.svg) center/contain no-repeat;color:var(--muted-foreground)"></span><span style="font-size:16px;line-height:24px;font-weight:600">{{ bestNoneTitle }}</span><span style="font-size:13px;line-height:20px;color:var(--muted-foreground);text-wrap:pretty">{{ bestNoneBody }}</span><span style="font-size:12px;line-height:16px;color:var(--muted-foreground)">{{ bestNoneMeta }}</span><span onClick="{{ setSlate }}" style="display:flex;align-items:center;justify-content:center;align-self:stretch;height:44px;margin-top:8px;border-radius:8px;border:1px solid var(--input);font-size:14px;font-weight:500;box-sizing:border-box;cursor:pointer">See the slate</span></div></div></sc-if>
+<sc-if value="{{ hasStarted }}" hint-placeholder-val="{{ true }}"><div style="display:flex;align-items:center;height:32px;padding:0 12px 0 44px;background:var(--background);border-bottom:1px solid var(--border);font-size:12px;line-height:16px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--muted-foreground)">Already kicked off</div></sc-if>
 <sc-for list="{{ bestStarted }}" as="b" hint-placeholder-count="3">
 <div style="display:grid;grid-template-columns:22px minmax(0,1fr) auto;gap:10px;align-items:center;min-height:52px;padding:8px 12px;border-bottom:1px solid var(--border);box-sizing:border-box;color:var(--muted-foreground)">
 <span></span>
@@ -143,7 +148,7 @@
 </sc-if>
 </div>
 </x-dc>
-<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:390,&quot;height&quot;:844},&quot;view&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;slate&quot;,&quot;best&quot;],&quot;default&quot;:&quot;slate&quot;,&quot;tsType&quot;:&quot;'slate'|'best'&quot;},&quot;markets&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;both&quot;,&quot;spread&quot;,&quot;total&quot;],&quot;default&quot;:&quot;spread&quot;,&quot;tsType&quot;:&quot;'both'|'spread'|'total'&quot;},&quot;filter&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;all&quot;,&quot;picks&quot;,&quot;starred&quot;],&quot;default&quot;:&quot;all&quot;,&quot;tsType&quot;:&quot;'all'|'picks'|'starred'&quot;,&quot;section&quot;:&quot;States&quot;},&quot;noStars&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;States&quot;},&quot;wxOpen&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;none&quot;,&quot;wis&quot;,&quot;uga&quot;],&quot;default&quot;:&quot;none&quot;,&quot;tsType&quot;:&quot;'none'|'wis'|'uga'&quot;,&quot;section&quot;:&quot;States&quot;},&quot;sheet&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;}}">
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:390,&quot;height&quot;:844},&quot;view&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;slate&quot;,&quot;best&quot;],&quot;default&quot;:&quot;slate&quot;,&quot;tsType&quot;:&quot;'slate'|'best'&quot;},&quot;markets&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;both&quot;,&quot;spread&quot;,&quot;total&quot;],&quot;default&quot;:&quot;spread&quot;,&quot;tsType&quot;:&quot;'both'|'spread'|'total'&quot;},&quot;filter&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;all&quot;,&quot;picks&quot;,&quot;starred&quot;],&quot;default&quot;:&quot;all&quot;,&quot;tsType&quot;:&quot;'all'|'picks'|'starred'&quot;,&quot;section&quot;:&quot;States&quot;},&quot;noStars&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;States&quot;},&quot;wxOpen&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;none&quot;,&quot;wis&quot;,&quot;uga&quot;],&quot;default&quot;:&quot;none&quot;,&quot;tsType&quot;:&quot;'none'|'wis'|'uga'&quot;,&quot;section&quot;:&quot;States&quot;},&quot;week&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;live&quot;,&quot;noLines&quot;,&quot;bestEmpty&quot;],&quot;default&quot;:&quot;live&quot;,&quot;tsType&quot;:&quot;'live'|'noLines'|'bestEmpty'&quot;},&quot;stale&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;},&quot;sheet&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;}}">
 class Component extends DCLogic {
   state = { view: null, mkt: null, sheet: null, stars: null, filter: null, wx: null, ready: !!window.TW };
   componentDidMount() {
@@ -152,6 +157,7 @@ class Component extends DCLogic {
   componentWillUnmount() { clearInterval(this.t); }
   renderVals() {
     const TW = window.TW;
+    const wk = this.props.week ?? 'live';
     const view = this.state.view ?? this.props.view ?? 'slate';
     const mkt = this.state.mkt ?? this.props.markets ?? 'spread';
     const filter = this.state.filter ?? this.props.filter ?? 'all';
@@ -164,7 +170,12 @@ class Component extends DCLogic {
     const base = {
       frameH: sheetOpen ? '844px' : 'auto', sheetOpen,
       openSheet: () => this.setState({ sheet: true }), closeSheet: () => this.setState({ sheet: false }),
-      isSlate: view === 'slate', isBest: view === 'best',
+      isSlate: view === 'slate', isBest: view === 'best', stale: !!this.props.stale, wkLive: wk === 'live', wkAlt: wk !== 'live',
+      altStripTitle: wk === 'noLines' ? 'No picks yet' : 'No picks this week',
+      altStripBody: wk === 'noLines' ? 'Week 6 lines haven\'t posted. Model lines are ready; picks appear when books open, usually Sun–Mon.' : 'No game clears 2.5 pts. The record strip comes back with the first pick.',
+      bestNoneIcon: wk === 'noLines' ? 'clock' : 'scale', bestNoneTitle: wk === 'noLines' ? 'No lines to rank yet' : 'Nothing clears 2.5 pts right now',
+      bestNoneBody: wk === 'noLines' ? 'Best lines needs a market line to bet against. Week 6 lines haven\'t posted; the model\'s own lines are on the Slate.' : 'The model and the market agree on every line this week. Closest: UK +21 (edge +1.2), UNLV +10 (+0.9), NW +9 (+0.6).',
+      bestNoneMeta: wk === 'noLines' ? 'Checks for new lines with every snapshot' : 'Threshold from v1.0\'s spec',
       setSlate: () => this.setState({ view: 'slate' }), setBest: () => this.setState({ view: 'best' }),
       vSlateBg: segBg(view === 'slate'), vSlateW: segW(view === 'slate'), vSlateC: segC(view === 'slate'),
       vBestBg: segBg(view === 'best'), vBestW: segW(view === 'best'), vBestC: segC(view === 'best'),
@@ -176,15 +187,15 @@ class Component extends DCLogic {
       fAll: fChip('all'), fPicks: fChip('picks'), fStar: fChip('starred'), unread: String(unread), hasUnread: unread > 0,
       stripClick: () => this.setState({ filter: filter === 'picks' ? 'all' : 'picks', view: 'slate' }), stripBd: filter === 'picks' ? 'var(--input)' : 'var(--border)',
     };
-    if (!TW) return { ...base, groups: [], bestUp: [], bestStarted: [], segs: [], bestCount: '', starCount: '', noRows: false };
+    if (!TW) return { ...base, bestNone: false, hasStarted: true, groups: [], bestUp: [], bestStarted: [], segs: [], bestCount: '', starCount: '', noRows: false };
     const stars = this.state.stars ?? new Set(this.props.noStars ? [] : TW.games.filter(g => g.star).map(g => g.id));
     const wxPin = this.state.wx ?? (this.props.wxOpen && this.props.wxOpen !== 'none' ? this.props.wxOpen : '');
     const toggle = id => (e) => { e && e.stopPropagation && e.stopPropagation(); const s = new Set(stars); s.has(id) ? s.delete(id) : s.add(id); this.setState({ stars: s }); };
-    const groups = TW.slate(mkt, stars, filter).map(gr => ({ ...gr, rows: gr.rows.map(r => ({ ...r, notStarred: !r.starred, toggleStar: toggle(r.id),
+    const groups = TW.slate(mkt, stars, filter, wk === 'noLines' ? TW.preLines : undefined).map(gr => ({ ...gr, rows: gr.rows.map(r => ({ ...r, notStarred: !r.starred, toggleStar: toggle(r.id),
       wxOpen: wxPin === r.id, wxBd: wxPin === r.id ? 'var(--input)' : 'var(--border)', wxToggle: (e) => { e && e.stopPropagation && e.stopPropagation(); this.setState({ wx: wxPin === r.id ? '' : r.id }); } })) }));
     const n = groups.reduce((s, g) => s + g.rows.length, 0);
-    const b = TW.best(mkt, stars);
-    return { ...base, groups, noRows: n === 0 && filter === 'starred', bestUp: b.up, bestStarted: b.started, bestCount: String(b.up.length), starCount: String(stars.size), segs: TW.week.segs };
+    const b0 = TW.best(mkt, stars, wk === 'noLines' ? TW.preLines : undefined); const b = wk === 'live' ? b0 : { up: [], started: [] };
+    return { ...base, groups, noRows: n === 0 && filter === 'starred', bestUp: b.up, bestStarted: b.started, bestNone: b.up.length === 0, hasStarted: b.started.length > 0, bestCount: String(b.up.length), starCount: String(stars.size), segs: TW.week.segs };
   }
 }
 </script>

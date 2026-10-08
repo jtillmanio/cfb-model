@@ -163,17 +163,17 @@ Phase 8  Multi-sport (NFL)
 Playbook: [07-claude-design-playbook.md](07-claude-design-playbook.md). Design work is free of the API and database, so it runs alongside Phases 1–3 and doesn't block them.
 
 **First pass (during Phases 1–3)**
-- [ ] Prompt 1: design system
-- [ ] Prompts 2–7: This Week, Contest, Game Detail, Rankings + Outlook + Team, Picks + Performance, Model Lab
-- [ ] **Prompt 11: market extras** (line movement, best lines, record strip, watchlist & alerts, weather), after 2, 3, 4 and 6
-- [ ] Prompt 8: states and leftovers (after 11)
-- [ ] Prompt 9: consistency audit
-- [ ] Handoff bundle in `design/handoff/` (replaced the PDF + HTML export), share links, "Design decisions" section in the brief, docs synced to the design
+- [x] Prompt 1: design system
+- [x] Prompts 2–7: This Week, Contest, Game Detail, Rankings + Outlook + Team, Picks + Performance, Model Lab
+- [x] **Prompt 11: market extras** (line movement, best lines, record strip, watchlist & alerts, weather), after 2, 3, 4 and 6
+- [x] Prompt 8: states and leftovers (after 11)
+- [x] Prompt 9: consistency audit. Complete for every frame drawn through Prompt 12 (the Prompt 12 frames were audited on `Pass Audit.dc.html`); it runs again after Prompt 10, in the History pass below
+- [x] Handoff bundle in `design/handoff/` (replaced the PDF + HTML export), share links, "Design decisions" section in the brief, docs synced to the design
 - [ ] Design-system handoff, then implement it as its own PR (needs the Phase 0 `web/` scaffold). **Review gate**
 
 **Gap-fill pass (2026-10-07, before Phase 4 handoffs)**
-- [ ] Prompt 12: decisions applied to existing frames, Teams index, More menu, mobile Performance sections, missing states, light mode ([07 § Prompt 12](07-claude-design-playbook.md#prompt-12-gap-fill-after-the-starter-kit-review-2026-10-07))
-- [ ] Re-export the handoff; update the states columns in [05 › Screen inventory](05-ui-design-brief.md#screen-inventory-from-handoff)
+- [x] Prompt 12: decisions applied to existing frames, Teams index, More menu, mobile Performance sections, missing states, light mode ([07 § Prompt 12](07-claude-design-playbook.md#prompt-12-gap-fill-after-the-starter-kit-review-2026-10-07))
+- [x] Re-export the handoff; update the states columns in [05 › Screen inventory](05-ui-design-brief.md#screen-inventory-from-handoff)
 
 **Per-screen handoff:** each Phase 4 screen is handed off and implemented one at a time (see the Phase 4 checklist).
 

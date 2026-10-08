@@ -29,7 +29,7 @@ window.CT = (() => {
     { id: 'phi', sport: 'NFL', a: tm.NYG, h: tm.PHI, kick: 5540, kickLbl: 'Sun 8:20 PM', cA: 6, mA: 7, side: 'h', cover: 53, approx: true },
   ];
   const byId = Object.fromEntries(games.map(g => [g.id, g]));
-  const NOW = { thu: { m: 1320, lbl: 'Thu 10:00 PM' }, fri: { m: 2652, lbl: 'Fri 8:12 PM' }, sat: { m: 3735, lbl: 'Sat 2:15 PM' } };
+  const NOW = { thu: { m: 1320, lbl: 'Thu 10:00 PM' }, fri: { m: 2652, lbl: 'Fri 8:12 PM' }, sat: { m: 3735, lbl: 'Sat 2:15 PM' }, sun: { m: 5560, lbl: 'Sun 8:40 PM' } };
   const tierColor = { A: ['var(--tier-a)', 'var(--tier-a-foreground)'], B: ['var(--tier-b)', 'var(--tier-b-foreground)'], C: ['var(--tier-c)', 'var(--tier-c-foreground)'] };
 
   const num = v => String(Math.abs(v));
@@ -51,8 +51,13 @@ window.CT = (() => {
     const open = games.filter(g => g.kick > now).sort((x, y) => y.cover - x.cover || (y.edge || 0) - (x.edge || 0));
     const locked = games.filter(g => g.kick <= now);
     const order = {}; open.forEach((g, i) => { order[g.id] = i + 1; });
-    const top4 = open.filter(g => g.sport === 'CFB' || g.side).slice(0, 4).map(g => g.id);
-    return { open, locked, order, top4, now };
+    // Ranking as it stood before kickoffs: used for locked picks, and as the whole ranking once every game has locked.
+    const all = games.slice().sort((x, y) => y.cover - x.cover || (y.edge || 0) - (x.edge || 0));
+    const preOrder = {}; all.forEach((g, i) => { preOrder[g.id] = i + 1; });
+    const allLocked = open.length === 0;
+    const top4 = (allLocked ? all : open).filter(g => g.sport === 'CFB' || g.side).slice(0, 4).map(g => g.id);
+    locked.forEach(g => { if (order[g.id] == null) order[g.id] = preOrder[g.id]; });
+    return { open, locked, order, top4, now, allLocked };
   };
 
   const btnStyle = (state) => ({
@@ -125,12 +130,12 @@ window.CT = (() => {
         id, g, team: sideTeam(g, p.side), line: p.line || sideLine(g, p.side), at: p.at, matchup: `${g.a.n} ${sep(g)} ${g.h.n}`,
         kickLbl: g.kickLbl, lockTxt: countdown(g.kick, R.now), locked, open: !locked,
         match, mismatch: !match, badge: match ? `Model #${R.order[id]}` : opp ? 'Against model' : 'Your call', why,
-        notTopTxt: match ? '' : 'Not in model’s top 4',
+        notTopTxt: match ? '' : 'Not in model’s top 4', lockLine: locked ? '' : 'open ' + countdown(g.kick, R.now),
         switchLbl: `Switch to ${sideLine(g, other)}`,
         onSwitch: () => actions.pick(id, other), onRemove: () => actions.remove(id),
       };
     });
-    const sugg = R.top4.filter(id => !picks[id]).map(id => {
+    const sugg = R.top4.filter(id => !picks[id] && byId[id].kick > R.now).map(id => {
       const g = byId[id];
       return { id, line: sideLine(g, g.side), team: sideTeam(g, g.side), cover: g.cover + '%', rank: '#' + R.order[id], kickLbl: g.kickLbl, onAdd: () => actions.pick(id, g.side) };
     });
@@ -138,7 +143,7 @@ window.CT = (() => {
     const slots = Array.from({ length: open }, (_, i) => ({ i, s: sugg[i] || null, hasS: !!sugg[i], noS: !sugg[i] }));
     const shared = items.filter(x => x.match).length;
     const segs = Array.from({ length: 4 }, (_, i) => ({ c: i < n ? 'var(--foreground)' : 'var(--secondary)' }));
-    return { items, slots, n, open, countTxt: `${n} of 4`, shared, sharedTxt: `${shared} of ${n} match the model`, segs, full: n >= 4, sugg, top4: R.top4.map(id => byId[id]) };
+    return { items, slots, n, open, countTxt: `${n} of 4`, shared, sharedTxt: `${shared} of ${n} match the model`, segs, full: n >= 4, sugg, allLocked: R.allLocked, slotLbl: R.allLocked ? 'Empty · no games left to pick' : 'Open slot', hint: R.allLocked ? 'all games locked, picks are final' : 'tap a side in the slate to add', top4: R.top4.map(id => byId[id]) };
   };
 
   // Raw Splash paste — same structure as the real page copy

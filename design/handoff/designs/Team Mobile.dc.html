@@ -33,13 +33,14 @@
 <span style="display:inline-block;width:14px;height:14px;background:currentColor;-webkit-mask:url(https://unpkg.com/lucide-static/icons/chevron-right.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static/icons/chevron-right.svg) center/contain no-repeat;color:var(--muted-foreground)"></span>
 </div>
 
-<section style="display:flex;flex-direction:column;gap:14px;padding:14px;background:var(--card);border:1px solid var(--border);border-radius:8px">
+<sc-if value="{{ hasPath }}" hint-placeholder-val="{{ true }}"><section style="display:flex;flex-direction:column;gap:14px;padding:14px;background:var(--card);border:1px solid var(--border);border-radius:8px">
 <span style="display:flex;align-items:center"><span style="font-size:16px;font-weight:600">Path to the playoff</span><span style="flex:1"></span><span style="font-size:12px;color:var(--muted-foreground)">Outlook →</span></span>
-<div style="display:grid;grid-template-columns:1.2fr 1fr 1fr;gap:6px">
-<div style="display:flex;flex-direction:column;gap:3px"><span style="font-size:12px;line-height:14px;font-weight:600">CFP</span><div style="position:relative;display:flex;align-items:center;height:36px;padding:0 8px;border-radius:6px;overflow:hidden;background:color-mix(in oklch, var(--secondary) 50%, transparent)"><span style="position:absolute;left:0;top:0;bottom:0;width:89%;background:color-mix(in oklch, var(--chart-1) 24%, transparent)"></span><span style="position:relative;font-size:20px;font-weight:600">89%</span></div></div>
+<div style="display:grid;grid-template-columns:{{ tileCols }};gap:6px">
+<sc-if value="{{ hasCfp }}" hint-placeholder-val="{{ true }}"><div style="display:flex;flex-direction:column;gap:3px"><span style="font-size:12px;line-height:14px;font-weight:600">CFP</span><div style="position:relative;display:flex;align-items:center;height:36px;padding:0 8px;border-radius:6px;overflow:hidden;background:color-mix(in oklch, var(--secondary) 50%, transparent)"><span style="position:absolute;left:0;top:0;bottom:0;width:89%;background:color-mix(in oklch, var(--chart-1) 24%, transparent)"></span><span style="position:relative;font-size:20px;font-weight:600">89%</span></div></div></sc-if>
 <div style="display:flex;flex-direction:column;gap:3px"><span style="font-size:12px;line-height:14px;color:var(--muted-foreground)">B1G title game</span><div style="position:relative;display:flex;align-items:center;height:36px;padding:0 8px;border-radius:6px;overflow:hidden;background:color-mix(in oklch, var(--secondary) 50%, transparent)"><span style="position:absolute;left:0;top:0;bottom:0;width:71%;background:color-mix(in oklch, var(--chart-1) 24%, transparent)"></span><span style="position:relative;font-size:14px;font-weight:600">71%</span></div></div>
 <div style="display:flex;flex-direction:column;gap:3px"><span style="font-size:12px;line-height:14px;color:var(--muted-foreground)">Win B1G</span><div style="position:relative;display:flex;align-items:center;height:36px;padding:0 8px;border-radius:6px;overflow:hidden;background:color-mix(in oklch, var(--secondary) 50%, transparent)"><span style="position:absolute;left:0;top:0;bottom:0;width:48%;background:color-mix(in oklch, var(--chart-1) 24%, transparent)"></span><span style="position:relative;font-size:14px;font-weight:600">48%</span></div></div>
 </div>
+<sc-if value="{{ noCfp }}" hint-placeholder-val="{{ false }}"><span style="margin-top:-4px;font-size:12px;line-height:16px;color:var(--muted-foreground);text-wrap:pretty">Conference odds from the season simulations. Playoff odds come later.</span></sc-if>
 <div style="display:flex;align-items:flex-end;gap:16px">
 <span style="display:flex;flex-direction:column;gap:4px"><span style="display:flex;align-items:flex-end;gap:5px;height:76px;border-bottom:1px solid var(--input)"><sc-for list="{{ pathBars }}" as="b" hint-placeholder-count="5"><span style="display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:2px;width:34px"><span style="font-size:12px;line-height:14px;color:var(--muted-foreground)">{{ b.p }}</span><span style="width:100%;height:{{ b.h }};background:{{ b.bg }};border-radius:2px 2px 0 0"></span></span></sc-for></span><span style="display:flex;gap:5px"><sc-for list="{{ pathBars }}" as="b" hint-placeholder-count="5"><span style="width:34px;text-align:center;font-size:12px;line-height:14px;font-weight:500">{{ b.lab }}</span></sc-for></span></span>
 <div style="display:flex;flex-direction:column;gap:2px;padding-bottom:18px"><span style="font-size:12px;line-height:14px;color:var(--muted-foreground)">Projected</span><span style="font-size:20px;line-height:24px;font-weight:600">11.2-0.8</span><span style="font-size:12px;line-height:14px;color:var(--muted-foreground)">final wins</span></div>
@@ -54,7 +55,7 @@
 </sc-for>
 <span style="font-size:12px;line-height:16px;color:var(--muted-foreground);text-wrap:pretty">Least-certain remaining games. The other four average about 99%.</span>
 </div>
-</section>
+</section></sc-if>
 
 <section style="display:flex;flex-direction:column;gap:10px;padding:14px;background:var(--card);border:1px solid var(--border);border-radius:8px">
 <span style="display:flex;align-items:baseline;gap:8px"><span style="font-size:16px;font-weight:600">Rating trajectory</span><span style="font-size:12px;color:var(--muted-foreground)">2026</span></span>
@@ -137,7 +138,7 @@
 </div>
 </div>
 </x-dc>
-<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:390,&quot;height&quot;:844}}">
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:390,&quot;height&quot;:844},&quot;phase&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;none&quot;,&quot;sims&quot;,&quot;cfp&quot;],&quot;default&quot;:&quot;cfp&quot;,&quot;tsType&quot;:&quot;'none'|'sims'|'cfp'&quot;}}">
 class Component extends DCLogic {
   state = { ready: !!window.RK };
   componentDidMount() {
@@ -145,13 +146,15 @@ class Component extends DCLogic {
   }
   componentWillUnmount() { clearInterval(this.t); }
   renderVals() {
+    const phase = this.props.phase ?? 'cfp';
+    const PH = { hasPath: phase !== 'none', hasCfp: phase === 'cfp', noCfp: phase === 'sims', tileCols: phase === 'cfp' ? '1.2fr 1fr 1fr' : '1fr 1fr' };
     const RK = window.RK;
     const W = 334, H = 180, pad = { l: 30, r: 88, t: 10, b: 24 };
     const base = { chW: W + 'px', chH: H + 'px' };
-    if (!RK) return { ...base, ch: { yt: [], xt: [], ser: [] }, pathBars: [], swing: [], sched: [], units: [] };
+    if (!RK) return { ...PH, ...base, ch: { yt: [], xt: [], ser: [] }, pathBars: [], swing: [], sched: [], units: [] };
     const ch = RK.chart(W, H, pad);
     ch.xt = ch.xt.map(t => ({ ...t, l: t.l.replace('Wk ', '') }));
-    return { ...base, ch, pathBars: RK.path.bars, swing: RK.path.swing, sched: RK.schedRows, units: RK.unitGroups };
+    return { ...PH, ...base, ch, pathBars: RK.path.bars, swing: RK.path.swing, sched: RK.schedRows, units: RK.unitGroups };
   }
 }
 </script>
