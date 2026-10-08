@@ -22,40 +22,40 @@ Phase 8  Multi-sport (NFL)
 **Goal:** a skeleton that deploys end to end, with the safety rails in place *before* the first feature. (Each rail was retrofitted on a previous project, and retrofitting cost more.)
 
 **Repo bootstrap**
-- [ ] Create the private GitHub repo (Claude asks first) and push the bootstrap commit (planning docs, `.claude/rules`, `.gitignore`) as the initial `main`. This is the only direct commit to `main`; everything after goes through PRs.
+- [x] Create the private GitHub repo (Claude asks first) and push the bootstrap commit (planning docs, `.claude/rules`, `.gitignore`) as the initial `main`. This is the only direct commit to `main`; everything after goes through PRs.
 
 **Accounts & scaffolding**
-- [ ] Accounts: CFBD key (Patreon tier 1, already active), Neon, Cloudflare R2, Vercel
-- [ ] Install `uv` and `pnpm`; uv workspace (`python/engine`, `python/api`, `python/db`), Python 3.13
-- [ ] Next.js 16 app in `web/` (TS strict, Tailwind, shadcn/ui, `agentRules: false`)
-- [ ] One Vercel project serving Next.js + the FastAPI function, or two projects if that doesn't work (decide and record)
+- [ ] Accounts: CFBD key (Patreon tier 1, already active), Neon, Cloudflare R2, Vercel _(partial: CFBD, Neon and Vercel done; R2 not created yet, needed by the Phase 1 raw writer and the `backup` workflow)_
+- [x] Install `uv` and `pnpm`; uv workspace (`python/engine`, `python/api`, `python/db`), Python 3.13
+- [ ] Next.js 16 app in `web/` (TS strict, Tailwind, shadcn/ui, `agentRules: false`) _(partial: shadcn/ui not set up yet)_
+- [x] One Vercel project serving Next.js + the FastAPI function, or two projects if that doesn't work (decide and record)
 
 **Databases & environments**
-- [ ] Four Neon branches: `main` (prod), `dev`, `test`, and per-PR `preview/*` via the Vercel integration
-- [ ] `.env` → dev; prod URL only in gitignored `.env.live`, used only with an explicit flag
-- [ ] Test DB guard: tests require `TEST_DATABASE_URL`, distinct from `DATABASE_URL`, with no fallback
-- [ ] `LIVE=true` guard on every destructive command
-- [ ] Pooled URL for the app (`prepare_threshold=None`, `NullPool`), unpooled for migrations/jobs
-- [ ] `PG_MAJOR` set once and used by CI's service container and backup tooling
+- [x] Four Neon branches: `main` (prod), `dev`, `test`, and per-PR `preview/*` via the Vercel integration
+- [ ] `.env` → dev; prod URL only in gitignored `.env.live`, used only with an explicit flag _(partial: `.env.local` → dev done; `.env.live` and its flag land with the `release` workflow)_
+- [x] Test DB guard: tests require `TEST_DATABASE_URL`, distinct from `DATABASE_URL`, with no fallback
+- [x] `LIVE=true` guard on every destructive command
+- [x] Pooled URL for the app (`prepare_threshold=None`, `NullPool`), unpooled for migrations/jobs
+- [ ] `PG_MAJOR` set once and used by CI's service container and backup tooling _(partial: set in CI, D-099; backup tooling pending)_
 
 **Schema & migrations**
-- [ ] SQLAlchemy models + Alembic; first migration: `sports`, `teams`, `team_seasons`, `venues`, `games`
-- [ ] `python/db/views/` applied after every migration (rebuild, preview build, release)
-- [ ] CI migration checks: single head, `alembic check`, no edits to merged migrations, downgrade test for destructive changes
+- [x] SQLAlchemy models + Alembic; first migration: `sports`, `teams`, `team_seasons`, `venues`, `games`
+- [ ] `python/db/views/` applied after every migration (rebuild, preview build, release) _(partial: every `db migrate` and the preview build apply them; rebuild and release pending)_
+- [ ] CI migration checks: single head, `alembic check`, no edits to merged migrations, downgrade test for destructive changes _(partial: single head and `alembic check` run in CI; edits to merged migrations are blocked only by the kit's protected paths, not CI; no destructive migration yet to need a downgrade test)_
 
 **Deploy & ops**
-- [ ] FastAPI `/api/py/health` (outside auth, no data) + `/teams`; Next.js page renders teams from the API
+- [x] FastAPI `/api/py/health` (outside auth, no data) + `/teams`; Next.js page renders teams from the API
 - [ ] Auth.js with GitHub login + allowlist; bad session → redirect to `/login`; API JWT check
-- [ ] CI on PR: ruff, pyright, pytest, eslint, tsc, vitest, migration checks
+- [x] CI on PR: ruff, pyright, pytest, eslint, tsc, vitest, migration checks
 - [ ] `release` workflow: plan → snapshot → migrate → views → promote → smoke test (with dry run)
 - [ ] Nightly `backup` workflow with restore verification → R2
 - [ ] Dependabot with documented ignores (Next majors, TypeScript ≥ 7)
 
 **Claude Code setup**
-- [ ] `.claude/rules/` in place (git, database, web): **done in planning**
+- [x] `.claude/rules/` in place (git, database, web): **done in planning**
 - [ ] `PreToolUse` hook blocking whole-file reads of `data/**`, `*.parquet`, `*.duckdb`, large fixtures/mockups
-- [ ] A schema-reviewer subagent for schema/view/query PRs
-- [ ] CLAUDE.md "Commands" section filled in
+- [x] A schema-reviewer subagent for schema/view/query PRs
+- [x] CLAUDE.md "Commands" section filled in
 
 **Acceptance:** log in on the deployed production URL from your phone and see a team list read from Neon through the API. It was deployed through the release workflow, and last night's backup restored cleanly.
 
