@@ -6,7 +6,7 @@ argument-hint: short description, OR a task list path plus optional milestone (e
 
 # New task(s): $ARGUMENTS
 
-> **Doc paths:** the document paths below are defaults. If the "Project docs" table in `CLAUDE.md` maps a role to a different path, use the mapped path.
+> **Doc roles:** names in **bold** such as **Architecture**, **Data model**, or **Design tokens** are roles in the "Project docs" table in `CLAUDE.md`. Always read and write the path the table gives for a role, including a `§ section` if it names one. The path in parentheses is only the default, used when the table is missing. If a role maps to `—`, follow the fallback stated in the step, or ask. Refer to sections by name, never by number.
 
 ## Mode
 
@@ -15,11 +15,11 @@ argument-hint: short description, OR a task list path plus optional milestone (e
 
 ## Procedure
 
-1. Read `docs/tasks/_TEMPLATE.md`, the existing `docs/tasks/TASK-*.md` front matter, `docs/architecture.md`, `docs/decisions.md`, and the CLAUDE.md hard rules.
+1. Read `docs/tasks/_TEMPLATE.md`, the existing `docs/tasks/TASK-*.md` front matter, the **Architecture**, **Data model**, **Features**, and **Screen inventory** docs, any **Domain specs** the tasks touch, `docs/decisions.md`, and the CLAUDE.md hard rules.
 2. Next ID = highest existing `TASK-###` across the task files + 1, zero-padded to 3 digits.
 3. For each task, fill every template section:
    - **Goal**: the user-visible outcome in 1–2 sentences. No implementation detail.
-   - **Context**: links to the exact architecture/design sections and relevant decision IDs. Read the design file to cite real screens and components.
+   - **Context**: links to the exact architecture, data model, and domain-spec sections, plus relevant decision IDs. UI tasks cite their screen ID, design file in the **Design source of truth**, and **Reference screenshot**. Read the design file to cite real components.
    - **Acceptance criteria**: 2–6 items, each checkable (see the rules below).
    - **Out of scope**: at least one line. Name the adjacent work a reasonable engineer might wrongly include.
    - **Files likely touched**: based on the current codebase. Explore it; do not guess paths.

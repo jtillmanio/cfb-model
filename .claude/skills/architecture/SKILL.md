@@ -1,20 +1,20 @@
 ---
 name: architecture
-description: Produces docs/architecture.md and seeds docs/decisions.md from the product brief, feature list, and design — presenting each key technical decision as options with trade-offs for the user to choose. Use when the user runs /architecture or asks to design the system, pick a stack, or write the architecture doc.
+description: Produces the architecture doc (and data model) and seeds docs/decisions.md from the product brief, feature list, and design — presenting each key technical decision as options with trade-offs for the user to choose. Use when the user runs /architecture or asks to design the system, pick a stack, or write the architecture doc.
 argument-hint: (optional) focus area or constraint, e.g. "must use Postgres"
 ---
 
 # Architecture $ARGUMENTS
 
-> **Doc paths:** the document paths below are defaults. If the "Project docs" table in `CLAUDE.md` maps a role to a different path, use the mapped path.
+> **Doc roles:** names in **bold** such as **Architecture**, **Data model**, or **Design tokens** are roles in the "Project docs" table in `CLAUDE.md`. Always read and write the path the table gives for a role, including a `§ section` if it names one. The path in parentheses is only the default, used when the table is missing. If a role maps to `—`, follow the fallback stated in the step, or ask. Refer to sections by name, never by number.
 
-Output: `docs/architecture.md`, following `docs/templates/architecture.md` section by section, plus seeded rows in `docs/decisions.md`.
+Output: the **Architecture** doc (default `docs/architecture.md`), following `docs/templates/architecture.md` section by section. If **Data model** maps to a separate file, put the data model there and link to it from the architecture doc. Also seed rows in `docs/decisions.md`. If these docs already exist, amend them by appending or updating sections, never overwriting, and confirm before changing existing text.
 
 ## Phase 1: Read (read-only)
 
-1. Read `docs/product/brief.md` and `docs/product/features.md`. If either is missing, stop and suggest `/product-brief`.
+1. Read the **Product brief**, **Features**, and **Screen inventory**, plus any **Domain specs**. If the brief or features are missing, stop and suggest `/product-brief`.
 2. Read the design:
-   - Everything under `design/`, including a Claude Design handoff bundle if present.
+   - The **Design source of truth** (default `design/`), **Design tokens**, and **Reference screenshots**, including any handoff README or manifest.
    - Note the screens, components, design tokens, and any data the screens display. That data implies the entities and queries.
 3. Read existing code, `CLAUDE.md`, and `docs/decisions.md` if present.
 4. Infer the entities from three sources: the features' data columns, what the screens display, and the import sources. List any conflicts between them.
@@ -31,7 +31,7 @@ Recommend boring, well-documented choices with free tiers that fit the stated sc
 
 ## Phase 3: Write
 
-1. **docs/architecture.md** with every template section:
+1. **Architecture doc** (and **Data model** doc if separate) with every template section:
    - Data model: a mermaid ER diagram plus a table per entity (fields, types, keys, constraints, indexes). Explicitly state what is stored vs. derived.
    - Feature traceability: every MVP feature maps to screens, components, and entities. Flag any MVP feature that maps to nothing.
    - NFRs: each one with a number.

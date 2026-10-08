@@ -5,7 +5,7 @@ description: One-time setup (or re-run after an upgrade) that tailors the Claude
 
 # Customize the starter kit (v2)
 
-> **Doc paths:** the document paths below are defaults. If the "Project docs" table in `CLAUDE.md` maps a role to a different path, use the mapped path.
+> **Doc roles:** names in **bold** such as **Architecture**, **Data model**, or **Design tokens** are roles in the "Project docs" table in `CLAUDE.md`. Always read and write the path the table gives for a role, including a `§ section` if it names one. The path in parentheses is only the default, used when the table is missing. If a role maps to `—`, follow the fallback stated in the step, or ask. Refer to sections by name, never by number.
 
 Goal: every `{{...}}` placeholder and every empty `kit.json` value that applies to this project is filled with facts from this repository. Every command has been run once, and nothing is invented.
 
@@ -20,7 +20,7 @@ Goal: every `{{...}}` placeholder and every empty `kit.json` value that applies 
 
 0. If `docs/kit-adoption.md` exists (written by `/adopt`), read it first. Use its role map, design inventory, toolchain inventory, and "Inputs for /customize-kit" as confirmed facts, and don't re-ask anything it settles.
 1. Detect the stack: manifests, lockfiles, framework and test configs, lint configs, ORM/migration tooling and its directory, generated-code directories, existing CI workflows, dev server command and port flag.
-2. Read `docs/architecture.md`, design files, `docs/decisions.md`, and any task list.
+2. Read the **Architecture**, **Data model**, and **Domain specs** docs, the **Design source of truth**, **Design tokens**, **Reference screenshots**, `docs/decisions.md`, and any **Task list**.
 3. Run `git remote -v`, `gh auth status`, and `claude --version`. Agent view needs Claude Code v2.1.139 or later.
 4. Present a findings table: languages, framework, package manager, test runner (and how to run specific test files), linter, typechecker, DB and migration tool, dev server command with port flag, design source files, GitHub remote, gh authenticated (y/n), Claude Code version. Mark anything unknown as `UNKNOWN`.
 5. Ask the user to confirm or correct the table and to pick 3–6 hard rules (offer candidates from the architecture doc). **Stop until they answer.**

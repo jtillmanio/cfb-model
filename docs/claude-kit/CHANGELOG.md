@@ -1,5 +1,17 @@
 # Changelog
 
+## v2.3.1: Doc-role fixes
+
+### Fixed
+
+- **Skills and agents now refer to document roles, not default paths.** Every reference resolves through the "Project docs" table, so projects with their own doc names (numbered docs, `design/handoff/`) get the right files. Specific fixes:
+  - `/skeleton` took design tokens from `design/` (the design source of truth) instead of the **Design tokens** role.
+  - `/skeleton` referred to architecture sections by number (§2/§8/§9), which non-kit docs don't have.
+  - `schema-reviewer` pointed at the architecture doc where it should read the **Data model** role.
+  - `/product-brief` wrote the screen inventory into the features file regardless of the **Screen inventory** role, and could overwrite existing docs. It now appends or updates sections only.
+  - `/architecture`, `/milestones`, `/new-task`, and `/customize-kit` read **Data model**, **Domain specs**, **Screen inventory**, **Design tokens**, and **Reference screenshots** through the table.
+- **The doc-roles note** at the top of each skill and agent now says explicitly that table paths (including `§ section`) take precedence over defaults, and that sections are referenced by name, not number.
+
 ## v2.3: Central install location
 
 ### Added

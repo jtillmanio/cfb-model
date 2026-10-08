@@ -1,17 +1,17 @@
 ---
 name: skeleton
-description: Builds the walking skeleton defined in docs/architecture.md — project scaffold, toolchain scripts, one thin end-to-end slice with a unit test and an e2e smoke test, CI, and dev setup — so /customize-kit has a real stack to configure. Use when the user runs /skeleton or asks to scaffold or bootstrap the project.
+description: Builds the walking skeleton defined in the Architecture doc — project scaffold, toolchain scripts, one thin end-to-end slice with a unit test and an e2e smoke test, CI, and dev setup — so /customize-kit has a real stack to configure. Use when the user runs /skeleton or asks to scaffold or bootstrap the project.
 ---
 
 # Walking skeleton
 
-> **Doc paths:** the document paths below are defaults. If the "Project docs" table in `CLAUDE.md` maps a role to a different path, use the mapped path.
+> **Doc roles:** names in **bold** such as **Architecture**, **Data model**, or **Design tokens** are roles in the "Project docs" table in `CLAUDE.md`. Always read and write the path the table gives for a role, including a `§ section` if it names one. The path in parentheses is only the default, used when the table is missing. If a role maps to `—`, follow the fallback stated in the step, or ask. Refer to sections by name, never by number.
 
 Goal: the smallest running system that exercises every layer once, with every check the kit will rely on already working. **No product features beyond the slice.**
 
 ## Phase 0: Preflight
 
-1. Read `docs/architecture.md` §2 (Stack), §8 (Testing strategy), §9 (Walking skeleton spec), and `docs/decisions.md`. If §9 is missing, stop and suggest `/architecture`.
+1. Read the **Architecture** doc (default `docs/architecture.md`): its Stack, Testing strategy, and Walking skeleton spec sections. Also read the **Data model** for the slice's entity, and `docs/decisions.md`. If there's no walking skeleton spec section, stop and suggest `/architecture`, or ask the user where the spec is.
 2. The working tree must be clean. Create branch `task/skeleton`.
 3. Confirm the toolchain exists locally: runtime versions, package manager, database access. List anything missing with the install command (PowerShell) and stop.
 4. Secrets: you write `.env.example` with placeholder values only. If the app needs real secrets (a database URL, API keys), ask the user to create `.env.local` from it. That file is protected, so you can't and shouldn't write it.
@@ -35,7 +35,7 @@ Present a plan of at most 30 lines covering:
 
 1. Scaffold with the generator. Don't hand-write what the generator produces.
 2. Add the scripts, the slice, the migration, the seed, the tests, `.env.example`, and the CI changes.
-3. Apply the design tokens from `design/` (colors, type, spacing) as the base styles, so later UI tasks start on-brand. Build only the slice's screen.
+3. Apply the **Design tokens** (colors, type, spacing, radius) as the base styles, so later UI tasks start on-brand. If that role is `—`, take the tokens from the **Design source of truth**. Build the slice's screen to match its design in the **Design source of truth** and its **Reference screenshots**, and build only that screen.
 4. Write `README.md` dev setup: prerequisites, install, env setup, migrate, seed, run, test. Use PowerShell commands.
 
 ## Phase 3: Verify (gate)

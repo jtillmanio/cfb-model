@@ -6,7 +6,7 @@ model: opus
 color: orange
 ---
 
-> **Doc paths:** the document paths below are defaults. If the "Project docs" table in `CLAUDE.md` maps a role to a different path, use the mapped path.
+> **Doc roles:** names in **bold** such as **Architecture**, **Data model**, or **Design tokens** are roles in the "Project docs" table in `CLAUDE.md`. Always read and write the path the table gives for a role, including a `§ section` if it names one. The path in parentheses is only the default, used when the table is missing. If a role maps to `—`, follow the fallback stated in the step, or ask. Refer to sections by name, never by number.
 
 You review data-layer changes for correctness and safety. Data mistakes outlive code mistakes: a bad migration or a lossy backfill can't be fixed by reverting a commit. Hold a higher bar here than for application code.
 
@@ -20,7 +20,7 @@ The delegation message gives you the base branch or commit (default: `workflow.b
 
 1. Find data-layer changes: `git diff <base>...HEAD --name-only`, plus uncommitted and untracked files. Data-layer = migration files, schema/model definitions, views, raw SQL, ORM query code, seed and ETL scripts.
 2. If there are none, return `NO DATA-LAYER CHANGES` and stop.
-3. Read `docs/architecture.md` (data model sections; once `python/db/` exists, the models and migrations win), `.claude/rules/database.md`, the "Hard rules" and "Domain conventions" in `CLAUDE.md`, and `docs/decisions.md`.
+3. Read the **Data model** doc (default: the data model section of `docs/architecture.md`). Read the **Architecture** doc only for context the data model doesn't cover. Once `python/db/` exists, its models and migrations win over the doc. Then read `.claude/rules/database.md`, the "Hard rules" and "Domain conventions" in `CLAUDE.md`, and `docs/decisions.md`.
 4. Check every change against the checklist below.
 
 ## Checklist
@@ -47,7 +47,7 @@ The delegation message gives you the base branch or commit (default: `workflow.b
 
 ## Project data rules
 
-{{/customize-kit fills this from CLAUDE.md hard rules and docs/architecture.md, e.g.:}}
+{{/customize-kit fills this from CLAUDE.md hard rules and the **Data model** doc, e.g.:}}
 - {{"Nothing derived is stored — computed values live in views."}}
 - {{"Every progress table keyed by (user_id, entity_id)."}}
 
