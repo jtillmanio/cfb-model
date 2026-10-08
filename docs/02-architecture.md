@@ -140,7 +140,8 @@ GitHub Actions gives a private repo 2,000 free minutes a month. Our jobs should 
 - Next.js uses **Auth.js** with a GitHub OAuth provider and an allowlist of one GitHub ID. Everyone else is rejected.
 - A stale or badly signed session cookie **redirects to `/login`**; it never 500s the app.
 - Next.js server code calls the API with a short-lived **JWT signed with a shared secret**. The API verifies it on every request except `/api/py/health`.
-- If we later turn on Vercel Deployment Protection, automation (smoke tests) sends the `x-vercel-protection-bypass` header.
+- If we later turn on Vercel Deployment Protection, automation (smoke tests, the Lighthouse job) sends the `x-vercel-protection-bypass` header.
+- Preview and production use different `AUTH_SECRET`s, so a session minted for a preview (the Lighthouse job) can never open production.
 
 ## Environments & databases
 
@@ -256,6 +257,7 @@ _Added 2026-10-07 (D-089, D-090). The tools come from the Tooling section above.
 | Model / backtest | pytest on a tiny lake fixture (a two-season subset) | Determinism: same spec + same inputs → identical metrics, checked against golden numbers that change only in a commit that says why. Leakage: changing any game after week N leaves week-N predictions unchanged. The harness refuses hindsight ratings, and refuses holdout seasons without the holdout flag ([04 § 9](04-model.md#9-evaluation-protocol-fixed-2026-10-07)) | CI |
 | End to end | Playwright against `next start` + `uvicorn` on the seeded test DB, fixed clock, viewports 390×844 and 1440×900 | The journeys below | CI (e2e job); ui-verifier agent |
 | Visual reference | Playwright screenshots reviewed against `design/handoff/screenshots/` | Layout and component drift. No pixel-diff assertions (font rendering differs), but with the fixture the numbers on screen should match the reference shots exactly | ui-verifier, PR review |
+| Performance | Lighthouse on each PR preview (§ Performance checks below) | Bytes, requests, CLS and accessibility against `scripts/perf/budget.json` and forbidden requests (gated); timings reported only | `lighthouse` workflow on `deployment_status`; its pure logic in Vitest |
 | Operations | GitHub Actions run on the branch (`gh workflow run <file> --ref <branch>`) | `release` dry run; `backup` restore verification | On demand |
 
 ### End-to-end journeys
@@ -296,6 +298,50 @@ Screen and feature IDs: [05 › Screen inventory](05-ui-design-brief.md#screen-i
 | User | One allowlisted user; theme dark, time zone America/New_York, default contest "Splash work league" | — |
 | Phase 5 rows (added with their migrations) | Season simulations per §5 (no P(CFP) until Phase 7); weather snapshots (Iowa @ Wisconsin: wind 17 mph, gusts 26; Kentucky @ Georgia: rain 80%); the BYU alert; Texas vs Oklahoma and Iowa @ Wisconsin starred | (01, 18) |
 | State fixtures | "offseason": 2027 week 0, no games, 2026 final record 61-48-2, +8.2u, CLV +0.8. "preseason team": Ohio State before week 1. Loaded per test | (20, 21) |
+
+### Performance checks (Lighthouse)
+
+_Added 2026-10-08 (D-101). The pattern comes from the owner's `ledger` project (`.github/workflows/lighthouse.yml`, `scripts/perf/`, `test/perf.test.ts`); use it as a pattern, not a template, since its host, sign-in and routes differ._
+
+Every PR preview is measured with Lighthouse automatically. The job **fails the PR only on numbers that stay put between runs** and reports everything else in one PR comment.
+
+**Gates (fail the PR):**
+- a forbidden request during a page load or prefetch, named in the failure (e.g. a nav `<Link>` prefetch hitting an `/api/py/*` route; the browser never calls the API, per hard rule 5)
+- per route: document bytes (plus the RSC payload), JS bytes, or request count over budget
+- CLS ≥ 0.1
+- an accessibility score below the recorded one
+- a route that never finished measuring, or that landed somewhere unexpected (a redirect to `/login` means the session didn't take)
+
+**Reported, never gated:** TTFB, FCP, LCP and TBT, shown as first hit / median next to the baseline. Timings on a preview depend on whether Neon and the functions are cold, which is luck. That matches § Non-functional requirements: latency is measured, never asserted.
+
+**Measurement profile:** Lighthouse mobile, `--throttling-method=devtools` (Slow 4G, 4× CPU), `--only-categories=performance,accessibility`, three runs per route, median. Lighthouse (and puppeteer-core, if used) are pinned in a separate `scripts/perf/package.json` that only the workflow installs (`npm ci --prefix scripts/perf`), never the app build; it stays out of `pnpm-workspace.yaml`. Chrome on Actions needs `--no-sandbox`. Vercel extras are left out of the counts: send `x-vercel-skip-toolbar: 1` and drop `vercel.live` / `_next-live` requests.
+
+**Triggers:** `deployment_status` with `state == success` on the Preview environment, plus `workflow_dispatch` with a `url` input. Production's URL lives in a repo variable; the job refuses it unless an `allow_production` input is ticked.
+
+**Signing in:** sign-in is GitHub-only, which a script can't do, so the job mints an Auth.js session cookie with the **preview** `AUTH_SECRET` (a repo secret), the same way e2e does (§ Test-only sign-in and clock). This is safe only because previews and production use **different** `AUTH_SECRET`s, so the job's cookie can never open production. If Vercel Deployment Protection is on, `x-vercel-protection-bypass` goes on every request (Lighthouse `--extra-headers` and any puppeteer `setExtraHTTPHeaders`). Secrets reach scripts only through `env:`, never `run:` text. Each script prints `::add-mask::` for every secret and for the minted cookie before anything else, and logs statuses, never values. Headers go to a temp folder outside the reports folder, deleted in an `if: always()` step.
+
+**Reports stay private:** Lighthouse copies `--extra-headers` into its JSON and HTML. Every report is scrubbed, then a separate guard step fails, and uploads nothing, if any file still contains a secret. Reports are workflow artifacts with 14-day retention; never LHCI's public temporary storage.
+
+**Workflow shape:** `permissions: {}` at the top, least privilege per job.
+1. `plan`: picks the URL (or says why not), outputs the route list as JSON, finds the PR for the commit.
+2. `measure`: a matrix with one job per route, `fail-fast: false`, concurrency group `lighthouse-pr-<n>-<route>` with `cancel-in-progress: true`. Uploads `metrics.json` (numbers only, plus per-run errors) and the reports.
+3. `report`: runs even when a route failed (not when cancelled). Merges the metrics, uploads `lighthouse-metrics`, finds the baseline, writes the job summary, posts **one** PR comment (found by an HTML-comment marker and edited in place), and exits 1 on any gate problem. The only job with `pull-requests: write`.
+
+**Baseline:** the newest merged PR's newest green run (squash merges mean `main` builds no preview). Its `lighthouse-metrics` artifact is downloaded with `continue-on-error`; once it expires, the comment says "no baseline".
+
+**Files:** `scripts/perf/routes.mjs` (the one route list: `id`, `path`, `signedIn`), `budget.json` (per route: `docBytes`, `jsBytes`, `requests`, `a11y`), `mint-session.mjs` (replaces ledger's `login.mjs`), `measure.mjs`, `report.mjs` (`plan | guard DIR | merge DIR | baseline | report`; Node plus the GitHub REST API), and `lib/perf.mjs` holding all the logic as pure functions. A Vitest test with fixture Lighthouse results and no network covers each gate at and just over budget, the comment, `measurable` refusing production and non-success states, the scrubber and guard (the guard names files, not values), baseline choice, and the route list: a top-level page with no route fails, budget keys match route ids one for one, and the table below matches `budget.json`.
+
+**Routes:** every top-level screen, plus a small and a large instance of each data-heavy detail page (e.g. Game Detail, Team). Each new screen adds its route and budget in the PR that builds it; the route-list test enforces this.
+
+**Budgets:** never invented. The first version ships with budgets set from its own preview's run: median + 20%, bytes rounded up to the next 1,000; accessibility is the measured score. Check that bytes move < 1% between runs. Record the measured numbers, Lighthouse version and Chrome version beside the table. Raising a budget later needs a written reason in the PR.
+
+**Open: what the pages show.** Previews start empty, so for now routes measure empty and static states, which hold steady. Once preview branches carry production data, page bytes follow the week's slate size and could fail a gate for reasons unrelated to the code. Before the first data-heavy screen gets a budget (Phase 4), decide whether byte gates stay on the preview or move to an in-job build on the seeded fixture DB (roadmap › Open questions).
+
+<!-- perf-budget:start -->
+| Route | Doc bytes | JS bytes | Requests | A11y |
+|---|---|---|---|---|
+| _set from the first preview run_ | | | | |
+<!-- perf-budget:end -->
 
 ## Walking skeleton
 
