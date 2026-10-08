@@ -2,7 +2,8 @@ import { defineConfig, devices } from "@playwright/test";
 
 // E2E runs `next start` + uvicorn against the seeded test DB (APP_ENV=test routes the API
 // through the test-DB guard). Run `pnpm db:migrate:test` and `pnpm db:seed` first.
-// CI runs `pnpm build` as its own step; locally this builds first so a stale .next can't pass.
+// CI runs `pnpm build` as its own step (with API_URL set in ci.yml, since next.config bakes the
+// /api/py rewrite at build time); locally this builds first so a stale .next can't pass.
 const WEB_PORT = 3100;
 const API_PORT = 8001;
 const API_URL = `http://127.0.0.1:${API_PORT}`;
