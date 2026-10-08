@@ -92,7 +92,7 @@ Grading is not a job. Pick results, CLV and records are **SQL views** over picks
 - On-demand compute: hypothetical matchups, what-if adjustments (light numpy).
 - Writes: contest entries, manual adjustments, lab model specs, watchlist stars and alert settings.
 - **Model lab trigger:** "Run backtest" saves a `model_run` with status `queued` and starts the `backtest` GitHub Actions workflow through the GitHub API, using a fine-grained token with only `actions:write` on this repo. The job writes results back to Postgres, and the UI polls the run's status.
-- `/api/health` is the **only** route outside the auth gate. It returns the commit SHA, whether the DB is reachable, and the current migration head. No data.
+- `/api/py/health` is the **only** route outside the auth gate. It returns the commit SHA, whether the DB is reachable, and the current migration head. No data.
 - Deployed to Vercel as a Python function (zero-config FastAPI support, 250 MB bundle limit, which is why the light-core split matters).
 
 ### 3. `web/`: Next.js app (TypeScript, App Router)
@@ -139,7 +139,7 @@ GitHub Actions gives a private repo 2,000 free minutes a month. Our jobs should 
 
 - Next.js uses **Auth.js** with a GitHub OAuth provider and an allowlist of one GitHub ID. Everyone else is rejected.
 - A stale or badly signed session cookie **redirects to `/login`**; it never 500s the app.
-- Next.js server code calls the API with a short-lived **JWT signed with a shared secret**. The API verifies it on every request except `/api/health`.
+- Next.js server code calls the API with a short-lived **JWT signed with a shared secret**. The API verifies it on every request except `/api/py/health`.
 - If we later turn on Vercel Deployment Protection, automation (smoke tests) sends the `x-vercel-protection-bypass` header.
 
 ## Environments & databases
@@ -171,7 +171,7 @@ The engine treats the lake location as config (`LAKE_URI=./data` or `s3://cfb-la
 2. **Snapshot:** create a Neon branch of production, if there are migrations to apply.
 3. **Migrate** (Alembic, unpooled URL) from that commit's migrations, then **re-apply SQL views**.
 4. **Promote** the staged build.
-5. **Smoke test** `/api/health` on the production domain: right commit, DB reachable, expected migration head.
+5. **Smoke test** `/api/py/health` on the production domain: right commit, DB reachable, expected migration head.
 
 Schema goes first and code second, so old code briefly runs on the new schema, never the reverse.
 
@@ -250,7 +250,7 @@ _Added 2026-10-07 (D-089, D-090). The tools come from the Tooling section above.
 | Unit: engine | pytest | Probability math (Φ(edge/σ), edge, EV); pick and tier rules read from a `ModelSpec`; `ModelSpec` and `ContestRules` validation; the Splash paste parser, run on `design/sample-splash.txt` (a real page copy) and on the Week 6 paste; point-in-time assertions; the test-DB guard and the `LIVE` guard | `verify.full`, CI |
 | Unit: web | Vitest | `format.ts` against every example on the number-format card (`OSU −27.5`, `BSU −10` padded, `PK`, `−110`, `CLEM −34.0`, `+3.7 OSU`, `59%`, `~54%`, `TEX 54%`, `+27.4`, `▲3 ▼1 —`, `31-24-1`, `5-0`, `+4.6u`, `−1.1u`, `+0.9 pts`, `Sat 3:30 PM ET`, `Locks in 1d 14h`, `PUR 3 · OSU 24`, `Q3 9:12`); component states (edge pill threshold, tier badge, result marker, lock countdown); pick-tray logic (tap, re-tap to clear, switch side) | `verify.full`, CI |
 | Integration: database | pytest against Postgres: a CI service container on `PG_MAJOR`, or the Neon `test` branch locally | Migrations: one head, `alembic check`, up → down → up for destructive changes. Every view in [03 › Views](03-data-model.md#views-derived-data-lives-here) against the fixture with expected values (e.g. `model_record` for v1.0 in 2026 = 31-24-1, +4.6u). `EXPLAIN` shows no full scan for single-item reads. Upsert by `(source, source_id)` is idempotent. Ratings, predictions and picks are never UPDATEd or DELETEd | CI |
-| Integration: API | pytest with FastAPI's TestClient on the seeded test DB | Each screen endpoint returns the fixture values; every route except `/api/health` requires the JWT; each endpoint's query count stays within its budget; a contest entry after kickoff is rejected | CI |
+| Integration: API | pytest with FastAPI's TestClient on the seeded test DB | Each screen endpoint returns the fixture values; every route except `/api/py/health` requires the JWT; each endpoint's query count stays within its budget; a contest entry after kickoff is rejected | CI |
 | Contract | `openapi-typescript` + `tsc` | The generated client matches the API's current OpenAPI schema; CI fails on drift | CI |
 | Data / ETL | pytest on a small lake fixture of recorded CFBD responses (no network) | `transform --rebuild` from raw with zero API calls; the data-quality checks in [03](03-data-model.md#data-quality-checks-run-after-each-ingest); "no future data" (max source time < `as_of`); the call-budget tracker counts every call | CI |
 | Model / backtest | pytest on a tiny lake fixture (a two-season subset) | Determinism: same spec + same inputs → identical metrics, checked against golden numbers that change only in a commit that says why. Leakage: changing any game after week N leaves week-N predictions unchanged. The harness refuses hindsight ratings, and refuses holdout seasons without the holdout flag ([04 § 9](04-model.md#9-evaluation-protocol-fixed-2026-10-07)) | CI |
@@ -306,7 +306,7 @@ _Added 2026-10-07 (D-079). The thinnest slice that crosses every layer once. `/s
   - The `/teams` page is a server component that calls the API and renders a team chip (color dot), school and conference.
   - A `loading.tsx` skeleton is drawn at the loaded size, and an empty state reads "No teams yet".
   - The page stays public reference data until the sign-in task lands.
-- **Health:** `/api/health` (see Components § 2) returns the commit SHA, whether the DB is reachable, and the migration head. Whether it sits under `/api/py` is settled together with D-013.
+- **Health:** `/api/py/health` (see Components § 2) returns the commit SHA, whether the DB is reachable, and the migration head. It sits under `/api/py` with the rest of the API (D-100).
 - **Data:**
   - The first migration creates `sports`, `teams`, `team_seasons`, `venues` and `games`, as in Phase 0.
   - The view-apply step runs even while `python/db/views/` is empty.
@@ -315,7 +315,7 @@ _Added 2026-10-07 (D-079). The thinnest slice that crosses every layer once. `/s
   - `design/handoff/tokens/tokens.css` is loaded once, with Tailwind v4 `@theme inline` mappings.
   - IBM Plex Sans and Mono load via `next/font`; dark is the default.
   - Nothing else from the design system.
-- **Scripts** (proposed; the `/skeleton` plan gate confirms). One root `package.json`, so every command runs under `cmd.exe /c`:
+- **Scripts** (confirmed at the `/skeleton` plan gate; the root `package.json` is the source). Every command runs under `cmd.exe /c`:
 
   | Script | Runs |
   |---|---|
@@ -325,13 +325,17 @@ _Added 2026-10-07 (D-079). The thinnest slice that crosses every layer once. `/s
   | `test` | `pnpm --dir web exec vitest run` and `uv run pytest` |
   | `test:e2e` | `pnpm --dir web exec playwright test` |
   | `build` | `pnpm --dir web build` |
-  | `db:migrate` | `uv run alembic upgrade head`, then apply `python/db/views/*.sql` |
+  | `db:migrate` | `python -m db migrate`: Alembic to head on the dev DB (unpooled), then apply `python/db/views/*.sql` |
+  | `db:migrate:test` | the same against the test DB (through the test-DB guard) |
+  | `db:check` | exactly one Alembic head, and `alembic check` against the test DB |
   | `db:seed` | the engine CLI's fixture seed (test DB only) |
+  | `ingest:games` | `engine ingest games --season Y --week N`: one CFBD call into the dev DB (D-098) |
+  | `bootstrap` | `pnpm install`, `uv sync` and Playwright's Chromium |
 
 - **Tests:**
   - Python unit: the test-DB guard refuses when `TEST_DATABASE_URL` is unset or names the same host and database as `DATABASE_URL`.
   - Web unit: one Vitest test on the team list's ordering (conference, then school).
-  - E2E: Playwright loads `/teams` on the seeded test DB and sees "Ohio State" with "Big Ten", then requests `/api/health` and gets a reachable DB.
+  - E2E: Playwright loads `/teams` on the seeded test DB and sees "Ohio State" with "Big Ten", then requests `/api/py/health` and gets a reachable DB.
 - **CI:** the `verify` job in `.github/workflows/ci.yml`:
   - sets up uv (Python 3.13) and pnpm, with a Postgres service on `PG_MAJOR`;
   - runs `db:migrate` and `db:seed`;
@@ -342,8 +346,8 @@ _Added 2026-10-07 (D-079). The thinnest slice that crosses every layer once. `/s
 - **Exit criteria:**
   - Every script exits 0 from a clean checkout on Windows.
   - CI is green.
-  - The PR's preview renders `/teams` (the empty state, on the empty preview DB) and `/api/health` with the right commit SHA.
-- **Not in the skeleton:** sign-in, `release`, `backup`, Dependabot, hooks, real CFBD data, and any design-system component beyond the tokens and fonts.
+  - The PR's preview renders `/teams` (the empty state, on the empty preview DB) and `/api/py/health` with the right commit SHA.
+- **Not in the skeleton:** sign-in, `release`, `backup`, Dependabot, hooks, real CFBD data beyond the dev-only `ingest:games` command (D-098), and any design-system component beyond the tokens and fonts.
 
 ## Non-functional requirements
 
@@ -364,7 +368,7 @@ _Added 2026-10-07 (D-092). Numbers already fixed elsewhere in this doc are resta
 | Cost | About $1/month expected; $5/month ceiling before revisiting | § Hosting & cost plan |
 | Availability | Best effort on free tiers. No uptime target and no paging; a failed job shows as an old "Updated" time and a failed workflow run | New |
 | Backups | Recovery point ≤ 24 h (nightly, restore-verified). Recovery time ≤ 2 h, following a written restore runbook (to be written in the Phase 0 backup task) | § Release & operations; RTO new |
-| Security | One allowlisted GitHub account; the session lasts 90 days on a device (D-095, from the login design), and the API JWT stays short-lived. `/api/health` is the only unauthenticated route and returns no data. Secrets live in the environment, never the repo, and production's URL only in `.env.live` | § Auth; § Environments |
+| Security | One allowlisted GitHub account; the session lasts 90 days on a device (D-095, from the login design), and the API JWT stays short-lived. `/api/py/health` is the only unauthenticated route and returns no data. Secrets live in the environment, never the repo, and production's URL only in `.env.live` | § Auth; § Environments |
 | Accessibility | WCAG AA contrast in both themes (4.5:1 text, 3:1 UI); tap targets ≥ 44 px at 390; every control reachable by keyboard with a visible focus ring; color never the only signal; reduced motion respected | `design/README.md`; `tokens.json` contrast checks |
 | Devices | Desktop at 1280+ and phones at 390+ on current evergreen browsers (Chrome, Edge, Safari, mobile Safari and Chrome) | 05 (desktop and phone both first-class); browsers new |
 | Data correctness | Publishing stops when a data-quality check (03) or a point-in-time assertion fails; nothing partial reaches Postgres | 03 › Data quality checks; new |

@@ -1,0 +1,20 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "services": {
+    "web": {
+      "root": "web/",
+      "framework": "nextjs",
+      "buildCommand": "uv --directory ../python run --frozen --no-dev python -m db migrate --target preview && next build",
+      "bindings": [{ "type": "service", "service": "api", "format": "url", "env": "API_URL" }]
+    },
+    "api": {
+      "root": "python/api/",
+      "framework": "fastapi",
+      "entrypoint": "src.api.main:app"
+    }
+  },
+  "rewrites": [
+    { "source": "/api/py/(.*)", "destination": { "service": "api" } },
+    { "source": "/(.*)", "destination": { "service": "web" } }
+  ]
+}

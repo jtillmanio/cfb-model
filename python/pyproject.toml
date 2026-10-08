@@ -1,0 +1,44 @@
+# uv workspace root. `uv run` from here syncs every member plus the dev tools.
+[project]
+name = "cfb"
+version = "0.0.0"
+requires-python = ">=3.13,<3.14"
+dependencies = ["cfb-db", "cfb-engine", "cfb-api"]
+
+[dependency-groups]
+dev = ["pytest>=8.4", "ruff>=0.13", "pyright>=1.1.405", "uvicorn>=0.37", "httpx2>=2.13"]
+
+[tool.uv]
+package = false
+
+[tool.uv.workspace]
+members = ["db", "engine", "api"]
+
+[tool.uv.sources]
+cfb-db = { workspace = true }
+cfb-engine = { workspace = true }
+cfb-api = { workspace = true }
+
+[tool.ruff]
+target-version = "py313"
+line-length = 100
+extend-exclude = [".claude"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["db", "engine", "api"]
+
+[tool.pyright]
+include = ["db/src", "db/tests", "db/migrations", "engine/src", "engine/tests", "api/src", "api/tests"]
+exclude = ["**/.claude", "**/.venv"]
+pythonVersion = "3.13"
+venvPath = "."
+venv = ".venv"
+typeCheckingMode = "standard"
+
+[tool.pytest.ini_options]
+testpaths = ["db/tests", "engine/tests", "api/tests"]
+addopts = "-q"
+norecursedirs = [".claude", ".venv"]

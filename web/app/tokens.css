@@ -1,0 +1,89 @@
+/* CFB Analytics — color tokens. Dark is default (:root). Values: oklch, hex in comment. */
+:root, .dark {
+  --background: oklch(0.165 0.008 255); /* #0c0f12 */
+  --foreground: oklch(0.955 0.004 255); /* #eef0f3 */
+  --card: oklch(0.2 0.009 255); /* #13161a */
+  --card-foreground: oklch(0.955 0.004 255); /* #eef0f3 */
+  --popover: oklch(0.235 0.01 255); /* #1b1e23 */
+  --popover-foreground: oklch(0.955 0.004 255); /* #eef0f3 */
+  --primary: oklch(0.93 0.006 255); /* #e5e8ec */
+  --primary-foreground: oklch(0.2 0.009 255); /* #13161a */
+  --secondary: oklch(0.27 0.01 255); /* #23272b */
+  --secondary-foreground: oklch(0.955 0.004 255); /* #eef0f3 */
+  --muted: oklch(0.245 0.01 255); /* #1d2125 */
+  --muted-foreground: oklch(0.72 0.014 255); /* #9fa5ad */
+  --accent: oklch(0.285 0.012 255); /* #262a30 */
+  --accent-foreground: oklch(0.955 0.004 255); /* #eef0f3 */
+  --destructive: oklch(0.68 0.17 25); /* #ef6661 */
+  --destructive-foreground: oklch(0.165 0.008 255); /* #0c0f12 */
+  --border: oklch(0.3 0.01 255); /* #2a2e33 */
+  --input: oklch(0.5 0.012 255); /* #5f646a */
+  --ring: oklch(0.72 0.12 250); /* #67aaed */
+  --edge: oklch(0.74 0.12 300); /* #b699eb */
+  --edge-foreground: oklch(0.165 0.008 255); /* #0c0f12 */
+  --pos: oklch(0.75 0.12 245); /* #68b5f5 */
+  --neg: oklch(0.76 0.14 60); /* #f19a4b */
+  --push: oklch(0.74 0.01 255); /* #a7abb1 */
+  --tier-a: oklch(0.76 0.12 300); /* #bd9ff2 */
+  --tier-a-foreground: oklch(0.165 0.008 255); /* #0c0f12 */
+  --tier-b: oklch(0.6 0.11 300); /* #8a70b8 */
+  --tier-b-foreground: oklch(0.165 0.008 255); /* #0c0f12 */
+  --tier-c: oklch(0.32 0.07 300); /* #392a51 */
+  --tier-c-foreground: oklch(0.86 0.06 300); /* #d7c9f3 */
+  --live: oklch(0.76 0.15 155); /* #52cd86 */
+  --locked: oklch(0.67 0.01 255); /* #91969b */
+  --breakeven: oklch(0.85 0.01 255); /* #c9ced4 */
+  --chart-1: oklch(0.7 0.13 245); /* #4fa6e9 */
+  --chart-2: oklch(0.72 0.14 60); /* #e38d3d */
+  --chart-3: oklch(0.7 0.12 300); /* #aa8dde */
+  --chart-4: oklch(0.72 0.11 190); /* #39bab4 */
+  --chart-5: oklch(0.65 0.02 255); /* #87909c */
+}
+.light {
+  --background: oklch(0.975 0.003 255); /* #f5f7f9 */
+  --foreground: oklch(0.2 0.01 255); /* #13161b */
+  --card: oklch(0.995 0.001 255); /* #fdfdfe */
+  --card-foreground: oklch(0.2 0.01 255); /* #13161b */
+  --popover: oklch(1 0 0); /* #ffffff */
+  --popover-foreground: oklch(0.2 0.01 255); /* #13161b */
+  --primary: oklch(0.24 0.012 255); /* #1b2025 */
+  --primary-foreground: oklch(0.985 0.002 255); /* #f9fafb */
+  --secondary: oklch(0.94 0.005 255); /* #e9ebee */
+  --secondary-foreground: oklch(0.2 0.01 255); /* #13161b */
+  --muted: oklch(0.95 0.004 255); /* #edeff1 */
+  --muted-foreground: oklch(0.5 0.014 255); /* #5e646b */
+  --accent: oklch(0.93 0.006 255); /* #e5e8ec */
+  --accent-foreground: oklch(0.2 0.01 255); /* #13161b */
+  --destructive: oklch(0.54 0.19 25); /* #c52b30 */
+  --destructive-foreground: oklch(0.99 0 0); /* #fcfcfc */
+  --border: oklch(0.9 0.006 255); /* #dbdee2 */
+  --input: oklch(0.62 0.01 255); /* #82878c */
+  --ring: oklch(0.55 0.15 250); /* #0f74c5 */
+  --edge: oklch(0.48 0.16 300); /* #6d41a9 */
+  --edge-foreground: oklch(0.99 0 0); /* #fcfcfc */
+  --pos: oklch(0.5 0.14 250); /* #0465af */
+  --neg: oklch(0.52 0.14 50); /* #a64b00 */
+  --push: oklch(0.5 0.01 255); /* #5f6469 */
+  --tier-a: oklch(0.48 0.16 300); /* #6d41a9 */
+  --tier-a-foreground: oklch(0.99 0 0); /* #fcfcfc */
+  --tier-b: oklch(0.64 0.12 300); /* #987aca */
+  --tier-b-foreground: oklch(0.2 0.01 255); /* #13161b */
+  --tier-c: oklch(0.9 0.04 300); /* #e2d9f5 */
+  --tier-c-foreground: oklch(0.42 0.14 300); /* #5a358c */
+  --live: oklch(0.5 0.12 155); /* #0b7643 */
+  --locked: oklch(0.51 0.01 255); /* #62666c */
+  --breakeven: oklch(0.35 0.01 255); /* #373b40 */
+  --chart-1: oklch(0.56 0.14 245); /* #037ac0 */
+  --chart-2: oklch(0.62 0.15 55); /* #c9690c */
+  --chart-3: oklch(0.55 0.14 300); /* #7f5bb6 */
+  --chart-4: oklch(0.58 0.1 190); /* #018d87 */
+  --chart-5: oklch(0.6 0.02 255); /* #78818c */
+}
+
+/* Type */
+:root {
+  --font-sans: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+  --radius: 6px;
+}
+body { font-variant-numeric: tabular-nums lining-nums; }
