@@ -10,7 +10,7 @@
     "api": {
       "root": "python/api/",
       "framework": "fastapi",
-      "entrypoint": "api.main:app"
+      "entrypoint": "src.api.main:app"
     }
   },
   "rewrites": [

@@ -1,7 +1,8 @@
 """FastAPI service: one endpoint per screen, all under /api/py (D-013).
 
-Vercel loads `app` from here (pyproject `tool.vercel.entrypoint`); locally `pnpm dev` runs it
-with uvicorn on :8000. Sign-in and the JWT check arrive with the Phase 0 sign-in task.
+Vercel loads `app` from here (`src.api.main:app`, a path relative to python/api/); locally
+`pnpm dev` runs it with uvicorn on :8000. Sign-in and the JWT check arrive with the Phase 0
+sign-in task.
 """
 
 from __future__ import annotations

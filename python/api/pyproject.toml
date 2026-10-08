@@ -9,7 +9,7 @@ dependencies = ["cfb-db", "fastapi>=0.118"]
 cfb-db = { workspace = true }
 
 [tool.vercel]
-entrypoint = "api.main:app"
+entrypoint = "src.api.main:app"
 
 [build-system]
 requires = ["uv_build>=0.12,<0.13"]
