@@ -20,25 +20,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
 
-    # PG_MAJOR is set once, here (D-017, D-099). A service image can't read `env`, so it's a
-    # one-value matrix; the backup workflow reads the same value when it lands.
-    strategy:
-      matrix:
-        pg_major: ["18"]
-
-    services:
-      postgres:
-        image: postgres:${{ matrix.pg_major }}
-        env:
-          POSTGRES_USER: ci
-          POSTGRES_PASSWORD: ci
-          POSTGRES_DB: cfb_test
-        ports: ["5432:5432"]
-        options: >-
-          --health-cmd "pg_isready -U ci" --health-interval 5s --health-timeout 5s --health-retries 10
-
     env:
-      PG_MAJOR: ${{ matrix.pg_major }}
+      # Set once, here (D-017, D-099); the backup workflow reads the same value when it lands.
+      # Postgres starts in a step, not `services:`, because a service image can't read `env`.
+      PG_MAJOR: "18"
       # Tests, the fixture seed and e2e read only this (the test-DB guard). No DATABASE_URL in CI.
       TEST_DATABASE_URL: postgresql://ci:ci@localhost:5432/cfb_test
       UV_FROZEN: "1"
@@ -50,7 +35,20 @@ jobs:
         shell: pwsh
         run: ./.claude/scripts/build-index.ps1
 
-      - uses: astral-sh/setup-uv@v10
+      - name: Start Postgres ${{ env.PG_MAJOR }}
+        run: |
+          docker run -d --name pg -p 5432:5432 \
+            -e POSTGRES_USER=ci -e POSTGRES_PASSWORD=ci -e POSTGRES_DB=cfb_test \
+            "postgres:${PG_MAJOR}"
+          for _ in $(seq 1 30); do
+            docker exec pg pg_isready -U ci -d cfb_test && exit 0
+            sleep 2
+          done
+          docker logs pg
+          exit 1
+
+      # setup-uv publishes exact version tags only (no floating major).
+      - uses: astral-sh/setup-uv@v10.2.0
         with:
           enable-cache: true
           cache-dependency-glob: python/uv.lock
