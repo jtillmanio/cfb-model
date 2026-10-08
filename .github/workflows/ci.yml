@@ -1,5 +1,4 @@
 # CI gate for every PR and every push to the base branch.
-# /customize-kit replaces the "not configured" step with this stack's setup and checks.
 # Keep the job name "verify": branch protection requires it by name.
 name: CI
 
@@ -17,65 +16,72 @@ permissions:
 
 jobs:
   verify:
+    name: verify
     runs-on: ubuntu-latest
     timeout-minutes: 20
 
-    # ---- Throwaway database (uncomment if the app has one) ----------------
-    # services:
-    #   postgres:
-    #     image: postgres:16
-    #     env:
-    #       POSTGRES_USER: ci
-    #       POSTGRES_PASSWORD: ci
-    #       POSTGRES_DB: app_ci
-    #     ports: ["5432:5432"]
-    #     options: >-
-    #       --health-cmd "pg_isready -U ci" --health-interval 5s --health-timeout 5s --health-retries 10
-    # env:
-    #   DATABASE_URL: postgres://ci:ci@localhost:5432/app_ci
+    # PG_MAJOR is set once, here (D-017, D-099). A service image can't read `env`, so it's a
+    # one-value matrix; the backup workflow reads the same value when it lands.
+    strategy:
+      matrix:
+        pg_major: ["18"]
+
+    services:
+      postgres:
+        image: postgres:${{ matrix.pg_major }}
+        env:
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci
+          POSTGRES_DB: cfb_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U ci" --health-interval 5s --health-timeout 5s --health-retries 10
+
+    env:
+      PG_MAJOR: ${{ matrix.pg_major }}
+      # Tests, the fixture seed and e2e read only this (the test-DB guard). No DATABASE_URL in CI.
+      TEST_DATABASE_URL: postgresql://ci:ci@localhost:5432/cfb_test
+      UV_FROZEN: "1"
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Task files parse cleanly
         shell: pwsh
         run: ./.claude/scripts/build-index.ps1
 
-      # ---- Stack setup and checks (filled by /customize-kit) ---------------
-      - name: CI not configured
+      - uses: astral-sh/setup-uv@v10
+        with:
+          enable-cache: true
+          cache-dependency-glob: python/uv.lock
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install
         run: |
-          echo "::error::CI is not configured for this stack yet. Run /customize-kit in Claude Code."
-          exit 1
+          pnpm install --frozen-lockfile
+          uv --directory python sync
+          pnpm --dir web exec playwright install --with-deps chromium
 
-      # Node example:
-      # - uses: actions/setup-node@v4
-      #   with: { node-version-file: ".nvmrc", cache: "npm" }
-      # - run: npm ci
-      # - run: npm run db:migrate        # against the service DB above
-      # - run: npm run typecheck
-      # - run: npm run lint
-      # - run: npm test
-      # - run: npm run build
-      #
-      # Python example:
-      # - uses: actions/setup-python@v5
-      #   with: { python-version: "3.12", cache: "pip" }
-      # - run: pip install -r requirements.txt
-      # - run: ruff check . && mypy . && pytest -q
+      - name: Migrate the test DB
+        run: pnpm db:migrate:test
+      - name: Migration checks (one head, models match migrations)
+        run: pnpm db:check
+      - name: Seed the fixture
+        run: pnpm db:seed
 
-  # ---- End-to-end smoke suite (uncomment once you have Playwright tests) ---
-  # e2e:
-  #   needs: verify
-  #   runs-on: ubuntu-latest
-  #   timeout-minutes: 20
-  #   steps:
-  #     - uses: actions/checkout@v6
-  #     - uses: actions/setup-node@v4
-  #       with: { node-version-file: ".nvmrc", cache: "npm" }
-  #     - run: npm ci
-  #     - run: npx playwright install --with-deps chromium
-  #     - run: npm run build
-  #     - run: npx playwright test --project=smoke
-  #     - uses: actions/upload-artifact@v4
-  #       if: failure()
-  #       with: { name: playwright-report, path: playwright-report }
+      - run: pnpm typecheck
+      - run: pnpm lint
+      - run: pnpm test
+      - run: pnpm build
+      - run: pnpm test:e2e
+
+      - uses: actions/upload-artifact@v7
+        if: failure()
+        with:
+          name: playwright-report
+          path: web/playwright-report
+          if-no-files-found: ignore

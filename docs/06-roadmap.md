@@ -44,7 +44,7 @@ Phase 8  Multi-sport (NFL)
 - [ ] CI migration checks: single head, `alembic check`, no edits to merged migrations, downgrade test for destructive changes
 
 **Deploy & ops**
-- [ ] FastAPI `/api/health` (outside auth, no data) + `/teams`; Next.js page renders teams from the API
+- [ ] FastAPI `/api/py/health` (outside auth, no data) + `/teams`; Next.js page renders teams from the API
 - [ ] Auth.js with GitHub login + allowlist; bad session → redirect to `/login`; API JWT check
 - [ ] CI on PR: ruff, pyright, pytest, eslint, tsc, vitest, migration checks
 - [ ] `release` workflow: plan → snapshot → migrate → views → promote → smoke test (with dry run)

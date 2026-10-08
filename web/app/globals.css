@@ -1,0 +1,83 @@
+@import "tailwindcss";
+/* Copied byte-for-byte from design/handoff/tokens/tokens.css; re-copy after a re-export.
+   Dark is the default (:root); `.light` on <html> switches theme. */
+@import "./tokens.css";
+
+/* Tailwind v4 mappings for the design tokens (design/README.md › Design tokens). */
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-edge: var(--edge);
+  --color-edge-foreground: var(--edge-foreground);
+  --color-pos: var(--pos);
+  --color-neg: var(--neg);
+  --color-push: var(--push);
+  --color-tier-a: var(--tier-a);
+  --color-tier-a-foreground: var(--tier-a-foreground);
+  --color-tier-b: var(--tier-b);
+  --color-tier-b-foreground: var(--tier-b-foreground);
+  --color-tier-c: var(--tier-c);
+  --color-tier-c-foreground: var(--tier-c-foreground);
+  --color-live: var(--live);
+  --color-locked: var(--locked);
+  --color-breakeven: var(--breakeven);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+
+  /* next/font loads IBM Plex under hashed family names, exposed as these variables. */
+  --font-sans: var(--font-plex-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-plex-mono), ui-monospace, monospace;
+
+  --radius-sm: 4px;
+  --radius-md: var(--radius);
+  --radius-lg: 8px;
+  --radius-xl: 12px;
+
+  /* Type scale: size/line-height pairs from design/README.md › Typography. */
+  --text-caption: 12px;
+  --text-caption--line-height: 16px;
+  --text-label: 13px;
+  --text-label--line-height: 16px;
+  --text-body: 14px;
+  --text-body--line-height: 20px;
+  --text-panel: 16px;
+  --text-panel--line-height: 24px;
+  --text-section: 20px;
+  --text-section--line-height: 28px;
+  --text-title: 24px;
+  --text-title--line-height: 32px;
+}
+
+@layer base {
+  * {
+    border-color: var(--border);
+  }
+  body {
+    background: var(--background);
+    color: var(--foreground);
+  }
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+}

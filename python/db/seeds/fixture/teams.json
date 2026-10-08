@@ -1,0 +1,25 @@
+{
+  "_source": "design/sample-data.md §4 and design/handoff/designs/rankings-data.js (team colors). Test DB only (D-089).",
+  "season": 2026,
+  "teams": [
+    { "source_id": "osu", "school": "Ohio State", "abbreviation": "OSU", "color": "#BB0000", "conference": "Big Ten", "division": "fbs" },
+    { "source_id": "tex", "school": "Texas", "abbreviation": "TEX", "color": "#BF5700", "conference": "SEC", "division": "fbs" },
+    { "source_id": "ore", "school": "Oregon", "abbreviation": "ORE", "color": "#154733", "conference": "Big Ten", "division": "fbs" },
+    { "source_id": "ou", "school": "Oklahoma", "abbreviation": "OU", "color": "#841617", "conference": "SEC", "division": "fbs" },
+    { "source_id": "uga", "school": "Georgia", "abbreviation": "UGA", "color": "#BA0C2F", "conference": "SEC", "division": "fbs" },
+    { "source_id": "miss", "school": "Ole Miss", "abbreviation": "MISS", "color": "#CE1126", "conference": "SEC", "division": "fbs" },
+    { "source_id": "nd", "school": "Notre Dame", "abbreviation": "ND", "color": "#0C2340", "conference": "Ind", "division": "fbs" },
+    { "source_id": "psu", "school": "Penn State", "abbreviation": "PSU", "color": "#041E42", "conference": "Big Ten", "division": "fbs" },
+    { "source_id": "lsu", "school": "LSU", "abbreviation": "LSU", "color": "#461D7C", "conference": "SEC", "division": "fbs" },
+    { "source_id": "utah", "school": "Utah", "abbreviation": "UTAH", "color": "#CC0000", "conference": "Big 12", "division": "fbs" },
+    { "source_id": "pur", "school": "Purdue", "abbreviation": "PUR", "color": "#CEB888", "conference": "Big Ten", "division": "fbs" },
+    { "source_id": "uk", "school": "Kentucky", "abbreviation": "UK", "color": "#0033A0", "conference": "SEC", "division": "fbs" },
+    { "source_id": "stan", "school": "Stanford", "abbreviation": "STAN", "color": "#8C1515", "conference": "ACC", "division": "fbs" },
+    { "source_id": "ksu", "school": "Kansas State", "abbreviation": "KSU", "color": "#512888", "conference": "Big 12", "division": "fbs" },
+    { "source_id": "akr", "school": "Akron", "abbreviation": "AKR", "color": "#041E42", "conference": "MAC", "division": "fbs" },
+    { "source_id": "ohio", "school": "Ohio", "abbreviation": "OHIO", "color": "#00694E", "conference": "MAC", "division": "fbs" },
+    { "source_id": "rutg", "school": "Rutgers", "abbreviation": "RUTG", "color": "#CC0033", "conference": "Big Ten", "division": "fbs" },
+    { "source_id": "minn", "school": "Minnesota", "abbreviation": "MINN", "color": "#7A0019", "conference": "Big Ten", "division": "fbs" },
+    { "source_id": "uw", "school": "Washington", "abbreviation": "UW", "color": "#4B2E83", "conference": "Big Ten", "division": "fbs" }
+  ]
+}

@@ -1,0 +1,22 @@
+{
+  "name": "cfb-model",
+  "private": true,
+  "packageManager": "pnpm@12.10.1",
+  "scripts": {
+    "bootstrap": "pnpm install && uv --directory python sync && pnpm --dir web exec playwright install chromium",
+    "dev": "concurrently -k -n web,api -c blue,green \"pnpm --dir web dev\" \"uv --directory python run uvicorn api.main:app --reload --reload-dir api/src --port 8000\"",
+    "typecheck": "pnpm --dir web typecheck && uv --directory python run pyright",
+    "lint": "pnpm --dir web lint && uv --directory python run ruff check .",
+    "test": "pnpm --dir web test && uv --directory python run pytest",
+    "test:e2e": "pnpm --dir web test:e2e",
+    "build": "pnpm --dir web build",
+    "db:migrate": "uv --directory python run python -m db migrate --target dev",
+    "db:migrate:test": "uv --directory python run python -m db migrate --target test",
+    "db:check": "uv --directory python run python -m db check --target test",
+    "db:seed": "uv --directory python run engine seed fixture",
+    "ingest:games": "uv --directory python run engine ingest games"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1"
+  }
+}

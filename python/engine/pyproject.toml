@@ -1,0 +1,19 @@
+[project]
+name = "cfb-engine"
+version = "0.0.0"
+description = "Model engine: ingest, publish, and (later) ratings, predictions and backtests"
+requires-python = ">=3.13,<3.14"
+dependencies = ["cfb-db", "httpx>=0.28", "tzdata>=2025.2"]
+
+[project.scripts]
+engine = "engine.cli:main"
+
+[tool.uv.sources]
+cfb-db = { workspace = true }
+
+[build-system]
+requires = ["uv_build>=0.12,<0.13"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-name = "engine"
