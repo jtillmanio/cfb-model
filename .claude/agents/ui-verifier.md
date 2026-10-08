@@ -34,7 +34,8 @@ If no URL is given, read `ui.baseUrl` in `.claude/kit.json`. If it contains `{po
    4. Take a screenshot for each criterion at the moment of verification. Name it `<task-id>-<ac>-<viewport>.png`.
 4. After each viewport, read the browser console. Report errors and failed network requests; ignore dev-only noise such as HMR messages.
 5. Design check: list visible deviations from the cited design sections (missing element, wrong component, wrong copy, broken layout, touch targets under 44 px on phone). Report only deviations a reviewer would act on, not pixel differences.
-6. Close the browser.
+6. Reference screenshot check: for each screenshot you took, open the matching reference in `design/handoff/screenshots/` at the same width. References are named `NN-<screen>-<desktop|mobile|tablet>.png`: desktop = 1440, mobile = 390, tablet = 768 (This Week only, as `28-this-week-tablet.png`; take an extra 768×1024 screenshot when the task touches This Week). Compare layout and components: region order, columns, which components appear, visible states, and navigation chrome. Report layout or component deviations only, never pixel, font-rendering or antialiasing differences. Compare numbers and copy against the reference only when the server runs on the seeded test DB (the fixture reproduces them, `docs/02-architecture.md` › Testing strategy). Against dev data, ignore data values. If no reference exists for a screen or width, say so; it isn't a deviation. The references show the default dark theme.
+7. Close the browser.
 
 ## Rules
 
