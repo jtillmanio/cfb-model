@@ -27,24 +27,23 @@ Stages 1–3 are where most rework is prevented. An hour spent on scope and data
 | Design done and exported, no architecture | Stage 3 (run `/product-brief` first if `features.md` doesn't exist) |
 | Architecture written, no code | Stage 4 |
 | Code exists, no tasks | Stage 5, then 6 |
+| Docs and design done, and phase 0 done (repo, CI, DB, hosting) | `ADOPTING.md` (`/adopt`) |
 
 ---
 
 ## Stage 0: Repo and kit (about 15 minutes)
 
 ```powershell
-mkdir C:\dev\my-app; cd C:\dev\my-app
+mkdir C:\Development\my-app; cd C:\Development\my-app
 git init -b main
 gh repo create my-app --private --source . --remote origin
 
-# Copy files directly from your extracted tools path
-robocopy "C:\Development\tools\claude-code-starter-kit-v2" . /E /XF README.md USER-GUIDE.md WORKFLOW.md CHANGELOG.md KICKOFF.md
-New-Item -ItemType Directory -Force docs\claude-kit | Out-Null
-Copy-Item "C:\Development\tools\claude-code-starter-kit-v2\*.md" docs\claude-kit\ -Exclude CLAUDE.md
+powershell -NoProfile -ExecutionPolicy Bypass -File C:\Development\tools\claude-code-starter-kit\install-kit.ps1
 
 git add -A; git commit -m "chore: add Claude Code starter kit"; git push -u origin main
-
 ```
+
+This assumes the kit is already at `C:\Development\tools\claude-code-starter-kit\` (one-time setup: USER-GUIDE §3.1). With the profile shortcut, the install line is just `Install-ClaudeKit`.
 
 Start `claude` in the folder, accept the trust prompt, and type `/` to confirm `product-brief`, `architecture`, `skeleton`, and `milestones` appear. The hooks do nothing until `/customize-kit` fills `kit.json`, so they won't get in the way of early stages.
 

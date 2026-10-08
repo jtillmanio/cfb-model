@@ -1,5 +1,54 @@
 # Changelog
 
+## v2.3.1: Doc-role fixes
+
+### Fixed
+
+- **Skills and agents now refer to document roles, not default paths.** Every reference resolves through the "Project docs" table, so projects with their own doc names (numbered docs, `design/handoff/`) get the right files. Specific fixes:
+  - `/skeleton` took design tokens from `design/` (the design source of truth) instead of the **Design tokens** role.
+  - `/skeleton` referred to architecture sections by number (§2/§8/§9), which non-kit docs don't have.
+  - `schema-reviewer` pointed at the architecture doc where it should read the **Data model** role.
+  - `/product-brief` wrote the screen inventory into the features file regardless of the **Screen inventory** role, and could overwrite existing docs. It now appends or updates sections only.
+  - `/architecture`, `/milestones`, `/new-task`, and `/customize-kit` read **Data model**, **Domain specs**, **Screen inventory**, **Design tokens**, and **Reference screenshots** through the table.
+- **The doc-roles note** at the top of each skill and agent now says explicitly that table paths (including `§ section`) take precedence over defaults, and that sections are referenced by name, not number.
+
+## v2.3: Central install location
+
+### Added
+
+- **`install-kit.ps1`**: installs or upgrades the kit from the central folder `C:\Development\tools\claude-code-starter-kit\` into any project.
+  - Never overwrites customized files; differences go to `.kit-incoming\` for Claude to merge.
+  - Skips the placeholder `ci.yml` when the project already has CI.
+  - Copies the guides to `docs/claude-kit/` and records the version in `.claude/kit-version`.
+  - `-Upgrade` refreshes kit-owned files (skills, hooks, scripts, templates); `-WhatIf` previews.
+- **`VERSION`** file.
+- Optional `Install-ClaudeKit` profile shortcut (USER-GUIDE §3.1).
+
+### Changed
+
+- The zip's root folder is now `claude-code-starter-kit` (no version suffix), so updates replace the central folder in place.
+- USER-GUIDE §3, KICKOFF Stage 0, ADOPTING Step 2, and README use the installer instead of `robocopy` and manual copies.
+- `/adopt` merges `.kit-incoming\` first if it exists.
+
+## v2.2: Adopting existing projects
+
+### Added
+
+- **`ADOPTING.md`**: a generic guide for projects that already have docs, design, a repo, CI, a database, hosting, or code.
+  - Covers pre-flight checks, install collisions, the 9-step adoption pipeline, and common situations.
+  - Includes an example role map and a fallback prompt for when the skill isn't available.
+- **`/adopt`**:
+  - Discovers docs, design, toolchain, CI, database, hosting, and issues.
+  - Maps existing files to kit roles without renaming anything.
+  - Checks what's already built against the code.
+  - Extracts decisions, then writes `docs/kit-adoption.md` (role map, inventories, gap report classed BLOCKS TASKS / BLOCKS UNATTENDED / NICE, and inputs for `/customize-kit` and `/milestones`).
+- **"Project docs" table in `CLAUDE.md`**: every skill and agent now resolves document paths through it, so the kit works with any doc naming scheme without editing skills.
+
+### Changed
+
+- `/customize-kit` reads `docs/kit-adoption.md` first, keeps existing CI (proposes deleting the kit's `ci.yml`), and merges the PR template.
+- `/milestones` accepts a source roadmap, excludes built work, schedules toolchain gaps in M1, and requires design citations on UI stubs.
+
 ## v2.1: Kickoff
 
 ### Added

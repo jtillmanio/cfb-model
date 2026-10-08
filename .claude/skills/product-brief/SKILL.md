@@ -1,18 +1,21 @@
 ---
 name: product-brief
-description: Turns brainstorm notes (a file, pasted text, or an interview) into the brief and feature list (docs/01-product.md) and the Claude Design brief (docs/05-ui-design-brief.md), amending them in place. Use when the user runs /product-brief, is starting a new project, or asks to capture features, scope, or an MVP cut from a brainstorm.
-argument-hint: (optional) path to new brainstorm notes to fold into docs/01-product.md
+description: Turns brainstorm notes (a file, pasted text, or an interview) into a product brief, a feature list with a screen inventory, and a ready-to-paste Claude Design brief. Use when the user runs /product-brief, is starting a new project, or asks to capture features, scope, or an MVP cut from a brainstorm.
+argument-hint: (optional) path to brainstorm notes, e.g. docs/product/brainstorm.md
 ---
 
 # Product brief: $ARGUMENTS
 
-In this project the three kit outputs already exist under other names (see "Project docs" in `CLAUDE.md`). Amend them in place against the templates in `docs/templates/`; never regenerate, rename or restructure them:
+> **Doc roles:** names in **bold** such as **Architecture**, **Data model**, or **Design tokens** are roles in the "Project docs" table in `CLAUDE.md`. Always read and write the path the table gives for a role, including a `§ section` if it names one. The path in parentheses is only the default, used when the table is missing. If a role maps to `—`, follow the fallback stated in the step, or ask. Refer to sections by name, never by number.
 
-| Kit output | This project | Template | Purpose |
-|---|---|---|---|
-| brief | `docs/01-product.md` (What we're building · Who it's for · What "good" looks like · Non-goals) | `brief.md` | Problem, users, measurable goals, non-goals, constraints, MVP success |
-| features | `docs/01-product.md` › Feature set; screen inventory in `docs/05-ui-design-brief.md` › Screens | `features.md` | Feature list with IDs and priority, screen inventory, rough entities, cut list |
-| design brief | `docs/05-ui-design-brief.md` (prompts in `docs/07-claude-design-playbook.md`) | (written fresh) | The prompt to paste into Claude Design |
+Produce these outputs from the templates in `docs/templates/`, writing each to the path its role maps to in the Project docs table. When two roles map to the same file, write both into that file as separate sections. When a role maps to a `§ section` of a file, write or update only that section.
+
+| Output | From template | Purpose |
+|---|---|---|
+| **Product brief** (default `docs/product/brief.md`) | `brief.md` | Problem, users, measurable goals, non-goals, constraints, MVP success |
+| **Features** (default `docs/product/features.md`) | `features.md` | Feature list with IDs and priority, rough entities, cut list |
+| **Screen inventory** (default `docs/product/features.md` § Screen inventory) | `features.md` § Screen inventory | Screen IDs, purpose, features, states to design |
+| **Design brief / intent** (default `docs/product/design-brief.md`) | (written fresh) | The prompt to paste into Claude Design |
 
 ## Phase 1: Gather (read-only)
 
@@ -20,7 +23,7 @@ In this project the three kit outputs already exist under other names (see "Proj
    - If `$ARGUMENTS` is a path, read that file.
    - If the user pasted notes, use those.
    - If there's neither, interview: ask the questions below in one batch.
-2. Read `docs/01-product.md`, `docs/05-ui-design-brief.md`, `docs/06-roadmap.md`, the design (`design/README.md`, `design/handoff/designs/`, `design/handoff/screenshots/`), and code, so you don't contradict what exists. Where the designs and 05 disagree, the designs win.
+2. Read whatever already exists for these roles, the **Design source of truth**, and the code, so you don't contradict what's there. If any of these outputs already exist, append or update sections. Never overwrite, and confirm before changing existing text.
 3. Extract every feature idea mentioned, including passing ones. Nothing gets silently dropped: each idea becomes a feature row or a cut-list entry.
 
 ## Phase 2: Fill the gaps (one batch, at most 8 questions)
@@ -36,14 +39,14 @@ Ask only what the notes don't answer. Prefer multiple choice with a recommended 
 
 ## Phase 3: Write
 
-1. **brief** (`docs/01-product.md`): one page. Goals must have a metric and a target. Every constraint gets a value or `UNKNOWN`.
-2. **features** (`docs/01-product.md` › Feature set; screen inventory in `docs/05-ui-design-brief.md`):
+1. **Product brief**: one page. Goals must have a metric and a target. Every constraint gets a value or `UNKNOWN`.
+2. **Features**:
    - IDs `F-01…`, user stories, priority MVP / Next / Later.
    - 2–3 acceptance notes per MVP feature, written as observable outcomes; they become ACs later.
-   - Screen inventory `S-01…`: every MVP feature maps to at least one screen, and every screen lists the states to design (default, empty, loading, error, plus any others).
    - Rough entities.
    - Cut list with a reason for each cut.
-3. **design brief** (`docs/05-ui-design-brief.md`; prompts live in `docs/07-claude-design-playbook.md`): a self-contained prompt for Claude Design containing:
+3. **Screen inventory**: `S-01…`. Every MVP feature maps to at least one screen, and every screen lists the states to design (default, empty, loading, error, plus any others).
+4. **Design brief**: a self-contained prompt for Claude Design containing:
    - product summary, users, devices;
    - design-system requests (palette, type scale, spacing, components) to set up before any screens;
    - the MVP screen inventory with purpose and states;
@@ -55,4 +58,4 @@ Ask only what the notes don't answer. Prefer multiple choice with a recommended 
 
 - Counts: features by priority, screens, entities, open questions.
 - The 3 riskiest scope decisions for the user to double-check.
-- Next step: run the design prompts from `docs/07-claude-design-playbook.md` in Claude Design. When the design is done, replace the handoff bundle in `design/handoff/` (its README is `design/README.md`) and run `/architecture`.
+- Next step: paste the **Design brief** into Claude Design. When the design is done, export a handoff bundle into the **Design source of truth** folder (default `design/`) and run `/architecture`.

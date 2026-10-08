@@ -6,6 +6,8 @@ argument-hint: (optional) N tasks to plan (default 3) and/or specific IDs, e.g. 
 
 # Plan batch: $ARGUMENTS
 
+> **Doc roles:** names in **bold** such as **Architecture**, **Data model**, or **Design tokens** are roles in the "Project docs" table in `CLAUDE.md`. Always read and write the path the table gives for a role, including a `§ section` if it names one. The path in parentheses is only the default, used when the table is missing. If a role maps to `—`, follow the fallback stated in the step, or ask. Refer to sections by name, never by number.
+
 Planning only. Edit nothing except the selected task files' `## Plan` section and their `plan_status` / `planned_at_commit` front matter. Never write code, run migrations, or create branches.
 
 ## Select tasks
