@@ -2,7 +2,7 @@
 
 Personal sports-analytics app. A college football model makes game predictions, compares them to spreads (market and Splash pick'em contest lines), recommends picks, ranks teams (later also seasons, programs and coaches across history), projects seasons, and tracks its own record. Multi-sport later.
 
-**Status:** planning complete, Phase 0 next. Status lives in the `docs/06-roadmap.md` checklists.
+**Status:** Phase 0 in progress. The walking skeleton is merged: Neon DB and migration `0001`, `/api/py/health` and `/teams`, CI and Vercel previews. Not built yet: auth, shadcn/ui, `release` and `backup` workflows, R2, Dependabot, the data-read hook. Status lives in the `docs/06-roadmap.md` checklists.
 
 ## Where things are
 - `docs/01`–`07`: product, architecture, data model, model, UI brief, roadmap, Claude Design playbook. Read the relevant one before starting a phase task.
@@ -57,6 +57,7 @@ Checkable against a diff; the spec-reviewer agent enforces them. Each restates a
 4. Anything that predicts a game reads only data from before kickoff, and every feature table and backtest path asserts it.
 5. `python/api` imports only the engine's light core, and the browser never calls the API directly (one server-side API call per page).
 6. Never edit files matched by `protectedPaths` in `.claude/kit.json` (including `design/**` and `.env.live`) or a migration already on `main`. If one must change, stop and ask.
+7. UI uses design tokens from `design/handoff/tokens/` (via `web/app/tokens.css` and the `@theme` in `web/app/globals.css`); no hard-coded colors, font sizes, or spacing.
 
 ## Stop and ask before
 - Any schema change (new table or column, a type change, a dropped column) or changing how a stored date or line is interpreted
@@ -69,4 +70,28 @@ Checkable against a diff; the spec-reviewer agent enforces them. Each restates a
 The user is an experienced software developer, new to statistical modeling. Explain modeling concepts and the reasoning behind choices briefly as you go, linking to `docs/04-model.md`. Engineering explanations can stay terse.
 
 ## Commands
-_(Added in Phase 0.)_
+Windows; commands also run under `cmd.exe /c` (the hooks do). `.claude/kit.json` is the source of truth for verification (`verify.fast` after every edit, `verify.full` for the test-runner); keep this table in sync.
+
+| Purpose | Command |
+|---|---|
+| Install dependencies | `pnpm bootstrap` (worktrees: `pnpm install --frozen-lockfile`, `uv --directory python sync`) |
+| Dev server | `pnpm dev` (web :3000, API :8000) |
+| Typecheck | `pnpm typecheck` (`next typegen && tsc`, pyright) |
+| Lint | `pnpm lint` (ESLint, ruff) |
+| Unit / integration tests | `pnpm test` (Vitest, pytest; pytest reads only `TEST_DATABASE_URL`) |
+| Specific test files | `powershell -NoProfile -ExecutionPolicy Bypass -File .claude/scripts/run-tests.ps1 <paths>` (routes `.py` → pytest, `*.test.ts(x)` → Vitest, `web/e2e/*.spec.ts` → Playwright) |
+| End to end | `pnpm test:e2e` (after `pnpm db:migrate:test` and `pnpm db:seed`) |
+| Production build | `pnpm build` |
+| Migrations | `pnpm db:migrate` (dev), `pnpm db:migrate:test`, `pnpm db:check` (one head, models match) |
+| Seed | `pnpm db:seed` (fixture; test DB only) |
+
+## Conventions
+- Styling: Tailwind v4 utilities mapped to tokens in the `@theme` block of `web/app/globals.css` (colors, `text-caption`/`text-body`/…, radii). `web/app/tokens.css` is a byte copy of the handoff tokens.
+- Data: server components fetch through `web/lib/api.ts` (`server-only`), one call per page. Response types and pure helpers live in `web/lib/*.ts` with Vitest tests beside them (`*.test.ts`).
+- Every data route has a `loading.tsx` drawn at the loaded size (`web/app/teams/loading.tsx`).
+- Python tests live in `python/<pkg>/tests/test_*.py`; DB tests use the `db_conn` fixture from `python/conftest.py` (test-DB guard, rolled back). E2E specs live in `web/e2e/` and run at phone and desktop widths.
+
+## Workflow
+- One task per session: `/implement-task TASK-###` or `/next-task`. No code before the task's `plan_status: approved`. Claude sets `Review`; only the user's "accepted" sets `Done`.
+- Never hand-edit `docs/tasks/INDEX.md`; run `.claude/scripts/build-index.ps1`.
+- Post-edit check failures in the middle of a multi-file change are expected. Finish the change, then fix what still fails.

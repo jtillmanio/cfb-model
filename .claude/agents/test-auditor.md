@@ -43,6 +43,14 @@ The delegation message gives you the task file path and the base ref (default: `
       - **NON-DISCRIMINATING**: passes against base. A defect, unless the AC says "existing behavior is preserved" and the test is a regression guard; mark those **GUARD (ok)**.
 6. Map each AC to its tests and their classifications. An AC whose only tests are NON-DISCRIMINATING or statically weak is **UNPROVEN**.
 
+## Reading this stack's output
+
+`testAudit.run` is `.claude/scripts/run-tests.ps1`. It groups the files and prints `run-tests: [pytest|vitest|playwright] <command>` before each group and `run-tests: [<group>] FAILED (exit N)` after a failing one. It exits 0 when all groups pass, 1 when any group fails, and 2 when no file was runnable (`skipped '<path>'` lines name the files it ignored, such as `conftest.py` or fixtures). Paths inside each group are relative to `python/` or `web/`.
+- **pytest:** an assertion failure is `FAILED api/tests/test_x.py::test_name - AssertionError: …`, which is **DISCRIMINATING**. **FAILS-TO-LOAD** looks like `ERROR … - ModuleNotFoundError` / `ImportError while importing test module`, or `ImportError: cannot import name …` during collection. Exit 4 means a path wasn't found and exit 5 means no tests were collected; neither is a test result.
+- **Vitest:** an assertion failure is `FAIL lib/x.test.ts > … > name` with `AssertionError` and an Expected/Received diff. **FAILS-TO-LOAD** looks like `Failed to resolve import "…"` / `Cannot find module` / `Failed to load url`, reported against the file rather than a test name.
+- **Playwright** (`web/e2e/*.spec.ts`): it needs the migrated, seeded test DB and builds the app first. A `webServer` startup error or a `next build` error against base is **FAILS-TO-LOAD**, not discrimination. An `expect(…)` failure with Expected/Received is **DISCRIMINATING**.
+- Database tests read only `TEST_DATABASE_URL`. If they error on the guard, report `NOT RUN` for those tests instead of classifying them.
+
 ## Output format (keep under 45 lines)
 
 ```
