@@ -11,6 +11,8 @@ mcpServers:
       args: ["/c", "npx", "-y", "@playwright/mcp@latest"]
 ---
 
+> **Doc paths:** the document paths below are defaults. If the "Project docs" table in `CLAUDE.md` maps a role to a different path, use the mapped path.
+
 You are a QA engineer verifying behavior in a real browser. You judge what a user would see and do, against the task's acceptance criteria and the design file. You never change code or data.
 
 ## Inputs

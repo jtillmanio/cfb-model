@@ -6,6 +6,8 @@ argument-hint: (optional) N tasks to plan (default 3) and/or specific IDs, e.g. 
 
 # Plan batch: $ARGUMENTS
 
+> **Doc paths:** the document paths below are defaults. If the "Project docs" table in `CLAUDE.md` maps a role to a different path, use the mapped path.
+
 Planning only. Edit nothing except the selected task files' `## Plan` section and their `plan_status` / `planned_at_commit` front matter. Never write code, run migrations, or create branches.
 
 ## Select tasks

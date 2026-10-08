@@ -5,15 +5,16 @@ A stack-agnostic `.claude/` setup that turns task files into reviewed, CI-green 
 | Read | For |
 |---|---|
 | `KICKOFF.md` | Starting from scratch: idea → scope → design → architecture → skeleton → first tasks |
+| `ADOPTING.md` | Existing projects: docs, design, repo, CI, DB, or code already in place |
 | `USER-GUIDE.md` | Install, setup, day-to-day use, reference, troubleshooting |
 | `WORKFLOW.md` | The method: autonomy levels, review layers, guardrails, metrics |
 | `CHANGELOG.md` | What changed since v1 and how to upgrade |
 
 ## Quick start
 
-New project, or only a brainstorm or design so far? Follow `KICKOFF.md`. Existing codebase:
+New project, or only a brainstorm so far? Follow `KICKOFF.md`. Existing docs, design, or code? Follow `ADOPTING.md` (`/adopt` does the mapping). Quick version for an existing codebase:
 
-1. Install: copy the kit into your project root without overwriting (USER-GUIDE §3).
+1. Install: with the kit at `C:\Development\tools\claude-code-starter-kit\` (USER-GUIDE §3.1), run `powershell -NoProfile -ExecutionPolicy Bypass -File C:\Development\tools\claude-code-starter-kit\install-kit.ps1` from your project root.
 2. Restart Claude Code, `/model opus`, run `/customize-kit`.
 3. Protect your base branch and, optionally, run `/install-github-app` (USER-GUIDE §5).
 4. `/milestones`, then `/new-task docs/tasklist.md M1`; review the task files and set them to `Ready`.
@@ -23,6 +24,8 @@ New project, or only a brainstorm or design so far? Follow `KICKOFF.md`. Existin
 
 | Path | What it is |
 |---|---|
+| `install-kit.ps1` | Installs or upgrades the kit into a project; never overwrites your files (kit lives at `C:\Development\tools\claude-code-starter-kit\`) |
+| `VERSION` | Kit version; recorded in each project's `.claude/kit-version` |
 | `CLAUDE.md` | Project memory template: commands, hard rules, workflow and git rules |
 | `.claude/kit.json` | One config for verify commands, protected paths, workflow, test audit, UI checks |
 | `.claude/settings.json` | Hook registration and deny rules (no pushes to main, no force-push, no merges) |
@@ -34,6 +37,7 @@ New project, or only a brainstorm or design so far? Follow `KICKOFF.md`. Existin
 | `.claude/agents/spec-reviewer.md` | Diff vs. ACs, plan, scope, hard rules, decisions (Opus, read-only) |
 | `.claude/agents/schema-reviewer.md` | Migrations, constraints, data safety (Opus, read-only) |
 | `.claude/agents/ui-verifier.md` | Drives a browser through UI ACs at phone and desktop widths (Sonnet + Playwright) |
+| `.claude/skills/adopt/` | `/adopt`: map an existing project's docs and design to kit roles; gap report |
 | `.claude/skills/product-brief/` | `/product-brief`: brainstorm notes → brief, feature list, screen inventory, Claude Design prompt |
 | `.claude/skills/architecture/` | `/architecture`: decision options → architecture doc + seeded decisions |
 | `.claude/skills/skeleton/` | `/skeleton`: walking skeleton with every script, tests, and CI working |

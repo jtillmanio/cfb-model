@@ -10,28 +10,38 @@ Personal sports-analytics app. A college football model makes game predictions, 
 - `.claude/rules/`: area rules (git always; python, database and web by path).
 - **Precedence when sources disagree:** code and migrations > this file and `.claude/rules/` > `docs/`. Fix the loser in the same PR. Take counts and numbers from code or data, never from prose.
 
-### Project docs (which file fills each starter-kit role)
-The kit's skills and agents use these paths. `docs/claude-kit/` holds the kit's own guides, which use generic names (`docs/product/*`, `docs/architecture.md`, `docs/tasklist.md`); read them through this map. Where a kit guide or skill conflicts with `.claude/rules/git.md` (branch names, staging, committing to `main`), `git.md` wins.
+## Project docs
 
-| Kit role | This project |
+Every kit skill and agent reads this table to find project documents. Use `—` for roles the project doesn't have. `docs/claude-kit/` holds the kit's own guides, which use the default names (`docs/product/*`, `docs/architecture.md`, `docs/tasklist.md`); read them through this table. Where a kit guide or skill conflicts with `.claude/rules/git.md` (branch names, staging, committing to `main`), `git.md` wins.
+
+| Role | Path |
 |---|---|
-| Brief (problem, users, goals, non-goals) | `docs/01-product.md` (What we're building · Who it's for · What "good" looks like · Non-goals) |
-| Features (IDs, priorities, MVP cut, outcomes) | `docs/01-product.md` › Feature index (F-01…; MVP = end of Phase 4) |
-| Screen inventory | `docs/05-ui-design-brief.md` › Screen inventory (from handoff) (S-01…) |
+| Product brief | `docs/01-product.md` |
+| Features (IDs, MVP cut, outcomes) | `docs/01-product.md` |
+| Screen inventory (S-IDs, states) | `docs/05-ui-design-brief.md` § Screen inventory (from handoff) |
+| Design brief / intent | `docs/05-ui-design-brief.md` |
+| Design source of truth | `design/handoff/designs/` |
+| Design tokens | `design/handoff/tokens/` |
+| Reference screenshots | `design/handoff/screenshots/` |
+| Design process notes | `docs/07-claude-design-playbook.md` |
 | Architecture | `docs/02-architecture.md` |
-| Data model | `docs/03-data-model.md` (`python/db/` wins once it exists) |
-| Model spec | `docs/04-model.md` |
-| Design intent | `docs/05-ui-design-brief.md` |
-| Design source of truth | `design/handoff/designs/` (board notes are the spec; the `Pass … .dc.html` boards win over older boards; bundle README is `design/README.md`) |
-| Design tokens | `design/handoff/tokens/` (color; type, spacing, radius and elevation values are in `design/README.md` › Design tokens) |
-| Reference screenshots | `design/handoff/screenshots/` (default state, dark, 1440 and 390; This Week also at 768) |
-| Design playbook | `docs/07-claude-design-playbook.md` |
-| Roadmap (status source of truth) | `docs/06-roadmap.md` |
-| Task list | `docs/08-tasklist.md` (written by `/milestones`; task files in `docs/tasks/`) |
-| Decisions | `docs/decisions.md` |
-| Sample data / fixture seeds | `design/sample-data.md`, `design/sample-splash.txt`, `design/handoff/designs/*-data.js` |
+| Data model | `docs/03-data-model.md` |
+| Domain specs (other) | `docs/04-model.md` |
+| Roadmap (source, if separate) | `docs/06-roadmap.md` |
+| Task list (milestones + stubs) | `docs/08-tasklist.md` |
+| Tasks | `docs/tasks/` (fixed) |
+| Decisions | `docs/decisions.md` (fixed) |
 
-**Designs vs 05:** where `design/handoff/designs/` and `docs/05-ui-design-brief.md` disagree, the designs win unless the user says otherwise. What the model computes and how numbers are defined still follow `04-model.md` and this file.
+Precedence: where the design source of truth and a doc disagree, the design wins unless the doc notes an override or the user says otherwise. This includes `docs/05-ui-design-brief.md`. What the model computes and how numbers are defined still follow `docs/04-model.md` and this file.
+
+Where to look inside these files:
+- **Product brief:** What we're building · Who it's for · What "good" looks like · Non-goals. **Features:** Feature index (F-01…; MVP = end of Phase 4).
+- **Data model:** once `python/db/` exists, its models and migrations win (see the precedence rule above).
+- **Design source of truth:** board notes are the spec; the `Pass … .dc.html` boards win over older boards; the bundle README is `design/README.md`.
+- **Design tokens:** color only; type, spacing, radius and elevation values are in `design/README.md` › Design tokens.
+- **Reference screenshots:** default state, dark, 1440 and 390; This Week also at 768.
+- **Roadmap:** the status source of truth; `/milestones` writes the task list from it.
+- **Sample data / fixture seeds** (no kit role): `design/sample-data.md`, `design/sample-splash.txt`, `design/handoff/designs/*-data.js`.
 
 ## Domain conventions
 - `margin = home_points − away_points`. `spread_home` is negative when home is favored (CFBD convention). Home covers if `margin + spread_home > 0`; push if `= 0`.

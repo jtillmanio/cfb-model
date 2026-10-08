@@ -2,7 +2,9 @@
 
 How to install, set up, and use the kit day to day. For the reasoning behind the workflow (principles, autonomy levels, review layers, metrics), see `WORKFLOW.md`.
 
-> **Starting a new project, or have only a brainstorm or design so far?** Follow `KICKOFF.md` first. It goes from idea → scope → design → architecture → walking skeleton → first tasks, then hands back to §7 of this guide.
+> **Starting a new project, or have only a brainstorm so far?** Follow `KICKOFF.md` first.
+> **Existing project with docs, a design, CI, a database, or code already in place?** Follow `ADOPTING.md`. `/adopt` maps your files to the kit without renaming anything.
+> Both hand back to §7 of this guide.
 
 ## Contents
 
@@ -43,61 +45,100 @@ The kit turns a list of task files into reviewed, CI-green pull requests, with t
 
 ## 2. Prerequisites
 
-| Requirement                                                 | Why                                                         | Check                       |
-| ----------------------------------------------------------- | ----------------------------------------------------------- | --------------------------- |
-| Claude Code v2.1.139+                                       | Agent view and background sessions (Level 2)                | `claude --version`          |
-| Git for Windows                                             | Claude Code needs Git Bash on Windows; hooks run through it | `git --version`             |
-| Windows PowerShell 5.1 or PowerShell 7                      | Hooks and scripts                                           | `$PSVersionTable.PSVersion` |
-| GitHub CLI, authenticated                                   | PRs, CI watching                                            | `gh auth status`            |
-| Node.js 18+                                                 | The ui-verifier's Playwright browser server                 | `node --version`            |
-| A GitHub repository with a `main` (or other default) branch | PRs and CI                                                  | `git remote -v`             |
-| Claude Pro, Max, Team, or Enterprise                        | Agent view; subscription token for the GitHub Action        | —                           |
+| Requirement | Why | Check |
+|---|---|---|
+| Claude Code v2.1.139+ | Agent view and background sessions (Level 2) | `claude --version` |
+| Git for Windows | Claude Code needs Git Bash on Windows; hooks run through it | `git --version` |
+| Windows PowerShell 5.1 or PowerShell 7 | Hooks and scripts | `$PSVersionTable.PSVersion` |
+| GitHub CLI, authenticated | PRs, CI watching | `gh auth status` |
+| Node.js 18+ | The ui-verifier's Playwright browser server | `node --version` |
+| A GitHub repository with a `main` (or other default) branch | PRs and CI | `git remote -v` |
+| Claude Pro, Max, Team, or Enterprise | Agent view; subscription token for the GitHub Action | — |
 
 ## 3. Install
 
-### New project
+The kit lives in one central folder, **`C:\Development\tools\claude-code-starter-kit\`**, and an installer copies it into each project. You never copy files by hand.
 
-Run from your project root in PowerShell. The working tree should be clean.
-
-```powershell
-# Copy without overwriting existing files from your custom path. Robocopy exit codes 0-3 mean success.
-robocopy "C:\Development\tools\claude-code-starter-kit-v2" . /E /XC /XN /XO /XF README.md USER-GUIDE.md WORKFLOW.md CHANGELOG.md KICKOFF.md
-
-# Keep the docs with the project
-New-Item -ItemType Directory -Force docs\claude-kit | Out-Null
-Copy-Item "C:\Development\tools\claude-code-starter-kit-v2\*.md" docs\claude-kit\ -Exclude CLAUDE.md
-
-```
-
-If robocopy skipped files you already had (usually `CLAUDE.md`, `.claude\settings.json`, `.github\pull_request_template.md`), copy each kit version alongside yours with a `.kit` suffix and ask Claude to merge it:
+### 3.1 One-time: put the kit in `C:\Development\tools`
 
 ```powershell
-Copy-Item "C:\Development\tools\claude-code-starter-kit-v2\.claude\settings.json" .\.claude\settings.kit.json
-
+New-Item -ItemType Directory -Force C:\Development\tools | Out-Null
+Expand-Archive "$HOME\Downloads\claude-code-starter-kit.zip" C:\Development\tools -Force
+Get-ChildItem -Recurse C:\Development\tools\claude-code-starter-kit | Unblock-File
+Get-Content C:\Development\tools\claude-code-starter-kit\VERSION
 ```
 
-Then tell Claude Code: "Merge `.claude/settings.kit.json` into `.claude/settings.json`, keeping all existing hooks and permissions, then delete the .kit file."
+Result: `C:\Development\tools\claude-code-starter-kit\install-kit.ps1` plus the kit files and guides.
 
-Commit on a branch and merge it through a PR: `chore: add Claude Code starter kit v2`.
+**Optional shortcut.** This adds an `Install-ClaudeKit` command to your PowerShell profile. It only works if your execution policy allows profiles to load (e.g. `RemoteSigned`).
 
-### Upgrade from v1
+```powershell
+if (-not (Test-Path $PROFILE)) { New-Item -ItemType File -Force $PROFILE | Out-Null }
+Add-Content $PROFILE 'function Install-ClaudeKit { powershell -NoProfile -ExecutionPolicy Bypass -File C:\Development\tools\claude-code-starter-kit\install-kit.ps1 @args }'
+```
 
-1. Commit or stash your work. Copy the v2 files over v1, overwriting this time, but keep your customized files:
+After that, `Install-ClaudeKit`, `Install-ClaudeKit -WhatIf`, and `Install-ClaudeKit -Upgrade` work from any project folder. The commands below use the full form so they work either way.
+
+### 3.2 Install into a project (new or existing)
+
+From the project root, with a clean working tree:
+
+```powershell
+git switch -c chore/add-claude-kit
+powershell -NoProfile -ExecutionPolicy Bypass -File C:\Development\tools\claude-code-starter-kit\install-kit.ps1 -WhatIf   # preview
+powershell -NoProfile -ExecutionPolicy Bypass -File C:\Development\tools\claude-code-starter-kit\install-kit.ps1
+```
+
+| Installer result | Meaning | Action |
+|---|---|---|
+| **Added** | New kit file copied | None |
+| **Updated** | Guide refreshed in `docs/claude-kit/` | None |
+| **To merge** | You already had this file and it differs (e.g. your own `CLAUDE.md` or `settings.json`). The kit's version went to `.kit-incoming\` | Ask Claude to merge (prompt below) |
+| **Skipped** | The kit's placeholder `ci.yml`, because you already have CI | None |
+
+If anything is listed under "To merge", tell Claude Code:
+
+```text
+Merge each file under .kit-incoming/ into the same path in the project. Keep all my existing content and
+customizations; add only new kit sections, keys, rules, and steps. Show a one-line summary per file,
+then delete .kit-incoming/.
+```
+
+The installer never overwrites your files, records the version in `.claude/kit-version`, and copies the guides to `docs/claude-kit/`. Commit and merge through a PR: `chore: add Claude Code starter kit`.
+
+### 3.3 Updating the kit
+
+1. Replace the central copy. It holds no project state, so this is safe:
 
    ```powershell
-   robocopy "$env:TEMP\cc-kit\claude-code-starter-kit-v2" . /E /XF README.md USER-GUIDE.md WORKFLOW.md CHANGELOG.md KICKOFF.md CLAUDE.md kit.json settings.json /XD .github
+   Remove-Item -Recurse -Force C:\Development\tools\claude-code-starter-kit
+   Expand-Archive "$HOME\Downloads\claude-code-starter-kit.zip" C:\Development\tools -Force
+   Get-ChildItem -Recurse C:\Development\tools\claude-code-starter-kit | Unblock-File
    ```
 
-2. Bring over the v2 config without losing your values. Copy `kit.json`, `settings.json` and `.github\` in as `.kit` files (as above), then tell Claude Code: "Merge the v2 keys from `.claude/kit.kit.json` into `.claude/kit.json` and the deny rules from `.claude/settings.kit.json` into `.claude/settings.json`, keeping my existing values. Add any `.github` kit files that don't exist yet."
-3. Add the new front matter fields to existing task files. Tell Claude Code: "Add `autonomy`, `ui`, `plan_status` and `planned_at_commit` to every task file per `docs/tasks/_TEMPLATE.md`. Use `attended` and `none` unless the task is clearly unattended-eligible."
-4. Delete the committed board, since it is now generated locally: `git rm --cached docs/tasks/INDEX.md`
-5. Restart Claude Code and run `/customize-kit`. It keeps your existing values and fills in the new sections.
+2. In each project, on a branch:
+
+   ```powershell
+   powershell -NoProfile -ExecutionPolicy Bypass -File C:\Development\tools\claude-code-starter-kit\install-kit.ps1 -Upgrade -WhatIf
+   powershell -NoProfile -ExecutionPolicy Bypass -File C:\Development\tools\claude-code-starter-kit\install-kit.ps1 -Upgrade
+   ```
+
+   `-Upgrade` overwrites kit-owned files (skills, hooks, scripts, templates). Files you customize (agents, `CLAUDE.md`, `kit.json`, `settings.json`, `.github\`, `docs\decisions.md`) go to `.kit-incoming\` for merging as usual.
+3. Read the new entries in `docs/claude-kit/CHANGELOG.md`. Re-run `/customize-kit` if it says so.
+4. Restart Claude Code.
+
+### 3.4 Upgrade a project from v1
+
+1. Run the installer with `-Upgrade` (§3.3 step 2), then merge `.kit-incoming\`.
+2. Add the new front matter fields to existing task files. Tell Claude Code: "Add `autonomy`, `ui`, `plan_status` and `planned_at_commit` to every task file per `docs/tasks/_TEMPLATE.md`. Use `attended` and `none` unless the task is clearly unattended-eligible."
+3. Delete the committed board, since it is now generated locally: `git rm --cached docs/tasks/INDEX.md`
+4. Restart Claude Code and run `/customize-kit`. It keeps your existing values and fills in the new sections.
 
 ## 4. First-time setup
 
 1. **Restart Claude Code** in the project root, so it picks up the new agents and skills.
 2. **Confirm everything loaded:**
-   - Type `/` and confirm `implement-task`, `next-task`, `plan-batch`, `new-task`, `customize-kit`, `product-brief`, `architecture`, `skeleton`, and `milestones` appear.
+   - Type `/` and confirm `implement-task`, `next-task`, `plan-batch`, `new-task`, `customize-kit`, `adopt`, `product-brief`, `architecture`, `skeleton`, and `milestones` appear.
    - Type `@` and confirm `spec-reviewer`, `test-runner`, `test-auditor`, `schema-reviewer`, and `ui-verifier` appear.
    - Run `/hooks` and confirm one PreToolUse and one PostToolUse entry.
 3. **Run `/customize-kit` on Opus** (`/model opus` first). It:
@@ -107,9 +148,8 @@ Commit on a branch and merge it through a PR: `chore: add Claude Code starter ki
    - excludes `.claude/` from your linters, typechecker, and test runner, so worktree copies aren't scanned;
    - fills `CLAUDE.md`, tailors the agents, and fills in `ci.yml`;
    - runs the smoke tests.
-
+   
    Expect 15–30 minutes, with two stops for your input.
-
 4. **Accept the Playwright browser server.** The first time the ui-verifier runs, Claude Code asks you to approve its server. If it reports a missing browser, run `npx playwright install chromium` once.
 5. Commit the customization on a branch and merge it through a PR.
 
@@ -121,15 +161,15 @@ Do these once per repository, in the GitHub web UI. Claude can't change them, an
 
 Settings → Rules → Rulesets → **New branch ruleset**:
 
-| Setting                               | Value                                                                  |
-| ------------------------------------- | ---------------------------------------------------------------------- |
-| Enforcement                           | Active                                                                 |
-| Target branches                       | Default branch                                                         |
-| Bypass list                           | Repository admin (lets you push plan approvals directly; Claude can't) |
-| Restrict deletions                    | On                                                                     |
-| Require a pull request before merging | On, required approvals **0** (you can't approve your own PR)           |
-| Require status checks to pass         | On; add `verify` (the CI job name)                                     |
-| Block force pushes                    | On                                                                     |
+| Setting | Value |
+|---|---|
+| Enforcement | Active |
+| Target branches | Default branch |
+| Bypass list | Repository admin (lets you push plan approvals directly; Claude can't) |
+| Restrict deletions | On |
+| Require a pull request before merging | On, required approvals **0** (you can't approve your own PR) |
+| Require status checks to pass | On; add `verify` (the CI job name) |
+| Block force pushes | On |
 
 ### 5.2 Claude in GitHub Actions (optional, needed for the PR review and Level 3)
 
@@ -140,13 +180,13 @@ Settings → Rules → Rulesets → **New branch ruleset**:
 
 ## 6. Writing tasks
 
-| Step | You do                                                              | Result                                                                                                                |
-| ---- | ------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
-| 1    | `/milestones` (see KICKOFF.md Stage 6), or write your own task list | `docs/tasklist.md` with milestones and task stubs                                                                     |
-| 2    | `/new-task docs/tasklist.md M1` (Opus)                              | One `TASK-###-slug.md` per stub in that milestone, status `Draft`, with checkable ACs, sizing, autonomy, and ui flags |
-| 3    | Review each file: tighten ACs, fix dependencies, adjust `autonomy`  | Specs you trust                                                                                                       |
-| 4    | Set `status: Ready` on the ones to build next                       | Eligible for pickup                                                                                                   |
-| 5    | Commit and push to the base branch (admin bypass)                   | Background sessions see them                                                                                          |
+| Step | You do | Result |
+|---|---|---|
+| 1 | `/milestones` (see KICKOFF.md Stage 6), or write your own task list | `docs/tasklist.md` with milestones and task stubs |
+| 2 | `/new-task docs/tasklist.md M1` (Opus) | One `TASK-###-slug.md` per stub in that milestone, status `Draft`, with checkable ACs, sizing, autonomy, and ui flags |
+| 3 | Review each file: tighten ACs, fix dependencies, adjust `autonomy` | Specs you trust |
+| 4 | Set `status: Ready` on the ones to build next | Eligible for pickup |
+| 5 | Commit and push to the base branch (admin bypass) | Background sessions see them |
 
 Add a single task any time with `/new-task <short description>`.
 
@@ -162,17 +202,17 @@ Add a single task any time with `/new-task <short description>`.
 
 What happens, and where you're needed:
 
-| Phase      | Claude does                                                               | You do                                                                         |
-| ---------- | ------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
-| Preflight  | Checks dependencies, checkable ACs, clean tree; creates `task/...` branch | Answer if it stops (vague AC, dirty tree)                                      |
-| Plan       | Writes steps, files, a test per AC, risks                                 | **Gate**: approve or amend. Then optionally `/model sonnet` for implementation |
-| Implement  | Tests first, then code; hooks check every edit                            | Answer questions                                                               |
-| Verify     | test-runner, then a checkpoint commit                                     | —                                                                              |
-| Test audit | test-auditor proves the tests fail without the change                     | —                                                                              |
-| Review     | spec-reviewer, plus schema-reviewer and ui-verifier as relevant           | Answer spec gaps                                                               |
-| Close out  | Fills the task file; asks "Push and open a draft PR?"                     | Say yes                                                                        |
-| CI         | Watches checks, fixes failures (max 2 rounds), marks ready                | —                                                                              |
-| Report     | PR link, manual steps with expected results                               | Manual check → reply "accepted" → merge                                        |
+| Phase | Claude does | You do |
+|---|---|---|
+| Preflight | Checks dependencies, checkable ACs, clean tree; creates `task/...` branch | Answer if it stops (vague AC, dirty tree) |
+| Plan | Writes steps, files, a test per AC, risks | **Gate**: approve or amend. Then optionally `/model sonnet` for implementation |
+| Implement | Tests first, then code; hooks check every edit | Answer questions |
+| Verify | test-runner, then a checkpoint commit | — |
+| Test audit | test-auditor proves the tests fail without the change | — |
+| Review | spec-reviewer, plus schema-reviewer and ui-verifier as relevant | Answer spec gaps |
+| Close out | Fills the task file; asks "Push and open a draft PR?" | Say yes |
+| CI | Watches checks, fixes failures (max 2 rounds), marks ready | — |
+| Report | PR link, manual steps with expected results | Manual check → reply "accepted" → merge |
 
 Rough guide for an S/M task: 30–60 minutes end to end, of which 5–15 need you. Track your real numbers in the task metrics.
 
@@ -211,13 +251,13 @@ Each eligible task (Ready, plan approved, unattended, dependencies Done) starts 
 claude agents
 ```
 
-| You see                           | Meaning                                   | Action                                                                            |
-| --------------------------------- | ----------------------------------------- | --------------------------------------------------------------------------------- |
-| Working                           | Session is running                        | Nothing                                                                           |
-| Needs input (yellow)              | It asked a question or needs a permission | `Space` to peek, type the answer, `Enter`. Attach with `→` for permission dialogs |
-| Ready for review, PR label yellow | PR open, CI running or failing            | Wait; the session fixes CI itself (2 rounds)                                      |
-| Ready for review, PR label green  | CI passed, PR marked ready                | Review it (section 10)                                                            |
-| Failed / Blocked report           | Hit a round limit or a stale plan         | See section 11                                                                    |
+| You see | Meaning | Action |
+|---|---|---|
+| Working | Session is running | Nothing |
+| Needs input (yellow) | It asked a question or needs a permission | `Space` to peek, type the answer, `Enter`. Attach with `→` for permission dialogs |
+| Ready for review, PR label yellow | PR open, CI running or failing | Wait; the session fixes CI itself (2 rounds) |
+| Ready for review, PR label green | CI passed, PR marked ready | Review it (section 10) |
+| Failed / Blocked report | Hit a round limit or a stale plan | See section 11 |
 
 Each background session uses your subscription quota independently, so two in parallel use quota about twice as fast as one.
 
@@ -256,92 +296,93 @@ The PR body is pre-filled from `.github/pull_request_template.md`. Spend your 5�
 
 ## 11. Handling problems mid-task
 
-| Situation                                           | What you'll see                                               | What to do                                                                                 |
-| --------------------------------------------------- | ------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
-| Vague AC                                            | Preflight stops with proposed rewrites                        | Edit the AC, commit, re-run                                                                |
-| Plan stale (planned files changed since approval)   | Unattended session stops: `plan stale`                        | `/plan-batch TASK-0xx` to re-plan, approve, push, re-dispatch (`-Release TASK-0xx` first)  |
-| Spec gap found in review                            | Session asks you                                              | Decide; Claude never rewrites ACs itself                                                   |
-| Round limit hit (verify 3, audit 2, review 2, CI 2) | `status: Blocked`, `## Blocked` section, `[BLOCKED]` draft PR | Read the hypothesis; fix the spec or split the task; or attach and pair with it            |
-| Test audit can't restore the tree                   | `NOT RUN` in capitals                                         | Stop. Inspect with `git status` and `git diff` in that worktree before doing anything else |
-| Wrong task dispatched / want to abandon             | —                                                             | Stop the session (`Ctrl+X`), then `dispatch-approved.ps1 -Release TASK-0xx`                |
+| Situation | What you'll see | What to do |
+|---|---|---|
+| Vague AC | Preflight stops with proposed rewrites | Edit the AC, commit, re-run |
+| Plan stale (planned files changed since approval) | Unattended session stops: `plan stale` | `/plan-batch TASK-0xx` to re-plan, approve, push, re-dispatch (`-Release TASK-0xx` first) |
+| Spec gap found in review | Session asks you | Decide; Claude never rewrites ACs itself |
+| Round limit hit (verify 3, audit 2, review 2, CI 2) | `status: Blocked`, `## Blocked` section, `[BLOCKED]` draft PR | Read the hypothesis; fix the spec or split the task; or attach and pair with it |
+| Test audit can't restore the tree | `NOT RUN` in capitals | Stop. Inspect with `git status` and `git diff` in that worktree before doing anything else |
+| Wrong task dispatched / want to abandon | — | Stop the session (`Ctrl+X`), then `dispatch-approved.ps1 -Release TASK-0xx` |
 
 ## 12. Reference
 
 ### Skills
 
-| Command                                | Use it to                                                                                                      |
-| -------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
-| `/product-brief [notes path]`          | Turn brainstorm notes into a brief, a feature list with IDs and a screen inventory, and a Claude Design prompt |
-| `/architecture`                        | Choose the stack via option tables; write the architecture doc and seed decisions                              |
-| `/skeleton`                            | Build the walking skeleton: scaffold, scripts, one end-to-end slice, tests, CI                                 |
-| `/milestones [MVP or Next]`            | Break scope into demoable milestones and task stubs with a coverage check                                      |
-| `/customize-kit`                       | Tailor the kit to a project. Run once, and again after upgrades                                                |
-| `/new-task <description or path [M#]>` | Create task files with checkable ACs; bulk-convert a task list, one milestone at a time                        |
-| `/next-task [--dry-run]`               | Pick the best Ready task (respecting WIP and dependencies) and implement it attended                           |
-| `/implement-task <ID> [--unattended]`  | Run the full loop for one task                                                                                 |
-| `/plan-batch [N \| IDs]`               | Plan several tasks for approval in one sitting                                                                 |
+| Command | Use it to |
+|---|---|
+| `/adopt [hints]` | Map an existing project's docs, design, and toolchain to kit roles; extract decisions; gap report |
+| `/product-brief [notes path]` | Turn brainstorm notes into a brief, a feature list with IDs and a screen inventory, and a Claude Design prompt |
+| `/architecture` | Choose the stack via option tables; write the architecture doc and seed decisions |
+| `/skeleton` | Build the walking skeleton: scaffold, scripts, one end-to-end slice, tests, CI |
+| `/milestones [MVP or Next]` | Break scope into demoable milestones and task stubs with a coverage check |
+| `/customize-kit` | Tailor the kit to a project. Run once, and again after upgrades |
+| `/new-task <description or path [M#]>` | Create task files with checkable ACs; bulk-convert a task list, one milestone at a time |
+| `/next-task [--dry-run]` | Pick the best Ready task (respecting WIP and dependencies) and implement it attended |
+| `/implement-task <ID> [--unattended]` | Run the full loop for one task |
+| `/plan-batch [N \| IDs]` | Plan several tasks for approval in one sitting |
 
 ### Agents
 
-| Agent           | Model  | Writes?                | Job                                               |
-| --------------- | ------ | ---------------------- | ------------------------------------------------- |
-| test-runner     | Haiku  | No                     | Runs `verify.full`; returns failures only         |
-| test-auditor    | Sonnet | Temporary restore only | Proves tests fail without the change              |
-| spec-reviewer   | Opus   | No                     | ACs, plan, scope, hard rules, decisions           |
-| schema-reviewer | Opus   | No                     | Migrations, constraints, data safety              |
-| ui-verifier     | Sonnet | No (browser only)      | Clicks through UI ACs at phone and desktop widths |
+| Agent | Model | Writes? | Job |
+|---|---|---|---|
+| test-runner | Haiku | No | Runs `verify.full`; returns failures only |
+| test-auditor | Sonnet | Temporary restore only | Proves tests fail without the change |
+| spec-reviewer | Opus | No | ACs, plan, scope, hard rules, decisions |
+| schema-reviewer | Opus | No | Migrations, constraints, data safety |
+| ui-verifier | Sonnet | No (browser only) | Clicks through UI ACs at phone and desktop widths |
 
 ### Scripts (`.claude/scripts/`)
 
-| Script                                                                        | Use it to                                                               |
-| ----------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
-| `build-index.ps1 [-Check]`                                                    | Regenerate `docs/tasks/INDEX.md` (local, git-ignored) and list warnings |
-| `dispatch-approved.ps1 [-DryRun] [-Max N] [-PermissionMode m] [-Release IDs]` | Start background sessions for eligible tasks                            |
+| Script | Use it to |
+|---|---|
+| `build-index.ps1 [-Check]` | Regenerate `docs/tasks/INDEX.md` (local, git-ignored) and list warnings |
+| `dispatch-approved.ps1 [-DryRun] [-Max N] [-PermissionMode m] [-Release IDs]` | Start background sessions for eligible tasks |
 
 ### Task front matter
 
-| Field               | Values                                           | Set by                             |
-| ------------------- | ------------------------------------------------ | ---------------------------------- |
-| `status`            | Draft, Ready, In progress, Review, Done, Blocked | You: Ready, Done. Claude: the rest |
-| `depends_on`        | `[TASK-012, ...]`                                | `/new-task`, you                   |
-| `size`              | S, M                                             | `/new-task`                        |
-| `model`             | sonnet, opus                                     | `/new-task`, you                   |
-| `autonomy`          | attended, unattended                             | `/new-task`, you                   |
-| `ui`                | true, false                                      | `/new-task`                        |
-| `plan_status`       | none, proposed, approved                         | Claude: proposed. You: approved    |
-| `planned_at_commit` | short SHA                                        | Claude, when planning              |
+| Field | Values | Set by |
+|---|---|---|
+| `status` | Draft, Ready, In progress, Review, Done, Blocked | You: Ready, Done. Claude: the rest |
+| `depends_on` | `[TASK-012, ...]` | `/new-task`, you |
+| `size` | S, M | `/new-task` |
+| `model` | sonnet, opus | `/new-task`, you |
+| `autonomy` | attended, unattended | `/new-task`, you |
+| `ui` | true, false | `/new-task` |
+| `plan_status` | none, proposed, approved | Claude: proposed. You: approved |
+| `planned_at_commit` | short SHA | Claude, when planning |
 
 ### kit.json sections
 
-| Section          | Controls                                                                               |
-| ---------------- | -------------------------------------------------------------------------------------- |
-| `verify`         | Commands for the post-edit hook (`fast`) and test-runner (`full`)                      |
-| `protectedPaths` | Files Claude's Edit/Write tools can't touch                                            |
-| `workflow`       | Base branch, WIP limit, PR and CI behavior, unattended permission mode, worktree setup |
-| `testAudit`      | How tests are identified and run individually                                          |
-| `ui`             | Dev server command and URL (`{port}`), viewports, design files                         |
+| Section | Controls |
+|---|---|
+| `verify` | Commands for the post-edit hook (`fast`) and test-runner (`full`) |
+| `protectedPaths` | Files Claude's Edit/Write tools can't touch |
+| `workflow` | Base branch, WIP limit, PR and CI behavior, unattended permission mode, worktree setup |
+| `testAudit` | How tests are identified and run individually |
+| `ui` | Dev server command and URL (`{port}`), viewports, design files |
 
 ## 13. Troubleshooting
 
-| Symptom                                                              | Likely cause                                      | Fix                                                                                                                                    |
-| -------------------------------------------------------------------- | ------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
-| Skills or agents missing                                             | Session started before install                    | Restart Claude Code                                                                                                                    |
-| Hook never fires                                                     | Not registered or merge dropped it                | `/hooks`; `claude --debug` and edit a file                                                                                             |
-| `powershell: command not found` in hook output                       | Git Bash PATH                                     | Use `C:/Windows/System32/WindowsPowerShell/v1.0/powershell.exe` in `settings.json`                                                     |
-| Hook path error                                                      | Your version runs hooks in PowerShell             | Change `$CLAUDE_PROJECT_DIR` to `$env:CLAUDE_PROJECT_DIR` and add `"shell": "powershell"` to each hook                                 |
-| Every edit reports failures                                          | Baseline not green, or slow check in `fast`       | Fix the baseline; move slow checks to `full`                                                                                           |
-| Lint or tests pick up duplicate files                                | `.claude/worktrees/` not excluded                 | Re-run `/customize-kit` Phase 3, or add `.claude/` to each tool's ignore list                                                          |
-| `claude agents` lists agents and exits instead of opening agent view | Claude Code too old                               | `claude update`                                                                                                                        |
-| Dispatcher: "docs/tasks has uncommitted changes"                     | Approved plans not committed                      | Commit, push, re-run                                                                                                                   |
-| Dispatcher: nothing eligible                                         | Shown under "Not eligible" with reasons           | Fix the named reason                                                                                                                   |
-| Session stuck in Needs input on a permission                         | Command not in allow-rules                        | Attach and approve; add the rule to `settings.json` so it doesn't recur                                                                |
-| Session can't start: `Workspace not trusted`                         | Running the dispatcher before trusting the folder | Run `claude` once in the project and accept the trust dialog                                                                           |
-| Worktree session fails on missing dependencies or env                | `worktreeSetup` / `worktreeCopyFiles` incomplete  | Add the missing command or file in `kit.json`                                                                                          |
-| Two sessions fight over the dev server port                          | Same task number mod 100                          | Change `ui.portBase` or finish one first                                                                                               |
-| Parallel schema tasks corrupt the local DB                           | Shared database                                   | Keep schema tasks `attended` and serial (the default)                                                                                  |
-| `gh pr checks --watch` never finishes                                | CI not triggered                                  | Check the workflow's `on:` triggers and that Actions is enabled                                                                        |
-| ui-verifier: browser missing                                         | Playwright browsers not installed                 | `npx playwright install chromium`                                                                                                      |
-| `/implement-task` auto-triggers when you only mention a task         | Model-invoked skill                               | Add `disable-model-invocation: true` to its front matter, then test that `/implement-task` still runs (one bug report says it may not) |
+| Symptom | Likely cause | Fix |
+|---|---|---|
+| Skills or agents missing | Session started before install | Restart Claude Code |
+| Hook never fires | Not registered or merge dropped it | `/hooks`; `claude --debug` and edit a file |
+| `powershell: command not found` in hook output | Git Bash PATH | Use `C:/Windows/System32/WindowsPowerShell/v1.0/powershell.exe` in `settings.json` |
+| Hook path error | Your version runs hooks in PowerShell | Change `$CLAUDE_PROJECT_DIR` to `$env:CLAUDE_PROJECT_DIR` and add `"shell": "powershell"` to each hook |
+| Every edit reports failures | Baseline not green, or slow check in `fast` | Fix the baseline; move slow checks to `full` |
+| Lint or tests pick up duplicate files | `.claude/worktrees/` not excluded | Re-run `/customize-kit` Phase 3, or add `.claude/` to each tool's ignore list |
+| `claude agents` lists agents and exits instead of opening agent view | Claude Code too old | `claude update` |
+| Dispatcher: "docs/tasks has uncommitted changes" | Approved plans not committed | Commit, push, re-run |
+| Dispatcher: nothing eligible | Shown under "Not eligible" with reasons | Fix the named reason |
+| Session stuck in Needs input on a permission | Command not in allow-rules | Attach and approve; add the rule to `settings.json` so it doesn't recur |
+| Session can't start: `Workspace not trusted` | Running the dispatcher before trusting the folder | Run `claude` once in the project and accept the trust dialog |
+| Worktree session fails on missing dependencies or env | `worktreeSetup` / `worktreeCopyFiles` incomplete | Add the missing command or file in `kit.json` |
+| Two sessions fight over the dev server port | Same task number mod 100 | Change `ui.portBase` or finish one first |
+| Parallel schema tasks corrupt the local DB | Shared database | Keep schema tasks `attended` and serial (the default) |
+| `gh pr checks --watch` never finishes | CI not triggered | Check the workflow's `on:` triggers and that Actions is enabled |
+| ui-verifier: browser missing | Playwright browsers not installed | `npx playwright install chromium` |
+| `/implement-task` auto-triggers when you only mention a task | Model-invoked skill | Add `disable-model-invocation: true` to its front matter, then test that `/implement-task` still runs (one bug report says it may not) |
 
 ## 14. Uninstall
 

@@ -6,6 +6,8 @@ argument-hint: TASK-ID [--unattended]   e.g. TASK-014  or  TASK-014 --unattended
 
 # Implement task: $ARGUMENTS
 
+> **Doc paths:** the document paths below are defaults. If the "Project docs" table in `CLAUDE.md` maps a role to a different path, use the mapped path.
+
 Parse `$ARGUMENTS`: the first token is the task ID; `--unattended` sets **unattended mode**.
 
 | | Attended (default) | Unattended (`--unattended`, used by the dispatcher) |
@@ -24,7 +26,7 @@ Read `.claude/kit.json` once at the start. `workflow`, `verify`, `testAudit` and
 3. Check every acceptance criterion is checkable (an observable result plus an expected value). If any isn't, list proposed rewrites and stop. Never rewrite ACs yourself.
 4. **Workspace**:
    - Run `git status --porcelain`. If there are unrelated uncommitted changes, stop and ask.
-   - Branch name is `<type>/<id-lowercase>-<short-slug>`, where `<type>` is `feat`, `fix`, `chore`, `docs` or `model` (`.claude/rules/git.md`), e.g. `feat/task-014-run-progress`. If on `workflow.baseBranch`, create it. If you are in a worktree Claude Code created (under `.claude/worktrees/`) on an auto-named branch, rename that branch with `git branch -m`.
+   - Branch name is `task/<id-lowercase>-<short-slug>`. If on `workflow.baseBranch`, create it. If you are in a worktree Claude Code created (under `.claude/worktrees/`) on an auto-named branch, rename that branch with `git branch -m`.
    - If you are in a worktree: run each `workflow.worktreeSetup` command, and copy each `workflow.worktreeCopyFiles` path from the main checkout (the first path in `git worktree list --porcelain`) if it isn't already present. Report failures and stop.
 5. **Plan freshness**: if `plan_status: approved`, compare against `planned_at_commit`:
    `git diff --stat <planned_at_commit>..HEAD -- <files listed in the Plan>`
@@ -56,7 +58,7 @@ Read `.claude/kit.json` once at the start. `workflow`, `verify`, `testAudit` and
 
 1. Delegate to **test-runner**. Fix any failures here and re-run.
 2. **GATE**: PASS. After 3 failed rounds, go to the blocked path (see the end of this file).
-3. **Checkpoint commit** on the task branch: stage each changed file by path (`git add -- <path> …`; never `git add -A` or `git add .`, per `.claude/rules/git.md`), then `git commit -m "<type>(<id>): <summary>"`. The test audit needs a clean tree; more commits will follow.
+3. **Checkpoint commit** on the task branch: `git add -A` and `git commit -m "<type>(<id>): <summary>"`. The test audit needs a clean tree; more commits will follow.
 
 ## Phase 4: Test audit (max 2 rounds)
 
@@ -106,7 +108,7 @@ Then:
 
 1. Run `gh pr checks <number> --watch --interval 30`.
 2. If checks fail, read the failing job logs (`gh run view <run-id> --log-failed`), fix, commit, push, and watch again. Allow at most `workflow.maxCiFixRounds` rounds.
-3. When green and the PR's Vercel preview has deployed (`.claude/rules/git.md`), run `gh pr ready <number>` to mark it ready for review. This also triggers Claude's PR review, if that workflow is installed.
+3. When green, run `gh pr ready <number>` to mark it ready for review. This also triggers Claude's PR review, if that workflow is installed.
 
 ## Final report (under 25 lines)
 
