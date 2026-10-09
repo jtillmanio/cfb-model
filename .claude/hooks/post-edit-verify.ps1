@@ -1,6 +1,11 @@
 <#
   PostToolUse hook: runs the "fast" checks from .claude/kit.json after Claude edits a source file.
 
+  Each verify.fast entry is either a command string or { "command": "...", "extensions": [".ts", ...] }.
+    - A string runs on files whose extension is in verify.sourceExtensions (every file if that list is empty).
+    - An object runs on files whose extension is in its own "extensions"; without that list it behaves like a string.
+  So a linter that rejects .py or .css files can be limited to the extensions it accepts.
+
   Hook contract:
     exit 0 -> checks passed, or nothing to check. Claude continues.
     exit 2 -> a check failed. stderr is fed back to Claude so it fixes the error.
@@ -34,19 +39,34 @@ try {
 }
 if ($null -eq $config.verify) { exit 0 }
 
-$fast = @($config.verify.fast | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
-if ($fast.Count -eq 0) { exit 0 }
+function Get-ExtensionList($list) {
+    return @($list | Where-Object { -not [string]::IsNullOrWhiteSpace($_) } | ForEach-Object { ([string]$_).ToLowerInvariant() })
+}
 
 # ---- 3. Only react to source files inside the project -----------------------
 $filePath = $payload.tool_input.file_path
 if ([string]::IsNullOrWhiteSpace($filePath)) { $filePath = $payload.tool_input.notebook_path }
 if ([string]::IsNullOrWhiteSpace($filePath)) { exit 0 }
+$ext = [System.IO.Path]::GetExtension($filePath).ToLowerInvariant()
 
-$extensions = @($config.verify.sourceExtensions | Where-Object { -not [string]::IsNullOrWhiteSpace($_) } | ForEach-Object { $_.ToLowerInvariant() })
-if ($extensions.Count -gt 0) {
-    $ext = [System.IO.Path]::GetExtension($filePath).ToLowerInvariant()
-    if ($extensions -notcontains $ext) { exit 0 }
+# Pick the fast checks that apply to this file's extension.
+$sourceExtensions = Get-ExtensionList $config.verify.sourceExtensions
+$fast = New-Object System.Collections.Generic.List[string]
+foreach ($entry in @($config.verify.fast)) {
+    if ($null -eq $entry) { continue }
+    $command = $null
+    $extensions = $sourceExtensions
+    if ($entry -is [string]) {
+        $command = $entry
+    } else {
+        $command = [string]$entry.command
+        if ($null -ne $entry.extensions) { $extensions = Get-ExtensionList $entry.extensions }
+    }
+    if ([string]::IsNullOrWhiteSpace($command)) { continue }
+    if ($extensions.Count -gt 0 -and $extensions -notcontains $ext) { continue }
+    $fast.Add($command)
 }
+if ($fast.Count -eq 0) { exit 0 }
 
 $root = [System.IO.Path]::GetFullPath($projectDir).TrimEnd('\', '/')
 $fullFile = [System.IO.Path]::GetFullPath($filePath)

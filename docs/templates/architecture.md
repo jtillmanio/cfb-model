@@ -1,6 +1,6 @@
 # Architecture: {{PROJECT_NAME}}
 
-_Written by `/architecture`. Decisions live in `docs/decisions.md`; this doc describes the system they produce._
+_Written by `/architecture`. Decisions live in the Decisions log (the "Project docs" table in `CLAUDE.md`); this doc describes the system they produce._
 
 ## 1. Overview
 
@@ -62,7 +62,20 @@ flowchart LR
 
 Seed data: {{where it lives and what it must contain so ACs can cite concrete values}}.
 
-## 9. Walking skeleton spec
+Test database: {{e.g. tests read TEST_DATABASE_URL only; a guard refuses when it is unset or names the same host and database as DATABASE_URL; there is no fallback}}.
+
+## 9. Environments
+
+| Environment | Database | Env file / secret | What may touch it |
+|---|---|---|---|
+| Development | {{...}} | {{e.g. `.env` (never production)}} | {{dev server, local seed/reload}} |
+| Test | {{...}} | {{`TEST_DATABASE_URL`, locally and in CI}} | {{tests only}} |
+| PR preview | {{e.g. one branch database per PR, or none}} | {{host integration}} | {{the preview build migrates only its own}} |
+| Production | {{...}} | {{e.g. gitignored `.env.production`, read only with an explicit flag; CI secret}} | {{the release workflow only; a "live" switch makes destructive scripts refuse}} |
+
+How merged code goes live: {{deploy on merge, or a hand-run release; see docs/templates/github/release.yml}}.
+
+## 10. Walking skeleton spec
 
 The thinnest end-to-end slice that proves the stack, built by `/skeleton`:
 
@@ -71,7 +84,7 @@ The thinnest end-to-end slice that proves the stack, built by `/skeleton`:
 - {{one unit test, one e2e smoke test}}
 - {{CI green; deployed to {{host}} preview}}
 
-## 10. Risks and spikes
+## 11. Risks and spikes
 
 | Risk | Impact | Mitigation / spike |
 |---|---|---|

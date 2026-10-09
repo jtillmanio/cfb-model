@@ -5,7 +5,7 @@
   and not already dispatched. Each session runs "/implement-task <ID> --unattended" and appears in
   agent view (claude agents), isolated in its own worktree.
 
-  Usage (from the main checkout, on the base branch, with approved plans committed):
+  Usage (from the main checkout, on the base branch, after the PR with the approved plans is merged and pulled):
     powershell -NoProfile -ExecutionPolicy Bypass -File .claude/scripts/dispatch-approved.ps1 -DryRun
     powershell -NoProfile -ExecutionPolicy Bypass -File .claude/scripts/dispatch-approved.ps1
     powershell -NoProfile -ExecutionPolicy Bypass -File .claude/scripts/dispatch-approved.ps1 -Max 1
@@ -34,6 +34,8 @@ $base = 'main'
 if ($wf -and $wf.baseBranch) { $base = [string]$wf.baseBranch }
 $wip = 2
 if ($wf -and $wf.wipLimit) { $wip = [int]$wf.wipLimit }
+$wipReason = ''
+if ($wf -and $wf._wipLimitReason) { $wipReason = [string]$wf._wipLimitReason }
 if ($Max -le 0) { $Max = $wip }
 if (-not $PermissionMode) {
     $PermissionMode = 'acceptEdits'
@@ -48,14 +50,15 @@ if ($branch -ne $base) {
 }
 $dirtyTasks = @(& git -C $root status --porcelain -- docs/tasks)
 if ($dirtyTasks.Count -gt 0) {
-    Write-Host 'docs/tasks has uncommitted changes. Commit approved plans first: dispatched sessions only see committed files.'
+    Write-Host 'docs/tasks has uncommitted changes. Dispatched sessions only see plans committed on the base branch:'
+    Write-Host "move approved plans to a docs/plans-<date> branch, commit them by path, open a PR, merge it, then pull '$base'."
     $dirtyTasks | ForEach-Object { Write-Host "  $_" }
     exit 1
 }
 $ahead = 0
 try { $ahead = [int]([string](& git -C $root rev-list --count "origin/$base..$base" 2>$null)).Trim() } catch { $ahead = 0 }
 if ($ahead -gt 0) {
-    Write-Host "Warning: local '$base' is $ahead commit(s) ahead of origin/$base. Push it first so task PRs don't carry those commits."
+    Write-Host "Warning: local '$base' is $ahead commit(s) ahead of origin/$base. Nothing should be committed on it; move those commits to a branch and open a PR, or task PRs will carry them."
 }
 if (-not $DryRun -and -not (Get-Command claude -ErrorAction SilentlyContinue)) {
     Write-Host "'claude' is not on PATH."
@@ -112,6 +115,7 @@ if ($skipped.Count -gt 0) {
 $slots = [Math]::Min($Max, $wip - $inFlight)
 if ($slots -le 0) {
     Write-Host 'WIP limit reached. Review and merge open PRs (or -Release abandoned tasks), then rerun.'
+    if ($wipReason) { Write-Host "WIP limit $wip because: $wipReason" }
     exit 0
 }
 if ($eligible.Count -eq 0) {

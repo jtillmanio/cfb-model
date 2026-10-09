@@ -1,0 +1,227 @@
+# Upgrading a project from kit 2.3.x to 2.4
+
+For the owner of a project on kit 2.3.x, and for the Claude session that does the upgrade. What changed and why is in `CHANGELOG.md` ("v2.4: Lessons from adoption"); this guide is how to apply it.
+
+The short version: on a `chore/kit-2.4` branch, run `install-kit.ps1 -Upgrade`, then run `/customize-kit`. It detects the 2.3.x configuration and proposes each change below for your approval. The rest of this guide is what it will propose, and how to check it.
+
+## 1. Before you start
+
+- **Work on a branch.** `git switch main; git pull --ff-only; git switch -c chore/kit-2.4`. Everything below lands in one PR that you review and merge.
+- **Clean tree.** `git status` empty, apart from untracked files you know about. The upgrade stages by path, but a clean tree makes the PR diff easy to read.
+- **What isn't reversible.**
+  - Untracked files: `.kit-incoming/` is deleted after the merge. The installer can recreate it, so this is harmless. Your untracked `.claude/settings.local.json` is never touched.
+  - Anything outside git: GitHub settings (rulesets, secrets, repo variables), a `/install-github-app` run, and a pushed branch. The upgrade itself changes none of these. Only steps you choose to do in step 10 and the PR do.
+  - Everything else is a commit on your branch, so reverting it is reversible.
+- **Rolling back.**
+  - Before merging: close the PR and delete the branch. `main` is untouched.
+  - After merging: `git revert <the squash commit>` on a new branch, through a PR. That restores every file, kit-owned ones included, and `.claude/kit-version`.
+  - Keep a 2.3.1 copy of the central kit (e.g. `C:\Development\tools\claude-code-starter-kit-2.3.1-backup`). From the project root, `powershell -NoProfile -ExecutionPolicy Bypass -File C:\Development\tools\claude-code-starter-kit-2.3.1-backup\install-kit.ps1 -Upgrade` puts the kit-owned files (skills, hooks, scripts, templates) back to 2.3.1 and records 2.3.1 in `.claude/kit-version`. Use this when you want 2.3.1 behaviour without reverting your own changes. Your custom files (agents, `CLAUDE.md`, `kit.json`, `settings.json`) keep whatever you merged. Revert those from git if you need them back too. The 2.4 skills read keys a 2.3.1 skill ignores, so leaving the new `kit.json` keys in place is harmless.
+
+## 2. Behaviour changes
+
+These change what Claude does with no config edit, once the kit-owned files are upgraded (and, for the settings rules, once the new `settings.json` is merged).
+
+| Change | What you'll see | Opt out |
+|---|---|---|
+| **Staging by path** | `/implement-task` commits run `git status` and `git diff --staged` and stage named files; your uncommitted edits stay out of its commits | `workflow.staging: "all"` and remove the staging deny rules. Not recommended |
+| **New deny rules** | `git add -A*`, `git add --all*`, `git add .`, `git commit -a*`, `git commit --all*` are denied | Remove them from `settings.json` (only with `staging: "all"`) |
+| **`PowerShell(...)` deny rules** | Every `Bash(...)` deny rule has a `PowerShell(...)` twin, so the PowerShell tool can't push to the base branch, force-push, merge, or `git add -A` either | Remove the `PowerShell(...)` lines. Only sensible if you have branch protection on GitHub |
+| **Large-read guard** | A new PreToolUse hook on Read. It does nothing until `largeFiles` lists a file; then a whole-file read of it is denied with your hint. Each Read starts a short PowerShell process | Remove the `Read` entry from `hooks.PreToolUse`, or leave `largeFiles` empty |
+| **Ready gates** | Before `gh pr ready`, `/implement-task` checks `verify.full` on the branch head (re-running test-runner if code changed since its last pass), then CI, then your gates. Owner gates are listed, not checked | Set `workflow.readyGates: ["ci"]` for CI only (close to 2.3.1) |
+| **PR body and title** | Sections: What · Why · Acceptance criteria · How it was verified (table) · Manual verification · Follow-ups · Reviewer checklist. The title is a commit subject (`feat(TASK-014): …`), not `TASK-014: …` | Keep your own `.github/pull_request_template.md`; the skill fills the sections it finds |
+| **Plans go through a PR** | `/plan-batch` commits nothing. Approving plans creates a `docs/plans-<date>` branch and a PR instead of a commit on the base branch | None: committing on the base branch is what the kit now forbids |
+| **No commits on the base branch** | `/milestones`, `/adopt`, and `/plan-batch` commit on `docs/` branches and open PRs | None |
+| **Claude workflows skip without the secret** | With no `CLAUDE_CODE_OAUTH_TOKEN`, `claude-pr-review.yml` and `claude.yml` pass with a notice instead of failing (after you merge them from `.kit-incoming/`) | Keep your old copies |
+| **ACs never copy a mockup number** | `/new-task` writes relationship or fixture ACs; spec-reviewer flags an AC or test asserting a figure from a mockup or prose | Say so in `.claude/project/new-task.md` |
+| **WIP limit question** | `/customize-kit` asks whether parallel worktrees share a test resource, and may set `wipLimit: 1` | Answer no |
+| **`docs/decisions.md` no longer shipped** | The installer stops proposing it. Skills read the decisions log through the **Decisions** role (default path unchanged) | None needed; your file stays |
+| **Fast checks** (only if you use the new object form) | `post-edit-verify.ps1` runs an object entry only on its `extensions`. String entries behave exactly as in 2.3.1 | — |
+
+## 3. Every item
+
+"Action" is one of: *none*, *automatic with `-Upgrade`*, *merge from `.kit-incoming/`*, *manual edit*, *owner decision*. `/customize-kit`'s upgrade pass proposes every *merge*, *manual edit*, and *owner decision* row.
+
+| # | What changed | Action | The exact edit | How to verify |
+|---|---|---|---|---|
+| 1 | Stage by path | automatic with `-Upgrade` (skill); merge (`settings.json`) | `kit.json`: `workflow.staging: "by-path"` (optional; it's the default). `settings.json` deny: `Bash(git add -A*)`, `Bash(git add --all*)`, `Bash(git add .)`, `Bash(git commit -a*)`, `Bash(git commit --all*)`, and the same as `PowerShell(...)` | Ask Claude to run `git add -A`: denied. A task's checkpoint commit lists only its files |
+| 2 | Commit format | owner decision | `workflow.commitFormat: "conventional"` (default) or `"area"` | The next task's commits and PR title follow it |
+| 3 | Branch prefixes | merge (`settings.json`); owner decision (`taskBranch`) | `workflow.branchPrefixes: ["task/","fix/","docs/","chore/"]`; `workflow.taskBranch: "task/{id}-{slug}"` (or `"{type}/{id}-{slug}"`); allow `Bash(git push -u origin <prefix>*)` and `PowerShell(...)` per prefix | A push of a `docs/` branch doesn't prompt |
+| 4 | Ready gates | automatic (skill); owner decision (gates) | `workflow.readyGates: ["verify.full","ci", …your gates]`, each `{ name, check, by, when?, failureLog?, ownerFix? }` | A task's PR stays draft until every Claude gate passes; the final report lists owner gates |
+| 5 | PR body | merge `.github/pull_request_template.md` | Sections What · Why · Acceptance criteria · How it was verified · Manual verification · Follow-ups · Reviewer checklist | The next task PR has a `Check | Where | Result` table with one row per gate |
+| 6 | Decisions proposed | owner decision | `workflow.decisions: "append"` (default) or `"propose"` | With `propose`, the PR's Follow-ups list candidate decisions and the log is untouched |
+| 7 | Never split | owner decision | `workflow.splitPolicy: "split"` (default) or `"never-split"` | An oversized task stays whole, `size: L`, `autonomy: attended` |
+| 8 | Merged is not live | manual edit | Project docs row `\| Deploy \| <path or —> \|`; `workflow.afterMerge: "<closing line>"`; deny your deploy commands (item 31) | The final report's last line is the after-merge text |
+| 9 | Gates that aren't Actions runs | owner decision | A gate's `failureLog` (where its log lives) and `ownerFix` (what only you can fix) | A failed preview makes the session read that log or stop with the owner action, not loop |
+| 10 | `--force-with-lease` | owner decision | `workflow.allowForceWithLease: false` (default). If true, remove `Bash/PowerShell(git push --force-with-lease *)` from deny | Matches your `settings.json` |
+| 11 | Stop-and-ask list | merge (`CLAUDE.md`) | Add "Stop and ask before" under Workflow; tailor it | The section exists; Claude asks before a schema column change |
+| 12 | Roadmap-led mode | owner decision | `workflow.roadmap: { "path", "idPattern", "checkLabel" }` | `/new-task <ids>` copies the check line verbatim; the title starts with the roadmap ID; the branch uses it |
+| 13 | `/milestones --coverage` | automatic (skill) | — | `/milestones --coverage <roadmap>` proposes gaps and writes no new file |
+| 14 | Three status records | owner decision (with 12) | `workflow.statusDoc: "<path>"` if you have a status page | The task PR ticks the roadmap box; the task file goes Review → Done on "accepted" |
+| 15 | Plans through a PR | automatic (skill, dispatcher message) | — | `/plan-batch` leaves plans uncommitted; approval opens a `docs/plans-<date>` PR |
+| 16 | Shared test resources | owner decision | `workflow.wipLimit: 1`, `workflow._wipLimitReason: "<resource>"` | `dispatch-approved.ps1 -DryRun` prints the reason when the limit is reached |
+| 17 | Mockup numbers are sample data | automatic (skill, agent after merge) | — | spec-reviewer flags an AC asserting a mockup figure |
+| 18 | UX floor and redraws | owner decision | Project docs row `\| UX floor \| <path> \|` (template `docs/templates/ux-floor.md`); `ui.redrawFiles: [...]` and remove those files from `protectedPaths` | A new UI task has a UX floor AC |
+| 19 | Which document wins | merge (`CLAUDE.md`) | Replace the "Precedence:" line with the "Which document wins" section (order + three rules) | The section exists and matches your precedence |
+| 20 | Decisions as a role | manual edit | Decisions row: `\| Decisions \| <path> (IDs <prefix>) \|`, without "(fixed)". A pointer file that existed only because the path was fixed can go | Skills cite your log's path |
+| 21 | Review findings | owner decision | Row `\| Review findings \| <protocol>, <ledger> \|`; templates in `docs/templates/review-*.md` | Commits cite finding IDs |
+| 22 | Owner runbook, checklist | manual edit | Rows `\| Owner runbook \| … \|`, `\| Owner checklist \| … \|` (or `—`) | Final reports list your next steps |
+| 23 | `.claude/rules/git.md` | merge from `.kit-incoming/` | Create it, or merge the kit's into yours. The `CLAUDE.md` Git section becomes a pointer. Move long sections to path-scoped rules; one home per rule | `/memory` lists `git.md`; `CLAUDE.md` no longer repeats it |
+| 24 | Override mechanism | manual edit | Replace `CLAUDE.md` counter-instructions with switches or `.claude/project/<skill>.md` (section 5) | No `CLAUDE.md` line contradicts a kit skill |
+| 25 | Fast checks fit their files | manual edit (optional) | `verify.fast` entries as `{ "command", "extensions" }` where a linter rejects some extensions; eslint `--no-warn-ignored` | Edit a file of each extension: the hook passes or reports a real error |
+| 26 | Several test runners | owner decision | `testAudit.runners: [{ "pattern", "run", "each"?, "dir"? }]`, `testAudit.setup` | test-auditor's report names each runner's result |
+| 27 | Implementation ≠ lintable | manual edit | `testAudit.implementationExtensions`, `testAudit.implementationPaths` | test-auditor reverts those files in its dynamic check |
+| 28 | Migrations not protected by path | manual edit | Remove any migration glob from `protectedPaths` and `_examples.protected_migration`; add a CI migration check | `protectedPaths` has no migration pattern; CI runs the check |
+| 29 | Wider protected paths | owner decision | `protectedPaths` for production env files, design exports, source data, generated folders, vendored assets, each with a reason | An edit to each is blocked |
+| 30 | Large-read guard | automatic (hook); merge (`settings.json`); manual edit (`largeFiles`) | Register `guard-large-reads.ps1` (PreToolUse, matcher `Read`); `largeFiles: [{ "pattern", "hint", "always"? }]` | A Read of a listed file without offset/limit is denied with the hint |
+| 31 | Deny dangerous commands | owner decision | Deny `Bash(...)` and `PowerShell(...)` for deploy, release, production-data, and destructive-reload commands | Ask Claude to run one: denied |
+| 32 | Project sections in agents | merge agents; manual edit | Take the kit's agent bodies; move project text to `.claude/project/<agent>.md` | Each agent file matches the kit's apart from `model:`/`effort:`; each project file exists |
+| 33 | Reviewer model and effort | owner decision | `model:` and `effort:` in the reviewer agents' front matter | `@` → agent shows the model |
+| 34 | Viewports | owner decision | `ui.viewports` gains `{ "name": "tablet", "width": 768, "height": 1024 }` | ui-verifier reports a tablet column |
+| 35 | Login step for UI checks | manual edit | `ui.auth: { "loginPath", "envFile", "secretVar", "steps" }` | ui-verifier signs in; its report never shows the secret |
+| 36 | Generated `/verify` | owner decision | `/customize-kit` writes `.claude/skills/verify/SKILL.md` from `docs/templates/verify-skill.md` (keep yours if you have one) | `/verify` runs `verify.full` and reports output |
+| 37 | Claude workflows without the secret | merge from `.kit-incoming/` | Take the kit's `claude-pr-review.yml` and `claude.yml` (job env `HAS_TOKEN`, gated steps) | A PR leaving draft without the secret gets a passing job with a notice |
+| 38 | Action versions | merge from `.kit-incoming/`; manual edit (your own workflows) | `actions/checkout@v7`, `actions/setup-node@v7`, `actions/setup-python@v7`, `actions/upload-artifact@v7` | `git grep -n "uses: actions/"` shows no older majors |
+| 39 | CI layout | manual edit | `workflow.ciJobName: "<your job>"`; add the "Task files parse cleanly" step (`./.claude/scripts/build-index.ps1`, `shell: pwsh`) to your CI | CI shows the step; the gate watches the right job |
+| 40 | Isolated test database | manual edit (if needed) | CI test job sets `TEST_DATABASE_URL` only (a dummy `DATABASE_URL` only on build); service image = production major; a test guard with no fallback | Tests refuse with `TEST_DATABASE_URL` unset |
+| 41 | Environment ladder | owner decision | Via `/architecture`; then `protectedPaths` and `Read(...)` denies for production env files | A Read of the production env file is denied |
+| 42 | Release template | owner decision | Copy `docs/templates/github/release.yml` to `.github/workflows/` and fill it | A dry run reports the plan |
+| 43 | Performance-budget template | owner decision | Copy `perf-budget.yml`, add `perf/budget.json` | A preview gets a budget comment |
+| 44 | Backup template | owner decision | Copy `backup.yml` | A manual run restores the dump and passes |
+| 45 | Dependency-bot template | owner decision | Copy `dependabot.yml` to `.github/` | Dependabot opens grouped PRs |
+| 46 | Down files | owner decision | A hard rule plus schema-reviewer's project file: drops, retypes, and merges ship a down file and an up → down → up test | schema-reviewer flags a drop without one |
+| 47 | No branch protection | merge (`settings.json`); manual edit (`git.md`) | `PowerShell(...)` twin for every `Bash(...)` deny; `git.md` "Project notes" says the deny rules are the only guard if rulesets return 403 | `gh api repos/{owner}/{repo}/rulesets`; the deny list has both tools |
+
+## 4. Upgrade steps, in order
+
+`/customize-kit` (2.4) runs an upgrade pass when it detects a 2.3.x configuration. It does steps 2–12 for you, proposing each as a row in one table for your approval. Step 1 and the GitHub settings in step 10 are yours.
+
+1. **Run the installer** from the project root, on the `chore/kit-2.4` branch:
+   ```powershell
+   powershell -NoProfile -ExecutionPolicy Bypass -File C:\Development\tools\claude-code-starter-kit\install-kit.ps1 -Upgrade -WhatIf
+   powershell -NoProfile -ExecutionPolicy Bypass -File C:\Development\tools\claude-code-starter-kit\install-kit.ps1 -Upgrade
+   ```
+   Expect: **Updated** for every kit skill, `post-edit-verify.ps1`, `dispatch-approved.ps1`, `docs/tasks/_TEMPLATE.md`, `docs/templates/architecture.md`, and the guides; **Added** for `guard-large-reads.ps1` and the new templates; **To merge** for `CLAUDE.md`, `kit.json`, `settings.json`, each agent, `.claude/rules/git.md` (if you have one; otherwise Added), the PR template, the two Claude workflows, and `ci.yml` if yours is the kit's filled-in one. Nothing under `.claude/project/`, `.claude/rules/` other than `git.md`, `.claude/skills/verify/`, or your decisions log is touched. Restart Claude Code.
+2. **Merge `.kit-incoming/`** *(customize-kit)*. Keep all your content and add the kit's new sections, keys, and rules. For each agent, take the kit's body and keep your `model:` and `effort:` lines; your project text moves in step 5, so don't merge it back into the body. If `.kit-incoming/.github/workflows/ci.yml` appears, it is the kit's unfilled template: don't merge it into your filled-in CI; step 9 covers what to check.
+3. **Add the new `kit.json` keys** *(customize-kit)*: the `workflow` switches (item table: 1–4, 6–8, 10, 12, 14, 16), `largeFiles`, the `testAudit` keys (26, 27), and `ui.auth` / `ui.redrawFiles` / `ui.viewports` (18, 34, 35). Remove `_examples.protected_migration` and any migration glob in `protectedPaths`.
+4. **Update `settings.json`** *(customize-kit)*: the staging denies, a `PowerShell(...)` twin for every `Bash(...)` rule (allow and deny), push allow-rules per branch prefix, deny rules for deploy and production commands, `Read(...)` denies for production env files, and the `guard-large-reads.ps1` hook entry.
+5. **Move project text out of agent bodies** *(customize-kit)* into `.claude/project/<agent>.md`: output formats (test-runner, test-auditor), project checks (spec-reviewer, schema-reviewer), sign-in and limits (ui-verifier).
+6. **Replace `CLAUDE.md` workarounds with switches** *(customize-kit)*, and delete the prose they replace (section 5).
+7. **Add the new Project docs rows** *(customize-kit)*: Deploy, UX floor, Review findings, Owner runbook, Owner checklist, and a Decisions row with its ID prefix and without "(fixed)". Replace the "Precedence:" line with "Which document wins", and add "Stop and ask before".
+8. **Create or merge `.claude/rules/git.md`** *(customize-kit)*, fill its "Project notes", and make the `CLAUDE.md` Git section a pointer to it.
+9. **Update CI** *(customize-kit proposes; you review)*: `workflow.ciJobName` = your job's name, the "Task files parse cleanly" step in your CI, and the test-database isolation if your CI sets `DATABASE_URL` in the test job.
+10. **Gate the Claude workflows on their secret** *(customize-kit, from `.kit-incoming/`)*. Then decide: run `/install-github-app` (attached terminal) to set `CLAUDE_CODE_OAUTH_TOKEN`, or leave them skipping. Check rulesets (`gh api repos/{owner}/{repo}/rulesets`) and set branch protection if they're available (yours, on GitHub).
+11. **Bump action versions** *(customize-kit)* in your own workflows to `@v7` for checkout, setup-node, setup-python, and upload-artifact.
+12. **Offer the optional templates** *(customize-kit)*: release, performance budget, backup, dependency bot, UX floor, review protocol and ledger, and the generated `/verify`.
+
+Then commit by path on `chore/kit-2.4`, push, open the PR, and run the checks in section 7 before merging.
+
+## 5. Projects that worked around 2.3.1
+
+On 2.3.1 the only way to change `/implement-task` was to write counter-instructions into `CLAUDE.md` (because `-Upgrade` overwrites skills), and to add project sections and "override" lines inside agent bodies (which then needed a hand merge on every upgrade). In 2.4 each of those has a home the kit never overwrites. Find them by searching `CLAUDE.md` and `.claude/agents/` for "Kit task loop", "override", "even though the skill says", "instead of the kit's", and any heading that names your project.
+
+**Worked example: the Ledger project** (a Next.js + Postgres app on Neon and Vercel). Its 2.3.1 adoption put a "§ Kit task loop" section in `CLAUDE.md` and "Ledger" sections in its agents. Each maps to a 2.4 switch or project file:
+
+| 2.3.1 workaround (Ledger) | 2.4 replacement | Delete |
+|---|---|---|
+| Kit task loop: "PRs … are marked ready only when git.md § Test on the branch has passed, not CI alone: the Vercel preview has deployed, Lighthouse is green, and a UI change has been walked on the preview" | `workflow.readyGates`: `["verify.full", "ci", { "name": "Vercel preview deployed", "check": "gh pr checks <n> shows the Vercel status as pass", "by": "claude", "failureLog": "the Vercel deployment log", "ownerFix": "A migration regenerated after the first preview needs the Neon branch preview/<branch> deleted and the preview redeployed (START-HERE 10f)" }, { "name": "Lighthouse green", "check": "gh pr checks <n> shows Lighthouse as pass and its comment shows nothing over budget", "by": "claude" }, { "name": "Changed workflow run on the branch", "check": "gh workflow run <file> --ref <branch>; gh run watch <id> --exit-status", "by": "claude", "when": [".github/workflows/*"] }, { "name": "Preview walked at 360–412px", "check": "Walk the changed screen and its states on the preview against the mockup", "by": "owner", "when": "ui" }]` | That bullet |
+| "Stage by path … even though the skill says `-A`" | Default `workflow.staging: "by-path"` | That bullet |
+| "A failed preview build is not an Actions run … that is the owner's step; say so and stop" | The preview gate's `failureLog` and `ownerFix` (above) | That bullet |
+| "Decisions are proposed, not written … the owner adds it to `docs/review/decisions.md` as the next D-n" | `workflow.decisions: "propose"`; Decisions row `docs/review/decisions.md (IDs D-n)` | That bullet |
+| "A TASKS.md task is never split" | `workflow.splitPolicy: "never-split"` | That bullet |
+| "Merged is not live. Every final report ends with: 'After merge, run Release (START-HERE Step 13) to put it live.' Claude never starts Release." | `workflow.afterMerge: "After merge, run Release (START-HERE Step 13) to put it live."`; the Deploy row already exists; the deny rule `gh workflow run release.yml*` stays | That bullet |
+| "One task, two IDs" (TASK-### file titled `1.2 Undo`; branch `task/1.2-undo`; commit `task 1.2: …`) | `workflow.roadmap: { "path": "docs/TASKS.md", "idPattern": "\\d+\\.\\d+[a-z]?", "checkLabel": "**Check:**" }` and `workflow.commitFormat: "area"` | That bullet |
+| "Three status records, one owner each" | Roadmap mode, plus `workflow.statusDoc: "docs/STATUS.md"` | That bullet |
+| The first eight Kit task loop bullets (copies of the template's Workflow lines) | The template's Workflow section | The duplicates |
+| "Precedence: … `.claude/rules/git.md` beats the kit's flow on branch names, commit and PR format, and when a PR is ready" | `git.md` and the kit now agree through the switches | That sentence; keep "Which document wins (D-1)" |
+| Decisions row: "`docs/decisions.md` (fixed) points there and holds stack rows K-n" | Decisions row names the D-log and its prefix. The pointer file existed only because the path was fixed | *Decided (owner, 2026-10-09)*: move K-1…K-8 into `docs/review/decisions.md` as the next D-rows, each noting its old K-ID, then delete `docs/decisions.md` and anything that cites it by path |
+| `wipLimit: 1` with the reason in `kit-adoption.md` (G-14) | `workflow._wipLimitReason: "Every worktree's .env names the same test database, which test:db:reset rebuilds and vitest truncates"` | — |
+| G-19: `--force-with-lease` deny dropped by hand | `workflow.allowForceWithLease: true` | — |
+| G-3: no `PowerShell(...)` deny rules (owner accepted) | 2.4 adds them by default (a behaviour change) | *Decided (owner, 2026-10-09)*: keep them; rulesets return 403 on this repository, so they are the only guard. Record the reversal of G-3 in `docs/kit-adoption.md` |
+| `.claude/hooks/guard-large-reads.js` (Node) blocking `seed/*`, sidecar CSVs, `*.xlsx`, the Metron cache, and whole reads of `design/mockups.html` | `largeFiles`: `{ "pattern": "design/mockups.html", "hint": "Print one screen with: powershell -NoProfile -File scripts/screen.ps1 <data-id> (ids in design/mockups-index.md)" }`, `{ "pattern": "docs/TASKS.md", "hint": "Print one task with: powershell -NoProfile -File scripts/task.ps1 <id>" }`, and `"always": true` entries for `seed/*`, `etl/data/cover_dates.csv`, `etl/data/why_review.csv`, `etl/data/volume_map.csv`, `etl/data/workbook_run_fields.csv`, `*.xlsx`, `*.metron-cache.sqlite` | The `.js` hook and its `settings.json` entry, once the PowerShell guard is registered |
+| test-auditor "Ledger override" line (count `.sql`, `.py`, `drizzle/meta/` as implementation) | `testAudit.implementationExtensions: [".ts", ".tsx", ".mjs", ".sql", ".py"]`, `testAudit.implementationPaths: ["drizzle/meta/*"]` | The override line |
+| test-auditor "Reading this stack's output" | `.claude/project/test-auditor.md` (same text). `testAudit.run: "node scripts/test-files.mjs {tests}"` keeps working; `runners` + `setup` could replace the script later | The section in the agent |
+| test-runner "Reading this stack's output" (the `test:all` `&&` chain, tsc, eslint, token and migration checks, vitest, SQL and Python output) | `.claude/project/test-runner.md` | The section in the agent |
+| spec-reviewer "Project-specific checks (Ledger)" | `.claude/project/spec-reviewer.md` with checks 2–6. Check 1 (the TASKS.md Check and its checkbox) and the "task file ranks below TASKS.md" paragraph are built in with roadmap mode | The section in the agent |
+| schema-reviewer's 12 Ledger checks and "Migration tool (drizzle-kit)" section | `.claude/project/schema-reviewer.md`. Keep `model: sonnet` and `effort: high` in the agent's front matter | The checks in the agent body |
+| ui-verifier "Ledger specifics": Sign in first | `ui.auth: { "loginPath": "/login", "envFile": ".env", "secretVar": "APP_PASSCODE", "steps": ["Type the passcode into the Passcode field", "Press Open ledger", "Wait for the redirect away from /login"] }` | That bullet |
+| ui-verifier "Ledger specifics": dev database, design files, viewports, targets | `.claude/project/ui-verifier.md` | The section in the agent |
+| `.claude/rules/schema.md` repeating `CLAUDE.md` § Non-obvious rules (and drifting from it) | One home per rule: keep each rule in `rules/schema.md` (path-scoped) or in `CLAUDE.md`, not both, and leave a pointer | The copy that loses |
+| CI job `check` | `workflow.ciJobName: "check"`; add the "Task files parse cleanly" step to `ci.yml` (the kit's `ci.yml` was skipped) | — |
+| Kit workflows bumped to `checkout@v7` by hand (G-18) | The 2.4 kit's workflows use `@v7` and skip without the secret (G-4) | Take the kit's two files wholesale |
+
+**Worked example: the cfb-model project** (a pnpm monorepo: a Next.js app in `web/`, a uv Python workspace in `python/`, Alembic migrations, Neon and Vercel). Its 2.3.1 adoption kept the kit's own `ci.yml` (filled in), wrote project rules into `.claude/rules/` (git always; database, python, web by path), and put project text in four agents.
+
+| 2.3.1 workaround (cfb-model) | 2.4 replacement | Delete |
+|---|---|---|
+| `CLAUDE.md`: "Where a kit guide or skill conflicts with `.claude/rules/git.md` (branch names, staging, committing to `main`), `git.md` wins" | `workflow.branchPrefixes: ["feat/","fix/","chore/","docs/","model/"]`, `workflow.taskBranch: "{type}/{id}-{slug}"` (the prefixes' meanings stay in `git.md`); staging by path and never committing on `main` are now kit defaults | That sentence |
+| Two precedence lines ("code and migrations > this file and rules > docs"; "the design wins … still follow `docs/04-model.md`") | One "Which document wins" section: code and migrations → the roadmap/task checks → architecture → narrative docs, with "the design rules layout and copy; numbers follow the model doc" | Both lines |
+| Decisions row `docs/decisions.md (fixed)` | `\| Decisions \| docs/decisions.md (IDs D-###) \|` | "(fixed)" |
+| `git.md`: "Before calling a PR ready: the full CI suite passes locally, CI is green, and the Vercel preview has deployed" and "Test a changed workflow on its branch" | `workflow.readyGates: ["verify.full", "ci", { "name": "Vercel preview deployed", "check": "gh pr checks <n> shows the Vercel status as pass", "by": "claude", "failureLog": "the Vercel deployment log" }, { "name": "Changed workflow run on the branch", "check": "gh workflow run <file> --ref <branch>; gh run watch <id> --exit-status", "by": "claude", "when": [".github/workflows/*"] }]` | Keep the lines in `git.md` if you like the prose; the gates now enforce them |
+| `git.md`: "Merging does not deploy. Production changes go out only through the `release` workflow" | `workflow.afterMerge: "After merge, run the release workflow to put it live."` and the Deploy row, once `release.yml` exists (start from `docs/templates/github/release.yml`); until then Deploy is `—` | — |
+| `.claude/scripts/run-tests.ps1` (a project script in a kit-owned folder) as `testAudit.run` | Either `testAudit.runners` with `dir` (`{ "pattern": "python/*/tests/*.py", "dir": "python", "run": "uv run pytest {tests}" }`, `{ "pattern": "web/e2e/*.spec.ts", "dir": "web", "run": "pnpm exec playwright test {tests}" }`, `{ "pattern": "web/*.test.ts*", "dir": "web", "run": "pnpm exec vitest run {tests}" }`) plus `testAudit.setup: "pnpm db:migrate:test && pnpm db:seed"`, or keep the script but move it to `scripts/` and update `kit.json`, `settings.json` and `CLAUDE.md` | The script, if the runners replace it |
+| `verify.fast` runs `pnpm typecheck`, eslint and `ruff check .` on every `.ts`, `.tsx`, `.mts` and `.py` edit | Object entries: `{ "command": "pnpm --dir web exec eslint --no-warn-ignored ..\\{file}", "extensions": [".ts",".tsx",".mts"] }`, `{ "command": "uv --directory python run ruff check .", "extensions": [".py"] }`, and `pnpm typecheck` as a string (it covers both) | — |
+| `protectedPaths` entry `python/db/migrations/versions/0001_*` | A CI check that migrations on `main` are never edited (decision D-020; `pnpm db:check` covers one head and models-match only so far). Keep the entry until that check exists, then remove it; a per-file entry goes stale with every merged migration | The migration entry, once the check lands |
+| `protectedPaths` has both `design/*` and `design/handoff/*` | `design/*` already matches everything below `design/` (`*` crosses folders) | `design/handoff/*` (optional) |
+| schema-reviewer "Project data rules" and "Migration tool: Alembic" | `.claude/project/schema-reviewer.md` | The text in the agent |
+| spec-reviewer project checks; test-runner and test-auditor output notes | `.claude/project/spec-reviewer.md`, `test-runner.md`, `test-auditor.md` | The text in the agents |
+| ui-verifier "Reference screenshot check" | Built into the 2.4 ui-verifier (compare with the **Reference screenshots** at the same width). The project specifics (file names `NN-<screen>-<desktop\|mobile\|tablet>.png`, numbers compared only on the seeded test database, dark theme) go in `.claude/project/ui-verifier.md` | The step in the agent |
+| Screenshots exist at 768 for This Week | `ui.viewports` gains the 768×1024 tablet | — |
+| The seed fixture reproduces the mockup's sample numbers on purpose | Allowed: an AC cites the fixture ("on the seeded test database …"), not the mockup | — |
+| `CLAUDE.kit.md` at the repository root: an unfilled copy of the 2.3.1 template left from the first merge | Nothing reads it | The file |
+| `wipLimit: 2` with one shared `TEST_DATABASE_URL` (the e2e suite needs it migrated and seeded) | *Owner decision*: `wipLimit: 1` with `_wipLimitReason`, or a test database per worktree in `worktreeSetup` | — |
+| `ui.auth` | Not needed yet. When GitHub sign-in lands, a passcode field won't work: give the dev server a dev-only sign-in that `ui.auth.steps` can drive, and never let it reach production | — |
+| `.github/workflows/ci.yml` (the kit's template, filled in) | `.kit-incoming/` gets the kit's unfilled template: don't merge it. Yours already has the parse step, `timeout-minutes`, `concurrency`, job `verify`, and `TEST_DATABASE_URL` only | — |
+
+## 6. A prompt for the upgrade
+
+Paste this into Claude Code in the project, after step 1 (the installer) and a restart:
+
+```text
+We're upgrading this project's Claude Code starter kit from 2.3.x to 2.4. The guides are in docs/claude-kit/
+(UPGRADING.md and CHANGELOG.md). The installer has already run with -Upgrade.
+
+1. Read docs/claude-kit/UPGRADING.md, CLAUDE.md, .claude/kit.json, .claude/settings.json, .claude/rules/,
+   every file in .claude/agents/ and .kit-incoming/, and the CI workflows. Don't open any .env* file.
+2. Run /customize-kit. Its upgrade pass builds one table: every change from UPGRADING.md's item table that
+   applies here, with the exact edit, the CLAUDE.md or agent text it lets us delete, and how to verify it.
+   Mark the rows that need my decision. Then stop and wait for my approval. Change nothing before that.
+3. After I approve (row by row is fine), apply only the approved rows. Follow this project's own git rules
+   (.claude/rules/git.md and CLAUDE.md): work on a chore/kit-2.4 branch, stage by path, commit with this
+   project's commit format, and never commit on or push to the base branch.
+4. Run the checks in UPGRADING.md section 7 and report each result.
+5. Push the branch and open one PR. Its body says what changed, which 2.4 behaviour changes now apply,
+   what you deleted from CLAUDE.md and the agents and what replaced it, and how it was verified. Leave it
+   for me to merge.
+```
+
+## 7. Verification after upgrading
+
+Run these on the upgrade branch before merging, and report each result:
+
+```powershell
+# Task files still parse
+powershell -NoProfile -ExecutionPolicy Bypass -File .claude/scripts/build-index.ps1; $LASTEXITCODE                                  # expect 0
+
+# The fast checks fire on a source file, and skip a file no check applies to
+'{"tool_input":{"file_path":"<a real source file>"}}' | powershell -NoProfile -ExecutionPolicy Bypass -File .claude/hooks/post-edit-verify.ps1; $LASTEXITCODE        # expect 0
+'{"tool_input":{"file_path":"<a .md file>"}}' | powershell -NoProfile -ExecutionPolicy Bypass -File .claude/hooks/post-edit-verify.ps1; $LASTEXITCODE                  # expect 0 at once
+
+# A whole-file Read of a large file is denied; a ranged one isn't
+'{"tool_input":{"file_path":"<a largeFiles path>"}}' | powershell -NoProfile -ExecutionPolicy Bypass -File .claude/hooks/guard-large-reads.ps1; $LASTEXITCODE           # expect 2
+'{"tool_input":{"file_path":"<same path>","offset":1,"limit":50}}' | powershell -NoProfile -ExecutionPolicy Bypass -File .claude/hooks/guard-large-reads.ps1; $LASTEXITCODE  # expect 0 (2 if the entry has "always")
+
+# An edit to a protected path is blocked
+'{"tool_input":{"file_path":".env"}}' | powershell -NoProfile -ExecutionPolicy Bypass -File .claude/hooks/guard-protected-paths.ps1; $LASTEXITCODE                    # expect 2
+
+# The dispatcher still reads the config
+powershell -NoProfile -ExecutionPolicy Bypass -File .claude/scripts/dispatch-approved.ps1 -DryRun                                                                   # expect a summary, no dispatch
+```
+
+Then:
+
+- **In a Claude session**, `/hooks` shows two PreToolUse entries (Read, Edit|Write) and one PostToolUse entry. Editing a source file runs the fast checks, reading a large file whole is refused with the hint, and editing `.env` is blocked. Asking Claude to run `git add -A` is denied.
+- **`verify.full` passes**: delegate to test-runner, or run `/verify`.
+- **JSON parses**: `Get-Content .claude/kit.json -Raw | ConvertFrom-Json` and the same for `.claude/settings.json` don't throw.
+- **CI is green on the upgrade PR**, including the "Task files parse cleanly" step. The Claude review job passes (or skips with its notice).
+- **Nothing project-specific is left in an agent body**: each `.claude/agents/*.md` matches the kit's apart from `model:` / `effort:`, and each project section is in `.claude/project/`.
+- **No counter-instructions are left in `CLAUDE.md`**: search it for "Kit task loop", "even though the skill", and "instead of the kit".
