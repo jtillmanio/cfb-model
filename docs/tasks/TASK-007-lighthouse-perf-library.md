@@ -1,0 +1,76 @@
+---
+id: TASK-007
+title: Build the Lighthouse gate logic, report and session minting with tests
+status: Ready
+depends_on: [TASK-001]
+size: M
+model: opus
+autonomy: attended
+ui: false
+plan_status: none
+planned_at_commit:
+---
+
+# TASK-007 — Build the Lighthouse gate logic, report and session minting with tests
+
+## Goal
+
+The logic that decides whether a PR preview passes its performance and accessibility checks, writes the one PR comment, and keeps secrets out of reports exists as tested code, ready for the workflow in TASK-008 to run.
+
+## Context
+
+- Task list: `docs/08-tasklist.md` › M1 › M1.5, split in two: this task is the pure logic, the report script and session minting; TASK-008 adds the workflow, the measuring script and the first budgets.
+- Architecture: `docs/02-architecture.md` › Performance checks (Lighthouse): Gates, Reported never gated, Signing in, Reports stay private, Workflow shape (`plan`, `report` subcommands), Baseline, Files (`scripts/perf/routes.mjs`, `mint-session.mjs`, `report.mjs`, `lib/perf.mjs`; a Vitest test with fixture Lighthouse results and no network).
+- Decisions: D-101 (what is gated and what is reported; minting with the preview `AUTH_SECRET`; scrub and guard; 14-day artifacts), D-012 (preview and production `AUTH_SECRET`s differ).
+- Pattern: the owner's `ledger` project (`scripts/perf/`, `test/perf.test.ts`), used as a pattern, not a template (02 › Performance checks).
+- Depends on TASK-001 for the Auth.js session cookie's name and encoding, which `mint-session.mjs` must reproduce outside `web/` (the e2e helper in `web/e2e/` stays separate; production has no way in except GitHub).
+- `scripts/perf/package.json` pins its own dependencies and stays out of `pnpm-workspace.yaml`; only the workflow installs it (`npm ci --prefix scripts/perf`). The test runs in the web Vitest suite so `pnpm test` covers it.
+
+## Acceptance criteria
+
+- [ ] AC-1: For each gated number (document bytes plus the RSC payload, JS bytes, request count, CLS, accessibility score), a Vitest case passes a fixture result exactly at budget and fails one just over it (CLS fails at ≥ 0.1; accessibility fails below the recorded score), and the failure names the route and the number.
+- [ ] AC-2: A fixture page load that requests any `/api/py/*` URL (including a prefetch) fails, and the failure names the URL; Vercel extras (`vercel.live`, `_next-live`) are excluded from request counts. A route that never finished measuring, or that ended on `/login`, fails with a message saying so.
+- [ ] AC-3: `measurable` refuses the production URL unless `allow_production` is set, and refuses deployment states other than `success` (Vitest cases for each).
+- [ ] AC-4: The scrubber removes every given secret and the minted cookie from a fixture Lighthouse JSON and HTML report, and the guard fails on a file that still contains one, naming the file but never printing the value (Vitest asserts the message contains the file name and not the secret).
+- [ ] AC-5: The PR comment is one Markdown body with a fixed HTML-comment marker; it reports TTFB, FCP, LCP and TBT as first hit / median beside the baseline (or "no baseline"), and timings never cause a failure. Baseline choice picks the newest merged PR's newest green run (Vitest on fixture run lists).
+- [ ] AC-6: `scripts/perf/routes.mjs` lists `/login` (signed out) and `/teams` (signed in), and a Vitest case fails when a top-level page under `web/app/` has no route in the list.
+
+## Out of scope
+
+- `.github/workflows/lighthouse.yml`, `measure.mjs`, `budget.json` and the budget table in `docs/02-architecture.md` (TASK-008).
+- Running Lighthouse or Chrome in tests: everything here runs on fixture results with no network.
+- Deciding where byte gates measure data pages (roadmap › Open questions 5; decided before Phase 4).
+
+## Files likely touched
+
+- `scripts/perf/package.json` — pinned Lighthouse and helpers, outside the pnpm workspace (new; `package-lock.json` via npm).
+- `scripts/perf/lib/perf.mjs` — gates, request filtering, scrubber, guard, baseline choice, comment (new).
+- `scripts/perf/report.mjs` — `plan | guard DIR | merge DIR | baseline | report` (new).
+- `scripts/perf/mint-session.mjs` — mints the Auth.js session cookie from `AUTH_SECRET`, masking it first (new).
+- `scripts/perf/routes.mjs` — the one route list (new).
+- `web/lib/perf.test.ts` — the Vitest suite on fixture results (new).
+- `web/vitest.config.mts` or `web/tsconfig.json` — only if importing `../scripts/perf` needs it.
+
+## Verification
+
+- Automated: `web/lib/perf.test.ts` (AC-1 to AC-6) in `pnpm test`.
+- Manual: run `node scripts/perf/report.mjs plan` with a fixture event file → prints the URL and route list as JSON, or the reason it won't measure. Run `mint-session.mjs` with a throwaway secret → its first output line is `::add-mask::`, and the cookie value never appears unmasked.
+
+## Plan
+
+_Written by /plan-batch or /implement-task Phase 1. Approved by the user (plan_status: approved) before any code is written._
+
+## Review log
+
+_Filled by /implement-task. One line per round._
+
+## Blocked
+
+_Only if status is Blocked: what failed, what was tried, best hypothesis, decision needed._
+
+## Metrics
+
+- Verify rounds:
+- Review rounds:
+- First-pass AC FAILs:
+- Plan revisions after approval:
