@@ -1,7 +1,7 @@
 ---
 id: TASK-001
 title: Gate every page behind GitHub sign-in with an allowlist
-status: In progress
+status: Review
 depends_on: []
 size: M
 model: opus
@@ -32,12 +32,12 @@ Only the owner's GitHub account can open the app: a signed-out visitor, a stale 
 
 ## Acceptance criteria
 
-- [ ] AC-1: Given no session cookie, when the browser requests `/` or `/teams`, then it ends on `/login` (HTTP redirect, not a 500), and `/login` shows a "Sign in with GitHub" button.
-- [ ] AC-2: Given a session cookie whose value is garbage, signed with a different `AUTH_SECRET`, or expired, when the browser requests `/teams`, then it ends on `/login` and no response in the chain has status 500 (e2e, one case each).
-- [ ] AC-3: The sign-in check admits only the allowlisted GitHub user ID: a profile with that ID is allowed; any other ID is refused and sent to `/login` with an error the login page can read; when the allowlist env var is unset or empty, every account is refused (fail closed). Covered by a Vitest test on the allowlist check.
-- [ ] AC-4: The session lasts 90 days: the Auth.js config's session max age is `90 × 24 × 60 × 60` seconds (Vitest), and the session cookie minted in e2e carries an expiry about 90 days out.
-- [ ] AC-5: Given a session cookie minted by the Playwright fixture with the test `AUTH_SECRET`, `/teams` shows the seeded "Ohio State · Big Ten" row as before; signed out, `GET /api/py/health` still returns 200 JSON with `db_reachable: true` (no redirect).
-- [ ] AC-6: The session-mint helper lives under `web/e2e/`, and no file under `web/` outside `web/e2e/` imports it or calls Auth.js's JWT `encode` (checked by `rg` in review).
+- [x] AC-1: Given no session cookie, when the browser requests `/` or `/teams`, then it ends on `/login` (HTTP redirect, not a 500), and `/login` shows a "Sign in with GitHub" button.
+- [x] AC-2: Given a session cookie whose value is garbage, signed with a different `AUTH_SECRET`, or expired, when the browser requests `/teams`, then it ends on `/login` and no response in the chain has status 500 (e2e, one case each).
+- [x] AC-3: The sign-in check admits only the allowlisted GitHub user ID: a profile with that ID is allowed; any other ID is refused and sent to `/login` with an error the login page can read; when the allowlist env var is unset or empty, every account is refused (fail closed). Covered by a Vitest test on the allowlist check.
+- [x] AC-4: The session lasts 90 days: the Auth.js config's session max age is `90 × 24 × 60 × 60` seconds (Vitest), and the session cookie minted in e2e carries an expiry about 90 days out.
+- [x] AC-5: Given a session cookie minted by the Playwright fixture with the test `AUTH_SECRET`, `/teams` shows the seeded "Ohio State · Big Ten" row as before; signed out, `GET /api/py/health` still returns 200 JSON with `db_reachable: true` (no redirect).
+- [x] AC-6: The session-mint helper lives under `web/e2e/`, and no file under `web/` outside `web/e2e/` imports it or calls Auth.js's JWT `encode` (checked by `rg` in review).
 
 ## Out of scope
 
@@ -75,7 +75,7 @@ Approved 2026-10-09.
 3. `web/auth.config.ts`: GitHub provider; a `signIn` callback using the allowlist (refusal → `/login?error=AccessDenied`); `session.maxAge` 90 days; `pages.signIn`/`pages.error` → `/login`. `web/auth.ts` exports `NextAuth(authConfig)`; `web/app/api/auth/[...nextauth]/route.ts` mounts the handlers.
 4. `web/proxy.ts`: `auth()`-wrapped; no valid session, or a session whose `sub` isn't the allowlisted ID → 307 to `/login`. The matcher skips `/login`, `/api/auth`, `/api/py`, `_next` and files with an extension.
 5. `web/app/login/page.tsx`: minimal token-styled page with one "Sign in with GitHub" button (a server-action form calling `signIn("github", { redirectTo: "/" })`). It is static and doesn't read the GitHub variables, so previews render it without them.
-6. `web/e2e/test-env.ts` (test secret and allowlisted ID), `web/e2e/fixtures.ts` (mints the cookie with `encode` from `next-auth/jwt`; a `signedIn` fixture), and `web/playwright.config.ts` (passes `AUTH_SECRET`, `AUTH_ALLOWED_GITHUB_ID`, `AUTH_TRUST_HOST=true` and dummy GitHub variables to `next start`; readiness URL `/login`). `ci.yml` probably needs no change.
+6. `web/e2e/test-env.ts` (test secret and allowlisted ID), `web/e2e/fixtures.ts` (mints the cookie with `encode` from `next-auth/jwt`; a `signedIn` fixture), and `web/playwright.config.ts` (passes `AUTH_SECRET`, `AUTH_ALLOWED_GITHUB_ID`, `AUTH_TRUST_HOST=true` to `next start`; readiness URL `/login`). `ci.yml` needs no change. *Revised after approval:* no dummy GitHub client ID or secret after all, so e2e proves `/login` renders without them, as on a preview (D-102). This settles the first risk below.
 7. `web/e2e/auth.spec.ts` (new); `web/e2e/teams.spec.ts` moves onto the signed-in fixture, and its health test moves into the signed-out spec.
 8. `web/next.config.ts`: load the repo root's `.env.local` with `process.loadEnvFile`, which never overrides variables already set. Today Next reads only `web/.env*`, so local sign-in can't see `AUTH_*` without it.
 9. `.env.example` (drop "nothing reads these yet") and a new decision, D-103: Auth.js v5 beta pinned exactly, and the allowlist re-checked on every request.
@@ -96,7 +96,7 @@ Approved 2026-10-09.
 
 ## Review log
 
-_Filled by /implement-task. One line per round._
+Verify R1 PASS | Audit R1 PASS (every AC-1..AC-5 proven against base; headline read "CHANGES REQUIRED" but listed no required change) | Spec R1 CHANGES (PLAN GAP: dummy GitHub variables dropped without updating the plan) → R2 APPROVE | UI R1 PASS (390, 768, 1440)
 
 ## Blocked
 
@@ -104,7 +104,7 @@ _Only if status is Blocked: what failed, what was tried, best hypothesis, decisi
 
 ## Metrics
 
-- Verify rounds:
-- Review rounds:
-- First-pass AC FAILs:
-- Plan revisions after approval:
+- Verify rounds: 1
+- Review rounds: 2
+- First-pass AC FAILs: 0
+- Plan revisions after approval: 1 (step 6: no dummy GitHub variables in e2e)
