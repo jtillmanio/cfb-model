@@ -54,7 +54,7 @@ Phase 8  Multi-sport (NFL)
 
 **Claude Code setup**
 - [x] `.claude/rules/` in place (git, database, web): **done in planning**
-- [ ] `PreToolUse` hook blocking whole-file reads of `data/**`, `*.parquet`, `*.duckdb`, large fixtures/mockups
+- [x] `PreToolUse` hook blocking whole-file reads of `data/**`, `*.parquet`, `*.duckdb`, large fixtures/mockups _(the kit 2.4 `guard-large-reads.ps1`, configured by `largeFiles` in `.claude/kit.json`; add a fixture there once one grows past ~100 KB)_
 - [x] A schema-reviewer subagent for schema/view/query PRs
 - [x] CLAUDE.md "Commands" section filled in
 

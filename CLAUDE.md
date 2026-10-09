@@ -2,17 +2,17 @@
 
 Personal sports-analytics app. A college football model makes game predictions, compares them to spreads (market and Splash pick'em contest lines), recommends picks, ranks teams (later also seasons, programs and coaches across history), projects seasons, and tracks its own record. Multi-sport later.
 
-**Status:** Phase 0 in progress. The walking skeleton is merged: Neon DB and migration `0001`, `/api/py/health` and `/teams`, CI and Vercel previews. Not built yet: auth, shadcn/ui, `release` and `backup` workflows, R2, Dependabot, the data-read hook. Status lives in the `docs/06-roadmap.md` checklists.
+**Status:** Phase 0 in progress. The walking skeleton is merged: Neon DB and migration `0001`, `/api/py/health` and `/teams`, CI and Vercel previews. Not built yet: auth, shadcn/ui, `release` and `backup` workflows, R2, Dependabot. Status lives in the `docs/06-roadmap.md` checklists.
 
 ## Where things are
 - `docs/01`–`07`: product, architecture, data model, model, UI brief, roadmap, Claude Design playbook. Read the relevant one before starting a phase task.
 - `design/`: mock sample data, Claude Design exports (the visual reference) and handoff bundles.
 - `.claude/rules/`: area rules (git always; python, database and web by path).
-- **Precedence when sources disagree:** code and migrations > this file and `.claude/rules/` > `docs/`. Fix the loser in the same PR. Take counts and numbers from code or data, never from prose.
+- `.claude/project/`: this project's sections for the kit's agents (and skills, if any); the kit never overwrites them.
 
 ## Project docs
 
-Every kit skill and agent reads this table to find project documents. Use `—` for roles the project doesn't have. `docs/claude-kit/` holds the kit's own guides, which use the default names (`docs/product/*`, `docs/architecture.md`, `docs/tasklist.md`); read them through this table. Where a kit guide or skill conflicts with `.claude/rules/git.md` (branch names, staging, committing to `main`), `git.md` wins.
+Every kit skill and agent reads this table to find project documents. Use `—` for roles the project doesn't have. `docs/claude-kit/` holds the kit's own guides, which use the default names (`docs/product/*`, `docs/architecture.md`, `docs/tasklist.md`); read them through this table.
 
 | Role | Path |
 |---|---|
@@ -24,24 +24,40 @@ Every kit skill and agent reads this table to find project documents. Use `—` 
 | Design tokens | `design/handoff/tokens/` |
 | Reference screenshots | `design/handoff/screenshots/` |
 | Design process notes | `docs/07-claude-design-playbook.md` |
+| UX floor | — |
 | Architecture | `docs/02-architecture.md` |
 | Data model | `docs/03-data-model.md` |
 | Domain specs (other) | `docs/04-model.md` |
 | Roadmap (source, if separate) | `docs/06-roadmap.md` |
 | Task list (milestones + stubs) | `docs/08-tasklist.md` |
 | Tasks | `docs/tasks/` (fixed) |
-| Decisions | `docs/decisions.md` (fixed) |
-
-Precedence: where the design source of truth and a doc disagree, the design wins unless the doc notes an override or the user says otherwise. This includes `docs/05-ui-design-brief.md`. What the model computes and how numbers are defined still follow `docs/04-model.md` and this file.
+| Decisions | `docs/decisions.md` (IDs `D-###`) |
+| Review findings | — |
+| Deploy | — (the `release` workflow, once built) |
+| Owner runbook | — |
+| Owner checklist | — |
 
 Where to look inside these files:
 - **Product brief:** What we're building · Who it's for · What "good" looks like · Non-goals. **Features:** Feature index (F-01…; MVP = end of Phase 4).
-- **Data model:** once `python/db/` exists, its models and migrations win (see the precedence rule above).
+- **Data model:** once `python/db/` exists, its models and migrations win (see "Which document wins").
 - **Design source of truth:** board notes are the spec; the `Pass … .dc.html` boards win over older boards; the bundle README is `design/README.md`.
 - **Design tokens:** color only; type, spacing, radius and elevation values are in `design/README.md` › Design tokens.
 - **Reference screenshots:** default state, dark, 1440 and 390; This Week also at 768.
 - **Roadmap:** the status source of truth; `/milestones` writes the task list from it.
 - **Sample data / fixture seeds** (no kit role): `design/sample-data.md`, `design/sample-splash.txt`, `design/handoff/designs/*-data.js`.
+
+## Which document wins
+When two sources disagree, believe them in this order, and fix the loser in the same PR:
+1. Code and migrations: what actually runs.
+2. This file and `.claude/rules/`.
+3. The task file's acceptance criteria: the contract for the work.
+4. **Architecture**, **Data model** and **Domain specs** (`docs/02`–`04`): why the system is shaped this way.
+5. Narrative docs (`docs/01`, `05`, `07`): drafted earliest, the most likely to have drifted.
+
+On top of the order:
+- **The design rules layout and copy.** Where the design source of truth and a doc disagree (including `docs/05-ui-design-brief.md`), the design wins unless the doc notes an override or the user says otherwise. It never wins on a number: what the model computes and how numbers are defined follow `docs/04-model.md` and this file.
+- **Runbooks and prompts rank below the task file.** They say how work is driven, not what it must do; a disagreement is a bug to report.
+- **Counts and numbers come from code or data, never from prose.** Prose about unbuilt work says so inline; until then the code wins.
 
 ## Domain conventions
 - `margin = home_points − away_points`. `spread_home` is negative when home is favored (CFBD convention). Home covers if `margin + spread_home > 0`; push if `= 0`.
@@ -79,7 +95,7 @@ Windows; commands also run under `cmd.exe /c` (the hooks do). `.claude/kit.json`
 | Typecheck | `pnpm typecheck` (`next typegen && tsc`, pyright) |
 | Lint | `pnpm lint` (ESLint, ruff) |
 | Unit / integration tests | `pnpm test` (Vitest, pytest; pytest reads only `TEST_DATABASE_URL`) |
-| Specific test files | `powershell -NoProfile -ExecutionPolicy Bypass -File .claude/scripts/run-tests.ps1 <paths>` (routes `.py` → pytest, `*.test.ts(x)` → Vitest, `web/e2e/*.spec.ts` → Playwright) |
+| Specific test files | `uv --directory python run pytest <paths>`, `pnpm --dir web exec vitest run <paths>`, `pnpm --dir web exec playwright test <paths>` (paths relative to `python/` or `web/`; `testAudit.runners` routes them the same way) |
 | End to end | `pnpm test:e2e` (after `pnpm db:migrate:test` and `pnpm db:seed`) |
 | Production build | `pnpm build` |
 | Migrations | `pnpm db:migrate` (dev), `pnpm db:migrate:test`, `pnpm db:check` (one head, models match) |
@@ -95,3 +111,8 @@ Windows; commands also run under `cmd.exe /c` (the hooks do). `.claude/kit.json`
 - One task per session: `/implement-task TASK-###` or `/next-task`. No code before the task's `plan_status: approved`. Claude sets `Review`; only the user's "accepted" sets `Done`.
 - Never hand-edit `docs/tasks/INDEX.md`; run `.claude/scripts/build-index.ps1`.
 - Post-edit check failures in the middle of a multi-file change are expected. Finish the change, then fix what still fails.
+- Kit behaviour is changed through the switches in `.claude/kit.json` and the files in `.claude/project/`, never by editing the kit's skills, hooks or scripts (`install-kit.ps1 -Upgrade` overwrites those).
+- Claude never starts a deploy or release, dry run included, unless the user says so for that release.
+
+## Git
+Branches, staging, commit messages, testing on the branch, pushing, PRs and merging are in `.claude/rules/git.md`, which loads in every session.
