@@ -1,7 +1,8 @@
 # OPTIONAL: Claude reviews each PR once it leaves draft (it skips drafts).
-# In the kit's flow, /implement-task opens a draft PR, waits for CI, then marks it ready, which triggers this.
+# In the kit's flow, /implement-task opens a draft PR, checks the ready gates, then marks it ready, which triggers this.
 # Setup: run /install-github-app in Claude Code (attached terminal) and choose the subscription token,
 # or add a CLAUDE_CODE_OAUTH_TOKEN secret (generate with `claude setup-token`).
+# Until the secret exists, the job skips its steps and passes, instead of failing every PR that leaves draft.
 name: Claude PR review
 
 on:
@@ -17,11 +18,19 @@ jobs:
       pull-requests: read
       issues: read
       id-token: write
+    # A job-level `if` can't read secrets, but job-level env can.
+    env:
+      HAS_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN != '' }}
     steps:
-      - uses: actions/checkout@v6
+      - name: Skip without the Claude token
+        if: env.HAS_TOKEN != 'true'
+        run: echo "::notice::CLAUDE_CODE_OAUTH_TOKEN is not set, so Claude's PR review is skipped. Run /install-github-app to enable it."
+      - uses: actions/checkout@v7
+        if: env.HAS_TOKEN == 'true'
         with:
           fetch-depth: 1
       - uses: anthropics/claude-code-action@v1
+        if: env.HAS_TOKEN == 'true'
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           plugin_marketplaces: "https://github.com/anthropics/claude-code.git"
