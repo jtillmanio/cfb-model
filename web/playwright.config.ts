@@ -1,5 +1,7 @@
 import { defineConfig, devices } from "@playwright/test";
 
+import { TEST_AUTH_SECRET, TEST_GITHUB_ID } from "./e2e/test-env";
+
 // E2E runs `next start` + uvicorn against the seeded test DB (APP_ENV=test routes the API
 // through the test-DB guard). Run `pnpm db:migrate:test` and `pnpm db:seed` first.
 // CI runs `pnpm build` as its own step (with API_URL set in ci.yml, since next.config bakes the
@@ -37,8 +39,16 @@ export default defineConfig({
       command: isCI
         ? `pnpm start --port ${WEB_PORT}`
         : `pnpm build && pnpm start --port ${WEB_PORT}`,
-      url: `http://127.0.0.1:${WEB_PORT}/teams`,
-      env: { API_URL },
+      url: `http://127.0.0.1:${WEB_PORT}/login`,
+      // Sign-in: the session fixture (e2e/fixtures.ts) signs with the same test secret. No GitHub
+      // client ID or secret, as on a preview (D-102): /login must still render. AUTH_TRUST_HOST
+      // because `next start` is NODE_ENV=production off Vercel.
+      env: {
+        API_URL,
+        AUTH_SECRET: TEST_AUTH_SECRET,
+        AUTH_ALLOWED_GITHUB_ID: TEST_GITHUB_ID,
+        AUTH_TRUST_HOST: "true",
+      },
       reuseExistingServer: !isCI,
       timeout: 180_000,
     },
