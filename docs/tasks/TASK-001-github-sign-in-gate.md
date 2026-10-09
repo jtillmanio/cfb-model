@@ -1,7 +1,7 @@
 ---
 id: TASK-001
 title: Gate every page behind GitHub sign-in with an allowlist
-status: Review
+status: Done
 depends_on: []
 size: M
 model: opus
