@@ -25,7 +25,12 @@ Every night the production database is dumped, proven restorable, and stored in 
 - Existing code: `.github/workflows/ci.yml` sets `PG_MAJOR` in its job `env` and starts Postgres in a step; `python/db/src/db/migrate.py` `apply_views()`; `python/db/views/` is empty today, so the view step must pass with zero views.
 - **Interpretation to confirm at the plan gate:** the view tests in 02 assert fixture values, which a production restore can't match. Here "run view tests" means every `python/db/views/*.sql` applies to the restored database and each view answers a `SELECT` without error.
 - **Decide at the plan gate:** where `PG_MAJOR` lives so CI and backup read one value (a repo variable or a file both workflows read); how row counts are taken so they match the dump's snapshot (e.g. `pg_export_snapshot` + `pg_dump --snapshot`); the object name (`backups/<UTC date>.dump`) and the schedule.
-- **Owner prerequisites:** the Cloudflare R2 account and bucket (M1's owner prerequisite), R2 credentials with write access to `backups/` only, and production's database URL as repository secrets. Claude never edits secrets.
+- **Owner prerequisites:**
+  - A Cloudflare R2 bucket **of its own** for backups (e.g. `cfb-backups`), not a `backups/` folder in the lake bucket: R2 tokens can be limited to a bucket but not to a folder, so a lake-bucket token could also overwrite the append-only raw lake.
+  - An R2 API token with Object Read & Write on that bucket only.
+  - A read-only Postgres role (`backup_reader`) on production's `main` branch, so a bug in the workflow can't write to production.
+  - Repository **secrets** `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `BACKUP_DATABASE_URL` (the read-only role's direct URL); **variables** `R2_ACCOUNT_ID`, `R2_BUCKET`.
+  - Claude never edits secrets.
 - **Stop and ask:** the backup reads production. Running it on the branch (`gh workflow run backup.yml --ref <branch>`) needs the owner's go-ahead in the session.
 
 ## Acceptance criteria
@@ -33,7 +38,7 @@ Every night the production database is dumped, proven restorable, and stored in 
 - [ ] AC-1: Row-count comparison is a tested Python function: given per-table counts from production and from the restored database, it passes when they match and fails naming each table that differs, including a table present on one side only. Unit tests cover match, one mismatch and a missing table.
 - [ ] AC-2: `.github/workflows/backup.yml` runs on a nightly `schedule` and `workflow_dispatch`, installs the PostgreSQL client for `PG_MAJOR` from PGDG, and reads `PG_MAJOR` from the same single source as `ci.yml` (no second literal `18` in either workflow).
 - [ ] AC-3: The workflow runs in order: `pg_dump` (fails on a non-zero exit or an empty file) → restore into a `postgres:${PG_MAJOR}` container → apply views → query each view → compare row counts → upload to R2 `backups/`. Any failed step stops the run before the upload, so a bad dump is never stored.
-- [ ] AC-4: R2 write credentials appear only in `backup.yml`, reach steps only through `env:`, and the workflow's `permissions` are `contents: read` or narrower.
+- [ ] AC-4: R2 credentials and `BACKUP_DATABASE_URL` appear only in `backup.yml`, reach steps only through `env:`, and the workflow reads production only through `BACKUP_DATABASE_URL`; the workflow's `permissions` are `contents: read` or narrower.
 - [ ] AC-5: An owner-approved run on the branch goes green, uploads one dump to R2 `backups/`, and its job summary lists each table's row count on both sides and the dump size.
 - [ ] AC-6: `docs/runbooks/restore.md` gives numbered steps to restore the latest dump into a new Neon branch, point production at it, apply views, and check `/api/py/health`, with how to find the newest dump and the 2-hour recovery-time target.
 

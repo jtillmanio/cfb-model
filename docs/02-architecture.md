@@ -142,6 +142,7 @@ GitHub Actions gives a private repo 2,000 free minutes a month. Our jobs should 
 - Next.js server code calls the API with a short-lived **JWT signed with a shared secret**. The API verifies it on every request except `/api/py/health`.
 - If we later turn on Vercel Deployment Protection, automation (smoke tests, the Lighthouse job) sends the `x-vercel-protection-bypass` header.
 - Preview and production use different `AUTH_SECRET`s, so a session minted for a preview (the Lighthouse job) can never open production.
+- Previews have no GitHub sign-in (D-102). Each preview has its own URL, and GitHub can't safely allow-list them all, so only minted sessions reach a preview. Two OAuth apps with exact callbacks: "CFB Model" (the production domain) and "CFB Model (dev)" (`localhost:3000`).
 
 ## Environments & databases
 
