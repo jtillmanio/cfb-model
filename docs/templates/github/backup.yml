@@ -1,0 +1,107 @@
+# TEMPLATE (Claude Code starter kit, docs/templates/github/backup.yml). Copy to .github/workflows/backup.yml
+# and fill every {{...}}. /customize-kit offers it. Written for PostgreSQL; adapt the client and dump
+# commands for another engine.
+#
+# Nightly backup with a restore drill: dump the production database, restore the dump into a throwaway
+# server in the same job, and check it, so a dump that can't be restored is never kept. A backup you
+# have never restored is a hope, not a backup.
+#
+# Where dumps go: here, a workflow artifact with a retention period. Artifacts are visible to everyone
+# with read access to the repository, and dumps hold user data: keep the repository private, or send
+# the dump to private storage instead. (Committing dumps to a private repository also works and keeps
+# history; then grant `contents: write` and add a commit step.)
+name: Nightly backup
+
+on:
+  schedule: [{ cron: "0 8 * * *" }]   # {{time, in UTC}}
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency: { group: backup, cancel-in-progress: false }
+
+jobs:
+  dump:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      # At least the production server's major version: pg_dump refuses a newer server.
+      # The scratch service below must be the same major.
+      PG_MAJOR: "16"                  # {{production major version}}
+    services:
+      scratch:
+        image: postgres:16            # {{postgres:<PG_MAJOR>}}
+        env:
+          POSTGRES_PASSWORD: scratch
+        options: >-
+          --health-cmd pg_isready --health-interval 10s
+          --health-timeout 5s --health-retries 5
+        ports: ["5432:5432"]
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install the postgres client
+        run: |
+          # Ubuntu's own archive carries only its release's default client; the PGDG repo carries every major.
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-common
+          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
+          sudo apt-get install -y -qq "postgresql-client-$PG_MAJOR"
+          # The runner image ships its own PostgreSQL; put this major's binaries first.
+          echo "/usr/lib/postgresql/$PG_MAJOR/bin" >> "$GITHUB_PATH"
+
+      - name: Dump
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          # Without pipefail, `pg_dump | gzip` exits 0 when pg_dump fails and keeps an empty dump.
+          set -euo pipefail
+          server_major=$(( $(psql "$DATABASE_URL" -tAc "SHOW server_version_num") / 10000 ))
+          if [ "$server_major" -gt "$PG_MAJOR" ]; then
+            echo "::error::Production is PostgreSQL $server_major; set PG_MAJOR and the scratch image to $server_major." >&2
+            exit 1
+          fi
+          mkdir -p backup
+          f="backup/{{app}}-$(date -u +%Y-%m-%d).sql.gz"
+          pg_dump --no-owner --no-privileges "$DATABASE_URL" | gzip > "$f"
+          test "$(gzip -dc "$f" | head -c 4000 | wc -c)" -ge 1000 \
+            || { echo "::error::The dump is empty or truncated." >&2; exit 1; }
+          echo "DUMP=$f" >> "$GITHUB_ENV"
+
+      # The restore drill. A failure here stops the job before the upload.
+      - name: Restore check
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          set -euo pipefail
+          scratch="postgresql://postgres:scratch@localhost:5432"
+          psql "$scratch/postgres" -qc "CREATE DATABASE restore_check"
+          gzip -dc "$DUMP" | psql "$scratch/restore_check" -v ON_ERROR_STOP=1 -q > /dev/null
+          # {{Re-apply anything derived (views) and run the SQL tests CI runs, if the project has them.}}
+
+          # Compare every table's row count with production, which is only read.
+          count=$(psql "$scratch/restore_check" -tAc "
+            SELECT string_agg(format('SELECT %L, count(*) FROM %I', table_name, table_name), ' UNION ALL ')
+              FROM information_schema.tables
+             WHERE table_schema = 'public' AND table_type = 'BASE TABLE'")
+          psql "$scratch/restore_check" -tA -c "$count" | LC_ALL=C sort > "$RUNNER_TEMP/restored.txt"
+          psql "$DATABASE_URL" -tA -c "$count" | LC_ALL=C sort > "$RUNNER_TEMP/live.txt"
+          {
+            echo "### Restore check: \`$DUMP\`"
+            echo
+            echo "| table | restored | live now |"
+            echo "| ----- | -------: | -------: |"
+            paste -d '|' "$RUNNER_TEMP/restored.txt" "$RUNNER_TEMP/live.txt" \
+              | awk -F'|' '{ d = ($2 == $4) ? "" : " **differs**"; printf "| %s | %s | %s%s |\n", $1, $2, $4, d }'
+          } >> "$GITHUB_STEP_SUMMARY"
+          if ! cmp -s "$RUNNER_TEMP/restored.txt" "$RUNNER_TEMP/live.txt"; then
+            echo "::error::Restored row counts differ from production. A write during the backup does that (re-run); anything else means the dump is missing rows." >&2
+            exit 1
+          fi
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: backup-${{ github.run_id }}
+          path: backup/
+          retention-days: 30          # {{how long to keep each dump}}

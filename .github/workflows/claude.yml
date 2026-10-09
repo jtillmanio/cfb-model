@@ -2,7 +2,7 @@
 # Best for small fixes sent from your phone. Point it at a task file, for example:
 #   @claude implement docs/tasks/TASK-021-fix-date-format.md following .claude/skills/implement-task/SKILL.md in unattended mode
 # The kit's hooks are Windows PowerShell scripts and won't run on the Linux runner; CI covers verification instead.
-# Same secret setup as claude-pr-review.yml.
+# Same secret setup as claude-pr-review.yml. Until the secret exists, the job skips its steps and passes.
 name: Claude
 
 on:
@@ -26,11 +26,19 @@ jobs:
       issues: write
       id-token: write
       actions: read
+    # A job-level `if` can't read secrets, but job-level env can.
+    env:
+      HAS_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN != '' }}
     steps:
-      - uses: actions/checkout@v6
+      - name: Skip without the Claude token
+        if: env.HAS_TOKEN != 'true'
+        run: echo "::notice::CLAUDE_CODE_OAUTH_TOKEN is not set, so @claude can't run. Run /install-github-app to enable it."
+      - uses: actions/checkout@v7
+        if: env.HAS_TOKEN == 'true'
         with:
           fetch-depth: 1
       - uses: anthropics/claude-code-action@v1
+        if: env.HAS_TOKEN == 'true'
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           claude_args: "--max-turns 60"

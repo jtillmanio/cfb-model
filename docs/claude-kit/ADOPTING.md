@@ -17,9 +17,9 @@ For projects that already have some combination of planning docs, a finished des
 |---|---|---|---|---|---|
 | 1 | Pre-flight | Manual checklist below | — | All items checked | 10–20 min |
 | 2 | Install the kit | PowerShell, below | Kit files, collisions resolved | Skills load; nothing of yours overwritten | 15 min |
-| 3 | Adopt | `/adopt` | `docs/kit-adoption.md`, CLAUDE.md "Project docs" map, `docs/decisions.md` | Role map confirmed; gap report reviewed | 30–45 min |
+| 3 | Adopt | `/adopt` | `docs/kit-adoption.md`, CLAUDE.md "Project docs" map and "Which document wins", your decisions log | Role map confirmed; gap report reviewed | 30–45 min |
 | 4 | Fix blocking gaps | Continue `/adopt` (its gate) | Sections appended to your docs | No **BLOCKS TASKS** gaps left | 30–90 min |
-| 5 | Configure | `/customize-kit` | `kit.json`, agents, permissions, CI notes | Smoke tests pass | 20–40 min |
+| 5 | Configure | `/customize-kit` | `kit.json` (with workflow switches), `.claude/project/` files, `.claude/rules/git.md`, permissions, `/verify`, CI notes | Smoke tests pass | 20–40 min |
 | 6 | GitHub | Web UI | Ruleset on the existing CI job | Base branch protected | 10 min |
 | 7 | Plan | `/milestones <your roadmap>` | Task list with milestones and stubs | Coverage 100%; built work excluded | 30–60 min |
 | 8 | First tasks | `/new-task <task list> M1` | M1 task files | Reviewed and `Ready` | 30 min |
@@ -56,11 +56,12 @@ The installer handles collisions for you:
 
 | Situation | What the installer does | What you do |
 |---|---|---|
-| You already have `CLAUDE.md`, `.claude/settings.json`, a PR template, or `docs/decisions.md` | Leaves yours untouched; writes the kit's version to `.kit-incoming\<same path>` | Run the merge prompt it prints, or let `/adopt` merge them (it checks `.kit-incoming\` first) |
+| You already have `CLAUDE.md`, `.claude/settings.json`, `.claude/rules/git.md`, or a PR template | Leaves yours untouched; writes the kit's version to `.kit-incoming\<same path>` | Run the merge prompt it prints, or let `/adopt` merge them (it checks `.kit-incoming\` first) |
+| You already have a decisions log, anywhere | Nothing: the kit ships only a template (`docs/templates/decisions.md`) | `/adopt` maps your log as the **Decisions** role, with its ID prefix |
 | You already have CI, under any filename | Skips the kit's placeholder `ci.yml`, which would otherwise fail every PR | Nothing; `/customize-kit` checks that your CI runs the full gate |
 | You already have `docs/tasks/` | Adds the template beside your files | `/adopt` flags task files whose front matter doesn't match the kit's |
 
-Restart Claude Code. Type `/` and confirm `adopt` is listed. Commit (`chore: add Claude Code kit`), but don't merge yet. Steps 3–5 go on the same branch, so they land in one reviewable PR.
+Restart Claude Code. Type `/` and confirm `adopt` is listed. Commit by path (`chore: add Claude Code kit`), but don't merge yet. Steps 3–5 go on the same branch, so they land in one reviewable PR.
 
 ## Step 3: `/adopt`
 
@@ -82,7 +83,9 @@ What it does, in order:
 3. **Role map plus questions** (gate). Proposes which of your files plays each kit role and checks what's already built against the code. Then asks up to 8 questions in one batch.
 4. **Writes:**
    - the "Project docs" table in `CLAUDE.md`, which every skill and agent reads to find your files;
-   - `docs/decisions.md`, with decisions extracted from your docs and design, each citing its source;
+   - "Which document wins" in `CLAUDE.md`: the order you confirmed (code and schema, then the task list's checks, then architecture, then narrative docs) and what your design files rule;
+   - the "Stop and ask before" list in `CLAUDE.md`, tailored to your data;
+   - your decisions log (wherever it lives), with decisions extracted from your docs and design, each citing its source;
    - `docs/kit-adoption.md`: role map, design inventory with proposed S-IDs, toolchain inventory, built-state table, gap report, and the inputs for `/customize-kit` and `/milestones`.
 
 ### Review `docs/kit-adoption.md` (15–20 minutes)
@@ -115,22 +118,26 @@ What it does, in order:
 It reads `docs/kit-adoption.md` first, so it doesn't re-ask what `/adopt` settled. For an existing project it:
 
 - fills `kit.json` from your real scripts, and runs and times each one;
+- sets the `workflow` switches to match how your project already works: staging, commit format, branch prefixes, ready gates (preview deploys, performance checks), decisions, task splitting, the after-merge line, roadmap mode, and the WIP limit when worktrees would share a test database;
 - applies the design entries:
-  - `ui.designFiles` from your design inventory
-  - `protectedPaths` for the design source of truth and applied migrations
+  - `ui.designFiles`, `ui.viewports`, `ui.auth` (if the app has a sign-in), and `ui.redrawFiles`
+  - `protectedPaths` for production env files, design sources exported from a design tool, your source data, generated folders, and vendored assets, each with a reason
+  - `largeFiles` for huge design exports and roadmaps
   - the token hard rule
-- keeps your CI, proposes deleting the kit's `ci.yml`, and checks that your CI runs the full gate on PRs;
-- adds permission allow-rules for your commands;
-- merges the kit's PR checklist into your template;
-- tailors the agents: data rules for schema-reviewer, design comparison for ui-verifier.
+- keeps your CI, proposes deleting the kit's `ci.yml`, adds the task-file parse step, and checks that your CI runs the full gate on PRs;
+- adds permission allow-rules for your commands and deny rules for your deploy, release, and production-data commands;
+- merges the kit's PR sections into your template;
+- writes each agent's project file in `.claude/project/` (your checks, your stack's output formats, sign-in, limits) and generates `/verify`.
 
-**If your repo has several apps** (e.g. a web app plus a Python service): `kit.json` takes one command list per check. Put both apps' commands in `verify.full`, list both sets of extensions in `sourceExtensions`, and, if their test runners differ, have `/customize-kit` add a small wrapper script for `testAudit.run` that routes each test file to the right runner.
+**Migrations are not protected by path.** A glob such as `migrations/0*.sql` blocks a branch from regenerating its own unmerged migration, and a list of applied files goes stale with the next merge. Use a CI check that diffs the migrations folder against the base branch (append-only, a down file for any drop or retype, schema fully generated, journal matches files); `/skeleton` builds one, and schema-reviewer checks the same rule.
+
+**If your repo has several apps** (e.g. a web app plus a Python service): put both apps' commands in `verify.full`. In `verify.fast`, give each command the extensions it accepts (`{ "command", "extensions" }`), so the TypeScript linter never sees a `.py` file. For the test audit, add one `testAudit.runners` entry per runner (`{ "pattern", "run" }`, plus `"dir": "web"` for a runner that must run from an app's folder), a `testAudit.setup` if the tests need a fresh test database, and `testAudit.implementationExtensions` for implementation files no fast check lints (SQL, Python).
 
 Merge the adoption PR once its CI is green.
 
 ## Step 6: GitHub
 
-Follow USER-GUIDE §5.1, with one difference: under "Require status checks", add **your existing CI job name(s)**, not `verify`. Do §5.2 (Claude GitHub App) only if you want Claude's PR reviews or `@claude`.
+Follow USER-GUIDE §5.1, with one difference: under "Require status checks", add **your existing CI job name(s)** (`workflow.ciJobName`), not `verify`. On a private repository on the free plan rulesets return 403; then the settings deny rules and `.claude/rules/git.md` are the only guard, and `/customize-kit` says so in `git.md`. Do §5.2 (Claude GitHub App) only if you want Claude's PR reviews or `@claude`; until you do, those workflows skip cleanly.
 
 ## Step 7: `/milestones`
 
@@ -138,7 +145,9 @@ Follow USER-GUIDE §5.1, with one difference: under "Require status checks", add
 /milestones docs/06-roadmap.md
 ```
 
-Using your roadmap as the source, it:
+If your roadmap stays the source of truth (roadmap-led mode, `workflow.roadmap`), run `/milestones --coverage docs/06-roadmap.md` instead: it writes no new file, checks that every feature, screen, and entity has a roadmap item, and adds the gaps to your roadmap as numbered items with a check line, after your approval. Then `/new-task` converts one sitting of roadmap IDs at a time.
+
+Otherwise, using your roadmap as the source, it:
 - keeps your phases unless they break the milestone rules (demoable slices, riskiest first, 3–8 tasks), and explains each change;
 - excludes work marked **built**, and scopes only the missing part of **partial** items;
 - schedules the toolchain-gap stubs in M1;
@@ -152,7 +161,7 @@ Using your roadmap as the source, it:
 /new-task docs/08-tasklist.md M1
 ```
 
-Review each file, set `Ready`, commit, push. Then:
+Review each file, set `Ready`, commit by path on a `docs/` branch, and merge it through a PR. Then:
 
 ```text
 /clear
@@ -177,11 +186,13 @@ Each one points to a fix in the "Project docs" map or the gap report.
 | Open GitHub issues | `/adopt` lists them; turn in-scope ones into tasks with `/new-task "<issue title> (#12)"`. Put `Closes #12` in the PR body |
 | No tests at all | M1 starts with "test harness + tests for the main flow". Leave `testAudit.run` empty until it exists; test-auditor runs static-only meanwhile |
 | Only a production database | Create a local or dev database before any task runs migrations. Never put production credentials where agents can read them |
-| Hosting with preview deploys | Keep ui-verifier on the local dev server (`ui.startCommand`). Use previews for your own manual check in PR review |
+| Hosting with preview deploys | Keep ui-verifier on the local dev server (`ui.startCommand`). Add "preview deployed" as a ready gate with a `failureLog` naming the host's deployment log, and walk the preview yourself as an owner gate |
 | Design lives in Figma or another tool | Export screens as images plus any tokens into `design/`, and map them as the design source of truth. Same flow from there |
 | Backend-only or no UI | Set the design roles to `—`; delete the ui-verifier when `/customize-kit` asks |
-| Docs are out of date versus the code | Tell `/adopt` which wins for each conflict; it records each decision in `docs/decisions.md` so it doesn't come up again |
-| Existing `CLAUDE.md` with lots of content | `/adopt` merges the kit's sections in; keep the total under ~100 lines by moving reference material into docs and linking to it |
+| Docs are out of date versus the code | Tell `/adopt` which wins ("Which document wins" in `CLAUDE.md`); it records each conflict's resolution in your decisions log so it doesn't come up again |
+| Your project has its own git rules (staging, commit format, when a PR is ready) | Don't write counter-instructions to the kit into `CLAUDE.md`. Set the `workflow` switches, and put anything else in `.claude/project/implement-task.md` |
+| Merging doesn't deploy (a hand-run release) | Map the **Deploy** role, set `workflow.afterMerge`, and let `/customize-kit` deny the release commands |
+| Existing `CLAUDE.md` with lots of content | `/adopt` merges the kit's sections in. Keep the total under ~100 lines: move domain rules into `.claude/rules/<topic>.md` with `paths:` frontmatter (they load only when Claude touches those files) and reference material into docs. Each rule has one home: `CLAUDE.md` points, it doesn't repeat |
 
 ## Example role map: numbered docs plus a design handoff
 
@@ -198,7 +209,8 @@ Each one points to a fix in the "Project docs" map or the gap report.
 | Design source of truth | `design/handoff/designs/` |
 | Design tokens | `design/handoff/tokens/` |
 | Reference screenshots | `design/handoff/screenshots/` |
-| Decisions | `docs/decisions.md` |
+| Decisions | `docs/decisions.md` (IDs `D-###`) |
+| Deploy | `docs/09-release.md` |
 | Tasks | `docs/tasks/` |
 
 ## Without the `/adopt` skill (fallback prompt)
@@ -212,11 +224,12 @@ Do not rename, move, reformat, or rewrite any existing doc, design file, or code
 1. Inventory docs, design (look at screenshots; read any README or manifest), stack, scripts, tests, CI job names,
    database and migrations, hosting config, open issues, and the roadmap.
 2. Propose a role map (product brief, features, screen inventory, design intent, design source of truth, tokens,
-   screenshots, design process notes, architecture, data model, domain specs, roadmap, task list, decisions)
+   screenshots, design process notes, UX floor, architecture, data model, domain specs, roadmap, task list,
+   decisions with its ID prefix, review findings, deploy, owner runbook, owner checklist)
    and classify each roadmap item as built, partial, or not built, with file:line evidence.
    Ask me up to 8 questions in one batch, then stop.
-3. After my answers: write the "Project docs" table in CLAUDE.md, extract decisions into docs/decisions.md
-   (citing sources), and write docs/kit-adoption.md with the role map, design inventory with proposed S-IDs,
+3. After my answers: write the "Project docs" table and "Which document wins" in CLAUDE.md, extract decisions
+   into the decisions log (citing sources), and write docs/kit-adoption.md with the role map, design inventory with proposed S-IDs,
    toolchain inventory, built-state table, and a gap report. Classify each gap as BLOCKS TASKS,
    BLOCKS UNATTENDED, or NICE, with a fix (doc section, task stub, or decision).
 4. Stop and ask which gaps to fix.

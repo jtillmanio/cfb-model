@@ -1,0 +1,143 @@
+# TEMPLATE (Claude Code starter kit, docs/templates/github/release.yml). Copy to .github/workflows/release.yml
+# and fill every {{...}}. /customize-kit offers it; /architecture offers the decision behind it.
+#
+# A hand-run release: the one path from a merged PR to production, and the one path a migration takes to
+# the production database. It never runs on a push: merging is not deploying. Run it from the Actions tab
+# after merging. Claude never starts it (deny `gh workflow run release.yml*` in .claude/settings.json).
+#
+#   1. plan      the base branch's head; refuses unless the CI job passed on that exact commit
+#   2. snapshot  a restorable copy of the production database, before anything changes it
+#   3. migrate   the migrations from that commit
+#   4. derived   re-apply anything derived from the schema (views, functions, search indexes)
+#   5. promote   the build of that commit becomes production
+#   6. smoke     a health route answers with that commit and a reachable database
+#
+# Schema first, code second: the old code runs on the new schema for the minute in between, never the
+# new code on the old schema. So migrations must be backward-compatible with the code they replace.
+#
+# Preview builds: if the host builds a preview per PR with its own database (a branch database),
+# the preview build migrates only that database, and refuses when its DATABASE_URL names production.
+# See "Preview build guard" at the end of this file.
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Dry run: report what would happen, change nothing"
+        type: boolean
+        default: false
+
+concurrency: { group: release, cancel-in-progress: false }
+
+permissions:
+  contents: read
+  checks: read
+
+env:
+  BASE_BRANCH: main                 # {{workflow.baseBranch}}
+  CI_JOB: verify                    # {{workflow.ciJobName}}
+  DRY_RUN: ${{ inputs.dry_run }}
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+        with: { fetch-depth: 0 }
+
+      - name: Plan
+        id: plan
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          sha=$(git rev-parse "origin/$BASE_BRANCH")
+          conclusion=$(gh api "repos/$GITHUB_REPOSITORY/commits/$sha/check-runs?check_name=$CI_JOB" \
+            --jq '[.check_runs[] | .conclusion] | first // "missing"')
+          if [ "$conclusion" != "success" ]; then
+            echo "::error::CI job '$CI_JOB' is '$conclusion' on $sha. Release only a commit whose CI passed." >&2
+            exit 1
+          fi
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+          {
+            echo "### Release plan"
+            echo "Commit: \`$sha\` (CI \`$CI_JOB\` passed)"
+            echo "Dry run: $DRY_RUN"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Check out the release
+        run: git checkout --detach "${{ steps.plan.outputs.sha }}"
+
+      # ---- Stack setup (example: Node) ----------------------------------------------------
+      # - uses: actions/setup-node@v7
+      #   with: { node-version-file: .nvmrc, cache: npm }
+      # - run: npm ci
+
+      - name: Snapshot the production database
+        if: ${{ !inputs.dry_run }}
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          set -euo pipefail
+          echo "{{snapshot command}}"
+          # Examples:
+          #   A branch database (Neon): create a branch of production named release-<sha>, through the
+          #   provider's API or CLI, with an API key secret.
+          #   pg_dump: pg_dump --no-owner --no-privileges "$DATABASE_URL" | gzip > "$RUNNER_TEMP/pre-release.sql.gz",
+          #   then upload it with actions/upload-artifact@v7 (short retention: it holds user data).
+          exit 1   # remove once the snapshot command is filled in
+
+      - name: Migrate
+        if: ${{ !inputs.dry_run }}
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          echo "{{migrate command, e.g. npm run db:migrate}}"
+          exit 1   # remove once filled in
+
+      - name: Re-apply derived objects
+        if: ${{ !inputs.dry_run }}
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          echo "{{e.g. apply views.sql; delete this step if nothing is derived from the schema}}"
+
+      - name: Promote
+        if: ${{ !inputs.dry_run }}
+        env:
+          RELEASE_SHA: ${{ steps.plan.outputs.sha }}
+        run: |
+          echo "{{promote command}}"
+          # Example (Vercel, with production auto-assignment turned off so a merge only stages a build):
+          #   find the ready production deployment for $RELEASE_SHA through the Vercel REST API
+          #   (VERCEL_TOKEN secret), then promote it. Other hosts: deploy or promote the build of $RELEASE_SHA.
+          exit 1   # remove once filled in
+
+      - name: Smoke test
+        if: ${{ !inputs.dry_run }}
+        env:
+          PRODUCTION_URL: ${{ vars.PRODUCTION_URL }}
+          RELEASE_SHA: ${{ steps.plan.outputs.sha }}
+        run: |
+          set -euo pipefail
+          # The health route returns the deployed commit and whether the database answers, and no data.
+          # It is the one route outside any sign-in gate.
+          for i in 1 2 3 4 5 6; do
+            body=$(curl -fsS "$PRODUCTION_URL/{{api/health}}" || true)
+            if echo "$body" | grep -q "$RELEASE_SHA"; then echo "Healthy: $body"; exit 0; fi
+            sleep 10
+          done
+          echo "::error::$PRODUCTION_URL/{{api/health}} did not report $RELEASE_SHA. Last answer: $body" >&2
+          exit 1
+
+# ---- Preview build guard -----------------------------------------------------------------------
+# If preview builds migrate their own database, the build command runs something like this first
+# (shell shown; write it in the project's language):
+#
+#   prod_host="{{production database host}}"
+#   case "$DATABASE_URL" in *"$prod_host"*) echo "Refusing: this preview's DATABASE_URL is production." >&2; exit 1;; esac
+#   {{migrate command}} && {{re-apply derived objects}} && {{build command}}
+#
+# A production build only builds; its migration is this workflow's job.

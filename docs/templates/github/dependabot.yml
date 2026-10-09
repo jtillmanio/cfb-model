@@ -1,0 +1,36 @@
+# TEMPLATE (Claude Code starter kit, docs/templates/github/dependabot.yml). Copy to .github/dependabot.yml
+# and fill every {{...}}. /customize-kit offers it.
+#
+# Dependency-update PRs that don't flood the review queue:
+# - minor and patch updates arrive as one grouped PR per ecosystem; a major update comes on its own;
+# - open-pull-requests-limit is sized to any per-PR resource quota. If every PR gets a preview with its
+#   own database branch, and the plan allows N branches, keep the limits low enough to leave room for
+#   your own task PRs;
+# - commit prefixes follow the project's commit format (workflow.commitFormat in .claude/kit.json);
+# - a version that has to wait goes under `ignore` with the reason, not into a PR comment.
+#
+# Dependabot's branches (dependabot/...) are the one exception to the kit's branch prefixes. Its PRs pass
+# the same CI, and merging one is not deploying it.
+version: 2
+updates:
+  - package-ecosystem: npm            # {{npm, pip, gradle, maven, nuget, ...}}
+    directory: /
+    schedule: { interval: weekly, day: monday }
+    open-pull-requests-limit: 2
+    groups:
+      minor-and-patch:
+        update-types: [minor, patch]
+    commit-message: { prefix: deps }  # conventional: "chore(deps)" → prefix: chore, include: scope
+    # ignore:
+    #   # Example. Say why, and when to remove it:
+    #   - dependency-name: typescript
+    #     versions: [">=7"]           # a tool we depend on doesn't support 7 yet; remove when it does
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule: { interval: monthly }
+    open-pull-requests-limit: 1
+    groups:
+      actions:
+        patterns: ["*"]
+    commit-message: { prefix: ci }

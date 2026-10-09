@@ -4,7 +4,8 @@ How to install, set up, and use the kit day to day. For the reasoning behind the
 
 > **Starting a new project, or have only a brainstorm so far?** Follow `KICKOFF.md` first.
 > **Existing project with docs, a design, CI, a database, or code already in place?** Follow `ADOPTING.md`. `/adopt` maps your files to the kit without renaming anything.
-> Both hand back to §7 of this guide.
+> **Project already on kit 2.3.x?** Follow `UPGRADING.md`.
+> All of them hand back to §7 of this guide.
 
 ## Contents
 
@@ -38,10 +39,12 @@ The kit turns a list of task files into reviewed, CI-green pull requests, with t
      │ plan gate in-session                        │ dispatch-approved.ps1 ─► background sessions
      └───────────┬────────────────────────────────┘
                  ▼
-  implement ─► test-runner ─► test-auditor ─► spec / schema / UI review ─► draft PR ─► CI ─► ready
+  implement ─► test-runner ─► test-auditor ─► spec / schema / UI review ─► draft PR ─► ready gates ─► ready
                  ▼
-     you: manual check ─► "accepted" ─► merge
+     you: owner gates + manual check ─► "accepted" ─► merge ─► (your deploy step, if any)
 ```
+
+Done means merged and accepted, not deployed. If merging doesn't put the change live (a hand-run release, a deploy step), that step stays yours: Claude never starts it.
 
 ## 2. Prerequisites
 
@@ -104,7 +107,17 @@ customizations; add only new kit sections, keys, rules, and steps. Show a one-li
 then delete .kit-incoming/.
 ```
 
-The installer never overwrites your files, records the version in `.claude/kit-version`, and copies the guides to `docs/claude-kit/`. Commit and merge through a PR: `chore: add Claude Code starter kit`.
+The installer never overwrites your files, records the version in `.claude/kit-version`, and copies the guides to `docs/claude-kit/`. Commit by path and merge through a PR: `chore: add Claude Code starter kit`.
+
+What the installer treats as whose:
+
+| Kind | Files | On `-Upgrade` |
+|---|---|---|
+| **Owned** by the kit | `.claude/skills/<kit skills>/`, `.claude/hooks/`, `.claude/scripts/`, `docs/templates/`, `docs/tasks/_TEMPLATE.md`, the two `.gitignore` files | Overwritten. Never put project text in them |
+| **Custom** (yours) | Agents, `CLAUDE.md`, `kit.json`, `settings.json`, `.claude/rules/`, `.github/` | Kit version written to `.kit-incoming/` for a merge |
+| **Never shipped** | `.claude/project/*.md`, `.claude/skills/verify/`, your decisions log | Never touched |
+
+Keep your own scripts out of the kit's folders (`.claude/scripts/`, `.claude/hooks/`). The installer won't overwrite a file it doesn't ship, but the file reads as part of the kit and an uninstall removes it. Put project scripts in `scripts/` or similar.
 
 ### 3.3 Updating the kit
 
@@ -116,16 +129,18 @@ The installer never overwrites your files, records the version in `.claude/kit-v
    Get-ChildItem -Recurse C:\Development\tools\claude-code-starter-kit | Unblock-File
    ```
 
-2. In each project, on a branch:
+2. In each project, on a `chore/` branch:
 
    ```powershell
    powershell -NoProfile -ExecutionPolicy Bypass -File C:\Development\tools\claude-code-starter-kit\install-kit.ps1 -Upgrade -WhatIf
    powershell -NoProfile -ExecutionPolicy Bypass -File C:\Development\tools\claude-code-starter-kit\install-kit.ps1 -Upgrade
    ```
 
-   `-Upgrade` overwrites kit-owned files (skills, hooks, scripts, templates). Files you customize (agents, `CLAUDE.md`, `kit.json`, `settings.json`, `.github\`, `docs\decisions.md`) go to `.kit-incoming\` for merging as usual.
-3. Read the new entries in `docs/claude-kit/CHANGELOG.md`. Re-run `/customize-kit` if it says so.
+   `-Upgrade` overwrites kit-owned files (skills, hooks, scripts, templates). Files you customize (agents, `CLAUDE.md`, `kit.json`, `settings.json`, `.claude\rules\`, `.github\`) go to `.kit-incoming\` for merging as usual.
+3. Read the new entries in `docs/claude-kit/CHANGELOG.md`, and `docs/claude-kit/UPGRADING.md` for a minor-version upgrade. Re-run `/customize-kit` if it says so; from 2.4 it detects an older configuration and proposes each change.
 4. Restart Claude Code.
+
+Never fix a kit behaviour by editing a kit skill, hook, or script: the next `-Upgrade` overwrites it. Use a `workflow` switch in `kit.json` or a `.claude/project/<name>.md` file (§12, "Changing kit behaviour").
 
 ### 3.4 Upgrade a project from v1
 
@@ -140,16 +155,16 @@ The installer never overwrites your files, records the version in `.claude/kit-v
 2. **Confirm everything loaded:**
    - Type `/` and confirm `implement-task`, `next-task`, `plan-batch`, `new-task`, `customize-kit`, `adopt`, `product-brief`, `architecture`, `skeleton`, and `milestones` appear.
    - Type `@` and confirm `spec-reviewer`, `test-runner`, `test-auditor`, `schema-reviewer`, and `ui-verifier` appear.
-   - Run `/hooks` and confirm one PreToolUse and one PostToolUse entry.
+   - Run `/hooks` and confirm two PreToolUse entries (Read, and Edit|Write) and one PostToolUse entry.
 3. **Run `/customize-kit` on Opus** (`/model opus` first). It:
-   - detects your stack and asks you to confirm it, along with 3–6 hard rules;
-   - fills `kit.json` and runs every command once, reporting timings;
-   - adds permission allow-rules so unattended sessions don't stall on prompts for routine commands;
+   - detects your stack and asks you to confirm it, along with 3–6 hard rules, the files to protect, the commands Claude must never run (deploys, releases, production data), and whether parallel sessions would share a test database;
+   - fills `kit.json`, including the `workflow` switches, and runs every command once, reporting timings;
+   - adds permission allow-rules (Bash and PowerShell) so unattended sessions don't stall on prompts for routine commands, and deny rules for your deploy commands and production env files;
    - excludes `.claude/` from your linters, typechecker, and test runner, so worktree copies aren't scanned;
-   - fills `CLAUDE.md`, tailors the agents, and fills in `ci.yml`;
+   - fills `CLAUDE.md` and `.claude/rules/git.md`, writes each agent's project file in `.claude/project/`, generates the `/verify` skill, and fills in `ci.yml`;
    - runs the smoke tests.
-   
-   Expect 15–30 minutes, with two stops for your input.
+
+   Expect 20–40 minutes, with two stops for your input.
 4. **Accept the Playwright browser server.** The first time the ui-verifier runs, Claude Code asks you to approve its server. If it reports a missing browser, run `npx playwright install chromium` once.
 5. Commit the customization on a branch and merge it through a PR.
 
@@ -165,11 +180,13 @@ Settings → Rules → Rulesets → **New branch ruleset**:
 |---|---|
 | Enforcement | Active |
 | Target branches | Default branch |
-| Bypass list | Repository admin (lets you push plan approvals directly; Claude can't) |
+| Bypass list | Repository admin (for emergencies; plans and docs go through PRs like everything else) |
 | Restrict deletions | On |
 | Require a pull request before merging | On, required approvals **0** (you can't approve your own PR) |
-| Require status checks to pass | On; add `verify` (the CI job name) |
+| Require status checks to pass | On; add the CI job name (`workflow.ciJobName`, `verify` for the kit's `ci.yml`) |
 | Block force pushes | On |
+
+**No rulesets available?** GitHub returns 403 for rulesets on a private repository on the free plan. Then nothing on GitHub stops a push to the base branch. The settings deny rules (`Bash(...)` and `PowerShell(...)`) and `.claude/rules/git.md` are the only guard; `/customize-kit` checks this and writes it into `git.md`. Don't remove those deny rules.
 
 ### 5.2 Claude in GitHub Actions (optional, needed for the PR review and Level 3)
 
@@ -177,6 +194,8 @@ Settings → Rules → Rulesets → **New branch ruleset**:
 2. Choose the subscription token option. It installs the Claude GitHub App and saves a `CLAUDE_CODE_OAUTH_TOKEN` secret.
 3. When asked which workflows to add, skip them. The kit already includes `claude-pr-review.yml` and `claude.yml`, preconfigured for that secret.
 4. Delete `claude.yml` if you don't want `@claude` in issues.
+
+Until the secret exists, both workflows skip their steps and pass with a notice, so a PR leaving draft doesn't get a red check.
 
 ## 6. Writing tasks
 
@@ -186,9 +205,21 @@ Settings → Rules → Rulesets → **New branch ruleset**:
 | 2 | `/new-task docs/tasklist.md M1` (Opus) | One `TASK-###-slug.md` per stub in that milestone, status `Draft`, with checkable ACs, sizing, autonomy, and ui flags |
 | 3 | Review each file: tighten ACs, fix dependencies, adjust `autonomy` | Specs you trust |
 | 4 | Set `status: Ready` on the ones to build next | Eligible for pickup |
-| 5 | Commit and push to the base branch (admin bypass) | Background sessions see them |
+| 5 | Commit them by path on a `docs/` branch, open a PR, merge it | The base branch (and background sessions) see them |
 
 Add a single task any time with `/new-task <short description>`.
+
+**Acceptance criteria never copy a number from a mockup or from prose.** Figures in designs are sample data. An AC asserts a relationship ("the filter hides exactly the blocked rows") or builds its own fixture ("given a run with 3 of 10 read, shows 3 / 10"); spec-reviewer flags one that doesn't.
+
+**Roadmap-led projects.** If your project's phased roadmap (with a check line per item) stays the source of truth, set `workflow.roadmap` in `kit.json`. Then:
+
+- `/new-task 1.2 1.1 1.6` converts one sitting at a time and copies each item's check line verbatim into the ACs;
+- task files stay `TASK-###` (the scripts need that) but are titled `1.2 Undo`;
+- branches, commit areas, and PR titles use the roadmap ID;
+- spec-reviewer judges against the roadmap check, and reports a task file that disagrees as a SPEC GAP;
+- `/milestones --coverage` checks that every feature, screen, and entity has a roadmap item, and adds the gaps to the roadmap rather than writing a task list.
+
+Three status records, one owner each: the roadmap checkbox is ticked in the task's own PR (Claude); the task file goes to `Review` (Claude) and to `Done` only when you say "accepted"; an optional status page (`workflow.statusDoc`) is regenerated from the roadmap, never from task files, by you or by Claude on request.
 
 **What makes a task `unattended`:** small or medium within one layer, Sonnet-implementable, follows an existing pattern, every AC automatable, and no schema, auth, ETL, or deletion. Everything else stays `attended`.
 
@@ -211,8 +242,8 @@ What happens, and where you're needed:
 | Test audit | test-auditor proves the tests fail without the change | — |
 | Review | spec-reviewer, plus schema-reviewer and ui-verifier as relevant | Answer spec gaps |
 | Close out | Fills the task file; asks "Push and open a draft PR?" | Say yes |
-| CI | Watches checks, fixes failures (max 2 rounds), marks ready | — |
-| Report | PR link, manual steps with expected results | Manual check → reply "accepted" → merge |
+| Ready gates | Checks each gate in `workflow.readyGates` it can (default: `verify.full`, then CI), fixes failures (max 2 rounds), marks the PR ready | Do the gates marked `owner` |
+| Report | PR link, owner gates, manual steps with expected results, your next steps | Manual check → reply "accepted" → merge → deploy, if your project has that step |
 
 Rough guide for an S/M task: 30–60 minutes end to end, of which 5–15 need you. Track your real numbers in the task metrics.
 
@@ -228,11 +259,15 @@ Use this for `autonomy: unattended` tasks once your metrics are on target (see W
 /plan-batch 4
 ```
 
-Claude plans the next 4 Ready tasks, writes each `## Plan`, and sets `plan_status: proposed`. Then:
+Run it on an up-to-date base branch with a clean tree. Claude plans the next 4 Ready tasks, writes each `## Plan`, sets `plan_status: proposed`, and commits nothing, so each `planned_at_commit` is a base-branch commit that survives the squash merge below. Then:
 
 1. Review with `git diff docs/tasks`. Edit plans directly, or ask Claude for changes.
 2. Approve: change to `plan_status: approved`, or tell Claude "approve TASK-014 and TASK-016".
-3. Commit (Claude can do this) and **push the base branch yourself**.
+3. Move the plans to a branch and open a PR (Claude can do this): `git switch -c docs/plans-<date>`, commit the task files by path, push, `gh pr create`.
+4. Merge the PR.
+5. `git switch main; git pull --ff-only`, then dispatch (§8.2).
+
+The dispatcher only sees plans committed on the base branch, and nothing is committed there directly, so plans always arrive through a PR.
 
 ### 8.2 Dispatch
 
@@ -243,7 +278,9 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .claude/scripts/dispatch-app
 powershell -NoProfile -ExecutionPolicy Bypass -File .claude/scripts/dispatch-approved.ps1
 ```
 
-Each eligible task (Ready, plan approved, unattended, dependencies Done) starts as a background session named after its task ID, up to `workflow.wipLimit` (default 2). Each session moves into its own worktree under `.claude/worktrees/` before editing, runs `worktreeSetup`, and works through the full loop.
+Each eligible task (Ready, plan approved, unattended, dependencies Done) starts as a background session named after its task ID, up to `workflow.wipLimit` (default 2).
+
+**Shared test resources cap the WIP limit.** If parallel worktrees would share a stateful test resource (one test database that the tests reset or truncate, fixed ports, files on disk), two sessions running tests at once break each other. `/customize-kit` asks, and sets `wipLimit: 1` with the reason in `_wipLimitReason`, which the dispatcher prints. To raise it, give each worktree its own resource: a per-worktree test database created in `workflow.worktreeSetup`, ports derived from the task number. Each session moves into its own worktree under `.claude/worktrees/` before editing, runs `worktreeSetup`, and works through the full loop.
 
 ### 8.3 Monitor
 
@@ -265,7 +302,7 @@ Each background session uses your subscription quota independently, so two in pa
 
 1. Review the PR and do the manual check (section 10).
 2. In agent view, peek at the session and reply `accepted`. It sets `status: Done`, commits, and pushes.
-3. Merge the PR on GitHub (squash recommended).
+3. Merge the PR on GitHub (squash recommended). If your project deploys separately (the **Deploy** role), run that step; merged is not live.
 4. Locally: `git switch main; git pull`, then re-run the dispatcher. Claims for Done tasks clear automatically, and newly unblocked tasks dispatch.
 5. Delete the finished session in agent view (`Ctrl+X` twice). This removes its worktree.
 
@@ -287,12 +324,13 @@ Claude runs in GitHub Actions and opens a PR. Notes:
 
 The PR body is pre-filled from `.github/pull_request_template.md`. Spend your 5–10 minutes here:
 
-1. **AC checklist and automated evidence table.** Every row should say PASS or APPROVE. Anything else, ask why in the session.
+1. **Acceptance criteria and "How it was verified".** Every reviewer and gate row should say PASS, APPROVE, or green. Rows marked `owner` are yours to check. A row that ran only in CI, or can only be checked after merge, says why. Anything else, ask in the session.
 2. **Files changed tab.** Look for surprise files outside the plan. spec-reviewer flags these, but you're the last check.
 3. **Claude's review comments**, if `claude-pr-review.yml` is installed. Resolve or dismiss each one.
 4. **Manual verification steps.** Run them on the branch: `git fetch; git switch task/...`, start the app, follow the steps, compare against the expected results.
-5. **Reply `accepted`** to the session, or edit `status: Done` in the PR yourself.
-6. **Merge.** Branch protection blocks the merge until `verify` is green.
+5. **Follow-ups.** Candidate tasks, and candidate decisions to record if `workflow.decisions` is `propose`.
+6. **Reply `accepted`** to the session, or edit `status: Done` in the PR yourself.
+7. **Merge.** Branch protection blocks the merge until the CI job is green. Then run your deploy step, if the project has one.
 
 ## 11. Handling problems mid-task
 
@@ -301,7 +339,8 @@ The PR body is pre-filled from `.github/pull_request_template.md`. Spend your 5�
 | Vague AC | Preflight stops with proposed rewrites | Edit the AC, commit, re-run |
 | Plan stale (planned files changed since approval) | Unattended session stops: `plan stale` | `/plan-batch TASK-0xx` to re-plan, approve, push, re-dispatch (`-Release TASK-0xx` first) |
 | Spec gap found in review | Session asks you | Decide; Claude never rewrites ACs itself |
-| Round limit hit (verify 3, audit 2, review 2, CI 2) | `status: Blocked`, `## Blocked` section, `[BLOCKED]` draft PR | Read the hypothesis; fix the spec or split the task; or attach and pair with it |
+| Round limit hit (verify 3, audit 2, review 2, ready gates 2) | `status: Blocked`, `## Blocked` section, `[BLOCKED]` draft PR | Read the hypothesis; fix the spec or split the task; or attach and pair with it |
+| A ready gate needs something only you can do (a failed preview that needs its database reset, a secret) | The session stops and names the action; the PR stays draft | Do it, then tell the session to re-check the gates |
 | Test audit can't restore the tree | `NOT RUN` in capitals | Stop. Inspect with `git status` and `git diff` in that worktree before doing anything else |
 | Wrong task dispatched / want to abandon | — | Stop the session (`Ctrl+X`), then `dispatch-approved.ps1 -Release TASK-0xx` |
 
@@ -316,8 +355,10 @@ The PR body is pre-filled from `.github/pull_request_template.md`. Spend your 5�
 | `/architecture` | Choose the stack via option tables; write the architecture doc and seed decisions |
 | `/skeleton` | Build the walking skeleton: scaffold, scripts, one end-to-end slice, tests, CI |
 | `/milestones [MVP or Next]` | Break scope into demoable milestones and task stubs with a coverage check |
-| `/customize-kit` | Tailor the kit to a project. Run once, and again after upgrades |
-| `/new-task <description or path [M#]>` | Create task files with checkable ACs; bulk-convert a task list, one milestone at a time |
+| `/milestones --coverage [roadmap]` | Check an existing roadmap's coverage of features, screens, and entities; add the gaps to it as numbered items with a check line. Writes no new file |
+| `/customize-kit` | Tailor the kit to a project. Run once, and again after upgrades (it detects a 2.3.x setup) |
+| `/new-task <description or path [M#] or roadmap IDs>` | Create task files with checkable ACs; bulk-convert a task list one milestone at a time, or a roadmap one sitting at a time |
+| `/verify` | Generated per project by `/customize-kit`: run `verify.full` before a push and report the actual output |
 | `/next-task [--dry-run]` | Pick the best Ready task (respecting WIP and dependencies) and implement it attended |
 | `/implement-task <ID> [--unattended]` | Run the full loop for one task |
 | `/plan-batch [N \| IDs]` | Plan several tasks for approval in one sitting |
@@ -327,10 +368,14 @@ The PR body is pre-filled from `.github/pull_request_template.md`. Spend your 5�
 | Agent | Model | Writes? | Job |
 |---|---|---|---|
 | test-runner | Haiku | No | Runs `verify.full`; returns failures only |
-| test-auditor | Sonnet | Temporary restore only | Proves tests fail without the change |
-| spec-reviewer | Opus | No | ACs, plan, scope, hard rules, decisions |
-| schema-reviewer | Opus | No | Migrations, constraints, data safety |
-| ui-verifier | Sonnet | No (browser only) | Clicks through UI ACs at phone and desktop widths |
+| test-auditor | Sonnet | Temporary restore only | Proves tests fail without the change, with each configured runner |
+| spec-reviewer | Opus | No | ACs and the roadmap check, plan, scope, hard rules, decisions, UX floor |
+| schema-reviewer | Opus | No | Migrations, constraints, data safety, test isolation |
+| ui-verifier | Sonnet | No (browser only) | Signs in if needed; clicks through UI ACs at each `ui.viewports` width; UX floor |
+
+Each agent reads `.claude/project/<agent-name>.md` first, if it exists, as its project section: this stack's output formats, project checks, sign-in details, limits. `/customize-kit` writes these files. The agent's safety rules (read-only, the test-auditor's restore rules, never reading a production env file) can't be relaxed there.
+
+**Model and effort.** The `model:` line in an agent's front matter picks its model (`haiku`, `sonnet`, `opus`, or `inherit`). An optional `effort:` line (`low`, `medium`, `high`, `xhigh`, `max`; availability depends on the model) sets its reasoning effort, e.g. `model: sonnet` plus `effort: high` for a cheaper reviewer that still thinks hard. `/customize-kit` offers to set both per reviewer. They're the only project edits that belong inside an agent file; keep them when you merge an upgrade.
 
 ### Scripts (`.claude/scripts/`)
 
@@ -339,28 +384,107 @@ The PR body is pre-filled from `.github/pull_request_template.md`. Spend your 5�
 | `build-index.ps1 [-Check]` | Regenerate `docs/tasks/INDEX.md` (local, git-ignored) and list warnings |
 | `dispatch-approved.ps1 [-DryRun] [-Max N] [-PermissionMode m] [-Release IDs]` | Start background sessions for eligible tasks |
 
+### Hooks (`.claude/hooks/`)
+
+| Hook | When | Does |
+|---|---|---|
+| `guard-protected-paths.ps1` | Before Edit/Write | Blocks edits to `protectedPaths` |
+| `guard-large-reads.ps1` | Before Read | Blocks a whole-file read of a `largeFiles` entry (any read, with `always`) and returns its hint |
+| `post-edit-verify.ps1` | After Edit/Write | Runs the `verify.fast` checks whose extensions match the edited file |
+
+For huge files Claude reads often (a design export with dozens of screens, a long roadmap), add a small section-printer script, e.g. `scripts/screen.ps1 <screen-id>` or `scripts/task.ps1 <roadmap-id>`, and name it in the `largeFiles` hint.
+
 ### Task front matter
 
 | Field | Values | Set by |
 |---|---|---|
 | `status` | Draft, Ready, In progress, Review, Done, Blocked | You: Ready, Done. Claude: the rest |
 | `depends_on` | `[TASK-012, ...]` | `/new-task`, you |
-| `size` | S, M | `/new-task` |
+| `size` | S, M (L only with `workflow.splitPolicy: never-split`) | `/new-task` |
 | `model` | sonnet, opus | `/new-task`, you |
 | `autonomy` | attended, unattended | `/new-task`, you |
 | `ui` | true, false | `/new-task` |
 | `plan_status` | none, proposed, approved | Claude: proposed. You: approved |
 | `planned_at_commit` | short SHA | Claude, when planning |
 
-### kit.json sections
+### kit.json keys
 
-| Section | Controls |
+Every key is optional. A missing key takes the default below, which is the 2.3.1 behaviour except where marked **2.4 default**.
+
+| Key | Default | Controls |
+|---|---|---|
+| `verify.sourceExtensions` | `[]` (every file) | Which edited files string `fast` entries run on |
+| `verify.fast` | `[]` | Post-edit checks. Each entry is a command string (runs on `sourceExtensions`) or `{ "command", "extensions" }` (runs only on those extensions). `{file}` = the edited file |
+| `verify.full` | `[]` | What test-runner and `/verify` run |
+| `verify.maxOutputLines` | `60` | Lines of a failing fast check fed back to Claude |
+| `protectedPaths` | secrets, keys, `INDEX.md` | `[{ pattern, reason }]`: files the Edit/Write tools can't touch |
+| `largeFiles` | `[]` | `[{ pattern, hint, always? }]`: files the Read tool can't read whole (or at all, with `always`) |
+| `workflow.baseBranch` | `main` | The branch PRs target; never committed on directly |
+| `workflow.wipLimit` / `_wipLimitReason` | `2` / — | Tasks in progress or review at once; the reason it is lower, printed by the dispatcher |
+| `workflow.openPullRequests` / `waitForCi` / `maxCiFixRounds` | `true` / `true` / `2` | Whether to open PRs, check the ready gates, and how many fix rounds |
+| `workflow.unattendedPermissionMode` | `acceptEdits` | Permission mode for dispatched sessions |
+| `workflow.worktreeSetup` / `worktreeCopyFiles` | `[]` | Commands and untracked files a fresh worktree needs |
+| `workflow.staging` | `by-path` (**2.4 default**) | `by-path`: stage named files, never `git add -A`. `all`: the 2.3.1 behaviour |
+| `workflow.commitFormat` | `conventional` | `conventional` (`feat(TASK-014): …`) or `area` (`task 1.3: …`) |
+| `workflow.branchPrefixes` | `task/`, `fix/`, `docs/`, `chore/` | Allowed branch prefixes; `/customize-kit` adds a push allow-rule for each |
+| `workflow.taskBranch` | `task/{id}-{slug}` | A task's branch name. `{type}/{id}-{slug}` picks the prefix that fits the task (`feat/`, `fix/`, …), as `.claude/rules/git.md` defines them |
+| `workflow.ciJobName` | `verify` | The CI job branch protection and the `ci` gate require |
+| `workflow.readyGates` | `["verify.full", "ci"]` | Ordered checks before `gh pr ready`. Built-ins `verify.full` and `ci`, or `{ name, check, by: claude\|owner, when: always\|ui\|[globs], failureLog, ownerFix }` |
+| `workflow.decisions` | `append` | `append`: close-out adds decisions to the log. `propose`: they go under the PR's Follow-ups for the owner |
+| `workflow.splitPolicy` | `split` | `split`: oversized tasks are split. `never-split`: one task, one branch, one PR, `attended` |
+| `workflow.afterMerge` | `""` | A closing line for every final report, e.g. "After merge, run Release to put it live." |
+| `workflow.allowForceWithLease` | `false` | `true` drops that deny rule; rebase, own branch only, never plain `--force` |
+| `workflow.roadmap` | `null` | `{ path, idPattern, checkLabel }`: roadmap-led mode (§6) |
+| `workflow.statusDoc` | `""` | A committed status page regenerated from the roadmap |
+| `testAudit.testPathPatterns` | common test globs | What counts as a test file |
+| `testAudit.run` | `""` | Runs specific test files, `{tests}`; the single-runner fallback |
+| `testAudit.runners` | `[]` | `[{ pattern, run, each?, dir? }]`: one per test runner; `each: true` runs one file at a time; `dir` runs it from a subfolder with test paths relative to it (monorepos) |
+| `testAudit.setup` | `""` | Runs once before the dynamic check, e.g. reset the test database to the pre-task schema |
+| `testAudit.implementationExtensions` | `[]` (= `verify.sourceExtensions`) | Extensions the auditor reverts as implementation |
+| `testAudit.implementationPaths` | `[]` | Paths always reverted as implementation, e.g. migration metadata |
+| `ui.baseUrl` / `ui.startCommand` / `ui.portBase` | `""` / `""` / `3100` | Dev server, with `{port}` |
+| `ui.viewports` | phone 390, tablet 768, desktop 1440 | Widths ui-verifier checks |
+| `ui.designFiles` | `[]` | Committed design sources |
+| `ui.redrawFiles` | `[]` | Design files a UI task updates in the same PR when it changes a screen; never protected |
+| `ui.auth` | `null` | `{ loginPath, envFile, secretVar, steps }`: how ui-verifier signs in. It reads only that variable's line |
+
+### Changing kit behaviour
+
+The kit's skills, hooks, and scripts are overwritten by `-Upgrade`, so a project never edits them. Instead:
+
+1. **A `workflow` switch**, when one exists for the behaviour (table above).
+2. **`.claude/project/<name>.md`** for anything a switch can't express. `<name>` is a skill (`implement-task`, `new-task`, `plan-batch`, `milestones`, `next-task`, `customize-kit`, `adopt`, `architecture`, `skeleton`, `product-brief`) or an agent (`test-runner`, `test-auditor`, `spec-reviewer`, `schema-reviewer`, `ui-verifier`). The skill or agent reads it at the start, and it wins where it conflicts, except for the kit's floor: never push to or merge the base branch, never rewrite ACs, never deploy, never skip the plan gate, and the agents' read-only and restore rules.
+3. **`CLAUDE.md` and `.claude/rules/`** for rules about the project itself. Don't write counter-instructions to the kit's skills there ("even though the skill says…"); that's what the first two are for.
+
+### Project docs roles
+
+Every skill and agent finds documents through the "Project docs" table in `CLAUDE.md`. Use `—` for a role the project doesn't have.
+
+| Role | What it is | Used by |
+|---|---|---|
+| Product brief, Features, Screen inventory, Design brief | Scope and design intent | `/product-brief`, `/architecture`, `/milestones`, `/new-task` |
+| Design source of truth, Design tokens, Reference screenshots, Design process notes | The design | `/new-task`, ui-verifier, `/skeleton` |
+| UX floor | The minimum every UI task meets (`docs/templates/ux-floor.md`) | `/new-task` (one AC per UI task), spec-reviewer, ui-verifier |
+| Architecture, Data model, Domain specs | The system | Everything |
+| Roadmap, Task list, Tasks | The work | `/milestones`, `/new-task`, `/implement-task` |
+| Decisions | The decisions log, with its ID prefix; any path | Everything; `/implement-task` appends (or proposes) rows |
+| Review findings | Review protocol and findings ledger (`docs/templates/review-*.md`) | Commits and PRs cite finding IDs |
+| Deploy | How merged code goes live; `—` if merging deploys | Final reports (`workflow.afterMerge`) |
+| Owner runbook, Owner checklist | Steps and decisions only the owner takes | Final reports list your next steps; Claude never runs runbook commands unless asked |
+
+### Permissions
+
+The settings template denies, for both the `Bash` and `PowerShell` tools (on Windows the PowerShell tool could otherwise do what a Bash rule forbids):
+
+| Denied | Why |
 |---|---|
-| `verify` | Commands for the post-edit hook (`fast`) and test-runner (`full`) |
-| `protectedPaths` | Files Claude's Edit/Write tools can't touch |
-| `workflow` | Base branch, WIP limit, PR and CI behavior, unattended permission mode, worktree setup |
-| `testAudit` | How tests are identified and run individually |
-| `ui` | Dev server command and URL (`{port}`), viewports, design files |
+| `git push origin main` / `master` (and with arguments) | Nothing reaches the base branch except through a PR |
+| `git push --force *`, `-f *`, `--force-with-lease *` | No rewriting pushed history (`allowForceWithLease` drops the last one) |
+| `gh pr merge *` | You merge |
+| `git reset --hard *`, `git clean -fdx *` | No destroying uncommitted work |
+| `git add -A*`, `git add --all*`, `git add .`, `git commit -a*`, `git commit --all*` | Staging by path: never sweep in your edits, env files, or scratch output |
+
+`/customize-kit` adds allow-rules for your verify, test, git, and gh commands and one push rule per branch prefix, plus deny rules for your deploy, release, production-data, and destructive-reload commands and `Read(...)` denies for production env files. Deny always beats allow.
 
 ## 13. Troubleshooting
 
@@ -371,24 +495,31 @@ The PR body is pre-filled from `.github/pull_request_template.md`. Spend your 5�
 | `powershell: command not found` in hook output | Git Bash PATH | Use `C:/Windows/System32/WindowsPowerShell/v1.0/powershell.exe` in `settings.json` |
 | Hook path error | Your version runs hooks in PowerShell | Change `$CLAUDE_PROJECT_DIR` to `$env:CLAUDE_PROJECT_DIR` and add `"shell": "powershell"` to each hook |
 | Every edit reports failures | Baseline not green, or slow check in `fast` | Fix the baseline; move slow checks to `full` |
+| Edits to `.css`, `.sql`, `.py` (or ignored paths) fail the linter | A `fast` command runs on extensions it doesn't accept | Use the object form `{ "command", "extensions" }`, or the linter's flag for ignored files (eslint `--no-warn-ignored`) |
+| "Blocked: … matches largeFiles pattern" | The guard stopped a whole-file read | Read it in parts (offset/limit), or use the script the hint names |
+| Claude committed or staged an owner's file | `workflow.staging` set to `all` | Set it to `by-path` and restore the deny rules |
 | Lint or tests pick up duplicate files | `.claude/worktrees/` not excluded | Re-run `/customize-kit` Phase 3, or add `.claude/` to each tool's ignore list |
 | `claude agents` lists agents and exits instead of opening agent view | Claude Code too old | `claude update` |
-| Dispatcher: "docs/tasks has uncommitted changes" | Approved plans not committed | Commit, push, re-run |
+| Dispatcher: "docs/tasks has uncommitted changes" | Approved plans not committed on the base branch | Move them to a `docs/plans-<date>` branch, open a PR, merge it, pull, re-run |
 | Dispatcher: nothing eligible | Shown under "Not eligible" with reasons | Fix the named reason |
 | Session stuck in Needs input on a permission | Command not in allow-rules | Attach and approve; add the rule to `settings.json` so it doesn't recur |
 | Session can't start: `Workspace not trusted` | Running the dispatcher before trusting the folder | Run `claude` once in the project and accept the trust dialog |
 | Worktree session fails on missing dependencies or env | `worktreeSetup` / `worktreeCopyFiles` incomplete | Add the missing command or file in `kit.json` |
 | Two sessions fight over the dev server port | Same task number mod 100 | Change `ui.portBase` or finish one first |
+| Parallel sessions break each other's tests | One shared test database (or ports, files) | `wipLimit: 1` with a `_wipLimitReason`, or a per-worktree test database in `worktreeSetup` |
 | Parallel schema tasks corrupt the local DB | Shared database | Keep schema tasks `attended` and serial (the default) |
 | `gh pr checks --watch` never finishes | CI not triggered | Check the workflow's `on:` triggers and that Actions is enabled |
+| A ready gate fails but `gh run view` shows nothing | The check isn't an Actions run (e.g. a hosting provider's preview build) | Give the gate a `failureLog` naming where its log lives |
+| Claude PR review job fails on every PR | Workflow from before 2.4 and no `CLAUDE_CODE_OAUTH_TOKEN` | Take the 2.4 `claude-pr-review.yml`, which skips without the secret, or run `/install-github-app` |
 | ui-verifier: browser missing | Playwright browsers not installed | `npx playwright install chromium` |
-| `/implement-task` auto-triggers when you only mention a task | Model-invoked skill | Add `disable-model-invocation: true` to its front matter, then test that `/implement-task` still runs (one bug report says it may not) |
+| ui-verifier stuck on a sign-in page | `ui.auth` not set | Set `ui.auth` (`loginPath`, `envFile`, `secretVar`, `steps`) |
+| `/implement-task` starts when you only mention a task | Model-invoked skill | Say "don't start it" or ask about the task file instead of the task. Don't edit the skill: `-Upgrade` overwrites it |
 
 ## 14. Uninstall
 
 ```powershell
-git rm -r .claude/agents .claude/skills .claude/hooks .claude/scripts .claude/kit.json .claude/.gitignore docs/tasks/.gitignore
+git rm -r .claude/agents .claude/skills .claude/hooks .claude/scripts .claude/project .claude/kit.json .claude/.gitignore docs/tasks/.gitignore docs/templates
 git rm .github/workflows/claude.yml .github/workflows/claude-pr-review.yml
 ```
 
-Then remove the `hooks` and kit `permissions` blocks from `.claude/settings.json` and the kit sections from `CLAUDE.md`. Keep `docs/tasks/` and `docs/decisions.md`; they're your project's history. Remove the GitHub App and secret only if no other Claude feature uses them.
+Then remove the `hooks` and kit `permissions` blocks from `.claude/settings.json`, the kit sections from `CLAUDE.md`, and `.claude/rules/git.md` if you don't want to keep its rules. Keep `docs/tasks/` and your decisions log; they're your project's history. Remove the GitHub App and secret only if no other Claude feature uses them.

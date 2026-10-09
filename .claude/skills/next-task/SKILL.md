@@ -6,11 +6,13 @@ argument-hint: (optional) --dry-run to only show the pick
 
 # Next task $ARGUMENTS
 
+> **Project overrides:** read `.claude/project/next-task.md` if it exists. It holds this project's instructions for this skill (for example, a build order the roadmap sets) and wins where it conflicts with this file, except that it can't raise the WIP limit or pick a task that isn't `Ready`.
+
 ## Procedure
 
 1. Regenerate the board: `powershell -NoProfile -ExecutionPolicy Bypass -File .claude/scripts/build-index.ps1`. If PowerShell isn't available, read the task files' front matter directly.
-2. Read `.claude/kit.json` → `workflow.wipLimit` (default 2) and `.claude/state/dispatch.json` if it exists (tasks claimed by background sessions).
-3. **In flight** = tasks with status `In progress` or `Review`, plus claimed tasks not yet `Done`. If in flight ≥ the WIP limit, stop. List the in-flight tasks and say which PRs to review or merge first.
+2. Read `.claude/kit.json` → `workflow.wipLimit` (default 2) and `workflow._wipLimitReason` if present, and `.claude/state/dispatch.json` if it exists (tasks claimed by background sessions).
+3. **In flight** = tasks with status `In progress` or `Review`, plus claimed tasks not yet `Done`. If in flight ≥ the WIP limit, stop. List the in-flight tasks, say which PRs to review or merge first, and quote `_wipLimitReason` if there is one.
 4. **Candidates** = tasks with `status: Ready` whose `depends_on` tasks are all `Done` and that aren't claimed.
 5. Pick one, using these tie-breakers in order:
    1. Unblocks the most other tasks (count of tasks listing it in `depends_on`, directly or transitively)

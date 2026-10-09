@@ -9,9 +9,9 @@ How to take a project from a brainstorm to Ready task files, using Claude chat, 
 | 0 | Repo + kit | Terminal, Claude Code | — | Empty repo with the kit installed | Kit loads (`/` lists the skills) |
 | 1 | Brainstorm → scope | Claude chat → `/product-brief` | Opus | `docs/product/brief.md`, `features.md`, `design-brief.md` | Every MVP feature has an ID, a screen, and acceptance notes |
 | 2 | Design | Claude Design | — | `design/` (handoff bundle + HTML export) | Every MVP screen designed in all its states; tokens defined |
-| 3 | Architecture | `/architecture` | Opus | `docs/architecture.md`, `docs/decisions.md` | Every MVP feature traces to components and entities; NFRs have numbers |
+| 3 | Architecture | `/architecture` | Opus | `docs/architecture.md`, `docs/decisions.md` (created from `docs/templates/decisions.md`) | Every MVP feature traces to components and entities; NFRs have numbers; environments chosen |
 | 4 | Walking skeleton | `/skeleton` | Opus | Running slice, scripts, CI | Every script passes; CI green; slice shows seeded data |
-| 5 | Configure kit | `/customize-kit` + GitHub settings | Opus | Filled `kit.json`, `CLAUDE.md`, agents | Smoke tests pass; branch protected |
+| 5 | Configure kit | `/customize-kit` + GitHub settings | Opus | Filled `kit.json`, `CLAUDE.md`, `.claude/rules/git.md`, `.claude/project/` agent files, `/verify` | Smoke tests pass; branch protected |
 | 6 | Plan the build | `/milestones` → `/new-task … M1` | Opus | `docs/tasklist.md`, M1 task files | Coverage 100%; M1 tasks reviewed and `Ready` |
 | 7 | Build | `/next-task`, later `/plan-batch` + dispatch | Opus / Sonnet | PRs | M1 demo works; repeat 6–7 per milestone |
 
@@ -40,14 +40,14 @@ gh repo create my-app --private --source . --remote origin
 
 powershell -NoProfile -ExecutionPolicy Bypass -File C:\Development\tools\claude-code-starter-kit\install-kit.ps1
 
-git add -A; git commit -m "chore: add Claude Code starter kit"; git push -u origin main
+git add .claude .github docs CLAUDE.md; git commit -m "chore: add Claude Code starter kit"; git push -u origin main
 ```
 
 This assumes the kit is already at `C:\Development\tools\claude-code-starter-kit\` (one-time setup: USER-GUIDE §3.1). With the profile shortcut, the install line is just `Install-ClaudeKit`.
 
 Start `claude` in the folder, accept the trust prompt, and type `/` to confirm `product-brief`, `architecture`, `skeleton`, and `milestones` appear. The hooks do nothing until `/customize-kit` fills `kit.json`, so they won't get in the way of early stages.
 
-Set up branch protection after Stage 4, not now. Stages 0–3 commit docs straight to `main`.
+Set up branch protection after Stage 4, not now. In Stages 0–3 you commit docs straight to `main` yourself. Claude doesn't: `.claude/rules/git.md` keeps it off the base branch, so a skill that commits (such as `/milestones`) does it on a `docs/` branch and opens a PR.
 
 ## Stage 1: Brainstorm → scope (30–90 minutes)
 
@@ -130,6 +130,8 @@ It reads the brief, the features, and `design/`, infers the data model from what
 - `docs/architecture.md`: stack, ER diagram, entity tables, components, API, feature traceability, NFRs with numbers, testing strategy with seed data, walking-skeleton spec, risks
 - `docs/decisions.md`: one row per decision, with the rejected alternatives
 
+If the app has a database, it also offers three decisions most projects regret skipping: an environment ladder (development, test, previews, production; the default env file never production), down files for destructive migrations, and whether merging deploys or a hand-run release does.
+
 **Your review, about 20 minutes. This is the most valuable review in the whole kickoff.**
 
 1. **Data model.** Does every entity and field match what the screens show? Is "stored vs. derived" explicit?
@@ -164,7 +166,7 @@ Merge once CI is green. Then do USER-GUIDE §5.1 (branch protection) now that th
 /customize-kit
 ```
 
-With real scripts in place, it detects everything, fills `kit.json`, adds permission allow-rules, tailors the agents, and asks you to confirm 3–6 hard rules; the architecture doc already proposed candidates. Optionally do USER-GUIDE §5.2 (Claude GitHub App) for PR reviews. Merge the customization through a PR.
+With real scripts in place, it detects everything, fills `kit.json` (including the `workflow` switches and ready gates), adds permission allow- and deny-rules, writes each agent's project file in `.claude/project/`, generates `/verify`, and asks you to confirm 3–6 hard rules; the architecture doc already proposed candidates. Optionally do USER-GUIDE §5.2 (Claude GitHub App) for PR reviews. Merge the customization through a PR.
 
 ## Stage 6: Plan the build (30–60 minutes)
 
@@ -180,7 +182,7 @@ Then convert **only the first milestone** into full task files:
 /new-task docs/tasklist.md M1
 ```
 
-Review each task file. Rewrite any AC you couldn't check by looking at the app. Confirm the `autonomy` flags: early tasks are mostly `attended`, because they establish patterns. Set them to `Ready`, commit, and push.
+Review each task file. Rewrite any AC you couldn't check by looking at the app. Confirm the `autonomy` flags: early tasks are mostly `attended`, because they establish patterns. Set them to `Ready`, then commit them by path on a `docs/` branch and merge it through a PR (Claude can open it).
 
 Why one milestone at a time: specs written weeks ahead go stale as the code takes shape. Writing M2's specs once M1 is nearly done keeps file paths and patterns accurate.
 

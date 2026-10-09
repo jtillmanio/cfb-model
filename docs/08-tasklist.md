@@ -94,7 +94,7 @@ _Written by `/milestones` on 2026-10-08 from [06-roadmap.md](06-roadmap.md). Eac
 | M1.4 | Add the nightly `backup` workflow with restore verification | ops | M | — | attended | D-019, D-099: `pg_dump` on `PG_MAJOR`, restore into a container, re-apply views, run view tests, compare row counts, then upload to R2. Writes the restore runbook (RTO ≤ 2 h, 02 › Non-functional requirements). Needs the R2 account |
 | M1.5 | Add the `lighthouse` workflow on PR previews | ops | M | M1.1 | attended | D-101, 02 › Performance checks: `scripts/perf/` with pure logic in Vitest; mint session with the preview `AUTH_SECRET`; scrub + guard reports; one PR comment. Routes `/login` and `/teams`; budgets from the first preview run |
 | M1.6 | Add Dependabot and the merged-migration CI check | ops | S | — | attended | D-020, D-021: ignores for Next majors and TypeScript ≥ 7 with reasons beside them; CI fails if a migration on `main` was edited, renamed or deleted |
-| M1.7 | Block whole-file reads of data files with a PreToolUse hook | tooling | S | — | attended | Roadmap Phase 0: `data/**`, `*.parquet`, `*.duckdb`, large fixtures/mockups; registered in `.claude/settings.json` |
+| M1.7 | Block whole-file reads of data files with a PreToolUse hook | tooling | S | — | attended | **Done in the kit 2.4 upgrade (`chore/kit-2.4`); no task file needed.** The kit's `guard-large-reads.ps1` is registered in `.claude/settings.json` and reads `largeFiles` in `.claude/kit.json`: `data/*`, `*.parquet`, `*.duckdb` always denied; design boards and lockfiles denied whole |
 
 ## M2: Data pipeline (Phase 1) — MVP
 

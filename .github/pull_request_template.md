@@ -1,40 +1,55 @@
-<!-- /implement-task fills this in. For PRs you open yourself, fill what applies. -->
+<!-- /implement-task fills this in. For PRs you open yourself, fill what applies.
+     The title is a commit subject (workflow.commitFormat in .claude/kit.json), because
+     the squash merge keeps it. This body is what the base branch keeps. -->
 
-## Task
+## What
 
-<!-- e.g. TASK-014: Show run progress (docs/tasks/TASK-014-run-progress.md) -->
+<!-- The change in a few bullets. Task work: "TASK-014: Show run progress (docs/tasks/TASK-014-run-progress.md)". -->
+-
 
-## Summary
+## Why
 
-<!-- 2-4 lines: what changed and why -->
+<!-- The problem, with task, roadmap, decision and review-finding IDs. -->
 
 ## Acceptance criteria
 
-<!-- Copied from the task file, ticked when verified -->
+<!-- Roadmap mode: the roadmap's check line first, verbatim. Then the task file's ACs; tick each when verified. -->
 - [ ] AC-1:
 - [ ] AC-2:
 
-## Automated evidence
+## How it was verified
 
-| Check | Result |
-|---|---|
-| test-runner (verify.full) | |
-| test-auditor | |
-| spec-reviewer | |
-| schema-reviewer | n/a |
-| ui-verifier | n/a |
-| CI | see checks below |
+<!-- One row per reviewer, then one row per ready gate (workflow.readyGates), in order. Owner gates say "owner".
+     Say which suites ran only in CI. Anything that can only be checked after merge: name it,
+     say why, and give the exact check to run straight after. -->
+
+| Check | Where | Result |
+|---|---|---|
+| test-runner (`verify.full`) | local | |
+| test-auditor | local | |
+| spec-reviewer | local | |
+| schema-reviewer | local | n/a |
+| ui-verifier | local dev server | n/a |
+| CI | GitHub | see checks below |
 
 <!-- Screenshots from ui-verifier, if any -->
 
-## Manual verification (human)
+### Manual verification (owner)
 
 <!-- Steps from the task's Verification section, each with its expected result -->
 1.
 
-## Reviewer checklist (human)
+## Follow-ups
+
+<!-- Work noticed and deliberately left out, as candidate tasks. Candidate decisions for the owner to record
+     (when workflow.decisions is "propose"). Review-finding IDs this PR addresses or opens. -->
+-
+
+## Reviewer checklist (owner)
 
 - [ ] Ran the manual steps above and got the expected results
+- [ ] Every owner gate in the table above has passed
 - [ ] Diff contains only what the task asked for (no surprise files)
-- [ ] No secrets, protected files, or production config touched
+- [ ] No secrets, env files, protected files or production config touched
 - [ ] Task file set to `status: Done` (reply "accepted" to the session, or edit it in this PR) before merging
+- [ ] After the squash merge, any deploy step the project has (merged is not live)

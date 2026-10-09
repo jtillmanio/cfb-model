@@ -1,9 +1,9 @@
 ---
 id: TASK-000
-title: <short imperative title>
+title: <short imperative title>  # roadmap mode (workflow.roadmap): start with the roadmap ID, e.g. "1.2 Undo"
 status: Draft             # Draft | Ready | In progress | Review | Done | Blocked
 depends_on: []            # e.g. [TASK-012, TASK-013]
-size: S                   # S (<=3 files, one layer) | M (<=8 files, <=2 adjacent layers) | split if larger
+size: S                   # S (<=3 files, one layer) | M (<=8 files, <=2 adjacent layers) | split if larger; L only with workflow.splitPolicy never-split
 model: sonnet             # implementation model; planning always uses Opus
 autonomy: attended        # attended | unattended (see /new-task rules)
 ui: false                 # true if any AC has a visible or interactive outcome
@@ -19,9 +19,9 @@ planned_at_commit:        # set when the plan is written; used for the staleness
 
 ## Context
 
-- Architecture: `docs/architecture.md` § <section>
+- Architecture: <Architecture doc> § <section>
 - Design: `<design file>` § <screen/component>
-- Decisions: D-<###>
+- Decisions: <IDs from the Decisions log>
 
 ## Acceptance criteria
 

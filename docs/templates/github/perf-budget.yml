@@ -1,0 +1,126 @@
+# TEMPLATE (Claude Code starter kit, docs/templates/github/perf-budget.yml). Copy to
+# .github/workflows/perf-budget.yml, add perf/budget.json, and fill every {{...}}. /customize-kit offers it.
+#
+# Every PR preview measures itself. When the host reports a preview deployment ready, this runs
+# Lighthouse (mobile) on each route in perf/budget.json, compares the numbers with the route's budget,
+# and answers the PR with one comment, updated in place. It fails only on numbers that hold still
+# between runs (bytes, requests, layout shift, accessibility score), not on timings.
+#
+# A task that adds a top-level screen adds its route and budget to perf/budget.json in the same PR.
+# Raise a budget only with a reason in the PR.
+#
+# Add it as a ready gate in .claude/kit.json so /implement-task waits for it:
+#   { "name": "Performance budget", "check": "gh pr checks <n> shows 'Performance budget' as pass", "by": "claude" }
+#
+# perf/budget.json:
+#   { "routes": {
+#       "home":   { "path": "/",      "bytes": 400000, "requests": 40, "cls": 0.1, "a11y": 100 },
+#       "list":   { "path": "/items", "bytes": 450000, "requests": 45, "cls": 0.1, "a11y": 100 } } }
+#
+# Never production: a run there would read the production database through the app.
+name: Performance budget
+
+on:
+  deployment_status:
+  workflow_dispatch:
+    inputs:
+      url:
+        description: "Preview URL to measure"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: perf-${{ github.event.deployment.sha || github.sha }}
+  cancel-in-progress: true
+
+jobs:
+  measure:
+    # The host sends a status for every deployment and state; only a finished preview gets past this.
+    # The environment name differs by host: check what yours sends.
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.deployment_status.state == 'success' && github.event.deployment.environment == '{{Preview}}')
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      BUDGET: perf/budget.json
+      BASE_URL: ${{ inputs.url || github.event.deployment_status.environment_url || github.event.deployment_status.target_url }}
+      SHA: ${{ github.event.deployment.sha || github.sha }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v7
+        with: { ref: "${{ github.event.deployment.sha || github.sha }}" }
+      - uses: actions/setup-node@v7
+        with: { node-version: 22 }
+
+      - name: Find the PR
+        id: pr
+        run: |
+          n=$(gh api "repos/$GITHUB_REPOSITORY/commits/$SHA/pulls" --jq '.[0].number // empty')
+          echo "number=$n" >> "$GITHUB_OUTPUT"
+
+      - name: Measure
+        run: |
+          set -euo pipefail
+          mkdir -p perf-reports
+          # Signed-in routes: sign in first and pass the session cookie with --extra-headers.
+          # A protected preview: pass the host's bypass header the same way, from a secret.
+          for id in $(jq -r '.routes | keys[]' "$BUDGET"); do
+            path=$(jq -r --arg id "$id" '.routes[$id].path' "$BUDGET")
+            npx --yes lighthouse@13.5.0 "$BASE_URL$path" --quiet \
+              --form-factor=mobile --throttling-method=devtools \
+              --only-categories=performance,accessibility \
+              --output=json --output-path="perf-reports/$id.json" \
+              --chrome-flags="--headless=new --no-sandbox"
+          done
+
+      - name: Compare with the budget
+        run: |
+          node - <<'EOF'
+          const fs = require("fs");
+          const budget = JSON.parse(fs.readFileSync(process.env.BUDGET, "utf8")).routes;
+          const rows = [];
+          let over = 0;
+          for (const [id, b] of Object.entries(budget)) {
+            const r = JSON.parse(fs.readFileSync(`perf-reports/${id}.json`, "utf8"));
+            const bytes = r.audits["total-byte-weight"].numericValue;
+            const requests = r.audits["network-requests"].details.items.length;
+            const cls = r.audits["cumulative-layout-shift"].numericValue;
+            const a11y = Math.round(r.categories.accessibility.score * 100);
+            const fails = [];
+            if (b.bytes != null && bytes > b.bytes) fails.push(`bytes ${bytes} > ${b.bytes}`);
+            if (b.requests != null && requests > b.requests) fails.push(`requests ${requests} > ${b.requests}`);
+            if (b.cls != null && cls >= b.cls) fails.push(`CLS ${cls.toFixed(3)} >= ${b.cls}`);
+            if (b.a11y != null && a11y < b.a11y) fails.push(`a11y ${a11y} < ${b.a11y}`);
+            if (fails.length) over++;
+            rows.push(`| ${id} | \`${b.path}\` | ${Math.round(bytes / 1024)} KB | ${requests} | ${cls.toFixed(3)} | ${a11y} | ${fails.length ? "**over:** " + fails.join(", ") : "ok"} |`);
+          }
+          const body = [
+            "<!-- perf-budget -->",
+            `### Performance budget (${process.env.SHA.slice(0, 7)})`,
+            "",
+            "| Route | Path | Bytes | Requests | CLS | A11y | Result |",
+            "|---|---|---|---|---|---|---|",
+            ...rows,
+            "",
+            over ? `${over} route(s) over budget.` : "Every route is within budget.",
+          ].join("\n");
+          fs.writeFileSync("perf-comment.md", body + "\n");
+          fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, body + "\n");
+          if (over) process.exitCode = 1;
+          EOF
+
+      - name: Comment on the PR
+        if: always() && steps.pr.outputs.number != ''
+        run: |
+          [ -f perf-comment.md ] || exit 0
+          gh pr comment "${{ steps.pr.outputs.number }}" --body-file perf-comment.md --edit-last \
+            || gh pr comment "${{ steps.pr.outputs.number }}" --body-file perf-comment.md
+
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with: { name: perf-reports, path: perf-reports, retention-days: 14 }

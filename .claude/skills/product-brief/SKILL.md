@@ -8,6 +8,8 @@ argument-hint: (optional) path to brainstorm notes, e.g. docs/product/brainstorm
 
 > **Doc roles:** names in **bold** such as **Architecture**, **Data model**, or **Design tokens** are roles in the "Project docs" table in `CLAUDE.md`. Always read and write the path the table gives for a role, including a `§ section` if it names one. The path in parentheses is only the default, used when the table is missing. If a role maps to `—`, follow the fallback stated in the step, or ask. Refer to sections by name, never by number.
 
+> **Project overrides:** read `.claude/project/product-brief.md` if it exists. It holds this project's instructions for this skill and wins where it conflicts with this file, except that it can't lower the floor: never overwrite existing docs, and stop for the user's answers before writing.
+
 Produce these outputs from the templates in `docs/templates/`, writing each to the path its role maps to in the Project docs table. When two roles map to the same file, write both into that file as separate sections. When a role maps to a `§ section` of a file, write or update only that section.
 
 | Output | From template | Purpose |
