@@ -1,6 +1,7 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures";
 
-// Walking-skeleton smoke test: the real path from the seeded test DB through FastAPI to the page.
+// Walking-skeleton smoke test: the real path from the seeded test DB through FastAPI to the page,
+// signed in with the minted test session. Health, which needs no session, is in auth.spec.ts.
 
 test("Teams lists the seeded fixture teams", async ({ page }) => {
   await page.goto("/teams");
@@ -14,10 +15,4 @@ test("Teams lists the seeded fixture teams", async ({ page }) => {
 test("the root URL opens Teams", async ({ page }) => {
   await page.goto("/");
   await expect(page).toHaveURL(/\/teams$/);
-});
-
-test("health reports a reachable database and the migration head", async ({ request }) => {
-  const response = await request.get("/api/py/health");
-  expect(response.ok()).toBe(true);
-  expect(await response.json()).toMatchObject({ db_reachable: true, migration_head: "0001" });
 });
