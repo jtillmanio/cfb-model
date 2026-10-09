@@ -24,12 +24,16 @@ Every PR's preview is measured automatically: the PR gets one comment with the n
 - Decisions: D-101, D-012.
 - `docs/06-roadmap.md` › Phase 0: routes `/login` and `/teams` to start; repo secrets documented in the setup docs.
 - Depends on TASK-002 so `/login`'s budget is measured on the finished screen, not the stub.
-- **Owner prerequisites:** the preview `AUTH_SECRET` as a repository secret, and production's URL as a repository variable. Claude never edits secrets.
+- **Owner prerequisites:**
+  - Repository **secrets** `PREVIEW_AUTH_SECRET` (the same value as Vercel Preview's `AUTH_SECRET`, never production's) and `VERCEL_AUTOMATION_BYPASS_SECRET` (Vercel › Deployment Protection › Protection Bypass for Automation, as in `ledger`).
+  - The repository **variable** `PRODUCTION_URL` (from TASK-005).
+  - Claude never edits secrets.
+- Previews have no GitHub sign-in (D-102), so the minted session is the only way this job gets past `/login`.
 - `workflow.readyGates` includes "Changed workflow run on the branch": the PR's own preview triggers the workflow, and `gh workflow run lighthouse.yml --ref <branch> -f url=<preview>` re-runs it.
 
 ## Acceptance criteria
 
-- [ ] AC-1: `.github/workflows/lighthouse.yml` matches 02's shape: top-level `permissions: {}`, the `plan`, `measure` (matrix per route, `fail-fast: false`, concurrency `lighthouse-pr-<n>-<route>` with cancel-in-progress) and `report` jobs, with only `report` granted `pull-requests: write`; secrets reach scripts only through `env:`; header files go to a temp folder removed in an `if: always()` step.
+- [ ] AC-1: `.github/workflows/lighthouse.yml` matches 02's shape: top-level `permissions: {}`, the `plan`, `measure` (matrix per route, `fail-fast: false`, concurrency `lighthouse-pr-<n>-<route>` with cancel-in-progress) and `report` jobs, with only `report` granted `pull-requests: write`; secrets reach scripts only through `env:`; header files go to a temp folder removed in an `if: always()` step; every request to the preview (Lighthouse `--extra-headers` and the session mint) carries `x-vercel-protection-bypass` from `VERCEL_AUTOMATION_BYPASS_SECRET`.
 - [ ] AC-2: On this PR's preview, the workflow runs on its own and measures `/login` signed out and `/teams` signed in, with neither ending on an unexpected URL; the PR has exactly one Lighthouse comment, and a re-run edits that comment instead of adding another.
 - [ ] AC-3: `scripts/perf/budget.json` holds, per route, `docBytes`, `jsBytes`, `requests` and `a11y` computed from this PR's preview run by 02's rule; the `perf-budget` table in `docs/02-architecture.md` matches it, with the measured numbers, Lighthouse version and Chrome version beside it.
 - [ ] AC-4: Vitest cases fail when `budget.json`'s keys differ from the route ids in `routes.mjs`, or when the `perf-budget` table in `docs/02-architecture.md` differs from `budget.json`.
@@ -41,7 +45,7 @@ Every PR's preview is measured automatically: the PR gets one comment with the n
 - Gate logic, the scrubber and session minting (TASK-007).
 - Routes for screens that don't exist yet: each later screen adds its own route and budget in its PR.
 - Deciding where byte gates measure data pages (roadmap › Open questions 5).
-- Vercel Deployment Protection (the bypass header is wired only if protection is on).
+- Turning Vercel Deployment Protection on or off (an owner setting); this task only sends the bypass header.
 
 ## Files likely touched
 
