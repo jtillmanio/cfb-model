@@ -1,3 +1,6 @@
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
@@ -139,5 +142,22 @@ describe("raceWakeNote", () => {
     const result = raceWakeNote(health);
     await vi.advanceTimersByTimeAsync(WAKE_NOTE_AFTER_MS);
     expect(await result).toBe("waking");
+  });
+});
+
+// AC-5 / hard rule 7: the login screen uses design tokens only.
+describe("login screen files", () => {
+  const files = [
+    "../app/login/page.tsx",
+    "../app/login/login-card.tsx",
+    "../app/login/continue/page.tsx",
+  ];
+
+  it.each(files)("%s has no color literals or arbitrary pixel sizes", (file) => {
+    const source = readFileSync(fileURLToPath(new URL(file, import.meta.url)), "utf8");
+    expect(source).not.toMatch(/#[0-9a-fA-F]{3,8}/);
+    expect(source).not.toMatch(/(rgba?|hsla?|oklch|oklab)\(/);
+    expect(source).not.toMatch(/\[[0-9.]+px\]/);
+    expect(source).not.toMatch(/fontSize|style=\{/);
   });
 });

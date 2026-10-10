@@ -109,7 +109,8 @@ test.describe("after sign-in (AC-3)", () => {
     });
   });
 
-  test("not signed in: /login/continue is behind the gate", async ({ request, baseURL }) => {
+  // Guard, not AC-3 proof: the gate already covers every new route; this keeps it that way.
+  test("guard: /login/continue is behind the gate when signed out", async ({ request, baseURL }) => {
     const direct = await request.get("/login/continue?to=%2Fteams", { maxRedirects: 0 });
     expect(direct.status()).toBe(307);
     expect(new URL(direct.headers()["location"], baseURL).pathname).toBe("/login");
