@@ -29,6 +29,10 @@ jobs:
       # The e2e API's port (web/playwright.config.ts). next.config bakes the /api/py rewrite at
       # build time, so the build step needs it too, not only test:e2e.
       API_URL: http://127.0.0.1:8001
+      # Test-only key for the API's JWT (TASK-003): the web servers sign with it, the API verifies
+      # it (TASK-004). Must equal TEST_API_JWT_SECRET in web/e2e/test-env.ts, which e2e passes to
+      # its servers; pytest reads it from here. Not a secret: Vercel holds the real ones.
+      API_JWT_SECRET: e2e-only-api-jwt-secret-never-used-outside-tests-0001
       UV_FROZEN: "1"
 
     steps:

@@ -1,14 +1,14 @@
 ---
 id: TASK-003
 title: Sign every API call from Next server code with a short-lived JWT
-status: Ready
+status: Done
 depends_on: [TASK-001]
 size: M
 model: opus
 autonomy: attended
 ui: false
-plan_status: none
-planned_at_commit:
+plan_status: approved
+planned_at_commit: 49afe9d
 ---
 
 # TASK-003 — Sign every API call from Next server code with a short-lived JWT
@@ -29,11 +29,11 @@ Every request the web app's server code makes to the API carries a short-lived t
 
 ## Acceptance criteria
 
-- [ ] AC-1: Given a signed-in session, when `web/lib/api.ts` calls the API, the request carries `Authorization: Bearer <token>`, where the token is an HS256 JWT that verifies with the shared secret and has `sub` equal to the session's GitHub user ID (Vitest with the fetch call captured).
-- [ ] AC-2: The token's `exp − iat` is at most 300 seconds, and a fresh token is minted for each request rather than cached across requests (Vitest: two calls produce two tokens with their own `iat`).
-- [ ] AC-3: Given no session (or the shared secret unset), `web/lib/api.ts` throws before sending any request, and the thrown error message doesn't contain the secret (Vitest).
-- [ ] AC-4: The signing code imports `server-only`, and `next build` fails if a client component imports it (the existing `server-only` guard; checked by review of the import chain).
-- [ ] AC-5: `/teams` still renders the seeded "Ohio State · Big Ten" row in e2e with the minted session, with the shared secret set for both the web and API processes in `web/playwright.config.ts` and `.github/workflows/ci.yml`.
+- [x] AC-1: Given a signed-in session, when `web/lib/api.ts` calls the API, the request carries `Authorization: Bearer <token>`, where the token is an HS256 JWT that verifies with the shared secret and has `sub` equal to the session's GitHub user ID (Vitest with the fetch call captured).
+- [x] AC-2: The token's `exp − iat` is at most 300 seconds, and a fresh token is minted for each request rather than cached across requests (Vitest: two calls produce two tokens with their own `iat`).
+- [x] AC-3: Given no session (or the shared secret unset), `web/lib/api.ts` throws before sending any request, and the thrown error message doesn't contain the secret (Vitest).
+- [x] AC-4: The signing code imports `server-only`, and `next build` fails if a client component imports it (the existing `server-only` guard; checked by review of the import chain).
+- [x] AC-5: `/teams` still renders the seeded "Ohio State · Big Ten" row in e2e with the minted session, with the shared secret set for both the web and API processes in `web/playwright.config.ts` and `.github/workflows/ci.yml`.
 
 ## Out of scope
 
@@ -57,11 +57,32 @@ Every request the web app's server code makes to the API carries a short-lived t
 
 ## Plan
 
-_Written by /plan-batch or /implement-task Phase 1. Approved by the user (plan_status: approved) before any code is written._
+Approved 2026-10-10.
+
+**Plan-gate decisions (D-105):** secret `API_JWT_SECRET` (separate from `AUTH_SECRET`; at least 32 characters, or minting throws); lifetime 60 s, minted per request; claims `sub` (the session's GitHub user ID), `iat`, `exp`, `iss: "cfb-model-web"`, `aud: "cfb-model-api"`, HS256; library `jose@6.2.12` as a direct dependency (the version `@auth/core` already installs; Auth.js's `encode` makes an encrypted JWE, not an HS256 JWS).
+
+**Steps**
+1. Write `web/lib/api-token.test.ts` first (mocks `server-only` and `@/auth`, stubs `fetch` and env) and see it fail.
+2. `web/lib/api-token.ts` (`server-only`): `mintApiToken(sub)` reads `API_JWT_SECRET` per call; a missing or short secret, or an empty `sub`, throws a fixed message that never includes the value.
+3. `web/lib/api.ts`: authenticated calls (`getTeams` and every future one) call `auth()`, throw without `user.id`, and send `Authorization: Bearer <token>`. `getHealth` stays unsigned: `/api/py/health` is the one open route (02 › Auth), so AC-3 applies to the authenticated calls.
+4. `web/e2e/test-env.ts`: `TEST_API_JWT_SECRET`; `web/playwright.config.ts` passes it to the API and both `next start` servers.
+5. `.github/workflows/ci.yml`: the same value as job-level `API_JWT_SECRET`, with a comment that it must match `test-env.ts` (pytest reads it from TASK-004).
+6. `.env.example`: drop "nothing reads this yet"; state the 32-character minimum.
+
+**Files:** `web/lib/api-token.ts` (new), `web/lib/api-token.test.ts` (new), `web/lib/api.ts`, `web/package.json` (+ lockfile via pnpm), `web/e2e/test-env.ts` (not in "Files likely touched": the shared test constant), `web/playwright.config.ts`, `.github/workflows/ci.yml`, `.env.example`, `docs/decisions.md`.
+
+**Tests**
+- AC-1: `api-token.test.ts`: the captured fetch's Bearer token passes `jwtVerify` with the secret, issuer and audience; header `alg` HS256; `sub` `"4242"`.
+- AC-2: `api-token.test.ts`: `exp − iat ≤ 300`; two calls 2 s apart carry two different tokens with their own `iat`.
+- AC-3: `api-token.test.ts`: no session, no secret and a short secret each throw with fetch never called; the message excludes the secret.
+- AC-4: review of the import chain (`api-token.ts` imports `server-only`; only `api.ts` imports it).
+- AC-5: `web/e2e/teams.spec.ts` with the secret wired in.
+
+**Risks:** `ci.yml` has no `workflow_dispatch`, so the "changed workflow" ready gate is met by the PR's own CI run on the branch. Owner prerequisite: `API_JWT_SECRET` set in Vercel Preview and Production before merge, or the deployed `/teams` throws.
 
 ## Review log
 
-_Filled by /implement-task. One line per round._
+Verify R1 PASS | Audit R1 PASS (AC-1–3 discriminating; AC-4 review, AC-5 non-regression) | Spec R1 APPROVE
 
 ## Blocked
 
@@ -69,7 +90,7 @@ _Only if status is Blocked: what failed, what was tried, best hypothesis, decisi
 
 ## Metrics
 
-- Verify rounds:
-- Review rounds:
-- First-pass AC FAILs:
-- Plan revisions after approval:
+- Verify rounds: 1
+- Review rounds: 1
+- First-pass AC FAILs: 0
+- Plan revisions after approval: 0

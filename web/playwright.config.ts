@@ -1,6 +1,11 @@
 import { defineConfig, devices } from "@playwright/test";
 
-import { COLD_PREVIEW_URL, TEST_AUTH_SECRET, TEST_GITHUB_ID } from "./e2e/test-env";
+import {
+  COLD_PREVIEW_URL,
+  TEST_API_JWT_SECRET,
+  TEST_AUTH_SECRET,
+  TEST_GITHUB_ID,
+} from "./e2e/test-env";
 
 // E2E runs `next start` + uvicorn against the seeded test DB (APP_ENV=test routes the API
 // through the test-DB guard). Run `pnpm db:migrate:test` and `pnpm db:seed` first.
@@ -33,7 +38,11 @@ export default defineConfig({
     {
       command: `uv --directory ../python run uvicorn api.main:app --port ${API_PORT}`,
       url: `${API_URL}/api/py/health`,
-      env: { APP_ENV: "test", GIT_COMMIT_SHA: process.env.GITHUB_SHA ?? "local" },
+      env: {
+        APP_ENV: "test",
+        GIT_COMMIT_SHA: process.env.GITHUB_SHA ?? "local",
+        API_JWT_SECRET: TEST_API_JWT_SECRET,
+      },
       reuseExistingServer: !isCI,
       timeout: 60_000,
     },
@@ -53,6 +62,7 @@ export default defineConfig({
         AUTH_GITHUB_ID: "e2e-github-client-id",
         AUTH_GITHUB_SECRET: "e2e-github-client-secret",
         AUTH_TRUST_HOST: "true",
+        API_JWT_SECRET: TEST_API_JWT_SECRET,
       },
       reuseExistingServer: !isCI,
       timeout: 180_000,
@@ -77,6 +87,7 @@ export default defineConfig({
         AUTH_GITHUB_ID: "",
         AUTH_GITHUB_SECRET: "",
         AUTH_TRUST_HOST: "true",
+        API_JWT_SECRET: TEST_API_JWT_SECRET,
       },
       reuseExistingServer: !isCI,
       timeout: 60_000,
