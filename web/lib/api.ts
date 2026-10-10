@@ -25,3 +25,14 @@ async function get<T>(path: string): Promise<T> {
 export function getTeams(): Promise<TeamsResponse> {
   return get<TeamsResponse>("api/py/teams");
 }
+
+// The only API route outside the auth gate; sign-in calls it to wake the database (TASK-002).
+export type HealthResponse = {
+  commit: string;
+  db_reachable: boolean;
+  migration_head: string | null;
+};
+
+export function getHealth(): Promise<HealthResponse> {
+  return get<HealthResponse>("api/py/health");
+}

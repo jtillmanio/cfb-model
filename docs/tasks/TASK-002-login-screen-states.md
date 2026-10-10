@@ -1,14 +1,14 @@
 ---
 id: TASK-002
 title: Draw the login screen with its denied and waking states
-status: Ready
+status: In progress
 depends_on: [TASK-001]
 size: M
 model: sonnet
 autonomy: attended
 ui: true
-plan_status: none
-planned_at_commit:
+plan_status: approved
+planned_at_commit: 75a35fa
 ---
 
 # TASK-002 — Draw the login screen with its denied and waking states
@@ -58,7 +58,33 @@ The login screen matches the design at phone and desktop widths: a refused GitHu
 
 ## Plan
 
-_Written by /plan-batch or /implement-task Phase 1. Approved by the user (plan_status: approved) before any code is written._
+Approved 2026-10-10 as one task (size check: 11 files, 5 of them tests or e2e setup; split into card/denied/preview and waking was offered and declined).
+
+Decisions at the plan gate:
+- **Waking state:** sign-in's `redirectTo` is `/login/continue?to=<path>` (behind the gate). That page races the server-side health call against 1.5 s. Health first: plain `redirect(to)` (a 307, nothing drawn). Timer first: the waking card streams, and a Suspense child awaits the same call, then `redirect(to)` (Next's streamed redirect). No browser polling (hard rule 5). Health failing or timing out at 10 s still redirects; the target page shows its own error.
+- **Denied login name:** the `signIn` callback returns `/login?error=AccessDenied&login=<github login>` instead of `false`; the page shows the name only if it is a valid GitHub login (`[A-Za-z0-9-]{1,39}`), else omits that sentence.
+- **Use a different account:** a button that re-runs `signIn("github", …, { prompt: "select_account" })` (GitHub's account picker).
+- **Return path:** Auth.js's `callbackUrl` is reduced to a same-origin path; `//…`, `/\…`, and `/login…` fall back to `/`.
+- **Footnote:** "Stays signed in on this device for 90 days." at both widths (AC-1; the mobile board's "phone" is not used).
+
+Steps:
+1. `web/lib/login.ts` + `login.test.ts`: `loginState(params, githubConfigured)` (default / denied / unavailable, with copy), `safeNextPath`, `raceWakeNote(promise, ms)`.
+2. `web/auth.config.ts` + `web/lib/auth-config.test.ts`: refused GitHub sign-in returns the denied URL with the login.
+3. `web/lib/api.ts`: `getHealth()`.
+4. `web/app/login/login-card.tsx` (new), `web/app/login/page.tsx`, `web/app/login/continue/page.tsx` (new): card per the App States boards, inline SVG icons, `motion-safe:animate-spin`.
+5. `web/playwright.config.ts`: main server gets a dummy GitHub client ID (dev/production behaviour); a second `next start` on :3101 with the preview config (no GitHub client, D-102) whose API_URL points at `web/e2e/cold-api.mjs` (new, test-only proxy that answers every request 3 s late).
+6. `docs/decisions.md`: one row for the waking mechanism.
+
+Test strategy:
+- AC-1: `web/e2e/login.spec.ts` "default card" at phone and desktop (copy, one button, ≥ 44 px at phone, no horizontal scroll).
+- AC-2: `auth-config.test.ts` (denied URL carries the login); `login.spec.ts` "denied" (copy and the "Use a different account" button by role).
+- AC-3: `login.spec.ts` "database awake" (lands on /teams, no waking copy) and "database waking" (:3101 via the cold proxy: waking copy, then /teams); `login.test.ts` `raceWakeNote` with fake timers.
+- AC-4: `login.spec.ts` "preview" on :3101 (200, unavailable copy, no sign-in button); `login.test.ts` unavailable state.
+- AC-5: `login.spec.ts` reduced motion (spinner animation-name `none`); token use checked in review.
+
+Risks: Next's streamed `redirect()` after the waking card has flushed is unproven here; the cold-API e2e proves it, and if it fails, stop and ask.
+
+Revision 1 (2026-10-10, approved): with `cacheComponents`, Next commits a 200 before the 1.5 s race settles, so the awake path is a client-side redirect with nothing drawn, not a 307. The "database awake" e2e asserts the browser lands on /teams and the response never contains the waking copy, instead of a 307. Recorded in D-104.
 
 ## Review log
 

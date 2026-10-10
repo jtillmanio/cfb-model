@@ -2,6 +2,7 @@ import type { NextAuthConfig } from "next-auth";
 import GitHub from "next-auth/providers/github";
 
 import { isAllowedGitHubId } from "@/lib/allowlist";
+import { deniedLoginUrl } from "@/lib/login";
 
 // A session lasts 90 days on a device (D-095).
 export const SESSION_MAX_AGE_SECONDS = 90 * 24 * 60 * 60;
@@ -11,14 +12,16 @@ export const SESSION_MAX_AGE_SECONDS = 90 * 24 * 60 * 60;
 export const authConfig = {
   providers: [GitHub],
   session: { strategy: "jwt", maxAge: SESSION_MAX_AGE_SECONDS },
-  // A refused sign-in lands on /login?error=AccessDenied.
+  // Other sign-in errors land on /login?error=<type>.
   pages: { signIn: "/login", error: "/login" },
   callbacks: {
+    // A refused GitHub account goes to /login with its GitHub login, so the page can say who was
+    // refused (TASK-002). Auth.js redirects to a returned string instead of raising AccessDenied.
     signIn({ account, profile }) {
-      return (
-        account?.provider === "github" &&
-        isAllowedGitHubId(profile?.id, process.env.AUTH_ALLOWED_GITHUB_ID)
-      );
+      if (account?.provider !== "github") return false;
+      if (isAllowedGitHubId(profile?.id, process.env.AUTH_ALLOWED_GITHUB_ID)) return true;
+      const login = typeof profile?.login === "string" ? profile.login : undefined;
+      return deniedLoginUrl(login);
     },
     // Without an adapter Auth.js makes `sub` a random UUID; store the GitHub ID instead, so
     // every request can be checked against the allowlist.
