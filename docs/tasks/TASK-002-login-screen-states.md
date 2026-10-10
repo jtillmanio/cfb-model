@@ -1,7 +1,7 @@
 ---
 id: TASK-002
 title: Draw the login screen with its denied and waking states
-status: In progress
+status: Review
 depends_on: [TASK-001]
 size: M
 model: sonnet
@@ -29,11 +29,11 @@ The login screen matches the design at phone and desktop widths: a refused GitHu
 
 ## Acceptance criteria
 
-- [ ] AC-1: Signed out, at 390 and 1440 px, `/login` shows the wordmark, "Sign in", "Private app · one GitHub account", exactly one button named "Sign in with GitHub", and "Stays signed in on this device for 90 days."; at 390 the button is ≥ 44 px tall and the page has no horizontal scroll.
-- [ ] AC-2: Given the denied redirect from TASK-001 for GitHub user `someone-else`, `/login` shows "This GitHub account isn't allowed" and "You're signed in to GitHub as someone-else", plus a "Use a different account" control that is a real link or button with that accessible name.
-- [ ] AC-3: Given the allowlisted account has just signed in and the database hasn't answered within 1.5 s, the login card shows "Waking up the database…" and "GitHub said yes. The first request after a quiet spell can take a few seconds."; once it answers, the browser lands on the page it asked for (or `/`). With the database awake, the waking state never shows.
-- [ ] AC-4: Given a deployment with no GitHub client ID configured (every Vercel preview, D-102), `/login` shows the same card with "Sign-in isn't available on preview deployments." in place of the button and footnote, renders no "Sign in with GitHub" button, and returns 200, not 500. This copy isn't in the design; it uses the card's existing text styles.
-- [ ] AC-5: The login page uses only design tokens (hard rule 7): no hex, `rgb(` or `oklch(` literals and no arbitrary pixel font sizes in the new files (checked in review), and the spinner stops under `prefers-reduced-motion`.
+- [x] AC-1: Signed out, at 390 and 1440 px, `/login` shows the wordmark, "Sign in", "Private app · one GitHub account", exactly one button named "Sign in with GitHub", and "Stays signed in on this device for 90 days."; at 390 the button is ≥ 44 px tall and the page has no horizontal scroll.
+- [x] AC-2: Given the denied redirect from TASK-001 for GitHub user `someone-else`, `/login` shows "This GitHub account isn't allowed" and "You're signed in to GitHub as someone-else", plus a "Use a different account" control that is a real link or button with that accessible name.
+- [x] AC-3: Given the allowlisted account has just signed in and the database hasn't answered within 1.5 s, the login card shows "Waking up the database…" and "GitHub said yes. The first request after a quiet spell can take a few seconds."; once it answers, the browser lands on the page it asked for (or `/`). With the database awake, the waking state never shows.
+- [x] AC-4: Given a deployment with no GitHub client ID configured (every Vercel preview, D-102), `/login` shows the same card with "Sign-in isn't available on preview deployments." in place of the button and footnote, renders no "Sign in with GitHub" button, and returns 200, not 500. This copy isn't in the design; it uses the card's existing text styles.
+- [x] AC-5: The login page uses only design tokens (hard rule 7): no hex, `rgb(` or `oklch(` literals and no arbitrary pixel font sizes in the new files (checked in review), and the spinner stops under `prefers-reduced-motion`.
 
 ## Out of scope
 
@@ -88,7 +88,7 @@ Revision 1 (2026-10-10, approved): with `cacheComponents`, Next commits a 200 be
 
 ## Review log
 
-_Filled by /implement-task. One line per round._
+Verify R1 PASS | Audit R1 CHANGES (AC-5 token use review-only; signed-out gate test non-discriminating) → R2 PASS | Spec R1 APPROVE | UI R1 PASS (AC-1, AC-2 at 390 / 768 / 1440; AC-3–5 proven by e2e)
 
 ## Blocked
 
@@ -96,7 +96,7 @@ _Only if status is Blocked: what failed, what was tried, best hypothesis, decisi
 
 ## Metrics
 
-- Verify rounds:
-- Review rounds:
-- First-pass AC FAILs:
-- Plan revisions after approval:
+- Verify rounds: 1
+- Review rounds: 1
+- First-pass AC FAILs: 0
+- Plan revisions after approval: 1
