@@ -1,30 +1,52 @@
 import type { Metadata } from "next";
 
 import { signIn } from "@/auth";
+import { continuePath, loginState, safeNextPath } from "@/lib/login";
+
+import { DeniedNotice, LoginCard, SignInButton, UnavailableNote } from "./login-card";
 
 export const metadata: Metadata = { title: "Sign in · CFB Model" };
 
-// S-15, minimal cut (TASK-001): the one action. The designed layout, the denied-account copy,
-// the waking state and the preview note are TASK-002.
-export default function Login() {
-  return (
-    <main className="flex min-h-dvh items-center justify-center px-4 py-6">
-      <div className="flex w-full max-w-[360px] flex-col gap-6 rounded-lg border bg-card p-6">
-        <h1 className="text-section font-semibold">CFB Model</h1>
-        <form
-          action={async () => {
-            "use server";
-            await signIn("github", { redirectTo: "/" });
-          }}
-        >
-          <button
-            type="submit"
-            className="h-11 w-full rounded-md bg-primary px-4 font-medium text-primary-foreground hover:opacity-90"
-          >
-            Sign in with GitHub
-          </button>
-        </form>
-      </div>
-    </main>
-  );
+// The card depends on the URL, so it renders per request; nothing here is worth a static shell.
+export const instant = false;
+
+// S-15 (TASK-002, F-42 items 1 and 3). The proxy sends a signed-out visit here with Auth.js's
+// callbackUrl; a refused GitHub account comes back with ?error=AccessDenied&login=<login>.
+export default async function Login({ searchParams }: PageProps<"/login">) {
+  const params = await searchParams;
+  // Previews have no GitHub client (D-102): say so instead of drawing a button that can't work.
+  const state = loginState(params, !!process.env.AUTH_GITHUB_ID);
+  const redirectTo = continuePath(safeNextPath(params.callbackUrl));
+
+  async function signInWithGitHub() {
+    "use server";
+    await signIn("github", { redirectTo });
+  }
+
+  // GitHub shows its account picker instead of reusing the account it is signed in as.
+  async function useOtherAccount() {
+    "use server";
+    await signIn("github", { redirectTo }, { prompt: "select_account" });
+  }
+
+  switch (state.kind) {
+    case "unavailable":
+      return (
+        <LoginCard footnote={false}>
+          <UnavailableNote />
+        </LoginCard>
+      );
+    case "denied":
+      return (
+        <LoginCard>
+          <DeniedNotice login={state.login} useOtherAccount={useOtherAccount} />
+        </LoginCard>
+      );
+    case "default":
+      return (
+        <LoginCard>
+          <SignInButton action={signInWithGitHub} />
+        </LoginCard>
+      );
+  }
 }

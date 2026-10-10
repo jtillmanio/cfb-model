@@ -14,12 +14,12 @@ type SignInArgs = ArgsOf<"signIn">;
 type AuthorizedArgs = ArgsOf<"authorized">;
 
 // GitHub's profile carries a numeric id; Auth.js's Profile type says string.
-function githubProfile(id: unknown): Profile {
-  return { id } as unknown as Profile;
+function githubProfile(id: unknown, login?: string): Profile {
+  return { id, login } as unknown as Profile;
 }
 
-function signIn(profileId: unknown, account: Account | null = github) {
-  const args = { user: {}, account, profile: githubProfile(profileId) } as SignInArgs;
+function signIn(profileId: unknown, account: Account | null = github, login = "someone-else") {
+  const args = { user: {}, account, profile: githubProfile(profileId, login) } as SignInArgs;
   return authConfig.callbacks!.signIn!(args);
 }
 
@@ -51,16 +51,22 @@ describe("signIn callback", () => {
     expect(await signIn(Number(ALLOWED))).toBe(true);
   });
 
-  it("refuses any other GitHub ID, which Auth.js sends to pages.error as AccessDenied", async () => {
+  it("sends any other GitHub ID to /login with its GitHub login (TASK-002 AC-2)", async () => {
     vi.stubEnv("AUTH_ALLOWED_GITHUB_ID", ALLOWED);
-    expect(await signIn(7654321)).toBe(false);
+    expect(await signIn(7654321)).toBe("/login?error=AccessDenied&login=someone-else");
+  });
+
+  it("sends a refused account without a login to the plain denied card", async () => {
+    vi.stubEnv("AUTH_ALLOWED_GITHUB_ID", ALLOWED);
+    const args = { user: {}, account: github, profile: githubProfile(7654321) } as SignInArgs;
+    expect(await authConfig.callbacks!.signIn!(args)).toBe("/login?error=AccessDenied");
   });
 
   it("refuses everyone when the allowlist is unset or empty", async () => {
     vi.stubEnv("AUTH_ALLOWED_GITHUB_ID", undefined);
-    expect(await signIn(Number(ALLOWED))).toBe(false);
+    expect(await signIn(Number(ALLOWED))).toBe("/login?error=AccessDenied&login=someone-else");
     vi.stubEnv("AUTH_ALLOWED_GITHUB_ID", "");
-    expect(await signIn(Number(ALLOWED))).toBe(false);
+    expect(await signIn(Number(ALLOWED))).toBe("/login?error=AccessDenied&login=someone-else");
   });
 
   it("refuses a provider other than GitHub", async () => {
