@@ -1,7 +1,7 @@
 ---
 id: TASK-003
 title: Sign every API call from Next server code with a short-lived JWT
-status: Review
+status: Done
 depends_on: [TASK-001]
 size: M
 model: opus
