@@ -1,7 +1,7 @@
 ---
 id: TASK-002
 title: Draw the login screen with its denied and waking states
-status: Review
+status: Done
 depends_on: [TASK-001]
 size: M
 model: sonnet
