@@ -63,7 +63,8 @@
     "afterMerge": "Merged is not live: production changes go out only through the release workflow (not built yet; roadmap Phase 0).",
     "allowForceWithLease": false,
     "roadmap": null,
-    "statusDoc": ""
+    "statusDoc": "",
+    "archiveDone": true
   },
 
   "testAudit": {

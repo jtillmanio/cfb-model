@@ -15,7 +15,7 @@ Planning only. Edit nothing except the selected task files' `## Plan` section an
 ## Select tasks
 
 1. Must be on `workflow.baseBranch`, up to date with `origin/<base>` (`git fetch`, then `git status -sb` shows no "behind"), with a clean working tree (`git status --porcelain` empty). Otherwise stop. Each plan's `planned_at_commit` must be a base-branch commit, so it still exists after the plans PR is squash-merged.
-2. If `$ARGUMENTS` names IDs, plan exactly those. Otherwise take the first N (default 3) tasks with `status: Ready` and `plan_status` of `none` or `proposed`, in ID order. Prefer tasks whose dependencies are `Done`.
+2. If `$ARGUMENTS` names IDs, plan exactly those. Otherwise take the first N (default 3) tasks with `status: Ready` and `plan_status` of `none` or `proposed`, in ID order. Prefer tasks whose dependencies are `Done` (a task file in `docs/tasks/archive/` is Done).
 3. A task whose dependencies are not yet `Done` may still be planned, but mark its plan **provisional**. The staleness check in `/implement-task` will force a re-plan if the dependency changes the planned files.
 4. Show the selection (ID, title, autonomy, dependency state) and continue without waiting.
 
@@ -38,8 +38,8 @@ Keep each plan under ~40 lines. Unattended sessions follow these plans literally
 3. How plans reach the base branch. The dispatcher only sees plans committed there, and nobody commits on the base branch, so they go through a PR:
    1. Review with `git diff docs/tasks`, then edit plans directly or ask for changes.
    2. Approve by changing `plan_status: proposed` to `approved`, or by telling you "approve TASK-014 and TASK-015".
-   3. Move the approved plans to a branch and open a PR: `git switch -c docs/plans-<YYYY-MM-DD>` (uncommitted plans come along), commit the task files by path (`git add docs/tasks/TASK-014-….md …`), push, `gh pr create`.
+   3. Move the approved plans to a branch and open a PR: `git switch -c docs/plans-<YYYY-MM-DD>` (uncommitted plans come along), commit the task files by path (`git add docs/tasks/TASK-014-….md …`), push, `gh pr create`. Unless `workflow.archiveDone` is `false`, run `.claude/scripts/archive-done.ps1` on that branch before committing; the Done task files it moves are staged renames that go in the same commit.
    4. The user merges the PR.
    5. `git switch <base>`, `git pull --ff-only`, then `powershell -NoProfile -ExecutionPolicy Bypass -File .claude/scripts/dispatch-approved.ps1 -DryRun`, then without `-DryRun`.
 
-If the user asks you to approve plans, set `plan_status: approved` for exactly the IDs they name. Then, if they ask, do step 3: create the `docs/plans-<date>` branch, stage those task files by path, commit (`docs(tasks): approve plans TASK-014..016`, or the `area` form `docs: approve plans for tasks 1.2, 1.1`), push the branch, and open the PR. Never approve a plan on your own initiative, never commit on the base branch, never merge.
+If the user asks you to approve plans, set `plan_status: approved` for exactly the IDs they name. Then, if they ask, do step 3: create the `docs/plans-<date>` branch, run `archive-done.ps1` (unless switched off), stage those task files by path, commit (`docs(tasks): approve plans TASK-014..016`, or the `area` form `docs: approve plans for tasks 1.2, 1.1`), push the branch, and open the PR. Never approve a plan on your own initiative, never commit on the base branch, never merge.

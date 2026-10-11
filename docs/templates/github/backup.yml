@@ -31,7 +31,8 @@ jobs:
       PG_MAJOR: "16"                  # {{production major version}}
     services:
       scratch:
-        image: postgres:16            # {{postgres:<PG_MAJOR>}}
+        # The AWS mirror of Docker's official images, not Docker Hub (which rate-limits anonymous pulls).
+        image: public.ecr.aws/docker/library/postgres:16   # {{postgres:<PG_MAJOR>}}
         env:
           POSTGRES_PASSWORD: scratch
         options: >-

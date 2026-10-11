@@ -37,11 +37,12 @@ Each phase ends in a gate; never start a phase before the previous gate passes.
 
   Subjects are imperative, at most 72 characters, no trailing period. The body says why and cites IDs (task, decision, review finding). End with the session's attribution trailer.
 - **Staging** follows `workflow.staging` (default `by-path`). By path: run `git status --porcelain`, stage only the files this task changed with `git add <file> …`, then read `git diff --staged` before committing. Leave every other change alone; it is the owner's. `all` restores `git add -A`.
+- **Archiving** follows `workflow.archiveDone` (default `true`): Done task files live in `docs/tasks/archive/`. `.claude/scripts/archive-done.ps1` moves every Done task file still in `docs/tasks/` there with `git mv`, which stages the renames. Those renames are the one change to other tasks' files a task branch carries, whoever finished those tasks.
 
 ## Phase 0: Preflight
 
-1. Find `docs/tasks/<ID>*.md`. If there are zero or several matches, stop and list what you found.
-2. If `status` is `Done`, stop. If any `depends_on` task isn't `Done` in its task file, list the blockers and stop.
+1. Find `docs/tasks/<ID>*.md` and `docs/tasks/archive/<ID>*.md`. If there are zero or several matches, stop and list what you found.
+2. If the match is in `archive/` or its `status` is `Done`, stop. If any `depends_on` task isn't `Done` in its task file (in `docs/tasks/` or `docs/tasks/archive/`), list the blockers and stop.
 3. Check every acceptance criterion is checkable (an observable result plus an expected value). In roadmap mode, also read the roadmap entry and its Check (use the `largeFiles` hint if the roadmap is listed there). If any AC isn't checkable, list proposed rewrites and stop. Never rewrite ACs yourself.
 4. **Workspace**:
    - Run `git status --porcelain`. If there are unrelated uncommitted changes, stop and ask. The test audit needs a tree with only this task's work in it.
@@ -118,8 +119,9 @@ Then:
 3. Lasting decisions (new dependency, pattern, schema convention, rejected approach) follow `workflow.decisions`:
    - `append` (default): add a row to the **Decisions** log, using the ID prefix the table gives.
    - `propose`: don't touch the log. List each one under **Follow-ups** in the PR body as "Candidate decision: …" for the owner to record.
-4. Commit the close-out (see Names).
-5. If `workflow.openPullRequests` is true:
+4. Archive other finished tasks (unless `workflow.archiveDone` is `false`): run `powershell -NoProfile -ExecutionPolicy Bypass -File .claude/scripts/archive-done.ps1`. It moves every Done task file still in `docs/tasks/` (tasks accepted by hand, or before archiving existed) and stages the renames. This task is in `Review`, so it stays put.
+5. Commit the close-out (see Names), including those renames. List each archived ID under **What** in the PR body: "Archived TASK-009, TASK-011 (Done; moved to `docs/tasks/archive/`)".
+6. If `workflow.openPullRequests` is true:
    - Attended: ask once, "Push and open a draft PR?"
    - Unattended: proceed.
    - Push with `git push -u origin <task-branch>` (never the base branch, never force).
@@ -132,7 +134,7 @@ Then:
      - **Manual verification**: the task's manual steps, each with its expected result.
      - **Follow-ups**: work noticed and deliberately left out, as candidate tasks; candidate decisions when `workflow.decisions` is `propose`.
      - **Reviewer checklist**: as in the template.
-6. If `workflow.openPullRequests` is false, report the proposed commit history and stop.
+7. If `workflow.openPullRequests` is false, report the proposed commit history and stop.
 
 ## Phase 7: Ready gates (only if a PR was opened and `workflow.waitForCi` is true)
 
@@ -162,7 +164,13 @@ If `workflow.waitForCi` is false, leave the PR in draft and list every gate in t
 - In unattended mode: `Reply "accepted" after your manual check to set status: Done and push.`
 - Last line, if `workflow.afterMerge` is set: that text, verbatim.
 
-If the user later replies "accepted" (in the session or via agent view), set `status: Done` in the task file, commit it (Accept subject; stage the task file only), and push. Never merge. Done means merged and accepted, not deployed.
+If the user later replies "accepted" (in the session or via agent view):
+
+1. Set `status: Done` in the task file.
+2. Unless `workflow.archiveDone` is `false`, run `archive-done.ps1`. It moves this task file (and any other Done one) to `docs/tasks/archive/` and stages the rename; then `git add docs/tasks/archive/<this task's file>` to stage the status change too.
+3. Commit (Accept subject; stage the task file only, plus the archive renames), and push.
+
+Never merge. Done means merged and accepted, not deployed.
 
 ## Blocked path
 

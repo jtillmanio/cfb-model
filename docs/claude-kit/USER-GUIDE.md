@@ -4,7 +4,7 @@ How to install, set up, and use the kit day to day. For the reasoning behind the
 
 > **Starting a new project, or have only a brainstorm so far?** Follow `KICKOFF.md` first.
 > **Existing project with docs, a design, CI, a database, or code already in place?** Follow `ADOPTING.md`. `/adopt` maps your files to the kit without renaming anything.
-> **Project already on kit 2.3.x?** Follow `UPGRADING.md`.
+> **Project already on kit 2.3.x or 2.4.x?** Follow `UPGRADING.md`.
 > All of them hand back to ยง7 of this guide.
 
 ## Contents
@@ -301,7 +301,7 @@ Each background session uses your subscription quota independently, so two in pa
 ### 8.4 Accept and continue
 
 1. Review the PR and do the manual check (section 10).
-2. In agent view, peek at the session and reply `accepted`. It sets `status: Done`, commits, and pushes.
+2. In agent view, peek at the session and reply `accepted`. It sets `status: Done`, moves the task file to `docs/tasks/archive/`, commits, and pushes.
 3. Merge the PR on GitHub (squash recommended). If your project deploys separately (the **Deploy** role), run that step; merged is not live.
 4. Locally: `git switch main; git pull`, then re-run the dispatcher. Claims for Done tasks clear automatically, and newly unblocked tasks dispatch.
 5. Delete the finished session in agent view (`Ctrl+X` twice). This removes its worktree.
@@ -329,7 +329,7 @@ The PR body is pre-filled from `.github/pull_request_template.md`. Spend your 5โ
 3. **Claude's review comments**, if `claude-pr-review.yml` is installed. Resolve or dismiss each one.
 4. **Manual verification steps.** Run them on the branch: `git fetch; git switch task/...`, start the app, follow the steps, compare against the expected results.
 5. **Follow-ups.** Candidate tasks, and candidate decisions to record if `workflow.decisions` is `propose`.
-6. **Reply `accepted`** to the session, or edit `status: Done` in the PR yourself.
+6. **Reply `accepted`** to the session, or edit `status: Done` in the PR yourself. Accepting also moves the task file to `docs/tasks/archive/`. A file you mark Done by hand is moved by the next task's close-out, which archives every Done task it finds.
 7. **Merge.** Branch protection blocks the merge until the CI job is green. Then run your deploy step, if the project has one.
 
 ## 11. Handling problems mid-task
@@ -356,7 +356,7 @@ The PR body is pre-filled from `.github/pull_request_template.md`. Spend your 5โ
 | `/skeleton` | Build the walking skeleton: scaffold, scripts, one end-to-end slice, tests, CI |
 | `/milestones [MVP or Next]` | Break scope into demoable milestones and task stubs with a coverage check |
 | `/milestones --coverage [roadmap]` | Check an existing roadmap's coverage of features, screens, and entities; add the gaps to it as numbered items with a check line. Writes no new file |
-| `/customize-kit` | Tailor the kit to a project. Run once, and again after upgrades (it detects a 2.3.x setup) |
+| `/customize-kit` | Tailor the kit to a project. Run once, and again after upgrades (it detects a 2.3.x or 2.4.x setup) |
 | `/new-task <description or path [M#] or roadmap IDs>` | Create task files with checkable ACs; bulk-convert a task list one milestone at a time, or a roadmap one sitting at a time |
 | `/verify` | Generated per project by `/customize-kit`: run `verify.full` before a push and report the actual output |
 | `/next-task [--dry-run]` | Pick the best Ready task (respecting WIP and dependencies) and implement it attended |
@@ -381,7 +381,8 @@ Each agent reads `.claude/project/<agent-name>.md` first, if it exists, as its p
 
 | Script | Use it to |
 |---|---|
-| `build-index.ps1 [-Check]` | Regenerate `docs/tasks/INDEX.md` (local, git-ignored) and list warnings |
+| `build-index.ps1 [-Check]` | Regenerate `docs/tasks/INDEX.md` (local, git-ignored) and list warnings. Archived tasks get their own table, metrics included |
+| `archive-done.ps1 [-DryRun]` | `git mv` every Done task file into `docs/tasks/archive/` (staged, not committed). Refuses on the base branch. `/implement-task` runs it at close-out and accept |
 | `dispatch-approved.ps1 [-DryRun] [-Max N] [-PermissionMode m] [-Release IDs]` | Start background sessions for eligible tasks |
 
 ### Hooks (`.claude/hooks/`)
@@ -436,6 +437,7 @@ Every key is optional. A missing key takes the default below, which is the 2.3.1
 | `workflow.allowForceWithLease` | `false` | `true` drops that deny rule; rebase, own branch only, never plain `--force` |
 | `workflow.roadmap` | `null` | `{ path, idPattern, checkLabel }`: roadmap-led mode (ยง6) |
 | `workflow.statusDoc` | `""` | A committed status page regenerated from the roadmap |
+| `workflow.archiveDone` | `true` | Done task files move to `docs/tasks/archive/` at the next close-out or accept on a branch. `false` leaves them in `docs/tasks/` |
 | `testAudit.testPathPatterns` | common test globs | What counts as a test file |
 | `testAudit.run` | `""` | Runs specific test files, `{tests}`; the single-runner fallback |
 | `testAudit.runners` | `[]` | `[{ pattern, run, each?, dir? }]`: one per test runner; `each: true` runs one file at a time; `dir` runs it from a subfolder with test paths relative to it (monorepos) |

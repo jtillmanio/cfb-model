@@ -29,7 +29,7 @@ Lowercase and hyphenated, one purpose per branch, with a prefix from `workflow.b
 
 A dependency bot's own branches (e.g. `dependabot/...`) are the one exception. Its PRs pass the same CI.
 
-One task per branch, one branch per PR. A problem that belongs to another task goes in the PR's Follow-ups, not in this diff.
+One task per branch, one branch per PR. A problem that belongs to another task goes in the PR's Follow-ups, not in this diff. The one exception is archiving: when `workflow.archiveDone` is on (the default), a task's close-out or accept commit, or a plans PR, also carries `git mv` renames of other Done task files into `docs/tasks/archive/` (`.claude/scripts/archive-done.ps1`). Never move them on the base branch.
 
 ## Staging
 
