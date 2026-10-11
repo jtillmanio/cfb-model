@@ -51,5 +51,5 @@
 - [ ] Every owner gate in the table above has passed
 - [ ] Diff contains only what the task asked for (no surprise files)
 - [ ] No secrets, env files, protected files or production config touched
-- [ ] Task file set to `status: Done` (reply "accepted" to the session, or edit it in this PR) before merging
+- [ ] Task file set to `status: Done` (reply "accepted" to the session, or edit it in this PR) before merging. Accepting also moves it to `docs/tasks/archive/`; a hand edit leaves that to the next task's close-out
 - [ ] After the squash merge, any deploy step the project has (merged is not live)

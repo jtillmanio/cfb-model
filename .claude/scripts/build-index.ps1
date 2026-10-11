@@ -15,6 +15,8 @@ $ErrorActionPreference = 'Stop'
 . "$PSScriptRoot\lib-tasks.ps1"
 
 $root = Get-KitRoot
+$archiveDone = $true
+try { $archiveDone = Test-ArchiveDone (Get-KitConfig $root) } catch { $archiveDone = $true }
 $tasks = @(Get-Tasks $root)
 $byId = @{}
 $duplicates = New-Object System.Collections.Generic.List[string]
@@ -38,14 +40,24 @@ foreach ($s in $order) {
 }
 if ($counts.Count -gt 0) { [void]$sb.Append('**' + ($counts -join ' / ') + '**' + $nl + $nl) }
 
-[void]$sb.Append('| ID | Title | Status | Size | Model | Autonomy | Plan | Depends on | Verify rounds | Review rounds | First-pass AC FAILs |' + $nl)
-[void]$sb.Append('|----|-------|--------|------|-------|----------|------|------------|---------------|---------------|---------------------|' + $nl)
-foreach ($t in $tasks) {
-    $deps = ($t.DependsOn -join ', ')
-    $row = '| [' + (Cell $t.Id) + '](' + $t.FileName + ') | ' + (Cell $t.Title) + ' | ' + (Cell $t.Status) + ' | ' + (Cell $t.Size) +
-           ' | ' + (Cell $t.Model) + ' | ' + (Cell $t.Autonomy) + ' | ' + (Cell $t.PlanStatus) + ' | ' + (Cell $deps) +
-           ' | ' + (Metric $t 'Verify rounds') + ' | ' + (Metric $t 'Review rounds') + ' | ' + (Metric $t 'First-pass AC FAILs') + ' |'
-    [void]$sb.Append($row + $nl)
+function Add-TaskTable($rows) {
+    [void]$sb.Append('| ID | Title | Status | Size | Model | Autonomy | Plan | Depends on | Verify rounds | Review rounds | First-pass AC FAILs |' + $nl)
+    [void]$sb.Append('|----|-------|--------|------|-------|----------|------|------------|---------------|---------------|---------------------|' + $nl)
+    foreach ($t in $rows) {
+        $deps = ($t.DependsOn -join ', ')
+        $row = '| [' + (Cell $t.Id) + '](' + $t.RelPath + ') | ' + (Cell $t.Title) + ' | ' + (Cell $t.Status) + ' | ' + (Cell $t.Size) +
+               ' | ' + (Cell $t.Model) + ' | ' + (Cell $t.Autonomy) + ' | ' + (Cell $t.PlanStatus) + ' | ' + (Cell $deps) +
+               ' | ' + (Metric $t 'Verify rounds') + ' | ' + (Metric $t 'Review rounds') + ' | ' + (Metric $t 'First-pass AC FAILs') + ' |'
+        [void]$sb.Append($row + $nl)
+    }
+}
+
+$active = @($tasks | Where-Object { -not $_.Archived })
+$archived = @($tasks | Where-Object { $_.Archived })
+Add-TaskTable $active
+if ($archived.Count -gt 0) {
+    [void]$sb.Append($nl + '## Archive (docs/tasks/archive/)' + $nl + $nl)
+    Add-TaskTable $archived
 }
 
 # ---- Warnings ---------------------------------------------------------------
@@ -57,6 +69,12 @@ foreach ($t in $tasks) {
         if (-not $byId.ContainsKey($d)) { $warnings.Add("$($t.Id) depends on unknown task $d") }
     }
     if ($t.Status -eq 'Review') { $warnings.Add("$($t.Id) is in Review on this branch: if its PR is merged, set status: Done") }
+    if ($archiveDone -and $t.Status -eq 'Done' -and -not $t.Archived) {
+        $warnings.Add("$($t.Id) is Done but not archived: the next task's close-out moves it (or run archive-done.ps1 on a branch)")
+    }
+    if ($t.Archived -and $t.Status -ne 'Done') {
+        $warnings.Add("$($t.Id) is in archive/ but its status is $($t.Status): if it was reopened, git mv it back to docs/tasks/")
+    }
     if ($t.PlanStatus -eq 'approved' -and [string]::IsNullOrWhiteSpace($t.PlannedAtCommit)) {
         $warnings.Add("$($t.Id) has an approved plan but no planned_at_commit; the staleness check can't run")
     }

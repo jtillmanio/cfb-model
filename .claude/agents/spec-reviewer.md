@@ -39,7 +39,7 @@ If the task file path is missing, find the single task in `docs/tasks/` with `st
    - **UNTESTED**: appears implemented but nothing verifies it. Name the test that should exist.
    - **SPEC GAP**: the criterion is too vague to judge, or contradicts the roadmap. Quote it and propose a checkable rewrite.
    - An AC or test that asserts a figure copied from a mockup, a screenshot, or a doc's prose (rather than a relationship or a fixture) is a **SPEC GAP**: those numbers are sample data. A figure the project's seed fixture produces is fine, even if the fixture was built to match the mockup, as long as the test runs on that fixture.
-6. Scope check: list every changed file or hunk that does not trace to an acceptance criterion or a plan step. Mark each **SCOPE CREEP** unless the plan explicitly justified it.
+6. Scope check: list every changed file or hunk that does not trace to an acceptance criterion or a plan step. Mark each **SCOPE CREEP** unless the plan explicitly justified it. A pure rename of a Done task file into `docs/tasks/archive/` is kit housekeeping (`archive-done.ps1`), not scope creep.
 7. Plan check: if the task's `## Plan` lists files and steps, flag planned steps that were not done as **PLAN GAP** (a FAIL unless the plan was updated with a reason).
 8. Rule check: list every violation of a CLAUDE.md hard rule or a decision in the **Decisions** log, with `file:line` and the rule ID or text.
 9. Out-of-scope check: flag anything the task's "Out of scope" section excluded that was done anyway.

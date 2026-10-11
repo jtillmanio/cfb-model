@@ -30,7 +30,7 @@ Every kit skill and agent reads this table to find project documents. Use `—` 
 | Domain specs (other) | `docs/04-model.md` |
 | Roadmap (source, if separate) | `docs/06-roadmap.md` |
 | Task list (milestones + stubs) | `docs/08-tasklist.md` |
-| Tasks | `docs/tasks/` (fixed) |
+| Tasks | `docs/tasks/` (fixed; Done tasks in `docs/tasks/archive/`) |
 | Decisions | `docs/decisions.md` (IDs `D-###`) |
 | Review findings | — |
 | Deploy | — (the `release` workflow, once built) |
@@ -110,6 +110,7 @@ Windows; commands also run under `cmd.exe /c` (the hooks do). `.claude/kit.json`
 ## Workflow
 - One task per session: `/implement-task TASK-###` or `/next-task`. No code before the task's `plan_status: approved`. Claude sets `Review`; only the user's "accepted" sets `Done`.
 - Never hand-edit `docs/tasks/INDEX.md`; run `.claude/scripts/build-index.ps1`.
+- Done task files move to `docs/tasks/archive/` (`workflow.archiveDone`). `.claude/scripts/archive-done.ps1` moves every Done task, not only the current one, at each task's close-out and accept. It never runs on the base branch.
 - Post-edit check failures in the middle of a multi-file change are expected. Finish the change, then fix what still fails.
 - Kit behaviour is changed through the switches in `.claude/kit.json` and the files in `.claude/project/`, never by editing the kit's skills, hooks or scripts (`install-kit.ps1 -Upgrade` overwrites those).
 - Claude never starts a deploy or release, dry run included, unless the user says so for that release.

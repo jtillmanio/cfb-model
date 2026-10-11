@@ -10,7 +10,7 @@ argument-hint: (optional) --dry-run to only show the pick
 
 ## Procedure
 
-1. Regenerate the board: `powershell -NoProfile -ExecutionPolicy Bypass -File .claude/scripts/build-index.ps1`. If PowerShell isn't available, read the task files' front matter directly.
+1. Regenerate the board: `powershell -NoProfile -ExecutionPolicy Bypass -File .claude/scripts/build-index.ps1`. If PowerShell isn't available, read the task files' front matter directly, in `docs/tasks/` and `docs/tasks/archive/` (archived tasks are Done).
 2. Read `.claude/kit.json` → `workflow.wipLimit` (default 2) and `workflow._wipLimitReason` if present, and `.claude/state/dispatch.json` if it exists (tasks claimed by background sessions).
 3. **In flight** = tasks with status `In progress` or `Review`, plus claimed tasks not yet `Done`. If in flight ≥ the WIP limit, stop. List the in-flight tasks, say which PRs to review or merge first, and quote `_wipLimitReason` if there is one.
 4. **Candidates** = tasks with `status: Ready` whose `depends_on` tasks are all `Done` and that aren't claimed.
@@ -18,7 +18,7 @@ argument-hint: (optional) --dry-run to only show the pick
    1. Unblocks the most other tasks (count of tasks listing it in `depends_on`, directly or transitively)
    2. Has an approved, fresh plan (`plan_status: approved`)
    3. Lowest ID
-6. Report in under 12 lines: the pick, why it was chosen, the runner-up, and anything waiting (e.g. `TASK-018 waits on TASK-016 (Review)`).
+6. Report in under 12 lines: the pick, why it was chosen, the runner-up, and anything waiting (e.g. `TASK-018 waits on TASK-016 (Review)`). If the board warns that Done tasks aren't archived, say the picked task's close-out will archive them. Don't move them here: you are on the base branch.
 7. If there are no candidates, say why: no Ready tasks, all blocked on dependencies, or all claimed. Suggest the next action, e.g. `/new-task`, approve Draft tasks, or review open PRs.
 8. Unless `$ARGUMENTS` contains `--dry-run`, continue straight into `/implement-task <ID>` (attended mode) in this session.
 

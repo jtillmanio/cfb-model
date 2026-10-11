@@ -32,12 +32,24 @@ function Get-FmString($Map, [string]$Key, [string]$Default = '') {
     return $Default
 }
 
-function Get-Tasks([string]$Root) {
-    $dir = Join-Path $Root 'docs/tasks'
-    $result = New-Object System.Collections.Generic.List[object]
-    if (-not (Test-Path -LiteralPath $dir)) { return $result }
+function Test-ArchiveDone($Config) {
+    # workflow.archiveDone: Done task files move to docs/tasks/archive/. Default true; only an explicit false turns it off.
+    if ($Config -and $Config.workflow -and $null -ne $Config.workflow.archiveDone) { return [bool]$Config.workflow.archiveDone }
+    return $true
+}
 
-    foreach ($file in (Get-ChildItem -LiteralPath $dir -Filter 'TASK-*.md' -File | Sort-Object Name)) {
+function Get-Tasks([string]$Root) {
+    # Reads docs/tasks/TASK-*.md and docs/tasks/archive/TASK-*.md. Archived tasks stay visible to
+    # dependency checks, ID numbering, and the board's metrics.
+    $result = New-Object System.Collections.Generic.List[object]
+    $files = @()
+    foreach ($sub in @('docs/tasks', 'docs/tasks/archive')) {
+        $dir = Join-Path $Root $sub
+        if (Test-Path -LiteralPath $dir) { $files += @(Get-ChildItem -LiteralPath $dir -Filter 'TASK-*.md' -File) }
+    }
+
+    foreach ($file in ($files | Sort-Object Name)) {
+        $archived = ((Split-Path -Leaf (Split-Path -Parent $file.FullName)) -eq 'archive')
         $lines = @(Get-Content -LiteralPath $file.FullName -Encoding UTF8)
         if ($lines.Count -lt 3 -or $lines[0].Trim() -ne '---') { continue }
 
@@ -72,6 +84,8 @@ function Get-Tasks([string]$Root) {
             PlannedAtCommit = Get-FmString $fm 'planned_at_commit'
             FileName        = $file.Name
             FullPath        = $file.FullName
+            Archived        = $archived
+            RelPath         = $(if ($archived) { 'archive/' + $file.Name } else { $file.Name })  # relative to docs/tasks
             Metrics         = $metrics
         })
     }

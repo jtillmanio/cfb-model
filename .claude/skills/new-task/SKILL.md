@@ -22,8 +22,8 @@ argument-hint: short description, OR a task list path plus optional milestone (e
 
 ## Procedure
 
-1. Read `docs/tasks/_TEMPLATE.md`, the existing `docs/tasks/TASK-*.md` front matter, the **Architecture**, **Data model**, **Features**, and **Screen inventory** docs, any **Domain specs** the tasks touch, the **Decisions** log, the **UX floor** if there's one, and the CLAUDE.md hard rules and "Which document wins". In roadmap mode, read the roadmap entries being converted (if the roadmap is in `largeFiles`, use its hint to print one entry at a time).
-2. Next ID = highest existing `TASK-###` across the task files + 1, zero-padded to 3 digits.
+1. Read `docs/tasks/_TEMPLATE.md`, the existing task files' front matter (`docs/tasks/TASK-*.md` and the Done ones in `docs/tasks/archive/TASK-*.md`), the **Architecture**, **Data model**, **Features**, and **Screen inventory** docs, any **Domain specs** the tasks touch, the **Decisions** log, the **UX floor** if there's one, and the CLAUDE.md hard rules and "Which document wins". In roadmap mode, read the roadmap entries being converted (if the roadmap is in `largeFiles`, use its hint to print one entry at a time).
+2. Next ID = highest existing `TASK-###` across the task files, archived ones included, + 1, zero-padded to 3 digits.
 3. For each task, fill every template section:
    - **Goal**: the user-visible outcome in 1–2 sentences. No implementation detail.
    - **Context**: links to the exact architecture, data model, and domain-spec sections, plus relevant decision IDs. UI tasks cite their screen ID, design file in the **Design source of truth**, and **Reference screenshot**. Read the design file to cite real components.

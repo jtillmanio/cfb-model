@@ -1,5 +1,22 @@
 # Changelog
 
+## v2.5: Task archive
+
+`docs/tasks/` fills up with finished work after a few milestones. In 2.5 Done task files move to an archive folder, and every script and skill that looks up tasks reads it. Upgrading a 2.4.x project: `UPGRADING.md` § From 2.4 to 2.5.
+
+### Added
+
+- **Task archive.** Done task files move to `docs/tasks/archive/` (`workflow.archiveDone`, default `true`), so `docs/tasks/` holds only live work.
+  - `.claude/scripts/archive-done.ps1` moves every Done task with `git mv`, whoever finished it, and stages the renames. It refuses to run on the base branch.
+  - `/implement-task` runs it at close-out (this sweeps other Done tasks) and at accept (this archives the task itself). `/plan-batch` runs it on the plans branch.
+  - `lib-tasks.ps1` reads the archive too, so dependency checks, the dispatcher, and `/new-task` ID numbering still see archived tasks. `build-index.ps1` lists them in their own table and warns about a Done task outside the archive, or a reopened task still in it.
+  - `.claude/rules/git.md` allows the archive renames as the one cross-task change a branch may carry, and spec-reviewer doesn't count them as scope creep.
+
+### Upgrade notes
+
+- Without an upgrade step, a project's first task close-out would archive every old Done task at once, a large rename diff in a task PR. The upgrade PR archives them instead (`UPGRADING.md` step 3).
+- Links to task file paths in other docs (decision log, task list, notes) aren't rewritten. Links to archived tasks now point to the wrong folder; step 4 finds them.
+
 ## v2.4: Lessons from adoption
 
 Every change comes from a real project that adopted 2.3.1 and had to work around the kit, mostly by writing counter-instructions into `CLAUDE.md`. In 2.4 a project changes the kit's behaviour through switches and project files instead, and the defaults are the ones that project needed. Upgrading a 2.3.x project: `UPGRADING.md`.
@@ -47,6 +64,7 @@ Every change comes from a real project that adopted 2.3.1 and had to work around
 - **The Claude workflows skip cleanly** when `CLAUDE_CODE_OAUTH_TOKEN` is missing, instead of failing every PR that leaves draft.
 - **Action versions**: `actions/checkout@v7`, `actions/setup-node@v7`, `actions/setup-python@v7`, `actions/upload-artifact@v7`.
 - **`ci.yml`**: the test database block uses `TEST_DATABASE_URL` only (a dummy `DATABASE_URL` only on a build that needs one), and the job name is `workflow.ciJobName`.
+- **Container images come from `public.ecr.aws/docker/library/`**, the AWS mirror of Docker's official images, instead of Docker Hub, which rate-limits anonymous pulls: the `ci.yml` service block, the backup template, and what `/skeleton` and `/customize-kit` write.
 - **The kit no longer ships `docs/decisions.md`**: the template is `docs/templates/decisions.md`, and skills read the log through the Decisions role. Your existing log stays where it is.
 
 ### Fixed

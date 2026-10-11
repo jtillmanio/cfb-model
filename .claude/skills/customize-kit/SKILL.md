@@ -1,6 +1,6 @@
 ---
 name: customize-kit
-description: One-time setup (or re-run after an upgrade) that tailors the Claude Code starter kit v2 to this project — kit.json, CLAUDE.md, rules, agent project files, permissions, ignore files, the /verify skill, and the GitHub workflow templates — from the real codebase. Detects a 2.3.x configuration and proposes the 2.4 upgrade. Use only when the user runs /customize-kit or explicitly asks to customize, re-customize, or upgrade the kit.
+description: One-time setup (or re-run after an upgrade) that tailors the Claude Code starter kit v2 to this project — kit.json, CLAUDE.md, rules, agent project files, permissions, ignore files, the /verify skill, and the GitHub workflow templates — from the real codebase. Detects a 2.3.x or 2.4.x configuration and proposes the upgrade to the installed version. Use only when the user runs /customize-kit or explicitly asks to customize, re-customize, or upgrade the kit.
 ---
 
 # Customize the starter kit (v2)
@@ -20,9 +20,11 @@ Goal: every `{{...}}` placeholder and every empty `kit.json` value that applies 
 - Never put project text into a kit-owned file (`.claude/skills/<kit skill>/`, `.claude/hooks/`, `.claude/scripts/`, `docs/templates/`): `install-kit.ps1 -Upgrade` overwrites them. Project instructions for a kit skill or agent go in `.claude/project/<name>.md`. A project script goes in the project's own folder (e.g. `scripts/`), not in `.claude/scripts/`: the installer wouldn't overwrite it there, but it reads as a kit file and an uninstall removes it.
 - Never open an env file whole. To learn which variables exist, read `.env.example` or the code.
 
-## Phase 0: Upgrade from 2.3.x (only when it applies)
+## Phase 0: Upgrade from 2.3.x or 2.4.x (only when it applies)
 
 Run this phase when `.claude/kit-version` is 2.4 or later and any of these hold; otherwise skip to Phase 1.
+
+- 2.5: `.claude/kit.json` has no `workflow.archiveDone` key, or it isn't `false` and task files with `status: Done` sit in `docs/tasks/` outside `archive/`.
 
 - `.claude/kit.json` has no `workflow.staging`, `workflow.readyGates`, `largeFiles`, or `testAudit.runners` key.
 - `.claude/settings.json` doesn't register `guard-large-reads.ps1`, or has `Bash(...)` deny rules without `PowerShell(...)` twins.
@@ -35,7 +37,7 @@ Run this phase when `.claude/kit-version` is 2.4 or later and any of these hold;
 Then, reading `docs/claude-kit/UPGRADING.md` for the mapping:
 
 1. Merge `.kit-incoming/` first: keep the user's content, add the kit's new sections, keys, and rules. For agents, take the kit's body and keep the user's `model:` and `effort:` frontmatter. `.kit-incoming/.github/workflows/ci.yml` is the kit's unfilled template: never merge it into a filled-in `ci.yml`; only check that the project's CI keeps the parse step, `timeout-minutes`, `concurrency`, the job name, and test-database isolation. One-line summary per file.
-2. Build an upgrade table, one row per proposed change: what changes, why (the 2.4 item), the exact edit, and what text it lets you delete. Cover:
+2. Build an upgrade table, one row per proposed change: what changes, why (the 2.4 item or the 2.5 change), the exact edit, and what text it lets you delete. From 2.4, only the 2.5 rows apply (UPGRADING.md § From 2.4 to 2.5): the `archiveDone` key; the `CLAUDE.md`, `git.md`, spec-reviewer, and PR-template lines; archiving the existing Done tasks with `archive-done.ps1` on the upgrade branch; and links or project files that read task file paths. From 2.3, cover all of these as well:
    - new `kit.json` keys, with values derived from what the project already does (its git rules, CLAUDE.md overrides, CI, hosting);
    - settings: the staging deny rules, `PowerShell(...)` twins, the large-read hook, branch-prefix push rules, deploy-command denies, `Read(...)` denies for production env files;
    - project sections moved out of agent bodies into `.claude/project/<agent>.md`;
@@ -43,7 +45,7 @@ Then, reading `docs/claude-kit/UPGRADING.md` for the mapping:
    - new Project docs rows (Deploy, UX floor, Review findings, Owner runbook, Owner checklist; Decisions with its ID prefix);
    - `.claude/rules/git.md` created or merged;
    - project scripts moved out of kit-owned folders (update every reference to them in `kit.json`, `settings.json`, and docs), or replaced by a switch (a test-routing script by `testAudit.runners`); leftover copies of kit files deleted;
-   - CI: job name, the parse step, the test database; the Claude workflows' secret gate; action versions;
+   - CI: job name, the parse step, the test database, Docker Hub images switched to the `public.ecr.aws/docker/library/` mirror; the Claude workflows' secret gate; action versions;
    - optional templates worth offering.
 3. **Stop for approval.** The user may approve rows one by one.
 4. Apply the approved rows, then continue with Phase 1 to fill anything still empty. Skip questions the upgrade table already settled.
@@ -89,6 +91,7 @@ Then, reading `docs/claude-kit/UPGRADING.md` for the mapping:
 | `workflow.splitPolicy` | `split` (default), or `never-split` if one roadmap item must stay one PR |
 | `workflow.afterMerge` | The closing line when merging doesn't deploy, e.g. "After merge, run the Release workflow to put it live." Empty otherwise |
 | `workflow.allowForceWithLease` | `false` unless the project's git rules allow it after a rebase |
+| `workflow.archiveDone` | `true` (default). `false` only if the user wants Done task files kept in `docs/tasks/`, e.g. because other docs link to task file paths |
 | `workflow.roadmap` / `workflow.statusDoc` | Only in roadmap-led mode (`/adopt` asks): `{ path, idPattern, checkLabel }`, and the status page regenerated from the roadmap |
 | `testAudit.testPathPatterns` | Adjust to this repo's test layout |
 | `testAudit.run` | The command that runs specific test files, with `{tests}`, when there is one runner |
@@ -136,10 +139,10 @@ Run every `verify.fast` and `verify.full` command, and each `testAudit` runner w
 
 ## Phase 5: GitHub files
 
-0. **If the repo already has CI** (any workflow besides the kit's three): keep it. Propose deleting the kit's `ci.yml` and ask. Check that the existing CI runs the `verify.full` equivalents on pull requests, and propose additions if not. Propose adding the kit's "Task files parse cleanly" step (`./.claude/scripts/build-index.ps1` with `shell: pwsh`) to its main job. Set `workflow.ciJobName` to its job name. Skip step 1.
+0. **If the repo already has CI** (any workflow besides the kit's three): keep it. Propose deleting the kit's `ci.yml` and ask. Check that the existing CI runs the `verify.full` equivalents on pull requests, and propose additions if not. Propose adding the kit's "Task files parse cleanly" step (`./.claude/scripts/build-index.ps1` with `shell: pwsh`) to its main job, and switching any Docker Hub image (a `services:` image, `docker run`, `container:`) to its `public.ecr.aws/docker/library/` mirror. Set `workflow.ciJobName` to its job name. Skip step 1.
 1. **`.github/workflows/ci.yml`** (new CI only):
    - Replace the "not configured" step with this stack's setup (runtime action at its current major version, dependency cache, install) and the `verify.full` equivalents in Linux syntax.
-   - If there's a database, enable the service block with the production database's major version and `TEST_DATABASE_URL`; don't set `DATABASE_URL` in the test job (only a dummy on a build step that needs one). Add the migration check step if `/skeleton` built one.
+   - If there's a database, enable the service block with the production database's major version and `TEST_DATABASE_URL`. Every container image comes from `public.ecr.aws/docker/library/<image>:<tag>`, the mirror of Docker's official images, never a bare Docker Hub name (`postgres:16`): Docker Hub rate-limits anonymous pulls; don't set `DATABASE_URL` in the test job (only a dummy on a build step that needs one). Add the migration check step if `/skeleton` built one.
    - If there are end-to-end tests, enable that job.
    - Set `on.push.branches` to `workflow.baseBranch`.
    - Keep the task-file parse step, `timeout-minutes`, `concurrency`, and the job name (`workflow.ciJobName`).

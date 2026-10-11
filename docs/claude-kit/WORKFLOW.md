@@ -151,6 +151,6 @@ The planned files' staleness check still works: the plans PR touches only task f
 
 ## Retro (every ~10 tasks, about 20 minutes)
 
-Regenerate the board, then ask Claude: "Analyze the metrics in `docs/tasks/INDEX.md` and the Review logs of the last 10 task files. Which leak is largest, and what single change to a `workflow` switch, a `.claude/project/` file, CLAUDE.md, or the AC rules would reduce it?" Apply one change at a time so you can see its effect.
+Regenerate the board, then ask Claude: "Analyze the metrics in `docs/tasks/INDEX.md` and the Review logs of the last 10 task files (most are in `docs/tasks/archive/`). Which leak is largest, and what single change to a `workflow` switch, a `.claude/project/` file, CLAUDE.md, or the AC rules would reduce it?" Apply one change at a time so you can see its effect.
 
 If the project runs independent review rounds (the **Review findings** role: a protocol plus a findings ledger, from `docs/templates/review-*.md`), include the ledger: open findings whose "proceed without fix?" names a task you've reached are due now. Commits and PRs cite finding IDs, so the ledger's status can be checked against the history.

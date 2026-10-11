@@ -1,5 +1,6 @@
 # CI gate for every PR and every push to the base branch.
-# Keep the job name "verify": branch protection requires it by name.
+# The job name must match workflow.ciJobName in .claude/kit.json (default "verify"):
+# branch protection and /implement-task's ready gates require it by name.
 name: CI
 
 on:

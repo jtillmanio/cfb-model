@@ -1,10 +1,71 @@
-# Upgrading a project from kit 2.3.x to 2.4
+# Upgrading a project
 
-For the owner of a project on kit 2.3.x, and for the Claude session that does the upgrade. What changed and why is in `CHANGELOG.md` ("v2.4: Lessons from adoption"); this guide is how to apply it.
+For the owner of a project on an earlier kit 2.x, and for the Claude session that does the upgrade. What changed and why is in `CHANGELOG.md`; this guide is how to apply it. `.claude/kit-version` says which version a project is on.
+
+| Project is on | Do |
+|---|---|
+| 2.4.x | [From 2.4 to 2.5](#from-24-to-25) |
+| 2.3.x | [From 2.3 to 2.4](#from-23-to-24) on one branch (the installer puts 2.5 in place directly; the branch name doesn't matter), then steps 3–5 of [From 2.4 to 2.5](#from-24-to-25) on the same branch |
+
+## From 2.4 to 2.5
+
+2.5 has one change: Done task files move to `docs/tasks/archive/`, so `docs/tasks/` holds only live work. The upgrade is one branch and one PR.
+
+### Behaviour changes
+
+| Change | What you'll see | Opt out |
+|---|---|---|
+| **Task archive** | At close-out, `/implement-task` moves every Done task file still in `docs/tasks/` into `docs/tasks/archive/` (`git mv`) in the close-out commit and lists them in the PR's **What**. At "accepted" it moves the task itself. A `/plan-batch` plans PR does the same | `workflow.archiveDone: false` |
+| **Archive renames in task PRs** | `.claude/rules/git.md` allows them as the one change a branch makes to other tasks' files; spec-reviewer doesn't count them as scope creep | — |
+| **Board** | `INDEX.md` lists archived tasks in their own table, metrics included. New warnings: a Done task outside the archive, and a task in the archive that isn't Done | — |
+| **Task lookups** | Dependency checks, the dispatcher, `/new-task` ID numbering, and `/implement-task` preflight read `docs/tasks/archive/` too | — |
+
+### Steps
+
+1. **Run the installer** on a new branch, from the project root:
+   ```powershell
+   git switch main; git pull --ff-only; git switch -c chore/kit-2.5
+   powershell -NoProfile -ExecutionPolicy Bypass -File C:\Development\tools\claude-code-starter-kit\install-kit.ps1 -Upgrade -WhatIf
+   powershell -NoProfile -ExecutionPolicy Bypass -File C:\Development\tools\claude-code-starter-kit\install-kit.ps1 -Upgrade
+   ```
+   Expect: **Updated** for the `implement-task`, `new-task`, `next-task`, `plan-batch`, and `customize-kit` skills, `lib-tasks.ps1`, `build-index.ps1`, and the guides; **Added** for `archive-done.ps1`; **To merge** for `kit.json`, `CLAUDE.md`, `spec-reviewer.md`, `.claude/rules/git.md`, and the PR template. Restart Claude Code.
+2. **Merge `.kit-incoming/`**, or run `/customize-kit`, which detects a 2.4 configuration and proposes these as rows:
+   - `kit.json`: `"archiveDone": true` in `workflow` (`false` to opt out; a missing key means `true`).
+   - `CLAUDE.md`: the Tasks row in Project docs ("Done tasks in `docs/tasks/archive/`") and the Workflow bullet on `archive-done.ps1`.
+   - `.claude/rules/git.md`: the archiving exception after "One task per branch, one branch per PR".
+   - `spec-reviewer.md`: the sentence on archive renames in the scope check. Keep your `model:` and `effort:` lines.
+   - PR template: the archive clause on the "Task file set to `status: Done`" checklist line.
+3. **Archive the existing Done tasks in this PR**, so the first task PR after the upgrade doesn't carry them. Skip this step if you opted out.
+   ```powershell
+   powershell -NoProfile -ExecutionPolicy Bypass -File .claude/scripts/archive-done.ps1 -DryRun
+   powershell -NoProfile -ExecutionPolicy Bypass -File .claude/scripts/archive-done.ps1
+   ```
+   The renames are staged. A file reported as untracked was moved but not staged; stage its new path if it belongs in git.
+4. **Find what reads task paths.** `git grep -n "tasks/TASK-"` outside `docs/tasks/` shows links in the decision log, task list, and notes; repoint the ones to archived tasks, or accept that they now point one folder up. Check `.claude/project/*.md` and project scripts too: anything that globs `docs/tasks/TASK-*.md` must also read `docs/tasks/archive/`. Merged PR bodies keep their old links; GitHub can't rewrite them.
+5. **Commit by path** (the renames are already staged; add the merged files by name), push, and open the PR, e.g. `chore: upgrade claude kit to 2.5`.
+
+### Verification
+
+On the upgrade branch:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .claude/scripts/archive-done.ps1 -DryRun    # expect: No Done tasks outside docs/tasks/archive/.
+powershell -NoProfile -ExecutionPolicy Bypass -File .claude/scripts/build-index.ps1; $LASTEXITCODE   # expect 0; INDEX.md has an Archive table and no "not archived" warning
+(Get-Content .claude/kit.json -Raw | ConvertFrom-Json).workflow.archiveDone                    # expect True (False if you opted out)
+```
+
+After merging, on `main`: `dispatch-approved.ps1 -DryRun` doesn't list a task as "waiting on" an archived task, and CI's "Task files parse cleanly" step is green.
+
+### Rolling back
+
+- `workflow.archiveDone: false` stops new moves; files already archived stay where they are and are still read.
+- To return to 2.4, first move the files back on a branch (`git mv docs/tasks/archive/TASK-*.md docs/tasks/`), then reinstall 2.4 with its `install-kit.ps1 -Upgrade`. The 2.4 scripts don't read `archive/`, so without the move every dependency on an archived task shows as unknown.
+
+## From 2.3 to 2.4
 
 The short version: on a `chore/kit-2.4` branch, run `install-kit.ps1 -Upgrade`, then run `/customize-kit`. It detects the 2.3.x configuration and proposes each change below for your approval. The rest of this guide is what it will propose, and how to check it.
 
-## 1. Before you start
+### 1. Before you start
 
 - **Work on a branch.** `git switch main; git pull --ff-only; git switch -c chore/kit-2.4`. Everything below lands in one PR that you review and merge.
 - **Clean tree.** `git status` empty, apart from untracked files you know about. The upgrade stages by path, but a clean tree makes the PR diff easy to read.
@@ -17,7 +78,7 @@ The short version: on a `chore/kit-2.4` branch, run `install-kit.ps1 -Upgrade`, 
   - After merging: `git revert <the squash commit>` on a new branch, through a PR. That restores every file, kit-owned ones included, and `.claude/kit-version`.
   - Keep a 2.3.1 copy of the central kit (e.g. `C:\Development\tools\claude-code-starter-kit-2.3.1-backup`). From the project root, `powershell -NoProfile -ExecutionPolicy Bypass -File C:\Development\tools\claude-code-starter-kit-2.3.1-backup\install-kit.ps1 -Upgrade` puts the kit-owned files (skills, hooks, scripts, templates) back to 2.3.1 and records 2.3.1 in `.claude/kit-version`. Use this when you want 2.3.1 behaviour without reverting your own changes. Your custom files (agents, `CLAUDE.md`, `kit.json`, `settings.json`) keep whatever you merged. Revert those from git if you need them back too. The 2.4 skills read keys a 2.3.1 skill ignores, so leaving the new `kit.json` keys in place is harmless.
 
-## 2. Behaviour changes
+### 2. Behaviour changes
 
 These change what Claude does with no config edit, once the kit-owned files are upgraded (and, for the settings rules, once the new `settings.json` is merged).
 
@@ -37,7 +98,7 @@ These change what Claude does with no config edit, once the kit-owned files are 
 | **`docs/decisions.md` no longer shipped** | The installer stops proposing it. Skills read the decisions log through the **Decisions** role (default path unchanged) | None needed; your file stays |
 | **Fast checks** (only if you use the new object form) | `post-edit-verify.ps1` runs an object entry only on its `extensions`. String entries behave exactly as in 2.3.1 | — |
 
-## 3. Every item
+### 3. Every item
 
 "Action" is one of: *none*, *automatic with `-Upgrade`*, *merge from `.kit-incoming/`*, *manual edit*, *owner decision*. `/customize-kit`'s upgrade pass proposes every *merge*, *manual edit*, and *owner decision* row.
 
@@ -82,7 +143,7 @@ These change what Claude does with no config edit, once the kit-owned files are 
 | 37 | Claude workflows without the secret | merge from `.kit-incoming/` | Take the kit's `claude-pr-review.yml` and `claude.yml` (job env `HAS_TOKEN`, gated steps) | A PR leaving draft without the secret gets a passing job with a notice |
 | 38 | Action versions | merge from `.kit-incoming/`; manual edit (your own workflows) | `actions/checkout@v7`, `actions/setup-node@v7`, `actions/setup-python@v7`, `actions/upload-artifact@v7` | `git grep -n "uses: actions/"` shows no older majors |
 | 39 | CI layout | manual edit | `workflow.ciJobName: "<your job>"`; add the "Task files parse cleanly" step (`./.claude/scripts/build-index.ps1`, `shell: pwsh`) to your CI | CI shows the step; the gate watches the right job |
-| 40 | Isolated test database | manual edit (if needed) | CI test job sets `TEST_DATABASE_URL` only (a dummy `DATABASE_URL` only on build); service image = production major; a test guard with no fallback | Tests refuse with `TEST_DATABASE_URL` unset |
+| 40 | Isolated test database | manual edit (if needed) | CI test job sets `TEST_DATABASE_URL` only (a dummy `DATABASE_URL` only on build); service image = production major, from `public.ecr.aws/docker/library/` instead of Docker Hub (also any `docker run` or `container:` image); a test guard with no fallback | Tests refuse with `TEST_DATABASE_URL` unset; every `image:` and `docker run` in `.github/` names a `public.ecr.aws/docker/library/` image |
 | 41 | Environment ladder | owner decision | Via `/architecture`; then `protectedPaths` and `Read(...)` denies for production env files | A Read of the production env file is denied |
 | 42 | Release template | owner decision | Copy `docs/templates/github/release.yml` to `.github/workflows/` and fill it | A dry run reports the plan |
 | 43 | Performance-budget template | owner decision | Copy `perf-budget.yml`, add `perf/budget.json` | A preview gets a budget comment |
@@ -91,7 +152,7 @@ These change what Claude does with no config edit, once the kit-owned files are 
 | 46 | Down files | owner decision | A hard rule plus schema-reviewer's project file: drops, retypes, and merges ship a down file and an up → down → up test | schema-reviewer flags a drop without one |
 | 47 | No branch protection | merge (`settings.json`); manual edit (`git.md`) | `PowerShell(...)` twin for every `Bash(...)` deny; `git.md` "Project notes" says the deny rules are the only guard if rulesets return 403 | `gh api repos/{owner}/{repo}/rulesets`; the deny list has both tools |
 
-## 4. Upgrade steps, in order
+### 4. Upgrade steps, in order
 
 `/customize-kit` (2.4) runs an upgrade pass when it detects a 2.3.x configuration. It does steps 2–12 for you, proposing each as a row in one table for your approval. Step 1 and the GitHub settings in step 10 are yours.
 
@@ -115,7 +176,7 @@ These change what Claude does with no config edit, once the kit-owned files are 
 
 Then commit by path on `chore/kit-2.4`, push, open the PR, and run the checks in section 7 before merging.
 
-## 5. Projects that worked around 2.3.1
+### 5. Projects that worked around 2.3.1
 
 On 2.3.1 the only way to change `/implement-task` was to write counter-instructions into `CLAUDE.md` (because `-Upgrade` overwrites skills), and to add project sections and "override" lines inside agent bodies (which then needed a hand merge on every upgrade). In 2.4 each of those has a home the kit never overwrites. Find them by searching `CLAUDE.md` and `.claude/agents/` for "Kit task loop", "override", "even though the skill says", "instead of the kit's", and any heading that names your project.
 
@@ -147,6 +208,7 @@ On 2.3.1 the only way to change `/implement-task` was to write counter-instructi
 | ui-verifier "Ledger specifics": dev database, design files, viewports, targets | `.claude/project/ui-verifier.md` | The section in the agent |
 | `.claude/rules/schema.md` repeating `CLAUDE.md` § Non-obvious rules (and drifting from it) | One home per rule: keep each rule in `rules/schema.md` (path-scoped) or in `CLAUDE.md`, not both, and leave a pointer | The copy that loses |
 | CI job `check` | `workflow.ciJobName: "check"`; add the "Task files parse cleanly" step to `ci.yml` (the kit's `ci.yml` was skipped) | — |
+| `ci.yml` and `backup.yml` pull `postgres:18` from Docker Hub | `public.ecr.aws/docker/library/postgres:18` in both (the backup check that the scratch server matches `PG_MAJOR` still applies) | The Docker Hub names |
 | Kit workflows bumped to `checkout@v7` by hand (G-18) | The 2.4 kit's workflows use `@v7` and skip without the secret (G-4) | Take the kit's two files wholesale |
 
 **Worked example: the cfb-model project** (a pnpm monorepo: a Next.js app in `web/`, a uv Python workspace in `python/`, Alembic migrations, Neon and Vercel). Its 2.3.1 adoption kept the kit's own `ci.yml` (filled in), wrote project rules into `.claude/rules/` (git always; database, python, web by path), and put project text in four agents.
@@ -170,9 +232,9 @@ On 2.3.1 the only way to change `/implement-task` was to write counter-instructi
 | `CLAUDE.kit.md` at the repository root: an unfilled copy of the 2.3.1 template left from the first merge | Nothing reads it | The file |
 | `wipLimit: 2` with one shared `TEST_DATABASE_URL` (the e2e suite needs it migrated and seeded) | *Owner decision*: `wipLimit: 1` with `_wipLimitReason`, or a test database per worktree in `worktreeSetup` | — |
 | `ui.auth` | Not needed yet. When GitHub sign-in lands, a passcode field won't work: give the dev server a dev-only sign-in that `ui.auth.steps` can drive, and never let it reach production | — |
-| `.github/workflows/ci.yml` (the kit's template, filled in) | `.kit-incoming/` gets the kit's unfilled template: don't merge it. Yours already has the parse step, `timeout-minutes`, `concurrency`, job `verify`, and `TEST_DATABASE_URL` only | — |
+| `.github/workflows/ci.yml` (the kit's template, filled in) | `.kit-incoming/` gets the kit's unfilled template: don't merge it. Yours already has the parse step, `timeout-minutes`, `concurrency`, job `verify`, and `TEST_DATABASE_URL` only. Its one change: the "Start Postgres" step's `docker run "postgres:${PG_MAJOR}"` becomes `docker run "public.ecr.aws/docker/library/postgres:${PG_MAJOR}"` | The Docker Hub name |
 
-## 6. A prompt for the upgrade
+### 6. A prompt for the upgrade
 
 Paste this into Claude Code in the project, after step 1 (the installer) and a restart:
 
@@ -194,7 +256,7 @@ We're upgrading this project's Claude Code starter kit from 2.3.x to 2.4. The gu
    for me to merge.
 ```
 
-## 7. Verification after upgrading
+### 7. Verification after upgrading
 
 Run these on the upgrade branch before merging, and report each result:
 
