@@ -108,7 +108,7 @@ describe("summariseLhr", () => {
         { url: "/_next/static/chunks/b.js", type: "Script", size: 30_000 },
         { url: "/login?_rsc=x1", type: "Fetch", size: 1_000, mime: "text/x-component" },
         { url: "/_next-live/feedback/feedback.js", type: "Script", size: 157 },
-        { url: "https://vercel.live/_next-live/feedback/x.js", type: "Script", size: 9_999 },
+        { url: "https://vercel.live/feedback/x.js", type: "Script", size: 9_999 },
       ],
     }),
   );
@@ -199,7 +199,7 @@ describe("AC-2: forbidden requests, Vercel extras, and routes that didn't measur
 
   it("leaves vercel.live and _next-live out of the request count and bytes", () => {
     const extras = [
-      { url: "https://vercel.live/_next-live/feedback/feedback.js", type: "Script", size: 50_000 },
+      { url: "https://vercel.live/toolbar.js", type: "Script", size: 50_000 },
       { url: "/_next-live/feedback/x.js", type: "Script", size: 50_000 },
     ];
     type Requests = { details: { items: object[] } };
