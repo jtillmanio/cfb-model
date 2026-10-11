@@ -1,7 +1,7 @@
 ---
 id: TASK-007
 title: Build the Lighthouse gate logic, report and session minting with tests
-status: In progress
+status: Review
 depends_on: [TASK-001]
 size: M
 model: opus
@@ -28,12 +28,12 @@ The logic that decides whether a PR preview passes its performance and accessibi
 
 ## Acceptance criteria
 
-- [ ] AC-1: For each gated number (document bytes plus the RSC payload, JS bytes, request count, CLS, accessibility score), a Vitest case passes a fixture result exactly at budget and fails one just over it (CLS fails at ≥ 0.1; accessibility fails below the recorded score), and the failure names the route and the number.
-- [ ] AC-2: A fixture page load that requests any `/api/py/*` URL (including a prefetch) fails, and the failure names the URL; Vercel extras (`vercel.live`, `_next-live`) are excluded from request counts. A route that never finished measuring, or that ended on `/login`, fails with a message saying so.
-- [ ] AC-3: `measurable` refuses the production URL unless `allow_production` is set, and refuses deployment states other than `success` (Vitest cases for each).
-- [ ] AC-4: The scrubber removes every given secret and the minted cookie from a fixture Lighthouse JSON and HTML report, and the guard fails on a file that still contains one, naming the file but never printing the value (Vitest asserts the message contains the file name and not the secret).
-- [ ] AC-5: The PR comment is one Markdown body with a fixed HTML-comment marker; it reports TTFB, FCP, LCP and TBT as first hit / median beside the baseline (or "no baseline"), and timings never cause a failure. Baseline choice picks the newest merged PR's newest green run (Vitest on fixture run lists).
-- [ ] AC-6: `scripts/perf/routes.mjs` lists `/login` (signed out) and `/teams` (signed in), and a Vitest case fails when a top-level page under `web/app/` has no route in the list.
+- [x] AC-1: For each gated number (document bytes plus the RSC payload, JS bytes, request count, CLS, accessibility score), a Vitest case passes a fixture result exactly at budget and fails one just over it (CLS fails at ≥ 0.1; accessibility fails below the recorded score), and the failure names the route and the number.
+- [x] AC-2: A fixture page load that requests any `/api/py/*` URL (including a prefetch) fails, and the failure names the URL; Vercel extras (`vercel.live`, `_next-live`) are excluded from request counts. A route that never finished measuring, or that ended on `/login`, fails with a message saying so.
+- [x] AC-3: `measurable` refuses the production URL unless `allow_production` is set, and refuses deployment states other than `success` (Vitest cases for each).
+- [x] AC-4: The scrubber removes every given secret and the minted cookie from a fixture Lighthouse JSON and HTML report, and the guard fails on a file that still contains one, naming the file but never printing the value (Vitest asserts the message contains the file name and not the secret).
+- [x] AC-5: The PR comment is one Markdown body with a fixed HTML-comment marker; it reports TTFB, FCP, LCP and TBT as first hit / median beside the baseline (or "no baseline"), and timings never cause a failure. Baseline choice picks the newest merged PR's newest green run (Vitest on fixture run lists).
+- [x] AC-6: `scripts/perf/routes.mjs` lists `/login` (signed out) and `/teams` (signed in), and a Vitest case fails when a top-level page under `web/app/` has no route in the list.
 
 ## Out of scope
 
@@ -83,7 +83,7 @@ Approved 2026-10-11.
 
 ## Review log
 
-_Filled by /implement-task. One line per round._
+Verify R1 PASS | Audit R1 CHANGES (AC-2: the only vercel.live fixture also matched the _next-live rule, NON-DISCRIMINATING) → R2 PASS | Spec R1 CHANGES (code read budget key `docRscBytes`, docs/02 and TASK-008 AC-3 say `docBytes`; guard didn't mask) → R2 APPROVE | Verify R2 (after review fixes) PASS
 
 ## Blocked
 
@@ -91,7 +91,7 @@ _Only if status is Blocked: what failed, what was tried, best hypothesis, decisi
 
 ## Metrics
 
-- Verify rounds:
-- Review rounds:
-- First-pass AC FAILs:
-- Plan revisions after approval:
+- Verify rounds: 1 (plus one re-run after the review fixes, PASS)
+- Review rounds: 2
+- First-pass AC FAILs: 0
+- Plan revisions after approval: 0 (`eventInputs` was added inside plan step 5 so `report.mjs plan` reads a fixture event file; spec review judged it in scope)
