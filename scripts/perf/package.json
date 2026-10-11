@@ -1,0 +1,13 @@
+{
+  "name": "cfb-model-perf",
+  "private": true,
+  "description": "The lighthouse workflow's own dependencies (D-101). Installed only by that workflow (npm ci --prefix scripts/perf), never by the app's build; kept out of pnpm-workspace.yaml. @auth/core must equal the version next-auth installs (web/lib/perf.test.ts checks it).",
+  "type": "module",
+  "engines": {
+    "node": "24.x"
+  },
+  "dependencies": {
+    "@auth/core": "0.41.3",
+    "lighthouse": "13.5.0"
+  }
+}

@@ -1,14 +1,14 @@
 ---
 id: TASK-007
 title: Build the Lighthouse gate logic, report and session minting with tests
-status: Ready
+status: In progress
 depends_on: [TASK-001]
 size: M
 model: opus
 autonomy: attended
 ui: false
-plan_status: none
-planned_at_commit:
+plan_status: approved
+planned_at_commit: 3bb29d7
 ---
 
 # TASK-007 — Build the Lighthouse gate logic, report and session minting with tests
@@ -58,7 +58,28 @@ The logic that decides whether a PR preview passes its performance and accessibi
 
 ## Plan
 
-_Written by /plan-batch or /implement-task Phase 1. Approved by the user (plan_status: approved) before any code is written._
+Approved 2026-10-11.
+
+**Steps**
+1. `scripts/perf/package.json` (new, `"type": "module"`, Node 24): pins `lighthouse` (latest stable) and `@auth/core@0.41.3` (the version `next-auth@5.0.0-beta.32` installs); `package-lock.json` via `npm install`. Outside the pnpm workspace.
+2. `scripts/perf/routes.mjs`: `ROUTES` = `login` (`/login`, signed out) and `teams` (`/teams`, signed in).
+3. `scripts/perf/lib/perf.mjs`: pure functions, no imports, adapted from ledger: `summariseLhr` (document + RSC bytes, JS bytes, requests, CLS, a11y, TTFB/FCP/LCP/TBT, landed path; drops `vercel.live` / `_next-live`; collects `/api/py/*`), `aggregateRoute` (first hit + median), `gateProblems` (names route and number or URL; timings never checked), `measurable`, `scrubLhr`, `scrubText`, `guardMessage` (file names, never values), `baselinePr` / `baselineRun`, `renderComment`, `findComment`, `mergeMetrics`, `sessionCookieName(url)` and `mintSession({ url, secret, githubId, encode })` with `encode` injected so the lib has no dependencies. JSDoc types instead of `.d.mts` files.
+4. `scripts/perf/mint-session.mjs`: `::add-mask::` for `AUTH_SECRET` and the bypass secret first, mints with `@auth/core/jwt`, masks the cookie value, writes `signed-in.json` / `signed-out.json` to `HEADERS_DIR`, logs statuses only. Reads the allowlisted ID from `AUTH_ALLOWED_GITHUB_ID` (TASK-008 adds the repo variable).
+5. `scripts/perf/report.mjs`: `plan | guard DIR | merge DIR | baseline | report`, Node plus the GitHub REST API. A missing `budget.json` (TASK-008) means "no budget recorded", not a crash.
+6. `web/lib/perf.test.ts`: fixtures, no network.
+
+**Files:** the six above plus `package-lock.json` (generated) and `docs/decisions.md` (one row on session minting; not in "Files likely touched"). 8 files, no schema or UI: kept whole.
+
+**Test strategy** (`web/lib/perf.test.ts`)
+- AC-1: each gated number at budget passes, +1 fails, message names route and number; CLS 0.099 passes, 0.1 fails; a11y equal passes, one below fails.
+- AC-2: an `/api/py/teams?_rsc=…` prefetch fails naming it; Vercel extras excluded from counts and bytes; errored-only runs say "not measured"; landing on `/login` says signed out.
+- AC-3: production refused without `allow_production`, allowed with it; `failure`, `inactive`, `pending` skipped.
+- AC-4: scrubbed fixture JSON and HTML hold no secret or cookie; the guard message holds the file name and not the secret.
+- AC-5: the comment starts with the marker, shows first / median beside the baseline or "no baseline"; huge timings give zero problems; baseline choice on fixture PR and run lists.
+- AC-6: route list entries; a scan of `web/app/` finds every top-level page, and the scanner is tested on a temp dir with an unlisted page.
+- Minting: a cookie minted with `next-auth/jwt`'s `encode` decodes with the same salt to `sub = githubId`; the name is `__Secure-authjs.session-token` on https; `@auth/core` in `scripts/perf/package.json` matches the lockfile's for next-auth.
+
+**Decisions in the plan:** `/` is exempt from the route test while it redirects to `/teams` (This Week takes it in Phase 4). `/api/auth/*` requests aren't gated (the spec forbids `/api/py/*`). `scripts/perf/*.mjs` isn't linted by `pnpm lint` (follow-up).
 
 ## Review log
 
