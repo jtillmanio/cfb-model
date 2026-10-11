@@ -104,14 +104,17 @@ function merge(dir) {
 
 /** @param {string} dir */
 function guard(dir) {
-  const files = walk(dir).map((p) => ({ name: p, text: readFileSync(p, "utf8") }));
   let headers = {};
   try {
     headers = readJson(join(env.HEADERS_DIR ?? "", "signed-in.json"));
   } catch {
     /* no session was minted, so none can leak */
   }
-  const problem = guardMessage(files, [env.AUTH_SECRET, env.VERCEL_AUTOMATION_BYPASS_SECRET, ...headerSecrets(headers)]);
+  const secrets = [env.AUTH_SECRET, env.VERCEL_AUTOMATION_BYPASS_SECRET, ...headerSecrets(headers)];
+  // Masked before anything else is printed (02 › Performance checks › Signing in).
+  for (const secret of secrets) if (secret) console.log(`::add-mask::${secret}`);
+  const files = walk(dir).map((p) => ({ name: p, text: readFileSync(p, "utf8") }));
+  const problem = guardMessage(files, secrets);
   if (problem) throw new Error(problem);
   console.log(`guard: ${files.length} files, no secret in any`);
 }

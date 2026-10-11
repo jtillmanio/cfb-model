@@ -9,7 +9,7 @@
  *   landedOn: string | null,
  *   ttfb: number | null, fcp: number | null, lcp: number | null, tbt: number | null,
  *   cls: number | null, a11y: number | null,
- *   docRscBytes: number, jsBytes: number, requests: number,
+ *   docBytes: number, jsBytes: number, requests: number,
  *   forbidden: string[],
  * }} LoadSummary
  * @typedef {{ error: string }} LoadError
@@ -18,7 +18,7 @@
  *   path: string, runs: number, errors: string[], landedOn: (string | null)[],
  *   first: LoadSummary | null, median: Record<string, number | null>, forbidden: string[],
  * }} RouteResult
- * @typedef {{ docRscBytes?: number, jsBytes?: number, requests?: number, a11y?: number }} RouteBudget
+ * @typedef {{ docBytes?: number, jsBytes?: number, requests?: number, a11y?: number }} RouteBudget
  * @typedef {{
  *   url: string, sha?: string | null, lighthouse?: string, chrome?: string, measuredAt: string,
  *   runs?: number, routes: Record<string, MeasuredRoute>,
@@ -34,7 +34,7 @@ export const MARKER = "<!-- cfb-model-lighthouse -->";
 
 /** What budget.json holds per route besides `a11y`, and how the comment names it. */
 export const BUDGETED = /** @type {const} */ ([
-  { key: "docRscBytes", label: "document + RSC", unit: "bytes" },
+  { key: "docBytes", label: "document + RSC", unit: "bytes" },
   { key: "jsBytes", label: "JS", unit: "bytes" },
   { key: "requests", label: "requests", unit: "count" },
 ]);
@@ -109,7 +109,7 @@ export function summariseLhr(lhr) {
     cls: typeof cls === "number" ? cls : null,
     a11y: typeof a11y === "number" ? Math.round(a11y * 100) : null,
     // The document carries the first RSC payload inline; prefetches fetch more.
-    docRscBytes: bytes((q) => q.resourceType === "Document" || /text\/x-component/.test(q.mimeType ?? "")),
+    docBytes: bytes((q) => q.resourceType === "Document" || /text\/x-component/.test(q.mimeType ?? "")),
     jsBytes: bytes((q) => q.resourceType === "Script"),
     requests: items.length,
     forbidden: /** @type {string[]} */ (items.map((q) => forbiddenPath(q.url)).filter(Boolean)),
@@ -279,11 +279,11 @@ export function renderComment({ current, baseline, budget, problems, missingBudg
   );
   for (const [id, r] of Object.entries(current.routes)) {
     const b = budget[id] ?? {};
-    /** @param {"docRscBytes" | "jsBytes" | "requests"} key @param {"bytes" | "count"} unit */
+    /** @param {"docBytes" | "jsBytes" | "requests"} key @param {"bytes" | "count"} unit */
     const cell = (key, unit) => `${fmt(r.median[key], unit)} / ${fmt(b[key], unit)}`;
     const cls = r.median.cls;
     lines.push(
-      `| \`${r.path}\` | ${cell("docRscBytes", "bytes")} | ${cell("jsBytes", "bytes")} | ${cell("requests", "count")} | ` +
+      `| \`${r.path}\` | ${cell("docBytes", "bytes")} | ${cell("jsBytes", "bytes")} | ${cell("requests", "count")} | ` +
         `${cls == null ? "–" : cls.toFixed(3)} | ${fmt(r.median.a11y, "count")} / ${fmt(b.a11y, "count")} |`,
     );
   }

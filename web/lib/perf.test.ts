@@ -8,6 +8,7 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import {
   aggregateRoute,
+  BUDGETED,
   baselinePr,
   baselineRun,
   eventInputs,
@@ -96,7 +97,7 @@ function page({ docBytes = 12_000, jsBytes = 140_000, requests = 15, cls = 0.01,
   });
 }
 
-const BUDGET = { teams: { docRscBytes: 15_000, jsBytes: 150_000, requests: 20, a11y: 95 } };
+const BUDGET = { teams: { docBytes: 15_000, jsBytes: 150_000, requests: 20, a11y: 95 } };
 const gate = (result: ReturnType<typeof lhr>, budget: Parameters<typeof gateProblems>[1] = BUDGET) =>
   gateProblems({ teams: runs(result) }, budget);
 
@@ -114,7 +115,7 @@ describe("summariseLhr", () => {
   );
 
   it("counts document + RSC, JS and requests, leaving Vercel's extras out", () => {
-    expect(s.docRscBytes).toBe(11_000);
+    expect(s.docBytes).toBe(11_000);
     expect(s.jsBytes).toBe(100_000);
     expect(s.requests).toBe(4);
   });
@@ -161,6 +162,14 @@ describe("AC-1: each gated number passes at budget and fails just over it", () =
   it("gates on the median of the runs, so one outlier run doesn't fail", () => {
     const loads = [page({ requests: 99 }), page(), page()].map(summariseLhr);
     expect(gateProblems({ teams: aggregateRoute({ path: "/teams", loads }) }, BUDGET)).toEqual([]);
+  });
+
+  it("reads the budget keys docs/02 says budget.json holds", () => {
+    const doc = readFileSync(join(ROOT, "docs/02-architecture.md"), "utf8");
+    const line = doc.split("\n").find((l) => l.includes("`budget.json` (per route:"));
+    const documented = line?.match(/`budget\.json` \(per route: ([^)]+)\)/)?.[1].match(/`(\w+)`/g)?.map((k) => k.slice(1, -1));
+    expect(documented).toBeTruthy();
+    expect([...BUDGETED.map((b) => b.key), "a11y"].sort()).toEqual([...documented!].sort());
   });
 
   it("doesn't gate a route with no budget yet, and lists it", () => {
