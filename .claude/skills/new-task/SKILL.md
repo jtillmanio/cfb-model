@@ -18,7 +18,8 @@ argument-hint: short description, OR a task list path plus optional milestone (e
   - copy each roadmap item's check line (the line starting with `workflow.roadmap.checkLabel`) **verbatim** as the first acceptance criterion, then add ACs that make it checkable in detail without contradicting it;
   - the file stays `docs/tasks/TASK-###-<slug>.md` (the kit's scripts need that) but its `title` starts with the roadmap ID: `title: 1.2 Undo`;
   - don't write TASK IDs back into the roadmap; the roadmap ID is the link;
-  - if the roadmap item has no check line, stop for that item and propose one; the user writes it into the roadmap.
+  - if the roadmap item has no check line, don't create its task file yet. Propose a Check written to the AC rules below (observable result, expected value) and stop for that item. Once the user agrees it (or edits it), write it into the roadmap item, on the item's own line starting with `workflow.roadmap.checkLabel`, then copy it verbatim as AC-1 as above. The roadmap edit goes in the same commit as the task files. Never invent a Check the user hasn't agreed;
+  - carry the item's follow-up notes (`*From …*` lines another task added to its body) into the new task's Context.
 
 ## Procedure
 
@@ -32,7 +33,7 @@ argument-hint: short description, OR a task list path plus optional milestone (e
    - **Files likely touched**: based on the current codebase. Explore it; do not guess paths. If `ui.redrawFiles` is set and the task changes a screen drawn there, list that file: its frame is redrawn in the same PR.
    - **Verification**: automated tests that must exist, plus manual steps with expected results.
    - **size**, **model**, **autonomy** and **ui** in the front matter (rules below).
-   - `plan_status: none`, `planned_at_commit:` empty. Leave Plan, Review log, and Metrics empty.
+   - `plan_status: none`, `planned_at_commit:` empty. Leave Follow-ups, Plan, Review log, and Metrics empty.
 4. File name: `docs/tasks/TASK-###-<kebab-slug>.md`. Status: `Draft`.
 5. Regenerate the board: `powershell -NoProfile -ExecutionPolicy Bypass -File .claude/scripts/build-index.ps1`. Never hand-edit `INDEX.md`.
 6. Show the user a summary table (ID, title, size, model, autonomy, ui, depends_on, AC count) plus any open questions. Do not set any task to `Ready`; the user does that after review.

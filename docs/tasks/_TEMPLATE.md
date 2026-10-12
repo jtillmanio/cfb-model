@@ -44,6 +44,10 @@ Each item names an observable result and an expected value or state.
 - Automated: <test file / test name that must exist and pass>
 - Manual: <step> → expected: <result>
 
+## Follow-ups
+
+_Work noticed during this task and deliberately left out. Each bullet ends `→ <path> § <section>` (where it was placed) or `→ not tracked: <reason>`. See `.claude/skills/track-follow-ups/classify.md`; the PR's Follow-ups section is copied from here._
+
 ## Plan
 
 _Written by /plan-batch or /implement-task Phase 1. Approved by the user (plan_status: approved) before any code is written._

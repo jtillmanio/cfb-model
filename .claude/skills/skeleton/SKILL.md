@@ -52,6 +52,7 @@ Present a plan of at most 35 lines covering:
 
 ## Phase 4: Hand off
 
-1. Commit by path (`chore(skeleton): walking skeleton`), push `task/skeleton`, and open a PR with `gh pr create`. The user merges after CI passes.
-2. Report: the script table, the slice URL, the PR link, and what was deliberately left out.
-3. Next step, after merge: `/customize-kit`. It will now detect these scripts and fill `kit.json`.
+1. Place what was deliberately left out as follow-ups, by `workflow.followUps` and `.claude/skills/track-follow-ups/classify.md` (usually a stub in the **Task list** or roadmap, an Architecture note, or an Owner checklist action), asking for the approvals it needs.
+2. Commit by path (`chore(skeleton): walking skeleton`, placements included), push `task/skeleton`, and open a PR with `gh pr create`. Its body has a **Follow-ups** section: each left-out item ending `→ <path> § <section>` or `→ not tracked: <reason>`. The user merges after CI passes.
+3. Report: the script table, the slice URL, the PR link, and where each left-out item went.
+4. Next step, after merge: `/customize-kit`. It will now detect these scripts and fill `kit.json`.

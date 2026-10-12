@@ -33,11 +33,13 @@ Each phase ends in a gate; never start a phase before the previous gate passes.
   | Checkpoint | `<type>(<git-id>): <summary>` | `task <git-id>: <summary>` |
   | Close-out | `docs(<git-id>): close out` | `task <git-id>: close out` |
   | Accept | `chore(<git-id>): accept` | `task <git-id>: accept` |
+  | Link follow-ups | `docs(<git-id>): link follow-ups to PR #<n>` | `task <git-id>: link follow-ups to PR #<n>` |
   | Blocked | `chore(<git-id>): blocked` | `task <git-id>: record blocker` |
 
   Subjects are imperative, at most 72 characters, no trailing period. The body says why and cites IDs (task, decision, review finding). End with the session's attribution trailer.
 - **Staging** follows `workflow.staging` (default `by-path`). By path: run `git status --porcelain`, stage only the files this task changed with `git add <file> …`, then read `git diff --staged` before committing. Leave every other change alone; it is the owner's. `all` restores `git add -A`.
-- **Archiving** follows `workflow.archiveDone` (default `true`): Done task files live in `docs/tasks/archive/`. `.claude/scripts/archive-done.ps1` moves every Done task file still in `docs/tasks/` there with `git mv`, which stages the renames. Those renames are the one change to other tasks' files a task branch carries, whoever finished those tasks.
+- **Archiving** follows `workflow.archiveDone` (default `true`): Done task files live in `docs/tasks/archive/`. `.claude/scripts/archive-done.ps1` moves every Done task file still in `docs/tasks/` there with `git mv`, which stages the renames. Those renames, and follow-up placements, are the only changes to other tasks' files a task branch carries.
+- **Follow-ups** follow `workflow.followUps` (default `apply`) and `.claude/skills/track-follow-ups/classify.md`, which says where each one goes and which need the owner's approval. Read it before the plan gate and again at close-out.
 
 ## Phase 0: Preflight
 
@@ -50,7 +52,7 @@ Each phase ends in a gate; never start a phase before the previous gate passes.
    - If you are in a worktree: run each `workflow.worktreeSetup` command, and copy each `workflow.worktreeCopyFiles` path from the main checkout (the first path in `git worktree list --porcelain`) if it isn't already present. Report failures and stop.
 5. **Plan freshness**: if `plan_status: approved`, compare against `planned_at_commit`:
    `git diff --stat <planned_at_commit>..HEAD -- <files listed in the Plan>`
-   If any planned file changed since the plan, the plan is **stale**. Attended: tell the user and re-plan in Phase 1. Unattended: stop and report `plan stale` with the changed files.
+   If any planned file changed since the plan, the plan is **stale**. Also stale: follow-up notes added to this task file since the plan (`git diff <planned_at_commit>..HEAD -- <task file>` adds a `*From …*` line to Context), because another task sent this one work its plan hasn't read. Attended: tell the user (quote the notes) and re-plan in Phase 1, or carry on if they say the notes don't change the plan. Unattended: stop and report `plan stale` with the changed files or notes.
 6. Unattended only: if `plan_status` isn't `approved`, stop and report.
 7. Set `status: In progress` in the task file. Do not edit `docs/tasks/INDEX.md`; it is generated.
 
@@ -64,8 +66,9 @@ Each phase ends in a gate; never start a phase before the previous gate passes.
    - **Test strategy**: for each AC, the test file and test name that will prove it, or the manual step if it can't be automated
    - **Risks / open questions**
    - **Size check**: more than 8 files, or schema and UI together. With `workflow.splitPolicy` `split` (default), propose a split instead of a plan. With `never-split`, keep the task whole, set `autonomy: attended`, and say in the plan why it is large.
-4. **GATE**: present the plan in under 30 lines and stop for approval.
-5. After approval, write the plan into `## Plan`, set `plan_status: approved` and `planned_at_commit: <git rev-parse --short HEAD>`.
+   - **Follow-ups**: what planning found that belongs elsewhere (a doc that has drifted, a question for another task, a missing roadmap item, a candidate decision), each with its planned placement from `classify.md`, and which of them need approval.
+4. **GATE**: present the plan in under 30 lines and stop for approval. Approving the plan approves its follow-up placements, unless the user strikes or changes one.
+5. After approval, write the plan into `## Plan`, set `plan_status: approved` and `planned_at_commit: <git rev-parse --short HEAD>`. Copy the approved follow-ups into the task file's `## Follow-ups`, each marked `(approved at plan)`; they are written to their destinations at close-out.
 
 ## Phase 2: Implement
 
@@ -73,6 +76,7 @@ Each phase ends in a gate; never start a phase before the previous gate passes.
 2. Implement in plan order and stay inside the plan. If you must deviate (new file, different approach, newly discovered requirement), explain it in 2–3 lines and ask. Update `## Plan` once agreed and count it under "Plan revisions after approval".
 3. Fix post-edit hook failures before moving on, except while a multi-file change is half-done.
 4. If the spec is wrong or contradicts existing code, ask. Never pick an interpretation silently.
+5. Work you notice that the plan doesn't cover: if it is small and inside this task's scope, propose it as a plan revision (step 2). Otherwise add it to `## Follow-ups` in the task file as you go, without a destination yet; close-out places it. Don't do it.
 
 ## Phase 3: Verify (max 3 rounds)
 
@@ -116,13 +120,17 @@ Then:
    - Tick the AC checkboxes that passed
    - `status: Review`
 2. Roadmap mode: tick the task's checkbox in the roadmap file in this same PR. Never edit `workflow.statusDoc`; it is regenerated from the roadmap, not from task files.
-3. Lasting decisions (new dependency, pattern, schema convention, rejected approach) follow `workflow.decisions`:
-   - `append` (default): add a row to the **Decisions** log, using the ID prefix the table gives.
-   - `propose`: don't touch the log. List each one under **Follow-ups** in the PR body as "Candidate decision: …" for the owner to record.
-4. Archive other finished tasks (unless `workflow.archiveDone` is `false`): run `powershell -NoProfile -ExecutionPolicy Bypass -File .claude/scripts/archive-done.ps1`. It moves every Done task file still in `docs/tasks/` (tasks accepted by hand, or before archiving existed) and stages the renames. This task is in `Review`, so it stays put.
-5. Commit the close-out (see Names), including those renames. List each archived ID under **What** in the PR body: "Archived TASK-009, TASK-011 (Done; moved to `docs/tasks/archive/`)".
-6. If `workflow.openPullRequests` is true:
-   - Attended: ask once, "Push and open a draft PR?"
+3. **Follow-ups**, by `workflow.followUps` (default `apply`) and `classify.md`:
+   - Collect: the task file's `## Follow-ups` (from the plan gate and from Phase 2), anything a reviewer reported that was deliberately left out, and every lasting decision this task made (new dependency, pattern, schema convention, rejected approach) as a candidate decision.
+   - Classify each one: exactly one destination. A destination-1 item found now (small, in scope): attended, ask; on yes go back to Phase 2 for it and re-run Phases 3–5 (a plan revision). Unattended never widens the plan.
+   - Approvals (planning-doc updates; decisions when the decisions mode is `propose`): attended, ask in one message: the numbered list, then (if `workflow.openPullRequests`) "Push and open a draft PR?". Write the ones approved. With `review`, show every placement there, not only these, and write only what is approved. Unattended: queue them in the **Owner checklist**.
+   - Write the placements (none outside this task with `propose`). Task-file notes are headed with the branch name until the PR exists. Decision IDs come from `.claude/scripts/next-id.ps1`.
+   - Rewrite `## Follow-ups` in the task file as the final list: every bullet ends `→ <path> § <section>` or `→ not tracked: <reason>`.
+4. **Follow-ups check**: if step 3 changed any file besides this task file and its roadmap checkbox, delegate **spec-reviewer** with "Follow-ups check only: task file <path>; the changes are the uncommitted close-out (`git diff`, `git diff --staged`, `git status --porcelain`)." Fix what it flags (or drop that placement and mark the bullet `not tracked`, saying why), and re-check once.
+5. Archive other finished tasks (unless `workflow.archiveDone` is `false`): run `powershell -NoProfile -ExecutionPolicy Bypass -File .claude/scripts/archive-done.ps1`. It moves every Done task file still in `docs/tasks/` (tasks accepted by hand, or before archiving existed) and stages the renames. This task is in `Review`, so it stays put.
+6. Commit the close-out (see Names), including the follow-up placements and those renames. List each archived ID under **What** in the PR body: "Archived TASK-009, TASK-011 (Done; moved to `docs/tasks/archive/`)".
+7. If `workflow.openPullRequests` is true:
+   - Attended: ask once, "Push and open a draft PR?" (already asked with step 3's approvals, if it had any).
    - Unattended: proceed.
    - Push with `git push -u origin <task-branch>` (never the base branch, never force).
    - Create the PR with `gh pr create --draft --base <baseBranch> --title "<title>" --body-file <tmp>`. The title is a commit subject in `workflow.commitFormat` (e.g. `feat(TASK-014): show run progress`, or `task 1.3: parse bulk-entry labels`), because the squash merge keeps it. Put the temp file in the session temp directory, not the repo.
@@ -132,9 +140,10 @@ Then:
      - **Acceptance criteria**: in roadmap mode the roadmap Check first, verbatim; then the task file's ACs, ticked when verified.
      - **How it was verified**: a `Check | Where | Result` table. One row each for test-runner, test-auditor, and every reviewer that ran, then one row per ready gate (Phase 7), owner gates marked `owner`. Say which suites ran only in CI, and name anything that can only be checked after merge, why, and the exact check to run then. Screenshot names from ui-verifier.
      - **Manual verification**: the task's manual steps, each with its expected result.
-     - **Follow-ups**: work noticed and deliberately left out, as candidate tasks; candidate decisions when `workflow.decisions` is `propose`.
+     - **Follow-ups**: the task file's `## Follow-ups`, copied: every bullet ends `→ <path> § <section>` or `→ not tracked: <reason>`. Approvals queued in the **Owner checklist** say so. Review-finding IDs this PR addresses or opens.
      - **Reviewer checklist**: as in the template.
-7. If `workflow.openPullRequests` is false, report the proposed commit history and stop.
+   - **Link commit**: if a follow-up note names this branch, replace it with `PR #<number>` in every file the Follow-ups list points to, commit (Link subject), and push (`classify.md` § Link commit).
+8. If `workflow.openPullRequests` is false, report the proposed commit history and stop. Follow-up notes keep the branch name.
 
 ## Phase 7: Ready gates (only if a PR was opened and `workflow.waitForCi` is true)
 
@@ -160,7 +169,7 @@ If `workflow.waitForCi` is false, leave the PR in draft and list every gate in t
 - Reviewer verdicts, ready-gate results, and metrics
 - Manual verification steps with expected results
 - The owner's gates still to check, and the owner's next steps (from the **Owner checklist** or **Owner runbook**, if the task touches them). Never run runbook commands yourself.
-- Follow-up work you noticed, written as candidate tasks. Do not implement them.
+- Follow-ups: where each one went (one line each, as in the PR), and the approvals waiting in the **Owner checklist**. Do not implement them.
 - In unattended mode: `Reply "accepted" after your manual check to set status: Done and push.`
 - Last line, if `workflow.afterMerge` is set: that text, verbatim.
 
@@ -176,7 +185,8 @@ Never merge. Done means merged and accepted, not deployed.
 
 Use this when a round limit is hit, the plan is stale (unattended), or a check can't be resolved.
 
-1. Set `status: Blocked` and add a `## Blocked` section to the task file: what failed, what you tried, your best hypothesis, and what decision or input is needed.
-2. Commit all of this task's work (Blocked subject; stage by path as above).
-3. Unattended: push the branch and open a draft PR titled `[BLOCKED] <title>` so the work isn't lost.
-4. Report the same summary.
+1. Set `status: Blocked` and add a `## Blocked` section to the task file: what failed, what you tried, your best hypothesis, and what decision or input is needed. The blocker itself stays here, not in Follow-ups: it is this task's work.
+2. Place the follow-ups noticed so far, as in Phase 6 step 3 (attended: ask for approvals; unattended: queue them), so a task that never resumes doesn't lose them.
+3. Commit all of this task's work, the placements included (Blocked subject; stage by path as above).
+4. Unattended: push the branch and open a draft PR titled `[BLOCKED] <title>` so the work isn't lost. Its body has the blocker and the Follow-ups list; then the link commit.
+5. Report the same summary, with where each follow-up went.

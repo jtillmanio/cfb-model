@@ -2,7 +2,7 @@
 
 Personal sports-analytics app. A college football model makes game predictions, compares them to spreads (market and Splash pick'em contest lines), recommends picks, ranks teams (later also seasons, programs and coaches across history), projects seasons, and tracks its own record. Multi-sport later.
 
-**Status:** Phase 0 in progress. The walking skeleton is merged: Neon DB and migration `0001`, `/api/py/health` and `/teams`, CI and Vercel previews. Not built yet: auth, shadcn/ui, `release` and `backup` workflows, R2, Dependabot. Status lives in the `docs/06-roadmap.md` checklists.
+**Status:** Phase 0 in progress. The walking skeleton is merged: Neon DB and migration `0001`, `/api/py/health` and `/teams`, CI and Vercel previews. Not built yet: shadcn/ui, `release` and `backup` workflows, R2, Dependabot. Status lives in the `docs/06-roadmap.md` checklists.
 
 ## Where things are
 - `docs/01`–`07`: product, architecture, data model, model, UI brief, roadmap, Claude Design playbook. Read the relevant one before starting a phase task.
@@ -35,7 +35,7 @@ Every kit skill and agent reads this table to find project documents. Use `—` 
 | Review findings | — |
 | Deploy | — (the `release` workflow, once built) |
 | Owner runbook | — |
-| Owner checklist | — |
+| Owner checklist | `docs/owner-checklist.md` |
 
 Where to look inside these files:
 - **Product brief:** What we're building · Who it's for · What "good" looks like · Non-goals. **Features:** Feature index (F-01…; MVP = end of Phase 4).
@@ -109,6 +109,7 @@ Windows; commands also run under `cmd.exe /c` (the hooks do). `.claude/kit.json`
 
 ## Workflow
 - One task per session: `/implement-task TASK-###` or `/next-task`. No code before the task's `plan_status: approved`. Claude sets `Review`; only the user's "accepted" sets `Done`.
+- Work noticed and left out is a follow-up: it is written where the work that will do it will read it (another task's Context, the roadmap, the decisions log, an approved doc edit, the Owner checklist), per `workflow.followUps`, and the PR lists where each went.
 - Never hand-edit `docs/tasks/INDEX.md`; run `.claude/scripts/build-index.ps1`.
 - Done task files move to `docs/tasks/archive/` (`workflow.archiveDone`). `.claude/scripts/archive-done.ps1` moves every Done task, not only the current one, at each task's close-out and accept. It never runs on the base branch.
 - Post-edit check failures in the middle of a multi-file change are expected. Finish the change, then fix what still fails.

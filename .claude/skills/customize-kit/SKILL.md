@@ -1,6 +1,6 @@
 ---
 name: customize-kit
-description: One-time setup (or re-run after an upgrade) that tailors the Claude Code starter kit v2 to this project — kit.json, CLAUDE.md, rules, agent project files, permissions, ignore files, the /verify skill, and the GitHub workflow templates — from the real codebase. Detects a 2.3.x or 2.4.x configuration and proposes the upgrade to the installed version. Use only when the user runs /customize-kit or explicitly asks to customize, re-customize, or upgrade the kit.
+description: One-time setup (or re-run after an upgrade) that tailors the Claude Code starter kit v2 to this project — kit.json, CLAUDE.md, rules, agent project files, permissions, ignore files, the /verify skill, and the GitHub workflow templates — from the real codebase. Detects a 2.3.x, 2.4.x, or 2.5.x configuration and proposes the upgrade to the installed version. Use only when the user runs /customize-kit or explicitly asks to customize, re-customize, or upgrade the kit.
 ---
 
 # Customize the starter kit (v2)
@@ -20,10 +20,11 @@ Goal: every `{{...}}` placeholder and every empty `kit.json` value that applies 
 - Never put project text into a kit-owned file (`.claude/skills/<kit skill>/`, `.claude/hooks/`, `.claude/scripts/`, `docs/templates/`): `install-kit.ps1 -Upgrade` overwrites them. Project instructions for a kit skill or agent go in `.claude/project/<name>.md`. A project script goes in the project's own folder (e.g. `scripts/`), not in `.claude/scripts/`: the installer wouldn't overwrite it there, but it reads as a kit file and an uninstall removes it.
 - Never open an env file whole. To learn which variables exist, read `.env.example` or the code.
 
-## Phase 0: Upgrade from 2.3.x or 2.4.x (only when it applies)
+## Phase 0: Upgrade from 2.3.x, 2.4.x, or 2.5.x (only when it applies)
 
 Run this phase when `.claude/kit-version` is 2.4 or later and any of these hold; otherwise skip to Phase 1.
 
+- 2.6: `.claude/kit.json` has no `workflow.followUps` key.
 - 2.5: `.claude/kit.json` has no `workflow.archiveDone` key, or it isn't `false` and task files with `status: Done` sit in `docs/tasks/` outside `archive/`.
 
 - `.claude/kit.json` has no `workflow.staging`, `workflow.readyGates`, `largeFiles`, or `testAudit.runners` key.
@@ -37,7 +38,19 @@ Run this phase when `.claude/kit-version` is 2.4 or later and any of these hold;
 Then, reading `docs/claude-kit/UPGRADING.md` for the mapping:
 
 1. Merge `.kit-incoming/` first: keep the user's content, add the kit's new sections, keys, and rules. For agents, take the kit's body and keep the user's `model:` and `effort:` frontmatter. `.kit-incoming/.github/workflows/ci.yml` is the kit's unfilled template: never merge it into a filled-in `ci.yml`; only check that the project's CI keeps the parse step, `timeout-minutes`, `concurrency`, the job name, and test-database isolation. One-line summary per file.
-2. Build an upgrade table, one row per proposed change: what changes, why (the 2.4 item or the 2.5 change), the exact edit, and what text it lets you delete. From 2.4, only the 2.5 rows apply (UPGRADING.md § From 2.4 to 2.5): the `archiveDone` key; the `CLAUDE.md`, `git.md`, spec-reviewer, and PR-template lines; archiving the existing Done tasks with `archive-done.ps1` on the upgrade branch; and links or project files that read task file paths. From 2.3, cover all of these as well:
+2. Build an upgrade table, one row per proposed change: what changes, why (the 2.4 item, or the 2.5 or 2.6 change), the exact edit, and what text it lets you delete.
+   - From 2.5, only the 2.6 rows apply (UPGRADING.md § From 2.5 to 2.6):
+     - `kit.json`: `"followUps": "apply"` in `workflow` (or `review` / `propose` if the owner wants to see placements first). Say what candidate decisions will do: an explicit `workflow.decisions` keeps winning (`propose` now means Claude records a decision once the owner approves it); a missing one follows `followUps`.
+     - The **Owner checklist** role: if it is `—`, offer to create one from `docs/templates/owner-checklist.md` (approvals and owner actions are queued there) and add the row. If one exists, propose adding Actions and Approvals headings in its own style.
+     - `.claude/rules/git.md`: the follow-up placements paragraph after "One task per branch, one branch per PR", and the `→` sentence on the PR body.
+     - `spec-reviewer.md`: the follow-ups check (step 11), the "Follow-ups check only" mode, and the scope sentence. Keep `model:` and `effort:`.
+     - PR template: the Follow-ups comment and the two checklist lines.
+     - `CLAUDE.md`: the Workflow bullet on follow-ups.
+     - `settings.json`: allow `gh pr list *`, `gh pr view *`, and the kit's scripts (Phase 3).
+     - `.claude/project/*.md` files that say how follow-ups or candidate decisions are handled (e.g. "decisions are proposed, the owner adds them"): replace them with the switches, or keep them as the project's rule; they win.
+     - After merge, run `/track-follow-ups` once (it defaults to every PR since the kit was installed).
+   - From 2.4, the 2.5 rows as well (UPGRADING.md § From 2.4 to 2.5): the `archiveDone` key; the `CLAUDE.md`, `git.md`, spec-reviewer, and PR-template lines; archiving the existing Done tasks with `archive-done.ps1` on the upgrade branch; and links or project files that read task file paths.
+   - From 2.3, cover all of these as well:
    - new `kit.json` keys, with values derived from what the project already does (its git rules, CLAUDE.md overrides, CI, hosting);
    - settings: the staging deny rules, `PowerShell(...)` twins, the large-read hook, branch-prefix push rules, deploy-command denies, `Read(...)` denies for production env files;
    - project sections moved out of agent bodies into `.claude/project/<agent>.md`;
@@ -92,6 +105,7 @@ Then, reading `docs/claude-kit/UPGRADING.md` for the mapping:
 | `workflow.afterMerge` | The closing line when merging doesn't deploy, e.g. "After merge, run the Release workflow to put it live." Empty otherwise |
 | `workflow.allowForceWithLease` | `false` unless the project's git rules allow it after a rebase |
 | `workflow.archiveDone` | `true` (default). `false` only if the user wants Done task files kept in `docs/tasks/`, e.g. because other docs link to task file paths |
+| `workflow.followUps` | `apply` (default): follow-ups are written where the work will read them, in the PR that found them. `review` if the owner wants to approve every placement in the session first; `propose` to keep them in the PR body only |
 | `workflow.roadmap` / `workflow.statusDoc` | Only in roadmap-led mode (`/adopt` asks): `{ path, idPattern, checkLabel }`, and the status page regenerated from the roadmap |
 | `testAudit.testPathPatterns` | Adjust to this repo's test layout |
 | `testAudit.run` | The command that runs specific test files, with `{tests}`, when there is one runner |
@@ -112,7 +126,8 @@ Run every `verify.fast` and `verify.full` command, and each `testAudit` runner w
    - For each `verify.*` command and each `testAudit` run or setup command: `<command>` and `<command> *`
    - `git add *`, `git commit *`, `git checkout *`, `git switch *`, `git branch -m *`
    - `git push -u origin <prefix>*` for each `workflow.branchPrefixes` entry
-   - `gh pr create *`, `gh pr checks *`, `gh pr ready *`, `gh run view *`, and `gh workflow run *` / `gh run watch *` if a ready gate uses them
+   - `gh pr create *`, `gh pr checks *`, `gh pr ready *`, `gh pr list *`, `gh pr view *`, `gh run view *`, and `gh workflow run *` / `gh run watch *` if a ready gate uses them
+   - The kit's scripts the skills run: `powershell -NoProfile -ExecutionPolicy Bypass -File .claude/scripts/*`
    - Each `workflow.worktreeSetup` command
 2. Deny rules (deny overrides allow). Keep every existing one, then:
    - Make sure every `Bash(...)` deny rule has a `PowerShell(...)` twin. On Windows the PowerShell tool can otherwise push to the base branch.
@@ -156,6 +171,7 @@ Run every `verify.fast` and `verify.full` command, and each `testAudit` runner w
 ## Phase 6: Docs scaffolding
 
 1. Make sure `docs/tasks/_TEMPLATE.md` exists, and that the **Decisions** log exists at its mapped path; if it doesn't, create it from `docs/templates/decisions.md` with the role's ID prefix. Seed it with decisions already visible in the architecture doc, one row each, marked `(seeded)`.
+   If the **Owner checklist** role is `—`, offer one from `docs/templates/owner-checklist.md` (e.g. `docs/owner-checklist.md`): follow-ups that only the owner can do, or that wait for the owner's approval, are queued there. Without it, an unattended session can only leave them in the PR.
 2. Offer a **UX floor** from `docs/templates/ux-floor.md` if the project has a UI and no floor yet; add it to the Project docs table. Offer the **Review findings** templates (`docs/templates/review-protocol.md`, `review-ledger.md`) if the project runs independent review rounds.
 3. Run `.claude/scripts/build-index.ps1` to generate `INDEX.md`. It's git-ignored via `docs/tasks/.gitignore` and regenerated on demand.
 4. If a task list exists, offer `/new-task <path>`. Don't run it automatically.

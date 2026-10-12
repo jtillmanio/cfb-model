@@ -99,7 +99,7 @@ Inventory everything, citing paths:
      - proposed `ui.designFiles`, `ui.viewports`, `ui.auth` (if the app has a sign-in), and `ui.redrawFiles` (design files a UI task updates in the same PR)
      - `protectedPaths`, each with a reason: production env files, design sources exported from a design tool, the owner's source data, generated folders, vendored assets. **Not** migrations: recommend a CI migration check instead (a glob blocks a branch from regenerating its own unmerged migration; a list of applied files goes stale)
      - `largeFiles` entries and their hints
-     - the workflow switches the project needs: `staging`, `commitFormat`, `branchPrefixes`, `readyGates` (preview deploys, performance checks, workflow runs on the branch), `decisions`, `splitPolicy`, `afterMerge`, `allowForceWithLease`, `ciJobName`, `roadmap`, `statusDoc`, and `wipLimit` (1 if parallel worktrees would share a stateful test resource)
+     - the workflow switches the project needs: `staging`, `commitFormat`, `branchPrefixes`, `readyGates` (preview deploys, performance checks, workflow runs on the branch), `decisions`, `followUps`, `splitPolicy`, `afterMerge`, `allowForceWithLease`, `ciJobName`, `roadmap`, `statusDoc`, and `wipLimit` (1 if parallel worktrees would share a stateful test resource)
      - deploy, release, production-data, and destructive-reload commands to deny
      - 3–6 hard-rule candidates (e.g. "use design tokens; no hard-coded colors or spacing")
      - spec-reviewer and schema-reviewer project checks, for their `.claude/project/` files

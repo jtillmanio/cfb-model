@@ -64,7 +64,8 @@
     "allowForceWithLease": false,
     "roadmap": null,
     "statusDoc": "",
-    "archiveDone": true
+    "archiveDone": true,
+    "followUps": "apply"
   },
 
   "testAudit": {

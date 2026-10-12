@@ -4,7 +4,7 @@ Project section for `.claude/agents/ui-verifier.md`. The kit never ships or over
 
 ## Sign-in
 
-None yet (`ui.auth` is null). When GitHub sign-in lands, the dev server needs a dev-only sign-in that `ui.auth.steps` can drive; it must never reach production.
+GitHub sign-in is live (TASK-001), so every route except `/login` redirects there, but `ui.auth` is still null: a script can't sign in with GitHub, and the only session mint is e2e's, in the Playwright fixtures (D-090). Until TASK-010 gives the dev server a dev-only sign-in that `ui.auth.steps` can drive, verify only the `/login` states in the browser and report every signed-in criterion as `NOT RUN: no dev sign-in (TASK-010)`, not FAIL. The dev-only sign-in must never reach production.
 
 ## Data
 
