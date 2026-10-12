@@ -1,0 +1,24 @@
+# Placeholder for the release workflow (TASK-005). GitHub dispatches a workflow only when its file
+# exists on the default branch; with this stub on main, `gh workflow run release.yml --ref <branch>`
+# runs the branch's real file. TASK-005 replaces this file. It changes nothing.
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: Plan only. No snapshot, no migration, no promotion
+        type: boolean
+        default: true
+      commit:
+        description: Commit on main to release (default the newest ready build)
+        type: string
+        required: false
+
+permissions: {}
+
+jobs:
+  stub:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "Placeholder. The release workflow lands with TASK-005; nothing was changed."
