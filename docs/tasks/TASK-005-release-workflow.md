@@ -1,7 +1,7 @@
 ---
 id: TASK-005
 title: Add the release workflow that migrates, promotes and smoke-tests
-status: In progress
+status: Review
 depends_on: []
 size: M
 model: opus
@@ -32,12 +32,12 @@ Production changes only when the owner runs one `release` workflow: it picks a b
 
 ## Acceptance criteria
 
-- [ ] AC-1: The plan step is a tested Python function: given a list of deployments and CI results, it picks the newest ready production build whose commit is on `main` and refuses (non-zero exit, message naming the commit) when that commit's `verify` check didn't pass. Unit tests cover pass, failed CI, CI still running, and no ready build.
-- [ ] AC-2: The smoke check is a tested Python function: given a `/api/py/health` response, it fails when `commit` differs from the planned commit, `db_reachable` is false, or `migration_head` differs from the repo's single Alembic head, and names which one failed. Unit tests cover each case and the passing case.
-- [ ] AC-3: `.env.live` is read only through an explicit flag: `python -m db migrate --target live` refuses unless `--env-file .env.live` is passed (or the workflow passes the URL in the environment), and nothing reads `.env.live` implicitly. Unit tests in `python/db/tests/` cover the refusal and the explicit path.
-- [ ] AC-4: `.github/workflows/release.yml` has only a `workflow_dispatch` trigger, `concurrency: release` (no cancel-in-progress), `permissions` scoped per job, and runs in order: plan → Neon snapshot (only when Alembic reports pending migrations) → migrate with the unpooled URL and re-apply views → promote → smoke test against the production domain. Secrets reach steps only through `env:`.
+- [x] AC-1: The plan step is a tested Python function: given a list of deployments and CI results, it picks the newest ready production build whose commit is on `main` and refuses (non-zero exit, message naming the commit) when that commit's `verify` check didn't pass. Unit tests cover pass, failed CI, CI still running, and no ready build.
+- [x] AC-2: The smoke check is a tested Python function: given a `/api/py/health` response, it fails when `commit` differs from the planned commit, `db_reachable` is false, or `migration_head` differs from the repo's single Alembic head, and names which one failed. Unit tests cover each case and the passing case.
+- [x] AC-3: `.env.live` is read only through an explicit flag: `python -m db migrate --target live` refuses unless `--env-file .env.live` is passed (or the workflow passes the URL in the environment), and nothing reads `.env.live` implicitly. Unit tests in `python/db/tests/` cover the refusal and the explicit path.
+- [x] AC-4: `.github/workflows/release.yml` has only a `workflow_dispatch` trigger, `concurrency: release` (no cancel-in-progress), `permissions` scoped per job, and runs in order: plan → Neon snapshot (only when Alembic reports pending migrations) → migrate with the unpooled URL and re-apply views → promote → smoke test against the production domain. Secrets reach steps only through `env:`.
 - [ ] AC-5: With `dry_run: true`, a run on the branch (owner-approved) goes green and its job summary names the commit, the build, CI's result and the pending migrations (or "none"), and records that no snapshot was made, no migration ran and nothing was promoted.
-- [ ] AC-6: The README (or the doc the plan names) lists the workflow's secrets and the steps to run a release and to read a failed one.
+- [x] AC-6: The README (or the doc the plan names) lists the workflow's secrets and the steps to run a release and to read a failed one.
 
 ## Out of scope
 
@@ -63,11 +63,17 @@ Production changes only when the owner runs one `release` workflow: it picks a b
 
 ## Follow-ups
 
-- `CLAUDE.md` › Project docs: set the **Deploy** row to the `release` workflow; reword `workflow.afterMerge` in `.claude/kit.json` to name it (from #9, this task's Context) (approved at plan)
-- `docs/06-roadmap.md` › Phase 0: tick the `.env.live` item and the `release` item; the views item stays partial with only rebuild pending (approved at plan)
-- `docs/02-architecture.md` › Release & operations, step 5: the smoke test also asserts an unsigned `GET /api/py/teams` answers 401; name the snapshot branch `release/<YYYYMMDD-HHMM>-<sha7>` (approved at plan)
-- Candidate decision: how the release plans (Vercel REST deployments, GitHub check-runs for `verify` on the exact commit), snapshots (the Neon branch behind production's endpoint), and migrates (the planned commit's own `db migrate --target live`); D-018's `/api/health` is now `/api/py/health` (approved at plan)
-- Owner actions: confirm Vercel doesn't auto-promote `main` builds; confirm `LIVE=true` and `API_JWT_SECRET` in Vercel Production; prune old `release/*` Neon branches (approved at plan)
+- Set the **Deploy** row to the `release` workflow, and drop `release` from the Status line's "Not built yet" list in the same edit (from #9, this task's Context) → CLAUDE.md § Project docs (approved at plan)
+- Reword `workflow.afterMerge` to name the Release workflow instead of "not built yet" → .claude/kit.json § workflow.afterMerge (approved at plan)
+- The git rules' "Merging does not deploy" note says the `release` workflow is "not built yet" → docs/owner-checklist.md § Approvals
+- Tick the `.env.live` item and the `release` item; the views item stays partial with only rebuild pending → docs/06-roadmap.md § Phase 0 (approved at plan)
+- The smoke test also asserts an unsigned `GET /api/py/teams` answers 401; the snapshot branch is `release/<YYYYMMDD-HHMM>-<sha7>` → docs/02-architecture.md § Release & operations (approved at plan)
+- Candidate decision: how the release plans, snapshots, migrates and smoke-tests; D-018's `/api/health` is `/api/py/health` (D-018 marked "Amended by D-108") → docs/decisions.md § D-108 (approved at plan)
+- Confirm Vercel doesn't auto-promote `main` builds; confirm `LIVE=true` and `API_JWT_SECRET` in Vercel Production; prune old `release/*` Neon branches → docs/owner-checklist.md § Actions (approved at plan)
+- The deny rule `*--env-file .env.live*` in `.claude/settings.json` doesn't cover `--target live` with the URL in the environment, or a path spelled `..\.env.live` (spec review) → docs/owner-checklist.md § Approvals
+- The migrate job doesn't re-check production's head against what plan saw, so a manual live migration between plan and migrate could run migrations without a snapshot (schema review) → not tracked: accepted; manual live migrations are rare, the README marks them so, and `concurrency: release` serializes releases
+- The plan job reads production with its full-privilege URL, kept read-only by `SET TRANSACTION READ ONLY` (schema review) → not tracked: optional hardening (a read-only Neon role) with no current need
+- `docs/tasks/TASK-005` § Context's Owner prerequisites: every secret and variable already exists (checked with `gh secret list` / `gh variable list` on 2026-10-12) → not tracked: already done
 
 ## Plan
 
@@ -98,7 +104,8 @@ Approved 2026-10-12 (with A: stub workflow on `main` first; B: smoke asserts the
 
 ## Review log
 
-_Filled by /implement-task. One line per round._
+- Verify R1 PASS | Audit R1 PASS (new modules: fail to load on base) | Spec R1 APPROVE (AC-5 pending the branch dry run) | Schema R1 APPROVE (5 minor)
+- Review notes fixed in e05f6ec (branch guard, check-run order, `state=READY`, smoke timeouts, pooler case, summary leak in a test, `current_heads` on the test DB) → Verify R2 PASS
 
 ## Blocked
 
@@ -106,7 +113,7 @@ _Only if status is Blocked: what failed, what was tried, best hypothesis, decisi
 
 ## Metrics
 
-- Verify rounds:
-- Review rounds:
-- First-pass AC FAILs:
-- Plan revisions after approval:
+- Verify rounds: 2 (R1 PASS; R2 PASS after the review notes)
+- Review rounds: 1
+- First-pass AC FAILs: 0
+- Plan revisions after approval: 0
