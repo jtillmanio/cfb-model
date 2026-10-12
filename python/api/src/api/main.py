@@ -16,9 +16,10 @@ from fastapi import APIRouter, Depends, FastAPI
 from pydantic import BaseModel
 from sqlalchemy import Engine, text
 
-from api.auth import require_api_token
 from db.config import app_database_url, load_env
 from db.session import make_engine
+
+from .auth import require_api_token
 
 load_env()
 
