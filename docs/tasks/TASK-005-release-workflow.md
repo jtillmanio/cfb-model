@@ -1,14 +1,14 @@
 ---
 id: TASK-005
 title: Add the release workflow that migrates, promotes and smoke-tests
-status: Ready
+status: In progress
 depends_on: []
 size: M
 model: opus
 autonomy: attended
 ui: false
-plan_status: none
-planned_at_commit:
+plan_status: approved
+planned_at_commit: ef26c8a
 ---
 
 # TASK-005 — Add the release workflow that migrates, promotes and smoke-tests
@@ -61,9 +61,40 @@ Production changes only when the owner runs one `release` workflow: it picks a b
 - Automated: `python/db/tests/test_release.py`; `python/db/tests/test_db_config.py`; the dry-run workflow run on the branch (AC-5), once the owner approves it.
 - Manual: read the dry run's job summary → it names the latest green `main` commit and its build, and says nothing was changed. After merge, the owner runs a real release → the smoke step passes and `/api/py/health` on production shows the released commit.
 
+## Follow-ups
+
+- `CLAUDE.md` › Project docs: set the **Deploy** row to the `release` workflow; reword `workflow.afterMerge` in `.claude/kit.json` to name it (from #9, this task's Context) (approved at plan)
+- `docs/06-roadmap.md` › Phase 0: tick the `.env.live` item and the `release` item; the views item stays partial with only rebuild pending (approved at plan)
+- `docs/02-architecture.md` › Release & operations, step 5: the smoke test also asserts an unsigned `GET /api/py/teams` answers 401; name the snapshot branch `release/<YYYYMMDD-HHMM>-<sha7>` (approved at plan)
+- Candidate decision: how the release plans (Vercel REST deployments, GitHub check-runs for `verify` on the exact commit), snapshots (the Neon branch behind production's endpoint), and migrates (the planned commit's own `db migrate --target live`); D-018's `/api/health` is now `/api/py/health` (approved at plan)
+- Owner actions: confirm Vercel doesn't auto-promote `main` builds; confirm `LIVE=true` and `API_JWT_SECRET` in Vercel Production; prune old `release/*` Neon branches (approved at plan)
+
 ## Plan
 
-_Written by /plan-batch or /implement-task Phase 1. Approved by the user (plan_status: approved) before any code is written._
+Approved 2026-10-12 (with A: stub workflow on `main` first; B: smoke asserts the 401).
+
+**Decisions at the gate**
+- Plan: Vercel REST `GET /v6/deployments` (project, `target=production`, `state=READY`; commit from `meta.githubCommitSha`); `main`'s recent commits and the `verify` check-runs on the chosen commit from the GitHub API with `GITHUB_TOKEN`. The newest `verify` run must be completed with `success`. HTTP through stdlib `urllib` (no new dependency in `db`).
+- Inputs: `dry_run` (boolean, default true), `commit` (optional; full SHA or ≥ 7-character prefix).
+- Snapshot: Neon branch `release/<YYYYMMDD-HHMM>-<sha7>`, parent = the branch production's URL points at (endpoint `ep-…` from the host → its `branch_id`), no compute.
+- `.env.live` holds `PRODUCTION_DATABASE_URL_UNPOOLED` (the secret's name). `--target live` refuses unless that variable is set or `--env-file` names the file; never loads `.env.local`; refuses a `-pooler` host; `--env-file` is accepted only with `--target live`.
+- `workflow_dispatch` needs the file on `main`: a stub `release.yml` lands first (`chore/release-workflow-stub`), so the branch's real file can run with `gh workflow run release.yml --ref <branch> -f dry_run=true`.
+
+**Steps**
+1. `python/db/src/db/release.py`: pure `pick_deployment`, `require_ci_passed`, `pending_migrations`, `smoke_check` (health + unsigned-teams status), `snapshot_name`, `render_summary`; below them thin Vercel, GitHub and Neon clients.
+2. `python/db/src/db/config.py` + `__main__.py`: `live_url` / `--target live` / `--env-file`; `release plan|pending|snapshot|promote|smoke` writing `$GITHUB_OUTPUT` and `$GITHUB_STEP_SUMMARY`.
+3. `.github/workflows/release.yml`: `workflow_dispatch` only, `concurrency: {group: release, cancel-in-progress: false}`, top-level `permissions: {}`, per-job permissions. Jobs: plan (also checks out the planned commit into `target/`, reads pending migrations read-only from production, writes the summary and the dry-run line) → snapshot (`!dry_run && pending`) → migrate (`!dry_run`; checks out the planned commit; its own `db migrate --target live`, which re-applies views) → promote (Vercel promote API) → smoke (retries health up to ~5 min). Secrets only through `env:`.
+4. `README.md` "Releasing" (secrets, run, reading a failed run); `.env.example` names the `.env.live` variable.
+
+**Files**: `.github/workflows/release.yml` (new), `python/db/src/db/release.py` (new), `python/db/src/db/__main__.py`, `python/db/src/db/config.py`, `python/db/tests/test_release.py` (new), `python/db/tests/test_db_config.py`, `README.md`, `.env.example` (not in Files likely touched: names the `.env.live` variable). Close-out bookkeeping: `CLAUDE.md`, `.claude/kit.json`, `docs/06-roadmap.md`, `docs/02-architecture.md`, `docs/decisions.md`, `docs/owner-checklist.md`.
+
+**Test strategy**
+- AC-1: `test_release.py`: newest ready `main` build picked; builds not ready / not on `main` skipped; refuses failed CI, CI still running, no ready build (message names the commit); the CLI exits non-zero on a refusal.
+- AC-2: `test_release.py`: passing health; wrong commit; `db_reachable` false; wrong head (each names the field); the expected head is the repo's single real head.
+- AC-3: `test_db_config.py`: refuses without the flag or variable even with a `.env.live` at the repo root; the explicit `--env-file` and the environment path work; a pooled host is refused.
+- AC-4: review + the branch run. AC-5: the owner-approved dry run on the branch. AC-6: README.
+
+**Risks**: `migrate` runs the planned commit's own code, so a release can only pick commits that include this task. Snapshots count against Neon's branch limit (owner prunes). Promoting the build already live is a no-op.
 
 ## Review log
 
