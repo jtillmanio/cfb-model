@@ -232,6 +232,7 @@ def test_the_backup_installs_the_client_for_pg_major_from_pgdg():
 
 
 BACKUP_SECRETS = ("R2_ACCESS_KEY_ID", "R2_SECRET_ACCESS_KEY", "BACKUP_DATABASE_URL")
+BYPASS = "VERCEL_AUTOMATION_BYPASS_SECRET"  # shared with the Lighthouse job; not a backup secret
 
 
 def test_backup_secrets_appear_only_in_the_backup_workflow():
@@ -271,10 +272,18 @@ def test_the_backup_steps_run_in_order_and_the_upload_comes_last():
 
 def test_the_backup_reads_production_only_through_backup_database_url():
     code = re.sub(r"#.*", "", (WORKFLOWS / "backup.yml").read_text(encoding="utf-8"))
-    assert set(re.findall(r"secrets\.([A-Z0-9_]+)", code)) == set(BACKUP_SECRETS)
+    assert set(re.findall(r"secrets\.([A-Z0-9_]+)", code)) == {*BACKUP_SECRETS, BYPASS}
     assert "DATABASE_URL" not in code.replace("BACKUP_DATABASE_URL", "")
     restore_url = re.search(r"RESTORE_URL: (\S+)", code)
     assert restore_url and require_local(restore_url.group(1))
+
+
+def test_the_health_call_gets_past_vercels_deployment_protection():
+    # Production sits behind Vercel Authentication; without the header health is a login page.
+    code = re.sub(r"#.*", "", (WORKFLOWS / "backup.yml").read_text(encoding="utf-8"))
+    step = next(s for s in re.split(r"^      - ", code, flags=re.M) if "/api/py/health" in s)
+    assert f"{BYPASS}: ${{{{ secrets.{BYPASS} }}}}" in step
+    assert f'-H "x-vercel-protection-bypass: ${BYPASS}"' in step
 
 
 def test_the_backup_workflow_runs_nightly_and_on_demand_with_read_only_permissions():

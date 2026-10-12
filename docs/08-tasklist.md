@@ -98,6 +98,7 @@ _Written by `/milestones` on 2026-10-08 from [06-roadmap.md](06-roadmap.md). Eac
 | M1.8 → TASK-010 | Let the ui-verifier sign in to the local dev server | tooling | S | M1.1 | attended | Draft, from the kit 2.6 upgrade (`chore/kit-2.6`). `ui.auth` is null since sign-in shipped, so the ui-verifier stops at `/login`. Choose a dev-only sign-in or an agent-run mint (D-090, D-012); production stays GitHub-only |
 | M1.9 → TASK-011 | Add the test that forbids `<Link>` to `/api/` | web | S | — | attended | Draft, from #18 (TASK-007). `.claude/rules/web.md` says a test enforces it; none exists. `ledger` has `no-prefetched-handlers.test.ts` |
 | M1.10 → TASK-012 | Lint the scripts in `scripts/perf/` | tooling | S | — | attended | Draft, from #18 (TASK-007). `pnpm lint` covers `web/` and `python/` only |
+| M1.11 → TASK-013 | Send the Vercel bypass header from the release smoke test | ops | S | — | attended | Draft, from PR #27 (TASK-006). Production is behind Vercel Authentication, so `release smoke` without `x-vercel-protection-bypass` sees Vercel's login page, not health or the API's 401. Must land before the first real release |
 
 ## M2: Data pipeline (Phase 1) — MVP
 

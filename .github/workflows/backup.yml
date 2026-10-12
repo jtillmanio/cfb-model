@@ -67,13 +67,17 @@ jobs:
 
       # The views to re-apply are production's, not this ref's: main may hold a view for a
       # migration that isn't released yet, which production's schema can't run (D-109).
+      # Production is behind Vercel Authentication, so the call sends the automation bypass
+      # header (02 › Auth); without it health answers with Vercel's login page.
       - name: Find the commit production serves
         id: production
         env:
           PRODUCTION_URL: ${{ vars.PRODUCTION_URL }}
+          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
         run: |
           commit=$(curl -fsS --retry 5 --retry-all-errors --max-time 20 \
-            "${PRODUCTION_URL%/}/api/py/health" | jq -r '.commit // empty')
+            -H "x-vercel-protection-bypass: $VERCEL_AUTOMATION_BYPASS_SECRET" \
+            "${PRODUCTION_URL%/}/api/py/health" | jq -r '.commit // empty' 2>/dev/null || true)
           # Health says "unknown" when the build has no commit SHA; only a full SHA will do.
           if ! [[ "$commit" =~ ^[0-9a-f]{40}$ ]]; then
             echo "**Backup failed:** ${PRODUCTION_URL}/api/py/health didn't name a commit (got '${commit}'), so production's views are unknown." >> "$GITHUB_STEP_SUMMARY"

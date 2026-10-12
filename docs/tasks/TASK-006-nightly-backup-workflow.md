@@ -72,6 +72,7 @@ Every night the production database is dumped, proven restorable, and stored in 
 - Confirm the role in `BACKUP_DATABASE_URL` (`backup_reader`) is read-only and can read every table and sequence, now and future: `GRANT pg_read_all_data TO backup_reader` and nothing that writes (schema review R1: per-table grants miss new tables) → docs/owner-checklist.md § Actions (approved at plan)
 - CLAUDE.md's Status line still listed the `backup` workflow and R2 as not built; the backup workflow is built and only the R2 lake bucket is missing → CLAUDE.md § Status (approved at close-out)
 - `python/db/views/README.md` lists where views are re-applied; the backup's restore check also applies and queries them → not tracked: done in this PR (plan revision)
+- Production is behind Vercel Authentication; the release workflow's smoke step calls health and `/api/py/teams` without the `x-vercel-protection-bypass` header, so the first real release would fail at smoke (found by this task's branch run R1) → docs/tasks/TASK-013-release-smoke-bypass.md (new, Draft)
 - The 2 Alembic `path_separator` DeprecationWarnings in pytest predate this task → not tracked: unrelated to this task; harmless until an Alembic major removes the old option
 
 ## Plan
@@ -82,7 +83,7 @@ Approved 2026-10-12 (all of A–E as recommended; D = production's health commit
 - A. `PG_MAJOR` is set once, in a composite action `.github/actions/start-postgres/action.yml`: it exports `PG_MAJOR` to `$GITHUB_ENV`, pulls `postgres:$PG_MAJOR` with CI's registry fallback loop, and starts the container. `ci.yml` and `backup.yml` both use it; neither has a literal major. Amends D-099.
 - B. `python -m db backup dump` opens a `REPEATABLE READ READ ONLY` transaction, takes `pg_export_snapshot()`, runs `pg_dump -Fc --snapshot=<id>`, and counts every table in that same transaction, so production's counts match the dump exactly.
 - C. Object `backups/<UTC YYYY-MM-DD>.dump` (a same-day re-run replaces it); cron `30 7 * * *` (03:30 ET).
-- D. Views re-applied are those of the commit production serves (`commit` from `PRODUCTION_URL/api/py/health`), checked out into `target/` as the release does, so a merged-but-unreleased migration can't break the nightly backup. If health doesn't answer, the run fails loudly.
+- D. Views re-applied are those of the commit production serves (`commit` from `PRODUCTION_URL/api/py/health`), checked out into `target/` as the release does, so a merged-but-unreleased migration can't break the nightly backup. If health doesn't answer, the run fails loudly. Revised after branch run R1 (owner-approved): the call sends `x-vercel-protection-bypass` from `VERCEL_AUTOMATION_BYPASS_SECRET`, since production is behind Vercel Authentication.
 - E. "View tests" = every view in the restored database answers a full `SELECT` without error; zero views passes.
 
 **Steps**
@@ -104,7 +105,7 @@ Approved 2026-10-12 (all of A–E as recommended; D = production's health commit
 ## Review log
 
 - Verify R1 PASS → R2 PASS (after the review fixes) | Audit R1 CHANGES (AC-3 order, AC-4 production-only UNPROVEN) → R2 PASS | Spec R1 CHANGES (roadmap follow-up overreach; health "unknown" commit; AC-4 SPEC GAP, reworded by the owner) → R2 APPROVE (conditional on AC-5's branch run) | Schema R1 CHANGES (MAJOR: runbook `--clean` restore into the damaged branch; 5 MINOR) → R2 APPROVE | UI n/a
-- AC-5: the owner-approved branch run waits on stub PR #26 reaching `main` (ready gate "Changed workflow run on the branch").
+- AC-5 branch run R1 FAIL: the dump from production worked, but `/api/py/health` answered with Vercel's login page (production is behind Vercel Authentication). The owner chose to send the `x-vercel-protection-bypass` header (plan revision) → R2: see below.
 
 ## Blocked
 
@@ -115,4 +116,4 @@ _Only if status is Blocked: what failed, what was tried, best hypothesis, decisi
 - Verify rounds: 2 (R1 PASS; R2 PASS after the review fixes)
 - Review rounds: 2
 - First-pass AC FAILs: 0 (AC-5 pending its branch run)
-- Plan revisions after approval: 1 (the `views/README.md` line; the start-postgres/client step order was a note, not a change)
+- Plan revisions after approval: 2 (the `views/README.md` line; the health call's bypass header after branch run R1. The start-postgres/client step order was a note, not a change)
