@@ -1,7 +1,7 @@
 ---
 id: TASK-004
 title: Require a valid JWT on every API route except health
-status: In progress
+status: Review
 depends_on: [TASK-003]
 size: M
 model: opus
@@ -29,11 +29,11 @@ The API's public URL serves no data to anyone without a valid token from the web
 
 ## Acceptance criteria
 
-- [ ] AC-1: A test enumerates every route the app registers (`app.routes`) and asserts that each one except `GET /api/py/health` returns 401 without an `Authorization` header, so a route added later without the guard fails CI. This includes `/api/py/openapi.json`.
-- [ ] AC-2: Given a token that is expired, signed with another secret, signed with `alg: none`, missing `sub`, or carrying the wrong audience/issuer, `GET /api/py/teams` returns 401 and its body contains no team data (one test per case).
-- [ ] AC-3: Given a valid token, `GET /api/py/teams` returns the seeded fixture season (2026, "Ohio State · Big Ten") as before.
-- [ ] AC-4: With the shared secret unset in the API's environment, every gated route returns 401 (fail closed), while `GET /api/py/health` still returns 200 with `commit`, `db_reachable` and `migration_head` and nothing else.
-- [ ] AC-5: The 401 response doesn't echo the token or the secret (test asserts the body is a fixed message).
+- [x] AC-1: A test enumerates every route the app registers (`app.routes`) and asserts that each one except `GET /api/py/health` returns 401 without an `Authorization` header, so a route added later without the guard fails CI. This includes `/api/py/openapi.json`.
+- [x] AC-2: Given a token that is expired, signed with another secret, signed with `alg: none`, missing `sub`, or carrying the wrong audience/issuer, `GET /api/py/teams` returns 401 and its body contains no team data (one test per case).
+- [x] AC-3: Given a valid token, `GET /api/py/teams` returns the seeded fixture season (2026, "Ohio State · Big Ten") as before.
+- [x] AC-4: With the shared secret unset in the API's environment, every gated route returns 401 (fail closed), while `GET /api/py/health` still returns 200 with `commit`, `db_reachable` and `migration_head` and nothing else.
+- [x] AC-5: The 401 response doesn't echo the token or the secret (test asserts the body is a fixed message).
 
 ## Out of scope
 
@@ -56,7 +56,9 @@ The API's public URL serves no data to anyone without a valid token from the web
 
 ## Follow-ups
 
-- Candidate decision: the API verifies its JWT with PyJWT (HS256 only, required `exp`/`iat`/`sub`/`iss`/`aud`, 5 s leeway); the guard is a dependency on the router every gated route uses, health sits on its own open router, and FastAPI's built-in OpenAPI route is replaced by one behind the guard (approved at plan)
+- Candidate decision: the API verifies its JWT with PyJWT (HS256 only, required `exp`/`iat`/`sub`/`iss`/`aud`, 5 s leeway); the guard is a dependency on the router every gated route uses, health sits on its own open router, and FastAPI's built-in OpenAPI route is replaced by one behind the guard (approved at plan) → docs/decisions.md § D-107
+- Production needs `API_JWT_SECRET` before the first release with this guard, or every page's data call gets 401 while health still passes; the release smoke test could also assert an unsigned `/api/py/teams` is 401 → docs/tasks/TASK-005-release-workflow.md § Context
+- Unknown paths under `/api/py/*` still return 404 without a token → not tracked: accepted in the plan's Risks (nothing is served there)
 
 ## Plan
 
@@ -84,7 +86,7 @@ Approved 2026-10-12.
 
 ## Review log
 
-_Filled by /implement-task. One line per round._
+- Verify R1 PASS | Audit R1 PASS (AC-3 a regression guard by its wording) | Spec R1 APPROVE (advisory: absolute `api.auth` import may not resolve under Vercel's `src.api.main`; switched to a relative import) | Verify R2 PASS
 
 ## Blocked
 
@@ -92,7 +94,7 @@ _Only if status is Blocked: what failed, what was tried, best hypothesis, decisi
 
 ## Metrics
 
-- Verify rounds:
-- Review rounds:
-- First-pass AC FAILs:
-- Plan revisions after approval:
+- Verify rounds: 2 (R1 PASS; R2 PASS after the review advisory)
+- Review rounds: 1
+- First-pass AC FAILs: 0
+- Plan revisions after approval: 0
