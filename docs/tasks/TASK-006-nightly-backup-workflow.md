@@ -32,6 +32,7 @@ Every night the production database is dumped, proven restorable, and stored in 
   - Repository **secrets** `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `BACKUP_DATABASE_URL` (the read-only role's direct URL); **variables** `R2_ACCOUNT_ID`, `R2_BUCKET`.
   - Claude never edits secrets.
 - **Stop and ask:** the backup reads production. Running it on the branch (`gh workflow run backup.yml --ref <branch>`) needs the owner's go-ahead in the session.
+- *From #14 (Postgres from the ECR mirror):* if the restore runs in a container, pull it as `public.ecr.aws/docker/library/postgres:<PG_MAJOR>`, as `ci.yml` does; anonymous Docker Hub pulls from shared runners hit its rate limit.
 
 ## Acceptance criteria
 

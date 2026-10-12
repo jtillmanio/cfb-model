@@ -30,6 +30,9 @@ Every PR's preview is measured automatically: the PR gets one comment with the n
   - Claude never edits secrets.
 - Previews have no GitHub sign-in (D-102), so the minted session is the only way this job gets past `/login`.
 - `workflow.readyGates` includes "Changed workflow run on the branch": the PR's own preview triggers the workflow, and `gh workflow run lighthouse.yml --ref <branch> -f url=<preview>` re-runs it.
+- *From #9 (kit 2.4 upgrade):* once this workflow runs on previews, add a Lighthouse gate to `workflow.readyGates` in `.claude/kit.json` (budget green on the PR's preview, checked by Claude, with the workflow run as its failure log).
+- *From #18 (TASK-007):* notes for `measure.mjs`, from `ledger`: write Lighthouse's raw output outside the reports folder and delete it once read; rebuild the HTML from the scrubbed report; pass `--disable-full-page-screenshot`; key the npm cache on `scripts/perf/package-lock.json`; pass `AUTH_ALLOWED_GITHUB_ID` to `mint-session.mjs` through `env:`. That repository **variable** isn't in the owner prerequisites above and didn't exist on 2026-10-12 (`gh variable list`).
+- *From #18 (TASK-007), open question for the plan:* a tap → next-paint runner (`ledger` measures screen-to-screen navigation, not only cold loads). Neither `docs/02-architecture.md` nor D-101 plans it: include it here, or make it its own task?
 
 ## Acceptance criteria
 
