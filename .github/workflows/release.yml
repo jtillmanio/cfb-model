@@ -1,0 +1,175 @@
+# Puts a build live (D-018, docs/02-architecture.md › Release & operations). Merging never deploys:
+# Vercel builds every main commit without promoting it, and only this workflow changes production.
+#
+#   plan → snapshot (only with pending migrations) → migrate + views → promote → smoke test
+#
+# Schema goes first and code second, so old code briefly runs on the new schema, never the reverse.
+# Run it from the Actions tab or `gh workflow run release.yml` (dry run by default). The logic lives
+# in `python -m db release …` (python/db/src/db/release.py); README › Releasing says how to read a
+# failed run. Secrets reach steps only through `env:`.
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: Plan only. No snapshot, no migration, no promotion
+        type: boolean
+        default: true
+      commit:
+        description: Commit on main to release (default the newest ready build)
+        type: string
+        required: false
+
+# One release at a time, and a queued one never cancels a release half done.
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+permissions: {}
+
+env:
+  UV_FROZEN: "1"
+
+jobs:
+  plan:
+    name: plan
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read # main's commits
+      checks: read # CI's verify run on the planned commit
+    outputs:
+      commit: ${{ steps.plan.outputs.commit }}
+      deployment_id: ${{ steps.plan.outputs.deployment_id }}
+      head: ${{ steps.pending.outputs.head }}
+      pending: ${{ steps.pending.outputs.pending }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10.2.0
+        with:
+          enable-cache: true
+          cache-dependency-glob: python/uv.lock
+
+      - name: Pick the build and check CI passed on its commit
+        id: plan
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID }}
+          GITHUB_TOKEN: ${{ github.token }}
+          REQUESTED_COMMIT: ${{ inputs.commit }}
+        run: uv --directory python run --no-dev python -m db release plan --commit "$REQUESTED_COMMIT"
+
+      # The planned commit's own migrations decide what's pending, whichever ref runs this file.
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ steps.plan.outputs.commit }}
+          path: target
+          persist-credentials: false
+
+      - name: List the migrations production still needs (read-only)
+        id: pending
+        env:
+          PRODUCTION_DATABASE_URL_UNPOOLED: ${{ secrets.PRODUCTION_DATABASE_URL_UNPOOLED }}
+          DRY_RUN: ${{ inputs.dry_run }}
+        run: |
+          args=(--migrations "$GITHUB_WORKSPACE/target/python/db/migrations")
+          if [ "$DRY_RUN" = "true" ]; then args+=(--dry-run); fi
+          uv --directory python run --no-dev python -m db release pending "${args[@]}"
+
+  snapshot:
+    name: snapshot
+    needs: plan
+    if: ${{ !inputs.dry_run && needs.plan.outputs.pending != '' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10.2.0
+        with:
+          enable-cache: true
+          cache-dependency-glob: python/uv.lock
+      - name: Branch production in Neon
+        env:
+          NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+          NEON_PROJECT_ID: ${{ vars.NEON_PROJECT_ID }}
+          PRODUCTION_DATABASE_URL_UNPOOLED: ${{ secrets.PRODUCTION_DATABASE_URL_UNPOOLED }}
+          COMMIT: ${{ needs.plan.outputs.commit }}
+        run: uv --directory python run --no-dev python -m db release snapshot --commit "$COMMIT"
+
+  migrate:
+    name: migrate
+    needs: [plan, snapshot]
+    # Runs with nothing pending too: it re-applies the views. With migrations pending it needs the
+    # snapshot first. `!cancelled()` because a skipped snapshot would otherwise skip this job.
+    if: >-
+      ${{ !cancelled() && !inputs.dry_run && needs.plan.result == 'success'
+      && (needs.snapshot.result == 'success' || needs.plan.outputs.pending == '') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      # The planned commit's code and migrations, not this ref's.
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.plan.outputs.commit }}
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@v10.2.0
+        with:
+          enable-cache: true
+          cache-dependency-glob: python/uv.lock
+      - name: Migrate production (unpooled) and re-apply views
+        env:
+          PRODUCTION_DATABASE_URL_UNPOOLED: ${{ secrets.PRODUCTION_DATABASE_URL_UNPOOLED }}
+        run: uv --directory python run --no-dev python -m db migrate --target live
+
+  promote:
+    name: promote
+    needs: [plan, migrate]
+    if: ${{ !cancelled() && !inputs.dry_run && needs.migrate.result == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10.2.0
+        with:
+          enable-cache: true
+          cache-dependency-glob: python/uv.lock
+      - name: Point production's domains at the build
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID }}
+          DEPLOYMENT_ID: ${{ needs.plan.outputs.deployment_id }}
+        run: >-
+          uv --directory python run --no-dev python -m db release promote
+          --deployment-id "$DEPLOYMENT_ID"
+
+  smoke:
+    name: smoke
+    needs: [plan, promote]
+    if: ${{ !cancelled() && !inputs.dry_run && needs.promote.result == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10.2.0
+        with:
+          enable-cache: true
+          cache-dependency-glob: python/uv.lock
+      - name: Health on the production domain, and the API guard
+        env:
+          PRODUCTION_URL: ${{ vars.PRODUCTION_URL }}
+          COMMIT: ${{ needs.plan.outputs.commit }}
+          HEAD_REVISION: ${{ needs.plan.outputs.head }}
+        run: >-
+          uv --directory python run --no-dev python -m db release smoke
+          --url "$PRODUCTION_URL" --commit "$COMMIT" --head "$HEAD_REVISION"

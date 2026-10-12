@@ -68,6 +68,56 @@ pnpm build             # next build
 ```
 Every script runs from the repo root under `cmd.exe /c` too.
 
+## Releasing
+
+Merging to `main` doesn't deploy. Vercel builds every `main` commit without promoting it, and the
+**Release** workflow (`.github/workflows/release.yml`) is the only thing that changes production:
+
+1. **plan**: picks the newest ready Vercel production build for a commit on `main` (or the
+   `commit` you name), refuses unless CI's `verify` passed on that exact commit, and lists the
+   migrations production still needs (a read-only connection).
+2. **snapshot**: only when migrations are pending, creates the Neon branch
+   `release/<YYYYMMDD-HHMM>-<sha7>` from production's branch, as a restore point.
+3. **migrate**: runs the planned commit's `python -m db migrate --target live` on the unpooled URL,
+   then re-applies `python/db/views/*.sql`.
+4. **promote**: points production's domains at the planned build.
+5. **smoke**: `/api/py/health` on `PRODUCTION_URL` must report the planned commit, a reachable
+   database and the commit's migration head, and an unsigned `GET /api/py/teams` must answer 401.
+   It retries for about five minutes while the promotion reaches the domain.
+
+### Run a release
+```powershell
+gh workflow run release.yml                          # dry run: plan only, changes nothing
+gh workflow run release.yml -f dry_run=false         # the real release
+gh workflow run release.yml -f dry_run=false -f commit=<sha>   # a specific commit on main
+gh run watch                                         # follow it
+```
+Read the dry run's summary first: it names the commit, the build, CI's result and the pending
+migrations. Only one release runs at a time; a second one waits.
+
+### Read a failed run
+Open the run's **Summary**: a refused step writes **Refused:** and the reason there.
+
+| Failed job | What it means | What to do |
+|---|---|---|
+| plan | No ready build on `main`, CI didn't pass (or is still running) on that commit, or production is at a migration this commit doesn't know | Wait for CI or the Vercel build, or fix `main`; nothing changed |
+| snapshot | Neon refused the branch (often the branch limit) | Delete old `release/*` branches in Neon and re-run; nothing changed |
+| migrate | A migration failed partway | Production may be partly migrated; the summary names the snapshot branch to restore from. Old code is still live |
+| promote | Vercel refused the promotion | Schema is migrated, old code still serves; re-run once fixed (migrations are then already applied) |
+| smoke | The live site isn't the planned commit, can't reach the DB, is on another migration head, or serves data without a token | Check `API_JWT_SECRET` and `LIVE=true` in Vercel Production; roll back in Vercel (Instant Rollback) if needed |
+
+### What it needs
+Repository **secrets**: `VERCEL_TOKEN`, `NEON_API_KEY`, `PRODUCTION_DATABASE_URL_UNPOOLED`
+(production's direct, non-pooler URL). Repository **variables**: `VERCEL_ORG_ID`,
+`VERCEL_PROJECT_ID`, `NEON_PROJECT_ID`, `PRODUCTION_URL`. In Vercel: `main` builds aren't
+auto-promoted, and Production has `LIVE=true` and `API_JWT_SECRET`.
+
+To migrate production by hand (rare), put `PRODUCTION_DATABASE_URL_UNPOOLED=…` in the gitignored
+`.env.live` and name it explicitly; nothing reads that file otherwise:
+```powershell
+uv --directory python run python -m db migrate --target live --env-file ..\.env.live
+```
+
 ### Layout
 `web/` Next.js app · `python/` uv workspace: `db` (models, migrations, views, fixture),
 `engine` (CLI: ingest, seed), `api` (FastAPI) · `vercel.json` deploys `web` and `api` as one
