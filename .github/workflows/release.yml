@@ -45,6 +45,17 @@ jobs:
       head: ${{ steps.pending.outputs.head }}
       pending: ${{ steps.pending.outputs.pending }}
     steps:
+      # A real release runs main's release code; any other ref may only dry-run (testing a change
+      # to this workflow on its branch). The migrate job always runs the planned commit's own code.
+      - name: Only main may release
+        if: ${{ github.ref != 'refs/heads/main' && !inputs.dry_run }}
+        env:
+          REF: ${{ github.ref }}
+        run: |
+          echo "**Refused:** a real release must run from main, not $REF. Dry runs may run anywhere." >> "$GITHUB_STEP_SUMMARY"
+          echo "::error::A real release must run from main, not $REF"
+          exit 1
+
       - uses: actions/checkout@v7
       - uses: astral-sh/setup-uv@v10.2.0
         with:
@@ -156,7 +167,7 @@ jobs:
     needs: [plan, promote]
     if: ${{ !cancelled() && !inputs.dry_run && needs.promote.result == 'success' }}
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15 # above the smoke step's own retry limit, so it fails with its reason
     permissions:
       contents: read
     steps:

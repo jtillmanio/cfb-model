@@ -64,11 +64,11 @@ class CheckRun:
     name: str
     status: str  # queued | in_progress | completed
     conclusion: str | None  # success | failure | cancelled | … once completed
-    started_at: str  # ISO 8601, so it sorts
+    id: int  # GitHub assigns ids in creation order, so the highest is the newest run
 
     @classmethod
     def from_github(cls, r: Mapping[str, Any]) -> CheckRun:
-        return cls(r["name"], r["status"], r.get("conclusion"), r.get("started_at") or "")
+        return cls(r["name"], r["status"], r.get("conclusion"), int(r["id"]))
 
 
 # ─── Decisions ───────────────────────────────────────────────────────────────────────────────
@@ -105,7 +105,7 @@ def require_ci_passed(commit: str, runs: Sequence[CheckRun], name: str = CI_CHEC
     runs = [r for r in runs if r.name == name]
     if not runs:
         raise ReleaseRefused(f"CI's {name} never ran on {commit}.")
-    latest = max(runs, key=lambda r: r.started_at)
+    latest = max(runs, key=lambda r: r.id)
     if latest.status != "completed":
         raise ReleaseRefused(f"CI's {name} on {commit} is still running ({latest.status}).")
     if latest.conclusion != "success":
@@ -249,8 +249,8 @@ def _vercel_scope() -> dict[str, str]:
 def fetch_deployments() -> list[Deployment]:
     data = _call(
         "GET", f"{VERCEL}/v6/deployments", _need("VERCEL_TOKEN"),
-        params={"projectId": _need("VERCEL_PROJECT_ID"), "target": "production", "limit": 50,
-                **_vercel_scope()},
+        params={"projectId": _need("VERCEL_PROJECT_ID"), "target": "production", "state": "READY",
+                "limit": 50, **_vercel_scope()},
     )
     return [Deployment.from_vercel(d) for d in data["deployments"]]
 
@@ -298,12 +298,12 @@ def fetch_health(base_url: str) -> tuple[dict[str, Any], int]:
     """Production's health, and the status an unsigned data call gets."""
     base = base_url.rstrip("/")
     try:
-        with urlopen(Request(f"{base}/api/py/health"), timeout=30) as response:
+        with urlopen(Request(f"{base}/api/py/health"), timeout=10) as response:
             health = json.loads(response.read())
     except (HTTPError, OSError, ValueError) as e:
         health = {"commit": None, "db_reachable": None, "migration_head": None, "error": str(e)}
     try:
-        with urlopen(Request(f"{base}/api/py/teams"), timeout=30) as response:
+        with urlopen(Request(f"{base}/api/py/teams"), timeout=10) as response:
             status = response.status
     except HTTPError as e:
         status = e.code
@@ -417,6 +417,6 @@ def add_commands(subparsers: Any) -> None:
     p.add_argument("--url", required=True)
     p.add_argument("--commit", required=True)
     p.add_argument("--head", required=True)
-    p.add_argument("--attempts", type=int, default=20)
+    p.add_argument("--attempts", type=int, default=16)  # ~5 min, ≤ 9 min if every call times out
     p.add_argument("--interval", type=float, default=15.0)
     p.set_defaults(func=smoke)

@@ -93,14 +93,15 @@ gh workflow run release.yml -f dry_run=false -f commit=<sha>   # a specific comm
 gh run watch                                         # follow it
 ```
 Read the dry run's summary first: it names the commit, the build, CI's result and the pending
-migrations. Only one release runs at a time; a second one waits.
+migrations. Only one release runs at a time; a second one waits. A real release runs only from
+`main`; another ref (`--ref <branch>`) may only dry-run, for testing a change to the workflow.
 
 ### Read a failed run
 Open the run's **Summary**: a refused step writes **Refused:** and the reason there.
 
 | Failed job | What it means | What to do |
 |---|---|---|
-| plan | No ready build on `main`, CI didn't pass (or is still running) on that commit, or production is at a migration this commit doesn't know | Wait for CI or the Vercel build, or fix `main`; nothing changed |
+| plan | A real release started from a ref other than `main`, no ready build on `main`, CI didn't pass (or is still running) on that commit, or production is at a migration this commit doesn't know | Wait for CI or the Vercel build, or fix `main`; nothing changed |
 | snapshot | Neon refused the branch (often the branch limit) | Delete old `release/*` branches in Neon and re-run; nothing changed |
 | migrate | A migration failed partway | Production may be partly migrated; the summary names the snapshot branch to restore from. Old code is still live |
 | promote | Vercel refused the promotion | Schema is migrated, old code still serves; re-run once fixed (migrations are then already applied) |

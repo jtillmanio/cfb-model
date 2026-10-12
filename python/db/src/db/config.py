@@ -129,7 +129,7 @@ def live_url(env_file: Path | None, env: Mapping[str, str] | None = None) -> str
             f"--target live needs {LIVE_URL_VAR}: pass --env-file .env.live, or set it in the "
             "environment (the release workflow does). .env.live is never read implicitly."
         )
-    if (urlsplit(url).hostname or "").partition(".")[0].endswith("-pooler"):
+    if (urlsplit(url).hostname or "").lower().partition(".")[0].endswith("-pooler"):
         raise UnsafeDatabaseError(
             f"{LIVE_URL_VAR} is Neon's pooled host; migrations need the direct (unpooled) one."
         )

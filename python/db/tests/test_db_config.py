@@ -176,9 +176,10 @@ def test_live_target_refuses_a_missing_env_file(migrated, tmp_path):
     assert migrated == []
 
 
-def test_live_target_refuses_the_pooled_url():
+@pytest.mark.parametrize("url", [LIVE_POOLED, LIVE_POOLED.replace("-pooler", "-POOLER")])
+def test_live_target_refuses_the_pooled_url(url):
     with pytest.raises(UnsafeDatabaseError, match="pooled"):
-        live_url(None, {LIVE_URL_VAR: LIVE_POOLED})
+        live_url(None, {LIVE_URL_VAR: url})
 
 
 def test_env_file_is_only_for_the_live_target(migrated, tmp_path):

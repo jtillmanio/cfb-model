@@ -12,6 +12,7 @@ from db.release import (
     CheckRun,
     Deployment,
     ReleaseRefused,
+    current_heads,
     endpoint_id,
     pending_migrations,
     pick_deployment,
@@ -38,8 +39,8 @@ def build(commit: str, created: int, state: str = "READY", target: str | None = 
     )
 
 
-def run(status: str, conclusion: str | None, started: str = "2026-10-12T10:00:00Z", name="verify"):
-    return CheckRun(name=name, status=status, conclusion=conclusion, started_at=started)
+def run(status: str, conclusion: str | None, id: int = 10, name="verify"):
+    return CheckRun(name=name, status=status, conclusion=conclusion, id=id)
 
 
 # ─── AC-1: plan ───────────────────────────────────────────────────────────────────────────────
@@ -89,17 +90,17 @@ def test_refuses_a_requested_commit_shorter_than_seven_characters():
 
 def test_ci_passes_when_the_latest_verify_run_succeeded():
     runs = [
-        run("completed", "failure", "2026-10-12T09:00:00Z"),
-        run("completed", "success", "2026-10-12T10:00:00Z"),
-        run("completed", "failure", "2026-10-12T11:00:00Z", name="lighthouse"),
+        run("completed", "failure", 1),
+        run("completed", "success", 2),
+        run("completed", "failure", 3, name="lighthouse"),
     ]
     assert require_ci_passed(C1, runs) == "success"
 
 
 def test_ci_refuses_a_failed_verify_run_and_names_the_commit():
     runs = [
-        run("completed", "success", "2026-10-12T09:00:00Z"),
-        run("completed", "failure", "2026-10-12T10:00:00Z"),
+        run("completed", "success", 1),
+        run("completed", "failure", 2),
     ]
     with pytest.raises(ReleaseRefused, match=f"{C1}.*failure"):
         require_ci_passed(C1, runs)
@@ -110,12 +111,22 @@ def test_ci_refuses_while_verify_is_still_running():
         require_ci_passed(C1, [run("in_progress", None)])
 
 
+def test_ci_refuses_while_a_newer_rerun_is_queued():
+    # A queued run has no start time yet; it's still the newest, so CI hasn't settled.
+    runs = [run("completed", "success", 1), run("queued", None, 2)]
+    with pytest.raises(ReleaseRefused, match=f"{C1}.*still running"):
+        require_ci_passed(C1, runs)
+
+
 def test_ci_refuses_when_verify_never_ran():
     with pytest.raises(ReleaseRefused, match=f"{C1}"):
         require_ci_passed(C1, [run("completed", "success", name="lighthouse")])
 
 
 def test_plan_command_exits_non_zero_and_names_the_commit_when_ci_failed(monkeypatch, capsys):
+    # Under CI these point at the real job's files; the refusal must not write into them.
+    monkeypatch.delenv("GITHUB_OUTPUT", raising=False)
+    monkeypatch.delenv("GITHUB_STEP_SUMMARY", raising=False)
     monkeypatch.setattr(release, "fetch_deployments", lambda: [build(C2, 300)])
     monkeypatch.setattr(release, "fetch_main_commits", lambda branch: MAIN)
     monkeypatch.setattr(release, "fetch_check_runs", lambda sha: [run("completed", "failure")])
@@ -178,6 +189,11 @@ def test_smoke_fails_when_the_api_answers_without_a_token():
 
 def test_the_expected_head_is_the_repos_single_alembic_head():
     assert [single_head(script_directory())] == heads()
+
+
+def test_current_heads_reads_the_migrated_databases_head(test_db_url):
+    # The same read the plan job makes of production, here on the migrated test DB.
+    assert current_heads(test_db_url) == tuple(heads())
 
 
 # ─── Pending migrations and the snapshot ──────────────────────────────────────────────────────
