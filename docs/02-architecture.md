@@ -170,10 +170,10 @@ The engine treats the lake location as config (`LAKE_URI=./data` or `s3://cfb-la
 **Merging is not deploying.** Vercel builds every commit on `main` but doesn't promote it. A manual `release` workflow (`workflow_dispatch`, `concurrency: release`, with a dry-run input) puts a build live:
 
 1. **Plan:** pick the newest ready production build for a commit on `main`, and refuse unless CI passed on that exact commit.
-2. **Snapshot:** create a Neon branch of production, if there are migrations to apply.
+2. **Snapshot:** create a Neon branch of production, `release/<YYYYMMDD-HHMM>-<sha7>`, if there are migrations to apply.
 3. **Migrate** (Alembic, unpooled URL) from that commit's migrations, then **re-apply SQL views**.
 4. **Promote** the staged build.
-5. **Smoke test** `/api/py/health` on the production domain: right commit, DB reachable, expected migration head.
+5. **Smoke test** `/api/py/health` on the production domain: right commit, DB reachable, expected migration head. An unsigned `GET /api/py/teams` must also answer 401, so a build without the API guard (or its `API_JWT_SECRET`) can't pass (D-107).
 
 Schema goes first and code second, so old code briefly runs on the new schema, never the reverse.
 

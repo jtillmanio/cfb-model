@@ -1,10 +1,16 @@
 """The test-DB guard and the LIVE guard (docs/02-architecture.md › Environments & databases)."""
 
+import os
+
 import pytest
 
+from db.__main__ import main
 from db.config import (
+    LIVE_URL_VAR,
     UnsafeDatabaseError,
     app_database_url,
+    live_url,
+    load_env,
     preview_migration_url,
     refuse_if_live,
     resolve_test_database_url,
@@ -113,3 +119,70 @@ def test_preview_migration_returns_the_preview_branch_url():
         "PRODUCTION_DATABASE_HOST": PROD_HOST,
     }
     assert preview_migration_url(env) == PREVIEW_DIRECT
+
+
+# Production is migrated only through --target live, whose URL comes from an explicit
+# --env-file .env.live or the release workflow's environment, never implicitly (D-015, TASK-005).
+LIVE_DIRECT = f"postgresql://u:p@{PROD_HOST}/neondb?sslmode=require"
+LIVE_POOLED = "postgresql://u:p@ep-prod-9-pooler.c-6.us-east-2.aws.neon.tech/neondb"
+
+
+@pytest.fixture
+def migrated(monkeypatch, tmp_path):
+    """Run `python -m db` with the repo root in tmp_path and `upgrade` recorded, not run."""
+    import db.__main__ as cli
+    import db.config as config
+
+    monkeypatch.setattr(config, "_REPO_ROOT", tmp_path)
+    monkeypatch.delenv(LIVE_URL_VAR, raising=False)
+    urls: list[str] = []
+    monkeypatch.setattr(cli, "upgrade", urls.append)
+    return urls
+
+
+def test_live_target_refuses_without_the_flag_even_when_env_live_exists(migrated, tmp_path):
+    (tmp_path / ".env.live").write_text(f"{LIVE_URL_VAR}={LIVE_DIRECT}\n", encoding="utf-8")
+    with pytest.raises(UnsafeDatabaseError, match="--env-file"):
+        main(["migrate", "--target", "live"])
+    assert migrated == []
+
+
+def test_load_env_never_reads_env_live(monkeypatch, tmp_path):
+    import db.config as config
+
+    monkeypatch.setattr(config, "_REPO_ROOT", tmp_path)
+    monkeypatch.delenv(LIVE_URL_VAR, raising=False)
+    (tmp_path / ".env.live").write_text(f"{LIVE_URL_VAR}={LIVE_DIRECT}\n", encoding="utf-8")
+    load_env()
+    assert LIVE_URL_VAR not in os.environ
+
+
+def test_live_target_reads_the_url_from_an_explicit_env_file(migrated, tmp_path):
+    env_file = tmp_path / ".env.live"
+    env_file.write_text(f"{LIVE_URL_VAR}={LIVE_DIRECT}\n", encoding="utf-8")
+    main(["migrate", "--target", "live", "--env-file", str(env_file)])
+    assert migrated == [LIVE_DIRECT]
+
+
+def test_live_target_reads_the_url_the_workflow_passes_in_the_environment(migrated, monkeypatch):
+    monkeypatch.setenv(LIVE_URL_VAR, LIVE_DIRECT)
+    main(["migrate", "--target", "live"])
+    assert migrated == [LIVE_DIRECT]
+
+
+def test_live_target_refuses_a_missing_env_file(migrated, tmp_path):
+    with pytest.raises(UnsafeDatabaseError, match="doesn't exist"):
+        main(["migrate", "--target", "live", "--env-file", str(tmp_path / "nope")])
+    assert migrated == []
+
+
+@pytest.mark.parametrize("url", [LIVE_POOLED, LIVE_POOLED.replace("-pooler", "-POOLER")])
+def test_live_target_refuses_the_pooled_url(url):
+    with pytest.raises(UnsafeDatabaseError, match="pooled"):
+        live_url(None, {LIVE_URL_VAR: url})
+
+
+def test_env_file_is_only_for_the_live_target(migrated, tmp_path):
+    with pytest.raises(SystemExit):
+        main(["migrate", "--target", "dev", "--env-file", str(tmp_path / ".env.live")])
+    assert migrated == []

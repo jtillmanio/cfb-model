@@ -99,6 +99,6 @@ Rebase a branch on the base only when it conflicts or is stale enough to matter.
 
 - **Branch prefixes** (`workflow.branchPrefixes`): `feat/` new behaviour, `fix/` a bug, `chore/` tooling, CI, dependencies and config, `docs/` docs only, `model/` model experiments. Task branches take the prefix that fits the task (`workflow.taskBranch` is `{type}/{id}-{slug}`).
 - **Every fix or feature needs a test that fails without the change.** Show it failing on the old code first. A test written afterward that passes immediately proves nothing.
-- **Merging does not deploy.** Vercel builds every commit on `main` but doesn't promote it; production changes go out only through the `release` workflow (not built yet; roadmap Phase 0).
+- **Merging does not deploy.** Vercel builds every commit on `main` but doesn't promote it; production changes go out only through the `release` workflow (`.github/workflows/release.yml`, README › Releasing), which the owner runs.
 - **No branch protection is available on this repository** (a free private repo: rulesets return 403). These rules and the settings deny rules are the only guard.
 - **Never commit** `.env` or any `.env.*` except `.env.example` (`.env.live` holds the production URL), the local data lake under `/data/`, or `*.duckdb` files.

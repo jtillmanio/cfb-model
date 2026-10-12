@@ -2,7 +2,7 @@
 
 Personal sports-analytics app. A college football model makes game predictions, compares them to spreads (market and Splash pick'em contest lines), recommends picks, ranks teams (later also seasons, programs and coaches across history), projects seasons, and tracks its own record. Multi-sport later.
 
-**Status:** Phase 0 in progress. The walking skeleton is merged: Neon DB and migration `0001`, `/api/py/health` and `/teams`, CI and Vercel previews. Not built yet: shadcn/ui, `release` and `backup` workflows, R2, Dependabot. Status lives in the `docs/06-roadmap.md` checklists.
+**Status:** Phase 0 in progress. The walking skeleton is merged: Neon DB and migration `0001`, `/api/py/health` and `/teams`, CI and Vercel previews. The `release` workflow is built (TASK-005). Not built yet: shadcn/ui, the `backup` workflow, R2, Dependabot. Status lives in the `docs/06-roadmap.md` checklists.
 
 ## Where things are
 - `docs/01`–`07`: product, architecture, data model, model, UI brief, roadmap, Claude Design playbook. Read the relevant one before starting a phase task.
@@ -33,7 +33,7 @@ Every kit skill and agent reads this table to find project documents. Use `—` 
 | Tasks | `docs/tasks/` (fixed; Done tasks in `docs/tasks/archive/`) |
 | Decisions | `docs/decisions.md` (IDs `D-###`) |
 | Review findings | — |
-| Deploy | — (the `release` workflow, once built) |
+| Deploy | `.github/workflows/release.yml` (README › Releasing); the owner runs it |
 | Owner runbook | — |
 | Owner checklist | `docs/owner-checklist.md` |
 
