@@ -1,7 +1,7 @@
 ---
 id: TASK-007
 title: Build the Lighthouse gate logic, report and session minting with tests
-status: Review
+status: Done
 depends_on: [TASK-001]
 size: M
 model: opus
