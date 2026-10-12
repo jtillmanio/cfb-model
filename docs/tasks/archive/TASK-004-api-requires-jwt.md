@@ -1,7 +1,7 @@
 ---
 id: TASK-004
 title: Require a valid JWT on every API route except health
-status: Review
+status: Done
 depends_on: [TASK-003]
 size: M
 model: opus
