@@ -22,9 +22,6 @@ jobs:
     timeout-minutes: 20
 
     env:
-      # Set once, here (D-017, D-099); the backup workflow reads the same value when it lands.
-      # Postgres starts in a step, not `services:`, because a service image can't read `env`.
-      PG_MAJOR: "18"
       # Tests, the fixture seed and e2e read only this (the test-DB guard). No DATABASE_URL in CI.
       TEST_DATABASE_URL: postgresql://ci:ci@localhost:5432/cfb_test
       # The e2e API's port (web/playwright.config.ts). next.config bakes the /api/py rewrite at
@@ -43,34 +40,12 @@ jobs:
         shell: pwsh
         run: ./.claude/scripts/build-index.ps1
 
-      # The official image, from the first registry that answers: anonymous pulls from shared
-      # runner IPs hit rate limits ("toomanyrequests") on Docker Hub and, at times, on AWS's
-      # mirror too, failing the job before any test runs. All three serve the same image.
-      - name: Start Postgres ${{ env.PG_MAJOR }}
-        run: |
-          image=""
-          for attempt in 1 2 3; do
-            for registry in public.ecr.aws/docker mirror.gcr.io docker.io; do
-              if docker pull -q "${registry}/library/postgres:${PG_MAJOR}"; then
-                image="${registry}/library/postgres:${PG_MAJOR}"
-                break 2
-              fi
-            done
-            sleep $((attempt * 20))
-          done
-          if [ -z "$image" ]; then
-            echo "::error::Couldn't pull postgres:${PG_MAJOR} from any registry"
-            exit 1
-          fi
-          echo "Pulled ${image}"
-          docker run -d --name pg -p 5432:5432 \
-            -e POSTGRES_USER=ci -e POSTGRES_PASSWORD=ci -e POSTGRES_DB=cfb_test "$image"
-          for _ in $(seq 1 30); do
-            docker exec pg pg_isready -U ci -d cfb_test && exit 0
-            sleep 2
-          done
-          docker logs pg
-          exit 1
+      # Sets PG_MAJOR, the one value CI and the backup share (D-109), and starts postgres:PG_MAJOR
+      # with a registry fallback. A step, not `services:`, because a service image can't read env.
+      - name: Start Postgres
+        uses: ./.github/actions/start-postgres
+        with:
+          database: cfb_test
 
       # setup-uv publishes exact version tags only (no floating major).
       - uses: astral-sh/setup-uv@v10.2.0

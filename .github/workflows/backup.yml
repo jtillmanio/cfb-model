@@ -1,0 +1,118 @@
+# Nightly backup of the production database (D-019, D-109, docs/02-architecture.md › Release &
+# operations › Backups). Nothing is uploaded until the dump has been restored and checked:
+#
+#   pg_dump (read-only role) → restore into postgres:PG_MAJOR → re-apply views → query each view
+#   → compare row counts with production's (same snapshot as the dump) → upload to R2 backups/
+#
+# Any failed step ends the job before the upload, so a bad dump is never stored. The logic lives in
+# `python -m db backup …` (python/db/src/db/backup.py). docs/runbooks/restore.md restores a dump;
+# README › Backups says how to read a failed run. Secrets reach steps only through `env:`.
+name: Backup
+
+on:
+  schedule:
+    # 07:30 UTC = 03:30 ET (02:30 in winter): after Saturday's late games, before Sunday's results
+    # job, and within the 24-hour recovery point (D-092). Scheduled runs can start late.
+    - cron: "30 7 * * *"
+  workflow_dispatch:
+
+# One backup at a time; a second one waits rather than cancelling a dump half done.
+concurrency:
+  group: backup
+  cancel-in-progress: false
+
+# Read-only to GitHub. R2 is written with its own bucket-scoped token, not GitHub's.
+permissions:
+  contents: read
+
+env:
+  UV_FROZEN: "1"
+  RESTORE_URL: postgresql://ci:ci@localhost:5432/restore
+
+jobs:
+  backup:
+    name: backup
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+
+      # Also sets PG_MAJOR (D-109), which the client below must match.
+      - name: Start Postgres for the restore
+        uses: ./.github/actions/start-postgres
+        with:
+          database: restore
+
+      - name: PostgreSQL client for PG_MAJOR from PGDG
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q postgresql-common
+          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
+          sudo apt-get install -y -q "postgresql-client-${PG_MAJOR}"
+          echo "/usr/lib/postgresql/${PG_MAJOR}/bin" >> "$GITHUB_PATH"
+      - run: pg_dump --version && pg_restore --version
+
+      - uses: astral-sh/setup-uv@v10.2.0
+        with:
+          enable-cache: true
+          cache-dependency-glob: python/uv.lock
+
+      - name: Dump production and count its rows in the same snapshot
+        id: dump
+        env:
+          BACKUP_DATABASE_URL: ${{ secrets.BACKUP_DATABASE_URL }}
+        run: >-
+          uv --directory python run --no-dev python -m db backup dump
+          --out "$RUNNER_TEMP/backup.dump" --counts "$RUNNER_TEMP/counts.json"
+
+      # The views to re-apply are production's, not this ref's: main may hold a view for a
+      # migration that isn't released yet, which production's schema can't run (D-109).
+      - name: Find the commit production serves
+        id: production
+        env:
+          PRODUCTION_URL: ${{ vars.PRODUCTION_URL }}
+        run: |
+          commit=$(curl -fsS --retry 5 --retry-all-errors --max-time 20 \
+            "${PRODUCTION_URL%/}/api/py/health" | jq -r '.commit // empty')
+          if [ -z "$commit" ]; then
+            echo "**Backup failed:** ${PRODUCTION_URL}/api/py/health didn't name a commit, so production's views are unknown." >> "$GITHUB_STEP_SUMMARY"
+            echo "::error::No commit from ${PRODUCTION_URL}/api/py/health"
+            exit 1
+          fi
+          echo "Production serves ${commit}"
+          echo "commit=${commit}" >> "$GITHUB_OUTPUT"
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ steps.production.outputs.commit }}
+          path: target
+          sparse-checkout: python/db/views
+          persist-credentials: false
+
+      - name: Restore the dump into the container
+        run: >-
+          pg_restore --no-owner --no-privileges --exit-on-error
+          --dbname "$RESTORE_URL" "$RUNNER_TEMP/backup.dump"
+
+      - name: Re-apply views, query each one, compare row counts
+        run: >-
+          uv --directory python run --no-dev python -m db backup verify
+          --restored-url "$RESTORE_URL" --counts "$RUNNER_TEMP/counts.json"
+          --dump "$RUNNER_TEMP/backup.dump" --views "$GITHUB_WORKSPACE/target/python/db/views"
+
+      # R2 is S3-compatible. Its region is "auto", and it rejects the CLI's default checksum
+      # headers, so checksums are sent only when an operation requires them.
+      - name: Upload to R2
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+          AWS_REQUEST_CHECKSUM_CALCULATION: when_required
+          AWS_RESPONSE_CHECKSUM_VALIDATION: when_required
+          R2_ACCOUNT_ID: ${{ vars.R2_ACCOUNT_ID }}
+          R2_BUCKET: ${{ vars.R2_BUCKET }}
+          KEY: ${{ steps.dump.outputs.key }}
+          PROD_COMMIT: ${{ steps.production.outputs.commit }}
+        run: |
+          aws s3 cp "$RUNNER_TEMP/backup.dump" "s3://${R2_BUCKET}/${KEY}" --no-progress \
+            --endpoint-url "https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com"
+          echo "Uploaded \`${KEY}\` to \`${R2_BUCKET}\` (production at \`${PROD_COMMIT}\`)." >> "$GITHUB_STEP_SUMMARY"

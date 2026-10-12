@@ -13,6 +13,7 @@ A college football prediction model and web app: game predictions, picks against
 | [06 — Roadmap](docs/06-roadmap.md) | Phases, acceptance criteria, open questions |
 | [07 — Claude Design playbook](docs/07-claude-design-playbook.md) | Prompts, review checks and handoff for the UI design |
 | [Decisions](docs/decisions.md) | Settled decisions, each with its source |
+| [Restore runbook](docs/runbooks/restore.md) | Getting production's database back from a nightly backup |
 
 ## Stack
 Python (uv, DuckDB, scikit-learn, FastAPI) · Next.js + Tailwind + shadcn/ui · Postgres (Neon) · Parquet on Cloudflare R2 · GitHub Actions · Vercel
@@ -119,7 +120,48 @@ To migrate production by hand (rare), put `PRODUCTION_DATABASE_URL_UNPOOLED=…`
 uv --directory python run python -m db migrate --target live --env-file ..\.env.live
 ```
 
-### Layout
+## Backups
+
+The **Backup** workflow (`.github/workflows/backup.yml`) runs nightly at 07:30 UTC and stores a
+dump only after proving it restores:
+
+1. **dump**: `pg_dump` of production through `BACKUP_DATABASE_URL` (a read-only role), and an exact
+   row count of every table taken in the same snapshot as the dump.
+2. **restore**: `pg_restore` into a `postgres:PG_MAJOR` container on the runner.
+3. **verify**: re-applies the views of the commit production serves (from `/api/py/health`),
+   queries each view, and compares row counts with production's.
+4. **upload**: to R2 as `backups/<UTC date>.dump`. A re-run the same day replaces that day's dump.
+
+`PG_MAJOR` is set in one place, `.github/actions/start-postgres/action.yml`, which CI uses too.
+To restore a dump, follow [docs/runbooks/restore.md](docs/runbooks/restore.md).
+
+### Run one by hand
+```powershell
+gh workflow run backup.yml
+gh run watch
+```
+The run's **Summary** lists each table's row count in production and in the restore, the views
+queried, the dump size and the object it uploaded.
+
+### Read a failed run
+A failed step writes **Backup failed:** and the reason in the Summary. Nothing was uploaded, and
+the previous nights' dumps are untouched.
+
+| Failed step | What it means | What to do |
+|---|---|---|
+| Dump production | `BACKUP_DATABASE_URL` is unset, pooled, or can't read a table; or `pg_dump` failed | Check the secret is `backup_reader`'s direct URL, and that the role can read every table |
+| Find the commit production serves | `/api/py/health` on `PRODUCTION_URL` didn't answer or named no commit | Check the site is up; re-run once it is |
+| Restore the dump | The dump has something a plain Postgres can't restore | Read the `pg_restore` error; production is unaffected |
+| Re-apply views… | A view fails on production's data, or a table's counts differ | The summary names the view or table; a mismatch means the dump isn't trustworthy |
+| Upload to R2 | The R2 token, bucket or account is wrong | Check `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_ACCOUNT_ID`, `R2_BUCKET` |
+
+### What it needs
+Repository **secrets**: `BACKUP_DATABASE_URL` (the read-only `backup_reader` role's direct URL on
+production), `R2_ACCESS_KEY_ID` and `R2_SECRET_ACCESS_KEY` (an R2 token with Object Read & Write on
+the backup bucket only). Repository **variables**: `R2_ACCOUNT_ID`, `R2_BUCKET` (`cfb-backups`, a
+bucket of its own, never the lake's), and `PRODUCTION_URL` (shared with the release workflow).
+
+## Layout
 `web/` Next.js app · `python/` uv workspace: `db` (models, migrations, views, fixture),
 `engine` (CLI: ingest, seed), `api` (FastAPI) · `vercel.json` deploys `web` and `api` as one
 Vercel project (Services).
