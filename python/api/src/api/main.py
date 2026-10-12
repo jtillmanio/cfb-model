@@ -1,28 +1,32 @@
 """FastAPI service: one endpoint per screen, all under /api/py (D-013).
 
 Vercel loads `app` from here (`src.api.main:app`, a path relative to python/api/); locally
-`pnpm dev` runs it with uvicorn on :8000. Sign-in and the JWT check arrive with the Phase 0
-sign-in task.
+`pnpm dev` runs it with uvicorn on :8000. Every route but health requires the JWT Next's server
+code signs (auth.py, TASK-004): a route belongs on `router`, which carries the check, and only
+health sits on `public`.
 """
 
 from __future__ import annotations
 
 import os
 from functools import cache
+from typing import Any
 
-from fastapi import APIRouter, FastAPI
+from fastapi import APIRouter, Depends, FastAPI
 from pydantic import BaseModel
 from sqlalchemy import Engine, text
 
 from db.config import app_database_url, load_env
 from db.session import make_engine
 
+from .auth import require_api_token
+
 load_env()
 
-app = FastAPI(
-    title="CFB model API", docs_url=None, redoc_url=None, openapi_url="/api/py/openapi.json"
-)
-router = APIRouter(prefix="/api/py")
+# FastAPI's own schema route can't take a dependency, so `router` serves it instead (below).
+app = FastAPI(title="CFB model API", docs_url=None, redoc_url=None, openapi_url=None)
+router = APIRouter(prefix="/api/py", dependencies=[Depends(require_api_token)])
+public = APIRouter(prefix="/api/py")
 
 
 @cache
@@ -83,7 +87,12 @@ def teams() -> TeamsOut:
     )
 
 
-@router.get("/health")
+@router.get("/openapi.json", include_in_schema=False)
+def openapi() -> dict[str, Any]:
+    return app.openapi()
+
+
+@public.get("/health")
 def health() -> HealthOut:
     """The only route that stays outside the auth gate. No data."""
     commit = (
@@ -98,3 +107,4 @@ def health() -> HealthOut:
 
 
 app.include_router(router)
+app.include_router(public)

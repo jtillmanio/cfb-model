@@ -140,7 +140,7 @@ GitHub Actions gives a private repo 2,000 free minutes a month. Our jobs should 
 - Next.js uses **Auth.js** with a GitHub OAuth provider and an allowlist of one GitHub ID. Everyone else is rejected.
 - A stale or badly signed session cookie **redirects to `/login`**; it never 500s the app.
 - Next.js server code calls the API with a short-lived **JWT signed with a shared secret**. The API verifies it on every request except `/api/py/health`.
-- If we later turn on Vercel Deployment Protection, automation (smoke tests, the Lighthouse job) sends the `x-vercel-protection-bypass` header.
+- Previews are behind Vercel Deployment Protection (Vercel Authentication), so automation that calls a preview (the Lighthouse job) sends the `x-vercel-protection-bypass` header; so does automation that calls production (smoke tests) if protection ever covers it.
 - Preview and production use different `AUTH_SECRET`s, so a session minted for a preview (the Lighthouse job) can never open production.
 - Previews have no GitHub sign-in (D-102). Each preview has its own URL, and GitHub can't safely allow-list them all, so only minted sessions reach a preview. Two OAuth apps with exact callbacks: "CFB Model" (the production domain) and "CFB Model (dev)" (`localhost:3000`).
 
@@ -319,7 +319,7 @@ Every PR preview is measured with Lighthouse automatically. The job **fails the 
 
 **Triggers:** `deployment_status` with `state == success` on the Preview environment, plus `workflow_dispatch` with a `url` input. Production's URL lives in a repo variable; the job refuses it unless an `allow_production` input is ticked.
 
-**Signing in:** sign-in is GitHub-only, which a script can't do, so the job mints an Auth.js session cookie with the **preview** `AUTH_SECRET` (a repo secret), the same way e2e does (§ Test-only sign-in and clock). This is safe only because previews and production use **different** `AUTH_SECRET`s, so the job's cookie can never open production. If Vercel Deployment Protection is on, `x-vercel-protection-bypass` goes on every request (Lighthouse `--extra-headers` and any puppeteer `setExtraHTTPHeaders`). Secrets reach scripts only through `env:`, never `run:` text. Each script prints `::add-mask::` for every secret and for the minted cookie before anything else, and logs statuses, never values. Headers go to a temp folder outside the reports folder, deleted in an `if: always()` step.
+**Signing in:** sign-in is GitHub-only, which a script can't do, so the job mints an Auth.js session cookie with the **preview** `AUTH_SECRET` (a repo secret), the same way e2e does (§ Test-only sign-in and clock). This is safe only because previews and production use **different** `AUTH_SECRET`s, so the job's cookie can never open production. Previews are behind Vercel Deployment Protection, so `x-vercel-protection-bypass` goes on every request (Lighthouse `--extra-headers` and any puppeteer `setExtraHTTPHeaders`). Secrets reach scripts only through `env:`, never `run:` text. Each script prints `::add-mask::` for every secret and for the minted cookie before anything else, and logs statuses, never values. Headers go to a temp folder outside the reports folder, deleted in an `if: always()` step.
 
 **Reports stay private:** Lighthouse copies `--extra-headers` into its JSON and HTML. Every report is scrubbed, then a separate guard step fails, and uploads nothing, if any file still contains a secret. Reports are workflow artifacts with 14-day retention; never LHCI's public temporary storage.
 
