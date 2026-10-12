@@ -3,7 +3,11 @@ name = "cfb-api"
 version = "0.0.0"
 description = "FastAPI service: one endpoint per screen. Depends on the db package only, never engine[train]"
 requires-python = ">=3.13,<3.14"
-dependencies = ["cfb-db", "fastapi>=0.118"]
+dependencies = [
+    "cfb-db",
+    "fastapi>=0.118",
+    "pyjwt>=2.15.1",
+]
 
 [tool.uv.sources]
 cfb-db = { workspace = true }
