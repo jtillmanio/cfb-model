@@ -150,7 +150,7 @@ the previous nights' dumps are untouched.
 | Failed step | What it means | What to do |
 |---|---|---|
 | Dump production | `BACKUP_DATABASE_URL` is unset, pooled, or can't read a table; or `pg_dump` failed | Check the secret is `backup_reader`'s direct URL, and that the role can read every table |
-| Find the commit production serves | `/api/py/health` on `PRODUCTION_URL` didn't answer, answered with Vercel's login page (a wrong `VERCEL_AUTOMATION_BYPASS_SECRET`), or named no commit | Check the site is up and the bypass secret matches Vercel › Settings › Deployment Protection; re-run |
+| Find the commit production serves | `/api/py/health` on `PRODUCTION_URL` didn't answer (no release has put a build live yet, or the site is down), answered with Vercel's login page, or named no commit | Check `PRODUCTION_URL` is the production domain (Vercel › Settings › Domains), not a generated `*.vercel.app` alias, and that a release has run; re-run |
 | Restore the dump | The dump has something a plain Postgres can't restore | Read the `pg_restore` error; production is unaffected |
 | Re-apply views… | A view fails on production's data, or a table's counts differ | The summary names the view or table; a mismatch means the dump isn't trustworthy |
 | Upload to R2 | The R2 token, bucket or account is wrong | Check `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_ACCOUNT_ID`, `R2_BUCKET` |
@@ -160,9 +160,11 @@ Repository **secrets**: `BACKUP_DATABASE_URL` (the read-only `backup_reader` rol
 production), `R2_ACCESS_KEY_ID` and `R2_SECRET_ACCESS_KEY` (an R2 token with Object Read & Write on
 the backup bucket only). Repository **variables**: `R2_ACCOUNT_ID`, `R2_BUCKET` (`cfb-backups`, a
 bucket of its own, never the lake's), and `PRODUCTION_URL` (shared with the release workflow).
-Production is behind Vercel Authentication, so the health call also sends the
-`x-vercel-protection-bypass` header from the `VERCEL_AUTOMATION_BYPASS_SECRET` secret (shared with
-the Lighthouse job).
+`PRODUCTION_URL` must be the production domain (`https://cfb-model-delta.vercel.app`), which only a
+release moves; Vercel's generated aliases follow every `main` build and sit behind Vercel
+Authentication. The health call also sends `x-vercel-protection-bypass` from the
+`VERCEL_AUTOMATION_BYPASS_SECRET` secret (shared with the Lighthouse job), in case Deployment
+Protection ever covers production (02 › Auth).
 
 ## Layout
 `web/` Next.js app · `python/` uv workspace: `db` (models, migrations, views, fixture),

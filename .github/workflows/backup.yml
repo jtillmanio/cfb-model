@@ -67,8 +67,8 @@ jobs:
 
       # The views to re-apply are production's, not this ref's: main may hold a view for a
       # migration that isn't released yet, which production's schema can't run (D-109).
-      # Production is behind Vercel Authentication, so the call sends the automation bypass
-      # header (02 › Auth); without it health answers with Vercel's login page.
+      # PRODUCTION_URL is the production domain, which only a release moves. The bypass
+      # header gets past Deployment Protection should it ever cover production (02 › Auth).
       - name: Find the commit production serves
         id: production
         env:

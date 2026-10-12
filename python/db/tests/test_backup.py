@@ -279,7 +279,7 @@ def test_the_backup_reads_production_only_through_backup_database_url():
 
 
 def test_the_health_call_gets_past_vercels_deployment_protection():
-    # Production sits behind Vercel Authentication; without the header health is a login page.
+    # Should Deployment Protection cover production, health without it is a login page.
     code = re.sub(r"#.*", "", (WORKFLOWS / "backup.yml").read_text(encoding="utf-8"))
     step = next(s for s in re.split(r"^      - ", code, flags=re.M) if "/api/py/health" in s)
     assert f"{BYPASS}: ${{{{ secrets.{BYPASS} }}}}" in step
