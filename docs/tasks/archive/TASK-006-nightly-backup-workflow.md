@@ -1,7 +1,7 @@
 ---
 id: TASK-006
 title: Add the nightly backup workflow with restore verification
-status: Review
+status: Done
 depends_on: []
 size: M
 model: opus
