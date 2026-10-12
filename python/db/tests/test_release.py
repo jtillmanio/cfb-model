@@ -272,3 +272,5 @@ def test_dry_run_summary_lists_pending_and_says_nothing_changed():
 def test_summary_says_none_when_nothing_is_pending():
     text = render_pending_summary([], head="0001", current=("0001",), dry_run=True)
     assert "Pending migrations | none" in text
+    # A table of its own (header + separator), or GitHub shows the rows as plain text.
+    assert text.splitlines()[1] == "|---|---|"

@@ -186,6 +186,8 @@ def render_pending_summary(
     pending: Sequence[str], *, head: str, current: Sequence[str], dry_run: bool
 ) -> str:
     lines = [
+        "| Migrations | |",  # its own table: the plan summary above ends with a blank line
+        "|---|---|",
         f"| Production's migration head | {', '.join(current) or 'none (empty database)'} |",
         f"| Commit's migration head | {head} |",
         f"| Pending migrations | {', '.join(pending) or 'none'} |",

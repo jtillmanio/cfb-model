@@ -36,7 +36,7 @@ Production changes only when the owner runs one `release` workflow: it picks a b
 - [x] AC-2: The smoke check is a tested Python function: given a `/api/py/health` response, it fails when `commit` differs from the planned commit, `db_reachable` is false, or `migration_head` differs from the repo's single Alembic head, and names which one failed. Unit tests cover each case and the passing case.
 - [x] AC-3: `.env.live` is read only through an explicit flag: `python -m db migrate --target live` refuses unless `--env-file .env.live` is passed (or the workflow passes the URL in the environment), and nothing reads `.env.live` implicitly. Unit tests in `python/db/tests/` cover the refusal and the explicit path.
 - [x] AC-4: `.github/workflows/release.yml` has only a `workflow_dispatch` trigger, `concurrency: release` (no cancel-in-progress), `permissions` scoped per job, and runs in order: plan → Neon snapshot (only when Alembic reports pending migrations) → migrate with the unpooled URL and re-apply views → promote → smoke test against the production domain. Secrets reach steps only through `env:`.
-- [ ] AC-5: With `dry_run: true`, a run on the branch (owner-approved) goes green and its job summary names the commit, the build, CI's result and the pending migrations (or "none"), and records that no snapshot was made, no migration ran and nothing was promoted.
+- [x] AC-5: With `dry_run: true`, a run on the branch (owner-approved) goes green and its job summary names the commit, the build, CI's result and the pending migrations (or "none"), and records that no snapshot was made, no migration ran and nothing was promoted.
 - [x] AC-6: The README (or the doc the plan names) lists the workflow's secrets and the steps to run a release and to read a failed one.
 
 ## Out of scope
@@ -106,6 +106,7 @@ Approved 2026-10-12 (with A: stub workflow on `main` first; B: smoke asserts the
 
 - Verify R1 PASS | Audit R1 PASS (new modules: fail to load on base) | Spec R1 APPROVE (AC-5 pending the branch dry run) | Schema R1 APPROVE (5 minor)
 - Review notes fixed in e05f6ec (branch guard, check-run order, `state=READY`, smoke timeouts, pooler case, summary leak in a test, `current_heads` on the test DB) → Verify R2 PASS
+- Branch dry run (owner-started, run 38269906836 on 792b5b7) PASS for AC-5: plan picked 870b75d / `dpl_C4voWnqYgH2NL59AkRzijoE6Q6gH`, CI success, pending `0001` (production empty), dry-run line present; snapshot/migrate/promote/smoke skipped. The pending rows rendered as plain text (no table header): fixed after the run, with a test
 
 ## Blocked
 
