@@ -65,12 +65,12 @@ Production changes only when the owner runs one `release` workflow: it picks a b
 
 - Set the **Deploy** row to the `release` workflow, and drop `release` from the Status line's "Not built yet" list in the same edit (from #9, this task's Context) → CLAUDE.md § Project docs (approved at plan)
 - Reword `workflow.afterMerge` to name the Release workflow instead of "not built yet" → .claude/kit.json § workflow.afterMerge (approved at plan)
-- The git rules' "Merging does not deploy" note says the `release` workflow is "not built yet" → docs/owner-checklist.md § Approvals
+- The git rules' "Merging does not deploy" note says the `release` workflow is "not built yet" → .claude/rules/git.md § Project notes (approved at close-out)
 - Tick the `.env.live` item and the `release` item; the views item stays partial with only rebuild pending → docs/06-roadmap.md § Phase 0 (approved at plan)
 - The smoke test also asserts an unsigned `GET /api/py/teams` answers 401; the snapshot branch is `release/<YYYYMMDD-HHMM>-<sha7>` → docs/02-architecture.md § Release & operations (approved at plan)
 - Candidate decision: how the release plans, snapshots, migrates and smoke-tests; D-018's `/api/health` is `/api/py/health` (D-018 marked "Amended by D-108") → docs/decisions.md § D-108 (approved at plan)
 - Confirm Vercel doesn't auto-promote `main` builds; confirm `LIVE=true` and `API_JWT_SECRET` in Vercel Production; prune old `release/*` Neon branches → docs/owner-checklist.md § Actions (approved at plan)
-- The deny rule `*--env-file .env.live*` in `.claude/settings.json` doesn't cover `--target live` with the URL in the environment, or a path spelled `..\.env.live` (spec review) → docs/owner-checklist.md § Approvals
+- The deny rule `*--env-file .env.live*` in `.claude/settings.json` doesn't cover `--target live` with the URL in the environment, or a path spelled `..\.env.live` (spec review) → .claude/settings.json § permissions.deny (approved at close-out)
 - The migrate job doesn't re-check production's head against what plan saw, so a manual live migration between plan and migrate could run migrations without a snapshot (schema review) → not tracked: accepted; manual live migrations are rare, the README marks them so, and `concurrency: release` serializes releases
 - The plan job reads production with its full-privilege URL, kept read-only by `SET TRANSACTION READ ONLY` (schema review) → not tracked: optional hardening (a read-only Neon role) with no current need
 - `docs/tasks/TASK-005` § Context's Owner prerequisites: every secret and variable already exists (checked with `gh secret list` / `gh variable list` on 2026-10-12) → not tracked: already done
