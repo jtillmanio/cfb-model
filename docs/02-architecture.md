@@ -151,7 +151,7 @@ Four databases from day one, each a Neon branch:
 | Env | Web/API | DB | Lake |
 |---|---|---|---|
 | **development** (`.env`) | `next dev` + `uvicorn` | Neon `dev` branch | local `./data/` |
-| **test** | pytest / vitest | Neon `test` branch (or a CI service container) | fixtures |
+| **test** | pytest / vitest | Neon `test` branch (or a Postgres container in CI) | fixtures |
 | **preview** | Vercel preview per PR | Neon `preview/<branch>` (Vercel integration), migrated by the preview build | read-only prod lake |
 | **production** | Vercel production | Neon `main` | R2 bucket |
 
@@ -161,7 +161,7 @@ Guards, all enforced in code:
 - **`LIVE=true`** (set on production) makes every destructive command (`--rebuild`, truncate, reload) refuse to run. Rebuilding is useful while the DB is disposable; once live picks and contest entries exist, a rebuild would destroy the track record.
 - The preview build refuses to migrate if the target host is production's.
 - **Pooled vs direct URLs:** the app uses Neon's pooled endpoint (PgBouncer, transaction mode), so psycopg needs prepared statements off (`prepare_threshold=None`) and SQLAlchemy uses `NullPool` in serverless. Migrations and bulk publish jobs use the **unpooled** URL (`DATABASE_URL_UNPOOLED`).
-- **One Postgres major version** everywhere: Neon, CI's service container and the backup job's `pg_dump`, set once as `PG_MAJOR`. Install the client from the PGDG apt repo and put `/usr/lib/postgresql/$PG_MAJOR/bin` first on `PATH`.
+- **One Postgres major version** everywhere: Neon, CI's Postgres container, and the backup job's `pg_dump` and restore container, set once as `PG_MAJOR` in the `start-postgres` action (`.github/actions/start-postgres/action.yml`) that CI and the backup share (D-109). Install the client from the PGDG apt repo and put `/usr/lib/postgresql/$PG_MAJOR/bin` first on `PATH`.
 
 The engine treats the lake location as config (`LAKE_URI=./data` or `s3://cfb-lake`), so everything runs fully offline on your machine.
 
@@ -177,7 +177,7 @@ The engine treats the lake location as config (`LAKE_URI=./data` or `s3://cfb-la
 
 Schema goes first and code second, so old code briefly runs on the new schema, never the reverse.
 
-**Backups:** the nightly job runs `pg_dump`, checks the exit code and file size, restores the dump into a Postgres service container, re-applies views, runs the view tests, and compares row counts with production (read-only). Only then does it upload to R2 (`backups/`). Only the backup workflow gets write permissions. The lake is already its own backup for everything reproducible.
+**Backups:** the nightly `backup` workflow runs `pg_dump` through a read-only role, checks the exit code and file size, restores the dump into a `postgres:PG_MAJOR` container started in a step, re-applies the views of the commit production serves, queries each view, and compares row counts with production's, counted in the dump's own snapshot. Only then does it upload to R2 (`backups/<UTC date>.dump`), in a bucket of its own. Its GitHub permissions are read-only (`contents: read`); it writes R2 with a token scoped to the backup bucket, so nothing else can overwrite a backup and the backup can't touch the lake (D-109). The restore steps are in [docs/runbooks/restore.md](runbooks/restore.md). The lake is already its own backup for everything reproducible.
 
 **Migration checks in CI** (before anything applies a migration):
 - `alembic heads` returns exactly one head.
@@ -251,7 +251,7 @@ _Added 2026-10-07 (D-089, D-090). The tools come from the Tooling section above.
 |---|---|---|---|
 | Unit: engine | pytest | Probability math (Φ(edge/σ), edge, EV); pick and tier rules read from a `ModelSpec`; `ModelSpec` and `ContestRules` validation; the Splash paste parser, run on `design/sample-splash.txt` (a real page copy) and on the Week 6 paste; point-in-time assertions; the test-DB guard and the `LIVE` guard | `verify.full`, CI |
 | Unit: web | Vitest | `format.ts` against every example on the number-format card (`OSU −27.5`, `BSU −10` padded, `PK`, `−110`, `CLEM −34.0`, `+3.7 OSU`, `59%`, `~54%`, `TEX 54%`, `+27.4`, `▲3 ▼1 —`, `31-24-1`, `5-0`, `+4.6u`, `−1.1u`, `+0.9 pts`, `Sat 3:30 PM ET`, `Locks in 1d 14h`, `PUR 3 · OSU 24`, `Q3 9:12`); component states (edge pill threshold, tier badge, result marker, lock countdown); pick-tray logic (tap, re-tap to clear, switch side) | `verify.full`, CI |
-| Integration: database | pytest against Postgres: a CI service container on `PG_MAJOR`, or the Neon `test` branch locally | Migrations: one head, `alembic check`, up → down → up for destructive changes. Every view in [03 › Views](03-data-model.md#views-derived-data-lives-here) against the fixture with expected values (e.g. `model_record` for v1.0 in 2026 = 31-24-1, +4.6u). `EXPLAIN` shows no full scan for single-item reads. Upsert by `(source, source_id)` is idempotent. Ratings, predictions and picks are never UPDATEd or DELETEd | CI |
+| Integration: database | pytest against Postgres: a CI Postgres container on `PG_MAJOR`, or the Neon `test` branch locally | Migrations: one head, `alembic check`, up → down → up for destructive changes. Every view in [03 › Views](03-data-model.md#views-derived-data-lives-here) against the fixture with expected values (e.g. `model_record` for v1.0 in 2026 = 31-24-1, +4.6u). `EXPLAIN` shows no full scan for single-item reads. Upsert by `(source, source_id)` is idempotent. Ratings, predictions and picks are never UPDATEd or DELETEd | CI |
 | Integration: API | pytest with FastAPI's TestClient on the seeded test DB | Each screen endpoint returns the fixture values; every route except `/api/py/health` requires the JWT; each endpoint's query count stays within its budget; a contest entry after kickoff is rejected | CI |
 | Contract | `openapi-typescript` + `tsc` | The generated client matches the API's current OpenAPI schema; CI fails on drift | CI |
 | Data / ETL | pytest on a small lake fixture of recorded CFBD responses (no network) | `transform --rebuild` from raw with zero API calls; the data-quality checks in [03](03-data-model.md#data-quality-checks-run-after-each-ingest); "no future data" (max source time < `as_of`); the call-budget tracker counts every call | CI |
@@ -384,7 +384,7 @@ _Added 2026-10-07 (D-079). The thinnest slice that crosses every layer once. `/s
   - Web unit: one Vitest test on the team list's ordering (conference, then school).
   - E2E: Playwright loads `/teams` on the seeded test DB and sees "Ohio State" with "Big Ten", then requests `/api/py/health` and gets a reachable DB.
 - **CI:** the `verify` job in `.github/workflows/ci.yml`:
-  - sets up uv (Python 3.13) and pnpm, with a Postgres service on `PG_MAJOR`;
+  - sets up uv (Python 3.13) and pnpm, with a Postgres container on `PG_MAJOR` (the `start-postgres` action);
   - runs `db:migrate` and `db:seed`;
   - then typecheck → lint → test → build → `test:e2e`.
 
