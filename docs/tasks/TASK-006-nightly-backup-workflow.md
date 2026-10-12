@@ -40,7 +40,7 @@ Every night the production database is dumped, proven restorable, and stored in 
 - [x] AC-2: `.github/workflows/backup.yml` runs on a nightly `schedule` and `workflow_dispatch`, installs the PostgreSQL client for `PG_MAJOR` from PGDG, and reads `PG_MAJOR` from the same single source as `ci.yml` (no second literal `18` in either workflow).
 - [x] AC-3: The workflow runs in order: `pg_dump` (fails on a non-zero exit or an empty file) → restore into a `postgres:${PG_MAJOR}` container → apply views → query each view → compare row counts → upload to R2 `backups/`. Any failed step stops the run before the upload, so a bad dump is never stored.
 - [x] AC-4: R2 credentials and `BACKUP_DATABASE_URL` appear in no workflow under `.github/workflows/` except `backup.yml`, reach steps only through `env:`, and the workflow reads production's database only through `BACKUP_DATABASE_URL`; the workflow's `permissions` are `contents: read` or narrower. _(Reworded by the owner 2026-10-12 at spec review R1: docs name the secrets, and Decision D reads production's `/api/py/health`.)_
-- [ ] AC-5: An owner-approved run on the branch goes green, uploads one dump to R2 `backups/`, and its job summary lists each table's row count on both sides and the dump size.
+- [x] AC-5: An owner-approved run on the branch goes green, uploads one dump to R2 `backups/`, and its job summary lists each table's row count on both sides and the dump size. _(Run 38303172843, 2026-10-12: green; uploaded `backups/2026-10-12.dump`, 2,446 bytes; production had 0 tables, so the counts table is empty and "Row counts match" is trivially true. A non-empty comparison comes with the first nightly run after the first real release.)_
 - [x] AC-6: `docs/runbooks/restore.md` gives numbered steps to restore the latest dump into a new Neon branch, point production at it, apply views, and check `/api/py/health`, with how to find the newest dump and the 2-hour recovery-time target.
 
 ## Out of scope
@@ -73,6 +73,7 @@ Every night the production database is dumped, proven restorable, and stored in 
 - CLAUDE.md's Status line still listed the `backup` workflow and R2 as not built; the backup workflow is built and only the R2 lake bucket is missing → CLAUDE.md § Status (approved at close-out)
 - `python/db/views/README.md` lists where views are re-applied; the backup's restore check also applies and queries them → not tracked: done in this PR (plan revision)
 - Production is behind Vercel Authentication; the release workflow's smoke step calls health and `/api/py/teams` without the `x-vercel-protection-bypass` header, so the first real release would fail at smoke (found by this task's branch run R1) → docs/tasks/TASK-013-release-smoke-bypass.md (new, Draft)
+- Branch run R2: `PRODUCTION_URL`'s health named `ad36d65` (the #26 merge, minutes old) although no real release has run, so `main` builds appear to reach the production URL without the release workflow (D-018); production's database also has no tables yet → docs/owner-checklist.md § Actions
 - The 2 Alembic `path_separator` DeprecationWarnings in pytest predate this task → not tracked: unrelated to this task; harmless until an Alembic major removes the old option
 
 ## Plan
@@ -105,7 +106,7 @@ Approved 2026-10-12 (all of A–E as recommended; D = production's health commit
 ## Review log
 
 - Verify R1 PASS → R2 PASS (after the review fixes) | Audit R1 CHANGES (AC-3 order, AC-4 production-only UNPROVEN) → R2 PASS | Spec R1 CHANGES (roadmap follow-up overreach; health "unknown" commit; AC-4 SPEC GAP, reworded by the owner) → R2 APPROVE (conditional on AC-5's branch run) | Schema R1 CHANGES (MAJOR: runbook `--clean` restore into the damaged branch; 5 MINOR) → R2 APPROVE | UI n/a
-- AC-5 branch run R1 FAIL: the dump from production worked, but `/api/py/health` answered with Vercel's login page (production is behind Vercel Authentication). The owner chose to send the `x-vercel-protection-bypass` header (plan revision) → R2: see below.
+- AC-5 branch run R1 FAIL: the dump from production worked, but `/api/py/health` answered with Vercel's login page (production is behind Vercel Authentication). The owner chose to send the `x-vercel-protection-bypass` header (plan revision) → R2 PASS (run 38303172843: every step green, one dump uploaded; production had 0 tables and served `ad36d65`, the newest `main` commit, though no real release has run).
 
 ## Blocked
 
