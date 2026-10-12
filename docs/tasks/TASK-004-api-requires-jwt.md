@@ -59,6 +59,7 @@ The API's public URL serves no data to anyone without a valid token from the web
 - Candidate decision: the API verifies its JWT with PyJWT (HS256 only, required `exp`/`iat`/`sub`/`iss`/`aud`, 5 s leeway); the guard is a dependency on the router every gated route uses, health sits on its own open router, and FastAPI's built-in OpenAPI route is replaced by one behind the guard (approved at plan) → docs/decisions.md § D-107
 - Production needs `API_JWT_SECRET` before the first release with this guard, or every page's data call gets 401 while health still passes; the release smoke test could also assert an unsigned `/api/py/teams` is 401 → docs/tasks/TASK-005-release-workflow.md § Context
 - Unknown paths under `/api/py/*` still return 404 without a token → not tracked: accepted in the plan's Risks (nothing is served there)
+- `docs/02-architecture.md` › Auth says "If we later turn on Vercel Deployment Protection…", but previews already have it on (the PR's preview curl got Vercel's 302); the line should say previews are protected and automation sends the bypass header (planning-doc edit, needs approval) → docs/owner-checklist.md § Approvals
 
 ## Plan
 
