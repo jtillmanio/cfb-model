@@ -27,6 +27,7 @@ Production changes only when the owner runs one `release` workflow: it picks a b
 - **Decide at the plan gate:** how "plan" finds the newest ready production build for a commit on `main` (Vercel API or CLI) and checks CI's `verify` on that exact commit (GitHub API); how the Neon snapshot branch is named and created (Neon API); the `workflow_dispatch` inputs (`dry_run`, defaulting to true, and optionally a commit).
 - **Owner prerequisites:** repository **secrets** `VERCEL_TOKEN`, `NEON_API_KEY` and `PRODUCTION_DATABASE_URL_UNPOOLED`; repository **variables** `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID`, `NEON_PROJECT_ID` (set 2026-10-09) and `PRODUCTION_URL`. IDs are variables because they're identifiers, useless without the token or key, and a variable shows in logs where a masked secret hides it. Also: Vercel set so `main` builds aren't auto-promoted, and `LIVE=true` in Vercel Production. Claude lists them; the owner creates them. Names are in `.env.example` › Lives elsewhere.
 - **Stop and ask:** Claude never starts this workflow, dry run included, unless the owner says so for that run (CLAUDE.md › Workflow). Testing it on the branch with `gh workflow run release.yml --ref <branch> -f dry_run=true` needs the owner's go-ahead in the session.
+- *From #9 (kit 2.4 upgrade):* once this workflow exists, set the **Deploy** row in `CLAUDE.md` › Project docs to it, and keep `workflow.afterMerge` in `.claude/kit.json` (reword it to name the workflow instead of "not built yet").
 
 ## Acceptance criteria
 

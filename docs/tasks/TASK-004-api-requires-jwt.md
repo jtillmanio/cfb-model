@@ -25,6 +25,7 @@ The API's public URL serves no data to anyone without a valid token from the web
 - Decisions: D-012, D-100 (on Vercel `/api/py/*` reaches FastAPI directly, so the API can't rely on Next's gate).
 - Existing code: `python/api/src/api/main.py` (one `APIRouter` under `/api/py`; FastAPI also serves `/api/py/openapi.json`, which must be gated too); `python/api/tests/test_api_health.py`.
 - The token's claims, lifetime and env var name are fixed by TASK-003's plan.
+- *From #16 (TASK-003):* verification details AC-2 doesn't name: accept HS256 only (refuse every other `alg`, not just `none`), enforce the same 32-character floor on `API_JWT_SECRET` that `web/lib/api-token.ts` does, and allow a few seconds of leeway for clock skew between the Next and Python functions.
 
 ## Acceptance criteria
 
