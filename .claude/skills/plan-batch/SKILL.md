@@ -10,7 +10,7 @@ argument-hint: (optional) N tasks to plan (default 3) and/or specific IDs, e.g. 
 
 > **Project overrides:** read `.claude/kit.json` first, then `.claude/project/plan-batch.md` if it exists. The project file holds this project's instructions for this skill and wins where it conflicts with this file, except that it can't lower the floor: never approve a plan on your own initiative, never commit on or push to the base branch.
 
-Planning only. Edit nothing except the selected task files' `## Plan` section and their `plan_status` / `planned_at_commit` front matter. Never write code, run migrations, or commit. The plans stay uncommitted until the user approves them (see Hand-off).
+Planning only. Edit nothing except the selected task files' `## Plan` and `## Follow-ups` sections and their `plan_status` / `planned_at_commit` front matter. Never write code, run migrations, or commit. The plans stay uncommitted until the user approves them (see Hand-off). Follow-ups found while planning are placed only after approval, on the plans branch (`.claude/skills/track-follow-ups/classify.md`).
 
 ## Select tasks
 
@@ -26,6 +26,7 @@ Use the same plan format as `/implement-task` Phase 1, at the same quality bar, 
 1. Read the task file, the cited architecture and design sections, the CLAUDE.md hard rules, and the **Decisions** log. In roadmap mode (`workflow.roadmap`), also read the task's roadmap entry and its check line.
 2. Explore the code it touches (delegate broad searches to Explore). Plan against the code as it is now.
 3. Write `## Plan` with Steps, Files, Test strategy (one test per AC), Risks / open questions, and Size check. Add `Provisional: depends on <IDs>` where it applies.
+   Then list in the task file's `## Follow-ups` what planning found that belongs elsewhere (a doc that has drifted, a question for another task, a missing roadmap item, a candidate decision), each with its planned placement from `classify.md` and `(needs approval)` where it does. Destination 1 here means this task's plan: put it in the plan instead.
 4. Set `plan_status: proposed` and `planned_at_commit: <git rev-parse --short HEAD>`.
 5. If the size check fails: with `workflow.splitPolicy` `split` (default), don't plan the task; propose a split and move on. With `never-split`, plan it whole, make sure it is `autonomy: attended`, and say why it is large.
 
@@ -35,11 +36,12 @@ Keep each plan under ~40 lines. Unattended sessions follow these plans literally
 
 1. Table: ID, files planned, ACs → tests mapped (n/n), risks count, provisional (y/n).
 2. The two or three plan decisions most worth the user's attention, such as a new pattern, a risky migration, or an ambiguous AC.
-3. How plans reach the base branch. The dispatcher only sees plans committed there, and nobody commits on the base branch, so they go through a PR:
+3. Follow-ups found while planning: one line each with its planned placement, numbered, the ones needing approval marked. Approving a plan approves its placements unless the user strikes one.
+4. How plans reach the base branch. The dispatcher only sees plans committed there, and nobody commits on the base branch, so they go through a PR:
    1. Review with `git diff docs/tasks`, then edit plans directly or ask for changes.
    2. Approve by changing `plan_status: proposed` to `approved`, or by telling you "approve TASK-014 and TASK-015".
-   3. Move the approved plans to a branch and open a PR: `git switch -c docs/plans-<YYYY-MM-DD>` (uncommitted plans come along), commit the task files by path (`git add docs/tasks/TASK-014-….md …`), push, `gh pr create`. Unless `workflow.archiveDone` is `false`, run `.claude/scripts/archive-done.ps1` on that branch before committing; the Done task files it moves are staged renames that go in the same commit.
+   3. Move the approved plans to a branch and open a PR: `git switch -c docs/plans-<YYYY-MM-DD>` (uncommitted plans come along), place the approved plans' follow-ups (below), commit the task files and placements by path (`git add docs/tasks/TASK-014-….md …`), push, `gh pr create`. Unless `workflow.archiveDone` is `false`, run `.claude/scripts/archive-done.ps1` on that branch before committing; the Done task files it moves are staged renames that go in the same commit.
    4. The user merges the PR.
    5. `git switch <base>`, `git pull --ff-only`, then `powershell -NoProfile -ExecutionPolicy Bypass -File .claude/scripts/dispatch-approved.ps1 -DryRun`, then without `-DryRun`.
 
-If the user asks you to approve plans, set `plan_status: approved` for exactly the IDs they name. Then, if they ask, do step 3: create the `docs/plans-<date>` branch, run `archive-done.ps1` (unless switched off), stage those task files by path, commit (`docs(tasks): approve plans TASK-014..016`, or the `area` form `docs: approve plans for tasks 1.2, 1.1`), push the branch, and open the PR. Never approve a plan on your own initiative, never commit on the base branch, never merge.
+If the user asks you to approve plans, set `plan_status: approved` for exactly the IDs they name. Then, if they ask, do step 3: create the `docs/plans-<date>` branch; write the approved plans' follow-ups to their destinations by `workflow.followUps` and `classify.md` (approved placements only; struck ones end `→ not tracked: owner said not to`; with `propose`, write none), and update each task file's `## Follow-ups` to the final list; run `archive-done.ps1` (unless switched off); stage those task files and placements by path; commit (`docs(tasks): approve plans TASK-014..016`, or the `area` form `docs: approve plans for tasks 1.2, 1.1`); push the branch; and open the PR. Its body has a **Follow-ups** section copied from the task files, grouped by task, each bullet ending `→ <path> § <section>` or `→ not tracked: <reason>`; then the link commit (`classify.md` § Link commit). If the plans changed files besides the task files, delegate **spec-reviewer** in follow-ups mode on the branch before pushing. Never approve a plan on your own initiative, never commit on the base branch, never merge.

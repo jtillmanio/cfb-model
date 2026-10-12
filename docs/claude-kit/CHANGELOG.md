@@ -1,5 +1,45 @@
 # Changelog
 
+## v2.6: Follow-up tracking
+
+Until 2.5, a follow-up (work noticed during a task and deliberately left out) lived only in the PR body's Follow-ups section, and after the squash merge nothing read it again. One project's audit of 18 PRs over four days found an owner-requested change in no doc at all, three candidate decisions never recorded, notes for the very next task missing from its task file, a roadmap item promising "a follow-up task" that didn't exist, and two small bugs mentioned twice each and tracked nowhere. In 2.6 every follow-up is written where the work that will do it will read it, in the PR that noticed it, and the PR says where each one went. Upgrading a 2.5.x project: `UPGRADING.md` § From 2.5 to 2.6.
+
+### Added
+
+- **`workflow.followUps`** (default `apply`; a missing key means `apply`). `review` shows every placement in an attended session before writing; unattended it behaves as `propose`, which is the 2.5 behaviour (PR body only), with each bullet still naming its intended destination.
+- **One classification** (`.claude/skills/track-follow-ups/classify.md`), first match wins: this task (a plan revision, attended only) → an existing not-Done task's Context (never its ACs; questions become open questions for its plan) → a roadmap item with no task file yet (never its Check line) → new work (a roadmap item with an ID, size and Check, or a `Draft` task file plus its task-list stub; never `Ready`) → a candidate decision → a planning doc (Features, Architecture, Data model, ...) → the Owner checklist → not tracked, with a reason.
+- **Owner approval at both task gates.** Placements that change what the product is (planning-doc edits, and decisions under `workflow.decisions: propose`) need the owner's yes. Follow-ups found while planning are listed at the plan gate, and approving the plan approves them; the rest are asked about once at close-out, together with "Push and open a draft PR?". Anything not approved in the session is queued under Approvals in the **Owner checklist**; when the owner ticks it or says "approve", Claude makes the change.
+- **`## Follow-ups` in the task file** (`docs/tasks/_TEMPLATE.md`). The PR's section is copied from it, so the list is in the diff for review and survives the merge in the archived task.
+- **`/track-follow-ups [--since <PR#|date>] [--dry-run]`**: a backfill for projects upgrading mid-stream. It reads merged PRs' Follow-ups (default: since the PR that installed the kit), drops what is already tracked, done, or accepted, places the rest on a `docs/` branch with one PR, and applies Owner checklist approvals the owner has ticked.
+- **`.claude/scripts/list-follow-ups.ps1`**: extracts each merged PR's Follow-ups bullets and their destinations (`-FromJson` reads a file instead of `gh`).
+- **`.claude/scripts/next-id.ps1`**: the next free decision ID across the working tree, `origin/<base>`, and every open PR's branch; `-List` lists roadmap IDs in use the same way.
+- **`docs/templates/owner-checklist.md`**: Actions, Approvals, Done.
+
+### Changed
+
+- **`/implement-task`**:
+  - Phase 1 lists follow-ups found while planning, with their placements, at the plan gate.
+  - Phase 6 has a Follow-ups step beside decisions, then a spec-reviewer "follow-ups check" on the close-out diff, then a link commit after `gh pr create` that turns the branch name in notes into `PR #n`.
+  - The Blocked path places follow-ups too.
+  - Preflight treats follow-up notes added to a task since its plan as a stale plan.
+- **Candidate decisions** follow `workflow.decisions` when it is set, and `workflow.followUps` when it isn't. `propose` now means Claude records the decision once the owner approves it (in the session or by ticking it in the Owner checklist) instead of leaving it in the PR. Recording one also marks the decision it changes "Amended by D-n" and fixes rules files that state the old rule.
+- **spec-reviewer** allows follow-up placements that trace to a Follow-ups bullet, and flags a bullet with no destination, an edit to another task's ACs or a roadmap Check line, new work marked `Ready`, an unapproved planning-doc edit, and a reused ID.
+- **`/plan-batch`** and **`/skeleton`** place their follow-ups the same way; their PRs have a Follow-ups section.
+- **`.claude/rules/git.md`**: follow-up placements join archive renames as the allowed changes to other files on a task branch; every PR Follow-ups bullet ends `→ <path> § <section>` or `→ not tracked: <reason>`.
+- **PR template**: the Follow-ups comment shows the format; two reviewer-checklist lines.
+- **`/customize-kit`** detects a 2.5 configuration, proposes the 2.6 rows, offers an Owner checklist, and adds allow rules for `gh pr list`, `gh pr view`, and the kit's scripts.
+
+### Fixed
+
+- **`/new-task` and a roadmap item with no Check**: it now proposes a Check, writes it into the roadmap once the owner agrees, and only then copies it as AC-1.
+- **Decision ID collisions**: two open branches appending "the next" decision took the same ID. IDs now come from `next-id.ps1`, which reads every open PR's branch.
+
+### Upgrade notes
+
+- The default changes behaviour with no config edit: after `-Upgrade`, task PRs edit other task files, the roadmap, the decisions log, and the Owner checklist. Set `workflow.followUps: "propose"` for the 2.5 behaviour.
+- A project with `workflow.decisions: "propose"` keeps it. Candidate decisions are recorded only after the owner approves them.
+- Run `/track-follow-ups` once after the upgrade merges, to recover follow-ups from PRs merged under 2.5 and earlier.
+
 ## v2.5: Task archive
 
 `docs/tasks/` fills up with finished work after a few milestones. In 2.5 Done task files move to an archive folder, and every script and skill that looks up tasks reads it. Upgrading a 2.4.x project: `UPGRADING.md` § From 2.4 to 2.5.

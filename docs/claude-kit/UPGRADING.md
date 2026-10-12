@@ -4,8 +4,85 @@ For the owner of a project on an earlier kit 2.x, and for the Claude session tha
 
 | Project is on | Do |
 |---|---|
-| 2.4.x | [From 2.4 to 2.5](#from-24-to-25) |
-| 2.3.x | [From 2.3 to 2.4](#from-23-to-24) on one branch (the installer puts 2.5 in place directly; the branch name doesn't matter), then steps 3–5 of [From 2.4 to 2.5](#from-24-to-25) on the same branch |
+| 2.5.x | [From 2.5 to 2.6](#from-25-to-26) |
+| 2.4.x | One branch, one installer run (it puts 2.6 in place directly): step 1 of [From 2.5 to 2.6](#from-25-to-26), then steps 2–4 of [From 2.4 to 2.5](#from-24-to-25), then steps 2–5 of [From 2.5 to 2.6](#from-25-to-26), and step 6 after merging |
+| 2.3.x | [From 2.3 to 2.4](#from-23-to-24) on one branch (the installer puts 2.6 in place directly; the branch name doesn't matter), then steps 3–5 of [From 2.4 to 2.5](#from-24-to-25) and steps 2–5 of [From 2.5 to 2.6](#from-25-to-26) on the same branch, and step 6 after merging |
+
+## From 2.5 to 2.6
+
+2.6 has one change: follow-ups (work noticed during a task and deliberately left out) are written where the work that will do it will read it, in the PR that noticed them, instead of only in the PR body. The upgrade is one branch and one PR, then one backfill run after it merges.
+
+### Behaviour changes
+
+These apply as soon as `-Upgrade` replaces the skills, before you merge anything: a missing `workflow.followUps` key means `apply`.
+
+| Change | What you'll see | Opt out |
+|---|---|---|
+| **Follow-ups placed** | At close-out, `/implement-task` writes each follow-up to one destination: another task's `## Context` (never its ACs), a roadmap item's body (never its **Check:** line), a new roadmap item or `Draft` task file, the decisions log, a planning doc, or the **Owner checklist**. The close-out commit carries those edits; each PR Follow-ups bullet ends `→ <path> § <section>` or `→ not tracked: <reason>` | `workflow.followUps: "propose"` (2.5 behaviour, plus the intended destination on each bullet), or `"review"` to approve every placement in the session first |
+| **Approval at both gates** | The plan gate lists follow-ups planning found, with their placements; approving the plan approves them. Close-out asks once, with "Push and open a draft PR?", about placements that need your yes: planning-doc edits, and decisions under `decisions: propose`. Unattended sessions, and anything you don't answer, queue them under Approvals in the **Owner checklist**; tick one, or say "approve", and Claude makes the change | `"propose"` writes nothing outside the task |
+| **Candidate decisions** | An explicit `workflow.decisions` still wins. `append`: recorded at close-out, as before. `propose`: no longer left in the PR; recorded by Claude once you approve it. A missing `decisions` key follows `followUps`. IDs come from `next-id.ps1`, so two open branches no longer take the same one | `workflow.decisions` |
+| **Task file `## Follow-ups`** | New section (template updated; older task files get it at close-out). The PR's section is copied from it | — |
+| **Edits to other files on a task branch** | `.claude/rules/git.md` and spec-reviewer allow follow-up placements that trace to a bullet. spec-reviewer runs a short "follow-ups check" on the close-out diff | — |
+| **Link commit** | Right after `gh pr create`, one commit replaces the branch name in follow-up notes with `PR #n`. The squash merge hides it | — |
+| **Stale plan from new notes** | A note another task added to this task's Context after its plan was approved makes the plan stale: attended sessions ask, unattended ones stop with `plan stale` | — |
+| **`/plan-batch`, `/skeleton`** | Their PRs place follow-ups the same way and have a Follow-ups section | `"propose"` |
+| **`/new-task` on a roadmap item with no Check** | Proposes a Check and writes it into the roadmap once you agree, then copies it as AC-1 | — |
+
+### Steps
+
+1. **Run the installer** on a new branch, from the project root:
+   ```powershell
+   git switch main; git pull --ff-only; git switch -c chore/kit-2.6
+   powershell -NoProfile -ExecutionPolicy Bypass -File C:\Development\tools\claude-code-starter-kit\install-kit.ps1 -Upgrade -WhatIf
+   powershell -NoProfile -ExecutionPolicy Bypass -File C:\Development\tools\claude-code-starter-kit\install-kit.ps1 -Upgrade
+   ```
+   Expect: **Updated** for the `implement-task`, `plan-batch`, `new-task`, `skeleton`, `customize-kit`, and `adopt` skills, `docs/tasks/_TEMPLATE.md`, and four guides under `docs/claude-kit/` (`README.md`, `USER-GUIDE.md`, `UPGRADING.md`, `CHANGELOG.md`); **Added** for `.claude/skills/track-follow-ups/` (`SKILL.md`, `classify.md`), `.claude/scripts/list-follow-ups.ps1`, `.claude/scripts/next-id.ps1`, and `docs/templates/owner-checklist.md`; **To merge** for `kit.json`, `CLAUDE.md`, `spec-reviewer.md`, `.claude/rules/git.md`, and the PR template. The same with or without roadmap mode. Restart Claude Code.
+2. **Merge `.kit-incoming/`**, or run `/customize-kit`, which detects a 2.5 configuration (no `workflow.followUps`) and proposes these as rows:
+   - `kit.json`: `"followUps": "apply"` in `workflow` (or `"review"` / `"propose"`). Leave `decisions` as it is.
+   - `.claude/rules/git.md`: the paragraph after "One task per branch, one branch per PR" (follow-up placements and archiving as the two allowed changes to other files), and the `→` sentence after the PR body line.
+   - `spec-reviewer.md`: step 11 (Follow-ups), the "Follow-ups check only" paragraph under Inputs, the scope sentence in step 6, step 12 (was 11), and the two output blocks. Keep your `model:` and `effort:` lines.
+   - PR template: the Follow-ups comment and the two reviewer-checklist lines.
+   - `CLAUDE.md`: the Workflow bullet on follow-ups, after "Change files outside the plan's file list only after explaining why".
+   - `settings.json` (the kit's copy doesn't change, so `/customize-kit` proposes it): allow `gh pr list *`, `gh pr view *`, and `powershell -NoProfile -ExecutionPolicy Bypass -File .claude/scripts/*`, each as `Bash(...)` and `PowerShell(...)`, so unattended sessions aren't stopped by a prompt.
+3. **Give approvals somewhere to wait: the Owner checklist.** If the **Owner checklist** row in `CLAUDE.md` is `—`, create one from `docs/templates/owner-checklist.md` (e.g. `docs/owner-checklist.md`) and add the row. If you have one, add an Actions and an Approvals heading in its own style. Without it, attended sessions still ask you, but an unattended session can only leave approvals in the PR.
+4. **Find project text that says how follow-ups or decisions are handled.** `git grep -n -i -e "follow-up" -e "candidate decision" -e "owner adds" -- CLAUDE.md .claude/project .claude/rules`. A `.claude/project/*.md` line wins over the kit: delete it if the switch now says the same, keep it if it's the project's rule.
+5. **Commit by path**, push, and open the PR, e.g. `chore: upgrade claude kit to 2.6`.
+6. **After merging, run the backfill once**, on an up-to-date `main` with a clean tree:
+   ```text
+   /track-follow-ups --dry-run
+   /track-follow-ups
+   ```
+   It reads the Follow-ups of every PR merged since the one that installed the kit (the commit that first added `.claude/kit-version`; pass `--since <PR#|date>` to choose), drops what is already tracked, done, or accepted, and places the rest on a `docs/track-follow-ups-<date>` branch with one PR that lists every follow-up as tracked (where) or not tracked (why). Review the placements in that PR like any other. It also applies any Owner checklist approval you've ticked, so it is worth re-running now and then.
+
+### Verification
+
+On the upgrade branch:
+
+```powershell
+(Get-Content .claude/kit.json -Raw | ConvertFrom-Json).workflow.followUps                                                     # expect apply (or your choice)
+powershell -NoProfile -ExecutionPolicy Bypass -File .claude/scripts/next-id.ps1 -Path <Decisions log path> -Prefix <ID prefix>   # expect one line per branch read, then "Next: <prefix><n>"
+powershell -NoProfile -ExecutionPolicy Bypass -File .claude/scripts/list-follow-ups.ps1                                        # expect "Since: <n> (the PR that installed the kit)" and a count
+powershell -NoProfile -ExecutionPolicy Bypass -File .claude/scripts/build-index.ps1; $LASTEXITCODE                               # expect 0
+```
+
+The next task after merging: its plan gate has a Follow-ups line, its PR's Follow-ups bullets each end in `→`, and the "How it was verified" table has a spec-reviewer row for the follow-ups check if anything was placed outside the task.
+
+### Projects with and without roadmap mode
+
+- **Roadmap mode** (`workflow.roadmap` set; e.g. ledger: `docs/TASKS.md`, `decisions: "propose"`, commit format `area`):
+  - A follow-up for an item with no task file goes into that item's body. New work becomes a roadmap item with the next free ID in its phase (`next-id.ps1 -List -Pattern '\d+\.\d+[a-z]?' -Path docs/TASKS.md`), a size, a **Check:**, and a place in the build order, never a task file.
+  - If the roadmap is in `largeFiles`, placements read it through the hint or a ranged Read; keep the hint working.
+  - With `decisions: "propose"`, candidate decisions become approvals, asked at close-out or queued in the Owner checklist. The 2.4-era rule "the owner adds it as the next D-n" becomes "Claude adds it once the owner approves".
+  - A "next new decision: D-n" line is updated with each recorded decision; `next-id.ps1` ignores it and reads the rows, so two branches can still conflict on that line's text, but never on an ID.
+- **No roadmap** (e.g. cfb-model: `{type}/{id}-{slug}` branches, `decisions: "append"`):
+  - New work becomes a `Draft` task file plus a stub in the **Task list** under its milestone.
+  - The backfill branch is `docs/…`, so `docs/` must stay in `workflow.branchPrefixes`.
+  - Zero-padded IDs (`D-007`) keep their padding.
+
+### Rolling back
+
+- `workflow.followUps: "propose"` stops new placements; notes already placed stay where they are, and the 2.5 skills ignore them.
+- To return to 2.5, reinstall it with its `install-kit.ps1 -Upgrade`. The `## Follow-ups` section in task files, the `followUps` key, and the Owner checklist are harmless to 2.5.
 
 ## From 2.4 to 2.5
 

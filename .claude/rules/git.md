@@ -29,7 +29,10 @@ Lowercase and hyphenated, one purpose per branch, with a prefix from `workflow.b
 
 A dependency bot's own branches (e.g. `dependabot/...`) are the one exception. Its PRs pass the same CI.
 
-One task per branch, one branch per PR. A problem that belongs to another task goes in the PR's Follow-ups, not in this diff. The one exception is archiving: when `workflow.archiveDone` is on (the default), a task's close-out or accept commit, or a plans PR, also carries `git mv` renames of other Done task files into `docs/tasks/archive/` (`.claude/scripts/archive-done.ps1`). Never move them on the base branch.
+One task per branch, one branch per PR. A problem that belongs to another task isn't fixed in this diff: it goes in the PR's Follow-ups, and is also tracked where the work that will do it will read it, per `workflow.followUps` (`.claude/skills/track-follow-ups/classify.md`). Two kinds of change to other files are allowed on a task branch:
+
+- **Follow-up placements**, in the close-out commit (or a plans PR): a note in another task's Context, a roadmap item, a decisions-log row, an approved planning-doc edit, an Owner checklist item. Each traces to a Follow-ups bullet; none changes another task's acceptance criteria or a roadmap **Check:** line.
+- **Archiving**, when `workflow.archiveDone` is on (the default): a task's close-out or accept commit, or a plans PR, also carries `git mv` renames of other Done task files into `docs/tasks/archive/` (`.claude/scripts/archive-done.ps1`). Never move them on the base branch.
 
 ## Staging
 
@@ -75,7 +78,7 @@ gh pr create --draft --base <base> --title "<a commit subject>" --body-file <fil
 ```
 
 - The PR title is a commit subject in `workflow.commitFormat`, because the squash merge keeps it.
-- The body follows `.github/pull_request_template.md`: What · Why · Acceptance criteria · How it was verified · Manual verification · Follow-ups · Reviewer checklist.
+- The body follows `.github/pull_request_template.md`: What · Why · Acceptance criteria · How it was verified · Manual verification · Follow-ups · Reviewer checklist. Every Follow-ups bullet ends `→ <path> § <section>` or `→ not tracked: <reason>`.
 - Watch CI with `gh pr checks <n> --watch`. Fix a red check on the same branch with a new commit.
 - Mark it ready (`gh pr ready <n>`) only after the ready gates above.
 

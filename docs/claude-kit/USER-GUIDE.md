@@ -4,7 +4,7 @@ How to install, set up, and use the kit day to day. For the reasoning behind the
 
 > **Starting a new project, or have only a brainstorm so far?** Follow `KICKOFF.md` first.
 > **Existing project with docs, a design, CI, a database, or code already in place?** Follow `ADOPTING.md`. `/adopt` maps your files to the kit without renaming anything.
-> **Project already on kit 2.3.x or 2.4.x?** Follow `UPGRADING.md`.
+> **Project already on kit 2.3.x, 2.4.x, or 2.5.x?** Follow `UPGRADING.md`.
 > All of them hand back to §7 of this guide.
 
 ## Contents
@@ -236,12 +236,12 @@ What happens, and where you're needed:
 | Phase | Claude does | You do |
 |---|---|---|
 | Preflight | Checks dependencies, checkable ACs, clean tree; creates `task/...` branch | Answer if it stops (vague AC, dirty tree) |
-| Plan | Writes steps, files, a test per AC, risks | **Gate**: approve or amend. Then optionally `/model sonnet` for implementation |
+| Plan | Writes steps, files, a test per AC, risks, and follow-ups planning found (with where each will go) | **Gate**: approve or amend; approving the plan approves those placements. Then optionally `/model sonnet` for implementation |
 | Implement | Tests first, then code; hooks check every edit | Answer questions |
 | Verify | test-runner, then a checkpoint commit | — |
 | Test audit | test-auditor proves the tests fail without the change | — |
 | Review | spec-reviewer, plus schema-reviewer and ui-verifier as relevant | Answer spec gaps |
-| Close out | Fills the task file; asks "Push and open a draft PR?" | Say yes |
+| Close out | Fills the task file; places follow-ups (`workflow.followUps`); asks "Push and open a draft PR?", together with any follow-ups that need your approval | Approve or skip each; say yes |
 | Ready gates | Checks each gate in `workflow.readyGates` it can (default: `verify.full`, then CI), fixes failures (max 2 rounds), marks the PR ready | Do the gates marked `owner` |
 | Report | PR link, owner gates, manual steps with expected results, your next steps | Manual check → reply "accepted" → merge → deploy, if your project has that step |
 
@@ -328,7 +328,7 @@ The PR body is pre-filled from `.github/pull_request_template.md`. Spend your 5�
 2. **Files changed tab.** Look for surprise files outside the plan. spec-reviewer flags these, but you're the last check.
 3. **Claude's review comments**, if `claude-pr-review.yml` is installed. Resolve or dismiss each one.
 4. **Manual verification steps.** Run them on the branch: `git fetch; git switch task/...`, start the app, follow the steps, compare against the expected results.
-5. **Follow-ups.** Candidate tasks, and candidate decisions to record if `workflow.decisions` is `propose`.
+5. **Follow-ups.** Each bullet ends with where it went (`→ <path> § <section>`) or why it wasn't tracked. Check the placements in the Files changed tab: another task's Context, a roadmap item, a new `Draft` task, the decisions log, a planning doc you approved, the Owner checklist. Move or drop any you disagree with on the branch. Approvals still waiting are in the Owner checklist.
 6. **Reply `accepted`** to the session, or edit `status: Done` in the PR yourself. Accepting also moves the task file to `docs/tasks/archive/`. A file you mark Done by hand is moved by the next task's close-out, which archives every Done task it finds.
 7. **Merge.** Branch protection blocks the merge until the CI job is green. Then run your deploy step, if the project has one.
 
@@ -356,12 +356,13 @@ The PR body is pre-filled from `.github/pull_request_template.md`. Spend your 5�
 | `/skeleton` | Build the walking skeleton: scaffold, scripts, one end-to-end slice, tests, CI |
 | `/milestones [MVP or Next]` | Break scope into demoable milestones and task stubs with a coverage check |
 | `/milestones --coverage [roadmap]` | Check an existing roadmap's coverage of features, screens, and entities; add the gaps to it as numbered items with a check line. Writes no new file |
-| `/customize-kit` | Tailor the kit to a project. Run once, and again after upgrades (it detects a 2.3.x or 2.4.x setup) |
+| `/customize-kit` | Tailor the kit to a project. Run once, and again after upgrades (it detects a 2.3.x, 2.4.x, or 2.5.x setup) |
 | `/new-task <description or path [M#] or roadmap IDs>` | Create task files with checkable ACs; bulk-convert a task list one milestone at a time, or a roadmap one sitting at a time |
 | `/verify` | Generated per project by `/customize-kit`: run `verify.full` before a push and report the actual output |
 | `/next-task [--dry-run]` | Pick the best Ready task (respecting WIP and dependencies) and implement it attended |
 | `/implement-task <ID> [--unattended]` | Run the full loop for one task |
 | `/plan-batch [N \| IDs]` | Plan several tasks for approval in one sitting |
+| `/track-follow-ups [--since <PR#\|date>] [--dry-run]` | Find follow-ups merged PRs listed but nothing tracks, and place them on a `docs/` branch with one PR; also apply Owner checklist approvals you've ticked. Run once after upgrading to 2.6 |
 
 ### Agents
 
@@ -383,6 +384,8 @@ Each agent reads `.claude/project/<agent-name>.md` first, if it exists, as its p
 |---|---|
 | `build-index.ps1 [-Check]` | Regenerate `docs/tasks/INDEX.md` (local, git-ignored) and list warnings. Archived tasks get their own table, metrics included |
 | `archive-done.ps1 [-DryRun]` | `git mv` every Done task file into `docs/tasks/archive/` (staged, not committed). Refuses on the base branch. `/implement-task` runs it at close-out and accept |
+| `next-id.ps1 -Path <file> [-Prefix D-] [-List -Pattern <regex>]` | The next free ID (e.g. a decision) across the working tree, `origin/<base>`, and every open PR's branch; `-List` lists IDs in use (e.g. roadmap IDs) |
+| `list-follow-ups.ps1 [-Since <PR#\|date>] [-FromJson <file>] [-AsJson]` | The Follow-ups bullets of merged PRs, with any destination each names. Read by `/track-follow-ups` |
 | `dispatch-approved.ps1 [-DryRun] [-Max N] [-PermissionMode m] [-Release IDs]` | Start background sessions for eligible tasks |
 
 ### Hooks (`.claude/hooks/`)
@@ -431,13 +434,14 @@ Every key is optional. A missing key takes the default below, which is the 2.3.1
 | `workflow.taskBranch` | `task/{id}-{slug}` | A task's branch name. `{type}/{id}-{slug}` picks the prefix that fits the task (`feat/`, `fix/`, …), as `.claude/rules/git.md` defines them |
 | `workflow.ciJobName` | `verify` | The CI job branch protection and the `ci` gate require |
 | `workflow.readyGates` | `["verify.full", "ci"]` | Ordered checks before `gh pr ready`. Built-ins `verify.full` and `ci`, or `{ name, check, by: claude\|owner, when: always\|ui\|[globs], failureLog, ownerFix }` |
-| `workflow.decisions` | `append` | `append`: close-out adds decisions to the log. `propose`: they go under the PR's Follow-ups for the owner |
+| `workflow.decisions` | follows `followUps` | `append`: close-out adds decisions to the log (IDs from `next-id.ps1`). `propose`: Claude records one only after the owner approves it, at close-out or by ticking it in the Owner checklist. Unset: `append`, or `propose` when `followUps` is `propose` |
 | `workflow.splitPolicy` | `split` | `split`: oversized tasks are split. `never-split`: one task, one branch, one PR, `attended` |
 | `workflow.afterMerge` | `""` | A closing line for every final report, e.g. "After merge, run Release to put it live." |
 | `workflow.allowForceWithLease` | `false` | `true` drops that deny rule; rebase, own branch only, never plain `--force` |
 | `workflow.roadmap` | `null` | `{ path, idPattern, checkLabel }`: roadmap-led mode (§6) |
 | `workflow.statusDoc` | `""` | A committed status page regenerated from the roadmap |
 | `workflow.archiveDone` | `true` | Done task files move to `docs/tasks/archive/` at the next close-out or accept on a branch. `false` leaves them in `docs/tasks/` |
+| `workflow.followUps` | `apply` | Where work noticed and left out goes (`.claude/skills/track-follow-ups/classify.md`). `apply`: written in the close-out commit to where the work will read it (another task's Context, the roadmap, a new `Draft` task, the decisions log, an approved planning-doc edit, the Owner checklist), and the PR lists each destination. Edits that change a planning doc, and `propose` decisions, wait for the owner's approval at the plan gate or close-out, or in the Owner checklist. `review`: attended sessions show every placement and wait; unattended act as `propose`. `propose`: PR body only, each bullet naming its intended destination |
 | `testAudit.testPathPatterns` | common test globs | What counts as a test file |
 | `testAudit.run` | `""` | Runs specific test files, `{tests}`; the single-runner fallback |
 | `testAudit.runners` | `[]` | `[{ pattern, run, each?, dir? }]`: one per test runner; `each: true` runs one file at a time; `dir` runs it from a subfolder with test paths relative to it (monorepos) |
@@ -472,7 +476,7 @@ Every skill and agent finds documents through the "Project docs" table in `CLAUD
 | Decisions | The decisions log, with its ID prefix; any path | Everything; `/implement-task` appends (or proposes) rows |
 | Review findings | Review protocol and findings ledger (`docs/templates/review-*.md`) | Commits and PRs cite finding IDs |
 | Deploy | How merged code goes live; `—` if merging deploys | Final reports (`workflow.afterMerge`) |
-| Owner runbook, Owner checklist | Steps and decisions only the owner takes | Final reports list your next steps; Claude never runs runbook commands unless asked |
+| Owner runbook, Owner checklist | Steps and decisions only the owner takes. The checklist (`docs/templates/owner-checklist.md`) also holds follow-ups waiting for your approval | Final reports list your next steps; Claude never runs runbook commands unless asked. Follow-ups add owner actions and approvals to the checklist |
 
 ### Permissions
 

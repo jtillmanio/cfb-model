@@ -36,6 +36,9 @@
       "Bash(gh run view *)",
       "Bash(gh workflow run *)",
       "Bash(gh run watch *)",
+      "Bash(gh pr list *)",
+      "Bash(gh pr view *)",
+      "Bash(powershell -NoProfile -ExecutionPolicy Bypass -File .claude/scripts/*)",
       "PowerShell(pnpm typecheck)",
       "PowerShell(pnpm typecheck *)",
       "PowerShell(pnpm lint)",
@@ -70,7 +73,10 @@
       "PowerShell(gh pr ready *)",
       "PowerShell(gh run view *)",
       "PowerShell(gh workflow run *)",
-      "PowerShell(gh run watch *)"
+      "PowerShell(gh run watch *)",
+      "PowerShell(gh pr list *)",
+      "PowerShell(gh pr view *)",
+      "PowerShell(powershell -NoProfile -ExecutionPolicy Bypass -File .claude/scripts/*)"
     ],
     "deny": [
       "Bash(git push origin main)",

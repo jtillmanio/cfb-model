@@ -95,6 +95,7 @@ _Written by `/milestones` on 2026-10-08 from [06-roadmap.md](06-roadmap.md). Eac
 | M1.5 → TASK-007, TASK-008 | Add the `lighthouse` workflow on PR previews | ops | M | M1.1 | attended | D-101, 02 › Performance checks: `scripts/perf/` with pure logic in Vitest; mint session with the preview `AUTH_SECRET`; scrub + guard reports; one PR comment. Routes `/login` and `/teams`; budgets from the first preview run |
 | M1.6 → TASK-009 | Add Dependabot and the merged-migration CI check | ops | S | — | attended | D-020, D-021: ignores for Next majors and TypeScript ≥ 7 with reasons beside them; CI fails if a migration on `main` was edited, renamed or deleted |
 | M1.7 | Block whole-file reads of data files with a PreToolUse hook | tooling | S | — | attended | **Done in the kit 2.4 upgrade (`chore/kit-2.4`); no task file needed.** The kit's `guard-large-reads.ps1` is registered in `.claude/settings.json` and reads `largeFiles` in `.claude/kit.json`: `data/*`, `*.parquet`, `*.duckdb` always denied; design boards and lockfiles denied whole |
+| M1.8 → TASK-010 | Let the ui-verifier sign in to the local dev server | tooling | S | M1.1 | attended | Draft, from the kit 2.6 upgrade (`chore/kit-2.6`). `ui.auth` is null since sign-in shipped, so the ui-verifier stops at `/login`. Choose a dev-only sign-in or an agent-run mint (D-090, D-012); production stays GitHub-only |
 
 ## M2: Data pipeline (Phase 1) — MVP
 
