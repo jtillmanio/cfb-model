@@ -1,14 +1,14 @@
 ---
 id: TASK-006
 title: Add the nightly backup workflow with restore verification
-status: Ready
+status: In progress
 depends_on: []
 size: M
 model: opus
 autonomy: attended
 ui: false
-plan_status: none
-planned_at_commit:
+plan_status: approved
+planned_at_commit: 6d4e50b
 ---
 
 # TASK-006 — Add the nightly backup workflow with restore verification
@@ -64,9 +64,39 @@ Every night the production database is dumped, proven restorable, and stored in 
 - Automated: `python/db/tests/test_backup.py`; CI still green after the `PG_MAJOR` move; the branch run of `backup.yml` (AC-5), once the owner approves it.
 - Manual: the owner follows `docs/runbooks/restore.md` once, restoring the newest dump into a scratch Neon branch → row counts match the job summary, and the time taken is recorded in the runbook.
 
+## Follow-ups
+
+- Candidate decision: decisions A–E below (`PG_MAJOR` in the `start-postgres` action, snapshot-matched row counts, object name and schedule, views from production's commit, what "view tests" means); D-099 marked "Amended by D-109" → docs/decisions.md § D-109 (approved at plan)
+- Tick Phase 0's `PG_MAJOR` and `backup` items; the Accounts item says R2 isn't created, but the R2 secrets and `R2_BUCKET` exist (tick once the owner confirms) → docs/06-roadmap.md § Phase 0 (approved at plan)
+- Architecture says the restore goes into "a Postgres service container"; it's a container started in a step by the `start-postgres` action → docs/02-architecture.md § Release & operations (approved at plan)
+- Confirm the role in `BACKUP_DATABASE_URL` (`backup_reader`) is read-only → docs/owner-checklist.md § Actions (approved at plan)
+
 ## Plan
 
-_Written by /plan-batch or /implement-task Phase 1. Approved by the user (plan_status: approved) before any code is written._
+Approved 2026-10-12 (all of A–E as recommended; D = production's health commit).
+
+**Decisions at the gate**
+- A. `PG_MAJOR` is set once, in a composite action `.github/actions/start-postgres/action.yml`: it exports `PG_MAJOR` to `$GITHUB_ENV`, pulls `postgres:$PG_MAJOR` with CI's registry fallback loop, and starts the container. `ci.yml` and `backup.yml` both use it; neither has a literal major. Amends D-099.
+- B. `python -m db backup dump` opens a `REPEATABLE READ READ ONLY` transaction, takes `pg_export_snapshot()`, runs `pg_dump -Fc --snapshot=<id>`, and counts every table in that same transaction, so production's counts match the dump exactly.
+- C. Object `backups/<UTC YYYY-MM-DD>.dump` (a same-day re-run replaces it); cron `30 7 * * *` (03:30 ET).
+- D. Views re-applied are those of the commit production serves (`commit` from `PRODUCTION_URL/api/py/health`), checked out into `target/` as the release does, so a merged-but-unreleased migration can't break the nightly backup. If health doesn't answer, the run fails loudly.
+- E. "View tests" = every view in the restored database answers a full `SELECT` without error; zero views passes.
+
+**Steps**
+0. Stub `backup.yml` (`workflow_dispatch` only, no-op) lands on `main` first in its own PR, so the branch's file can run with `gh workflow run backup.yml --ref <branch>` (as PR #23 did for release, D-108).
+1. `python/db/src/db/backup.py`: pure `compare_counts` (names each differing or one-sided table), `check_dump` (non-zero exit or empty file), summary rendering; `count_rows(conn)` (base tables outside system schemas), `query_views(url)`; commands `dump` and `verify` (refuses a non-local restore URL; applies views, queries each, compares counts, writes the job summary with both sides' counts and the dump size). Non-zero exit on any failure.
+2. `python/db/src/db/migrate.py`: `apply_views(url, views_dir=VIEWS_DIR)`. `__main__.py` registers `backup`.
+3. `.github/workflows/backup.yml`: `schedule` + `workflow_dispatch`, `permissions: contents: read`, `concurrency: backup`, 15 min. One job: checkout → PGDG client for `$PG_MAJOR` (its `bin` first on `PATH`) → `backup dump` → production's commit's views into `target/` → start Postgres (action) → `pg_restore --no-owner --no-privileges --exit-on-error` → `backup verify` → `aws s3 cp` to R2. Secrets only through `env:`; a failed step stops before the upload.
+4. `docs/runbooks/restore.md` (AC-6); README › Backups (secrets, run, read a failed run).
+
+**Files**: `.github/workflows/backup.yml` (new), `.github/actions/start-postgres/action.yml` (new; not in Files likely touched), `.github/workflows/ci.yml`, `python/db/src/db/backup.py` (new), `python/db/src/db/__main__.py`, `python/db/src/db/migrate.py` (not in Files likely touched), `python/db/tests/test_backup.py` (new), `docs/runbooks/restore.md` (new), `README.md`. Nine files, two of them docs, no schema or UI: kept whole (approved).
+
+**Test strategy** (`python/db/tests/test_backup.py`)
+- AC-1: match; one mismatch names the table and both counts; production-only and restored-only tables named; `count_rows` on the migrated test DB includes `alembic_version`.
+- AC-2: `ci.yml` and `backup.yml` contain no `PG_MAJOR:` literal or `postgres:<n>` and both use the action; the action sets `PG_MAJOR`.
+- AC-3: `check_dump` refuses a non-zero exit and an empty file; `verify` refuses a non-local URL; step order by review and the branch run.
+- AC-4: R2 secrets and `BACKUP_DATABASE_URL` appear only in `backup.yml`, only on `NAME: ${{ secrets.X }}` env lines; permissions by review.
+- AC-5: owner-approved branch run. AC-6: the runbook, by review.
 
 ## Review log
 
