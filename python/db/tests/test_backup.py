@@ -223,6 +223,30 @@ def test_secrets_reach_backup_steps_only_through_env():
         assert re.fullmatch(r"\s+[A-Z0-9_]+: \$\{\{ secrets\.[A-Z0-9_]+ \}\}", line), line
 
 
+def test_the_backup_steps_run_in_order_and_the_upload_comes_last():
+    code = re.sub(r"#.*", "", (WORKFLOWS / "backup.yml").read_text(encoding="utf-8"))
+    order = [
+        code.index("db backup dump"),
+        code.index("pg_restore --no-owner"),
+        code.index("db backup verify"),
+        code.index("aws s3 cp"),
+    ]
+    assert order == sorted(order)
+    steps = re.split(r"^      - ", code, flags=re.M)
+    assert "aws s3 cp" in steps[-1], "the upload is the job's last step"
+    # A failed step must end the job before the upload: nothing may carry on past a failure.
+    assert "continue-on-error" not in code
+    assert not re.search(r"\b(always|failure|cancelled)\(\)", code)
+
+
+def test_the_backup_reads_production_only_through_backup_database_url():
+    code = re.sub(r"#.*", "", (WORKFLOWS / "backup.yml").read_text(encoding="utf-8"))
+    assert set(re.findall(r"secrets\.([A-Z0-9_]+)", code)) == set(BACKUP_SECRETS)
+    assert "DATABASE_URL" not in code.replace("BACKUP_DATABASE_URL", "")
+    restore_url = re.search(r"RESTORE_URL: (\S+)", code)
+    assert restore_url and require_local(restore_url.group(1))
+
+
 def test_the_backup_workflow_runs_nightly_and_on_demand_with_read_only_permissions():
     code = re.sub(r"#.*", "", (WORKFLOWS / "backup.yml").read_text(encoding="utf-8"))
     assert re.search(r"^  schedule:\s*\n\s*- cron:", code, re.M)
