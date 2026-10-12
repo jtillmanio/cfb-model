@@ -86,6 +86,36 @@ def test_verify_exits_non_zero_and_names_the_table_when_counts_differ(
 # ─── AC-3: dump, restore target, views ───────────────────────────────────────────────────────
 
 
+def test_verify_refuses_a_views_directory_that_does_not_exist(monkeypatch, tmp_path, test_db_url):
+    monkeypatch.delenv("GITHUB_STEP_SUMMARY", raising=False)
+    monkeypatch.setattr("db.backup.require_local", lambda url: url)
+    counts = tmp_path / "counts.json"
+    counts.write_text("{}", encoding="utf-8")
+    dump = tmp_path / "backup.dump"
+    dump.write_bytes(b"x")
+    with pytest.raises(SystemExit) as exc:
+        main(["backup", "verify", "--restored-url", test_db_url, "--counts", str(counts),
+              "--dump", str(dump), "--views", str(tmp_path / "no-such-dir")])
+    assert "no-such-dir" in str(exc.value.code)
+
+
+def test_the_dump_refuses_neons_pooled_host(monkeypatch, tmp_path):
+    # A snapshot can't be shared through PgBouncer's transaction mode.
+    monkeypatch.delenv("GITHUB_STEP_SUMMARY", raising=False)
+    monkeypatch.setenv("BACKUP_DATABASE_URL", "postgresql://u:p@ep-x-pooler.aws.neon.tech/db")
+    with pytest.raises(SystemExit) as exc:
+        main(["backup", "dump", "--out", str(tmp_path / "d"), "--counts", str(tmp_path / "c")])
+    assert "pooled" in str(exc.value.code)
+
+
+def test_the_dump_refuses_without_backup_database_url(monkeypatch, tmp_path):
+    monkeypatch.delenv("GITHUB_STEP_SUMMARY", raising=False)
+    monkeypatch.delenv("BACKUP_DATABASE_URL", raising=False)
+    with pytest.raises(SystemExit) as exc:
+        main(["backup", "dump", "--out", str(tmp_path / "d"), "--counts", str(tmp_path / "c")])
+    assert "BACKUP_DATABASE_URL is not set" in str(exc.value.code)
+
+
 def test_a_dump_with_a_non_zero_exit_is_refused(tmp_path):
     dump = tmp_path / "backup.dump"
     dump.write_bytes(b"partial")

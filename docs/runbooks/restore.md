@@ -25,18 +25,23 @@ client of the same major version as `PG_MAJOR` (`.github/actions/start-postgres/
    Open the matching night's **Backup** run in GitHub Actions: its summary lists every table's row
    count, which step 6 checks against.
 2. **Download it** from the dashboard (the object's **Download**) to `restore.dump`. With an R2
-   API token instead:
+   API token instead (R2 needs the region `auto` and rejects the CLI's default checksums):
    ```powershell
+   $env:AWS_ACCESS_KEY_ID = "<R2 access key ID>"; $env:AWS_SECRET_ACCESS_KEY = "<R2 secret>"
+   $env:AWS_DEFAULT_REGION = "auto"
+   $env:AWS_REQUEST_CHECKSUM_CALCULATION = "when_required"; $env:AWS_RESPONSE_CHECKSUM_VALIDATION = "when_required"
    aws s3 cp s3://cfb-backups/backups/<date>.dump .\restore.dump --endpoint-url https://<R2_ACCOUNT_ID>.r2.cloudflarestorage.com
    ```
-3. **Make the new database.** Neon › the project › Branches › **Create branch**, named
-   `restore/<date>`, from `main` (or from any branch if `main` is gone). Open its **Connect**
-   dialog and copy two connection strings: the **pooled** one (host ends `-pooler`) and the
-   **direct** one (pooling off).
-4. **Restore the dump** into it. `--clean --if-exists` first drops whatever the branch already
-   holds, so the result is exactly the dump:
+3. **Make an empty database.** Neon › the project › Branches › **Create branch**, named
+   `restore/<date>`, from `main` (or from any branch if `main` is gone). A branch copies its
+   parent's data, damage included, so restore into a new database on it instead: the branch ›
+   Databases › **New database**, named `restored`, owned by the same owner role as `neondb`
+   (`neondb_owner`). Open **Connect** for that database and copy two connection strings: the
+   **pooled** one (host ends `-pooler`) and the **direct** one (pooling off).
+4. **Restore the dump** into the empty database, as that owner role. The app connects as the
+   same role, so `--no-owner --no-privileges` leaves it owning, and able to read, everything:
    ```powershell
-   pg_restore --clean --if-exists --no-owner --no-privileges --exit-on-error --dbname "<direct URL>" .\restore.dump
+   pg_restore --no-owner --no-privileges --exit-on-error --dbname "<direct URL>" .\restore.dump
    ```
 5. **Re-apply the views** from the code production runs. Find production's commit (Vercel ›
    Deployments › the one marked Current, or `/api/py/health` if it answers), then:
@@ -52,13 +57,12 @@ client of the same major version as `PG_MAJOR` (`.github/actions/start-postgres/
    ```powershell
    psql "<direct URL>" -c "SELECT table_schema || '.' || table_name AS t, (xpath('/row/c/text()', query_to_xml(format('SELECT count(*) AS c FROM %I.%I', table_schema, table_name), false, true, '')))[1]::text::int AS rows FROM information_schema.tables WHERE table_type = 'BASE TABLE' AND table_schema NOT IN ('pg_catalog', 'information_schema') ORDER BY 1"
    ```
-7. **Let the read-only backup role read it again.** `--no-privileges` dropped its grants. As the
-   owner role, in the Neon SQL editor on the new branch:
+7. **Let the read-only backup role read it.** The branch copied `backup_reader` from its parent,
+   but `--no-privileges` restored no table grants. Role membership survives, so in the Neon SQL
+   editor on the new branch (as the owner role) make sure it holds Postgres's read-everything role,
+   which covers every table and sequence, including future ones:
    ```sql
-   GRANT USAGE ON SCHEMA public TO backup_reader;
-   GRANT SELECT ON ALL TABLES IN SCHEMA public TO backup_reader;
-   GRANT SELECT ON ALL SEQUENCES IN SCHEMA public TO backup_reader;
-   ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO backup_reader;
+   GRANT pg_read_all_data TO backup_reader;
    ```
 8. **Point production at it.**
    - Vercel › Settings › Environment Variables › **Production**: `DATABASE_URL` = the pooled
@@ -67,7 +71,7 @@ client of the same major version as `PG_MAJOR` (`.github/actions/start-postgres/
      direct host, so preview builds keep refusing to migrate production (D-100).
    - GitHub › Settings › Secrets and variables › Actions: `PRODUCTION_DATABASE_URL_UNPOOLED` =
      the direct URL (the release workflow), and `BACKUP_DATABASE_URL` = `backup_reader`'s direct
-     URL on the new branch (the backup workflow).
+     URL to the `restored` database (the backup workflow).
    - Vercel › Deployments › the Current production deployment › **Redeploy**: environment
      variables apply only to a new deployment. It rebuilds the same commit.
 9. **Check it's live.** Open `<production URL>/api/py/health`: `db_reachable` is `true`,

@@ -180,13 +180,15 @@ def dump(args: argparse.Namespace) -> None:
         raise BackupFailed(f"{BACKUP_URL_VAR} is Neon's pooled host; the dump needs the direct.")
     out: Path = args.out
     with snapshot_transaction(url) as (conn, snapshot):
+        # Count first: the snapshot is already fixed, and the session then sits idle while
+        # pg_dump runs, so a dropped idle session can't fail a good dump at the count.
+        counts = count_rows(conn)
         result = subprocess.run(
             ["pg_dump", "--format=custom", f"--snapshot={snapshot}", f"--file={out}",
              f"--dbname={url}"],
             check=False,
         )
         size = check_dump(result.returncode, out)
-        counts = count_rows(conn)
     args.counts.write_text(json.dumps(counts, indent=2, sort_keys=True), encoding="utf-8")
     print(f"Dumped {len(counts)} tables, {_size(size)}.")
     _output(size=str(size), key=object_key(datetime.now(UTC)))
@@ -197,7 +199,11 @@ def verify(args: argparse.Namespace) -> None:
     url = require_local(args.restored_url)
     production: dict[str, int] = json.loads(args.counts.read_text(encoding="utf-8"))
     size = check_dump(0, args.dump)
-    apply_views(url, args.views or VIEWS_DIR)
+    views_dir: Path = args.views or VIEWS_DIR
+    if not views_dir.is_dir():
+        # A wrong path would apply zero views and still pass.
+        raise BackupFailed(f"The views directory {views_dir} doesn't exist.")
+    apply_views(url, views_dir)
     with make_engine(url).connect() as conn:
         views = query_views(conn)
         restored = count_rows(conn)
