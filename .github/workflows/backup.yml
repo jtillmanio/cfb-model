@@ -1,0 +1,15 @@
+# Placeholder for the backup workflow (TASK-006). GitHub dispatches a workflow only when its file
+# exists on the default branch; with this stub on main, `gh workflow run backup.yml --ref <branch>`
+# runs the branch's real file. TASK-006 replaces this file. It reads and changes nothing.
+name: Backup
+
+on:
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  stub:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "Placeholder. The backup workflow lands with TASK-006; nothing was read or stored."
