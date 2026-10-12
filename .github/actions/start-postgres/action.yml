@@ -1,0 +1,49 @@
+# Starts Postgres in a container for CI's tests and the backup's restore check, and sets PG_MAJOR
+# for the rest of the job. This is the one place PG_MAJOR is set (D-017, D-099, D-109): Neon,
+# CI's database, the backup's pg_dump client and its restore container all use this major.
+name: Start Postgres
+description: Set PG_MAJOR and run postgres:$PG_MAJOR on localhost:5432 (user and password "ci")
+
+inputs:
+  database:
+    description: The database to create
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Set PG_MAJOR
+      shell: bash
+      run: echo "PG_MAJOR=18" >> "$GITHUB_ENV"
+
+    # The official image, from the first registry that answers: anonymous pulls from shared
+    # runner IPs hit rate limits ("toomanyrequests") on Docker Hub and, at times, on AWS's
+    # mirror too, failing the job before any test runs. All three serve the same image.
+    - name: Start Postgres
+      shell: bash
+      env:
+        DATABASE: ${{ inputs.database }}
+      run: |
+        image=""
+        for attempt in 1 2 3; do
+          for registry in public.ecr.aws/docker mirror.gcr.io docker.io; do
+            if docker pull -q "${registry}/library/postgres:${PG_MAJOR}"; then
+              image="${registry}/library/postgres:${PG_MAJOR}"
+              break 2
+            fi
+          done
+          sleep $((attempt * 20))
+        done
+        if [ -z "$image" ]; then
+          echo "::error::Couldn't pull postgres:${PG_MAJOR} from any registry"
+          exit 1
+        fi
+        echo "Pulled ${image}"
+        docker run -d --name pg -p 5432:5432 \
+          -e POSTGRES_USER=ci -e POSTGRES_PASSWORD=ci -e POSTGRES_DB="$DATABASE" "$image"
+        for _ in $(seq 1 30); do
+          docker exec pg pg_isready -U ci -d "$DATABASE" && exit 0
+          sleep 2
+        done
+        docker logs pg
+        exit 1

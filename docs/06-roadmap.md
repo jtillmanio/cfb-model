@@ -25,7 +25,7 @@ Phase 8  Multi-sport (NFL)
 - [x] Create the private GitHub repo (Claude asks first) and push the bootstrap commit (planning docs, `.claude/rules`, `.gitignore`) as the initial `main`. This is the only direct commit to `main`; everything after goes through PRs.
 
 **Accounts & scaffolding**
-- [ ] Accounts: CFBD key (Patreon tier 1, already active), Neon, Cloudflare R2, Vercel _(partial: CFBD, Neon and Vercel done; R2 not created yet, needed by the Phase 1 raw writer and the `backup` workflow)_
+- [ ] Accounts: CFBD key (Patreon tier 1, already active), Neon, Cloudflare R2, Vercel _(partial: CFBD, Neon and Vercel done; R2 account and the backup bucket `cfb-backups` exist (TASK-006); the lake bucket for the Phase 1 raw writer isn't created yet)_
 - [x] Install `uv` and `pnpm`; uv workspace (`python/engine`, `python/api`, `python/db`), Python 3.13
 - [ ] Next.js 16 app in `web/` (TS strict, Tailwind, shadcn/ui, `agentRules: false`) _(partial: shadcn/ui not set up yet)_
 - [x] One Vercel project serving Next.js + the FastAPI function, or two projects if that doesn't work (decide and record)
@@ -36,7 +36,7 @@ Phase 8  Multi-sport (NFL)
 - [x] Test DB guard: tests require `TEST_DATABASE_URL`, distinct from `DATABASE_URL`, with no fallback
 - [x] `LIVE=true` guard on every destructive command
 - [x] Pooled URL for the app (`prepare_threshold=None`, `NullPool`), unpooled for migrations/jobs
-- [ ] `PG_MAJOR` set once and used by CI's service container and backup tooling _(partial: set in CI, D-099; backup tooling pending)_
+- [x] `PG_MAJOR` set once and used by CI's service container and backup tooling _(TASK-006: set in the `start-postgres` action that CI and the backup share, D-109)_
 
 **Schema & migrations**
 - [x] SQLAlchemy models + Alembic; first migration: `sports`, `teams`, `team_seasons`, `venues`, `games`
@@ -48,7 +48,7 @@ Phase 8  Multi-sport (NFL)
 - [ ] Auth.js with GitHub login + allowlist; bad session → redirect to `/login`; API JWT check
 - [x] CI on PR: ruff, pyright, pytest, eslint, tsc, vitest, migration checks
 - [x] `release` workflow: plan → snapshot → migrate → views → promote → smoke test (with dry run) _(TASK-005; README › Releasing)_
-- [ ] Nightly `backup` workflow with restore verification → R2
+- [x] Nightly `backup` workflow with restore verification → R2 _(TASK-006; README › Backups, docs/runbooks/restore.md)_
 - [ ] Dependabot with documented ignores (Next majors, TypeScript ≥ 7)
 - [ ] `lighthouse` workflow on every PR preview, after Auth.js (D-101, [02 › Performance checks](02-architecture.md#performance-checks-lighthouse)): gates bytes, requests, CLS, accessibility and forbidden requests; reports timings in one PR comment; signs in by minting a session with the preview `AUTH_SECRET`; reports scrubbed and kept private. Routes `/login` and `/teams` to start, budgets set from the first preview run. Repo secrets documented in the setup docs
 

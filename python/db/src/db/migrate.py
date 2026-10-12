@@ -28,10 +28,11 @@ def upgrade(url: str) -> None:
     apply_views(url)
 
 
-def apply_views(url: str) -> list[str]:
+def apply_views(url: str, views_dir: Path = VIEWS_DIR) -> list[str]:
+    """`views_dir` is another checkout's views, e.g. the backup applying production's (D-109)."""
     applied = []
     with make_engine(url).begin() as conn:
-        for sql_file in sorted(VIEWS_DIR.glob("*.sql")):
+        for sql_file in sorted(views_dir.glob("*.sql")):
             conn.execute(text(sql_file.read_text(encoding="utf-8")))
             applied.append(sql_file.name)
     print(f"Views applied: {len(applied)}" + (f" ({', '.join(applied)})" if applied else ""))
