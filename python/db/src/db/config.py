@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Literal
 from urllib.parse import urlsplit
 
-from dotenv import load_dotenv
+from dotenv import dotenv_values, load_dotenv
 
 # python/db/src/db/config.py -> repo root
 _REPO_ROOT = Path(__file__).resolve().parents[4]
@@ -105,6 +105,34 @@ def preview_migration_url(env: Mapping[str, str] | None = None) -> str | None:
         )
     if _host(url) == _host(production):
         raise UnsafeDatabaseError("The preview database is production's. Refusing to migrate.")
+    return url
+
+
+# Production's direct URL: a repo secret for the release workflow, and the one line in .env.live.
+LIVE_URL_VAR = "PRODUCTION_DATABASE_URL_UNPOOLED"
+
+
+def live_url(env_file: Path | None, env: Mapping[str, str] | None = None) -> str:
+    """Production's unpooled URL, from an explicit env file or the release workflow's environment.
+
+    Nothing reads `.env.live` implicitly (`load_env` reads only `.env.local`): the caller names
+    it with `--env-file`. A value in the file wins over the environment, since naming the file is
+    the explicit act. Refuses Neon's pooled host: migrations need the direct one (D-016)."""
+    values = dict(_env(env))
+    if env_file is not None:
+        if not env_file.is_file():
+            raise UnsafeDatabaseError(f"{env_file} doesn't exist.")
+        values.update({k: v for k, v in dotenv_values(env_file).items() if v is not None})
+    url = values.get(LIVE_URL_VAR, "").strip()
+    if not url:
+        raise UnsafeDatabaseError(
+            f"--target live needs {LIVE_URL_VAR}: pass --env-file .env.live, or set it in the "
+            "environment (the release workflow does). .env.live is never read implicitly."
+        )
+    if (urlsplit(url).hostname or "").lower().partition(".")[0].endswith("-pooler"):
+        raise UnsafeDatabaseError(
+            f"{LIVE_URL_VAR} is Neon's pooled host; migrations need the direct (unpooled) one."
+        )
     return url
 
 

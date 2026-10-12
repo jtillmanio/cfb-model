@@ -1,31 +1,48 @@
-"""`python -m db migrate|check --target dev|test|preview`.
+"""`python -m db migrate|check --target dev|test|preview|live` and `python -m db release <step>`.
 
 Root scripts: db:migrate (dev), db:migrate:test, db:check (test). The preview target is the
-Vercel preview build's step; outside a preview build it does nothing.
+Vercel preview build's step; outside a preview build it does nothing. The live target is
+production, migrated only by the release workflow or with an explicit `--env-file .env.live`
+(D-015); the release steps are in db.release.
 """
 
 from __future__ import annotations
 
 import argparse
+from pathlib import Path
 from typing import cast
 
-from db.config import MigrationTarget, direct_url, load_env, preview_migration_url
+from db import release
+from db.config import MigrationTarget, direct_url, live_url, load_env, preview_migration_url
 from db.migrate import check, upgrade
 
 
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(prog="python -m db")
-    parser.add_argument("command", choices=["migrate", "check"])
-    parser.add_argument("--target", choices=["dev", "test", "preview"], default="dev")
+    commands = parser.add_subparsers(dest="command", required=True)
+    for name in ("migrate", "check"):
+        p = commands.add_parser(name)
+        p.add_argument("--target", choices=["dev", "test", "preview", "live"], default="dev")
+        p.add_argument("--env-file", type=Path, help="Only with --target live: e.g. .env.live")
+    release.add_commands(commands)
     args = parser.parse_args(argv)
 
+    if args.command == "release":
+        args.func(args)
+        return
+
+    if args.env_file is not None and args.target != "live":
+        parser.error("--env-file is only for --target live")
+    if args.target in ("preview", "live") and args.command != "migrate":
+        parser.error(f"--target {args.target} only supports migrate")
+
     if args.target == "preview":
-        if args.command != "migrate":
-            parser.error("--target preview only supports migrate")
         url = preview_migration_url()
         if url is None:
             print("Not a preview build: skipping the preview migration.")
             return
+    elif args.target == "live":
+        url = live_url(args.env_file)
     else:
         load_env()
         url = direct_url(cast(MigrationTarget, args.target))

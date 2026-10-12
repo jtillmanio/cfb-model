@@ -60,7 +60,7 @@
     ],
     "decisions": "append",
     "splitPolicy": "split",
-    "afterMerge": "Merged is not live: production changes go out only through the release workflow (not built yet; roadmap Phase 0).",
+    "afterMerge": "Merged is not live: production changes go out only when the owner runs the Release workflow (README › Releasing).",
     "allowForceWithLease": false,
     "roadmap": null,
     "statusDoc": "",

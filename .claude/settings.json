@@ -99,6 +99,7 @@
       "Bash(vercel --prod*)",
       "Bash(vercel promote*)",
       "Bash(*--env-file .env.live*)",
+      "Bash(*--target live*)",
       "PowerShell(git push origin main)",
       "PowerShell(git push origin main *)",
       "PowerShell(git push origin master)",
@@ -119,6 +120,7 @@
       "PowerShell(vercel --prod*)",
       "PowerShell(vercel promote*)",
       "PowerShell(*--env-file .env.live*)",
+      "PowerShell(*--target live*)",
       "Read(./.env.live)"
     ]
   },
