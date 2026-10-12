@@ -1,7 +1,7 @@
 ---
 id: TASK-005
 title: Add the release workflow that migrates, promotes and smoke-tests
-status: Review
+status: Done
 depends_on: []
 size: M
 model: opus
