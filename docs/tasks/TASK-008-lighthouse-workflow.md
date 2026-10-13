@@ -37,7 +37,7 @@ Every PR's preview is measured automatically: the PR gets one comment with the n
 ## Acceptance criteria
 
 - [x] AC-1: `.github/workflows/lighthouse.yml` matches 02's shape: top-level `permissions: {}`, the `plan`, `measure` (matrix per route, `fail-fast: false`, concurrency `lighthouse-pr-<n>-<route>` with cancel-in-progress) and `report` jobs, with only `report` granted `pull-requests: write`; secrets reach scripts only through `env:`; header files go to a temp folder removed in an `if: always()` step; every request to the preview (Lighthouse `--extra-headers` and the session mint) carries `x-vercel-protection-bypass` from `VERCEL_AUTOMATION_BYPASS_SECRET`.
-- [ ] AC-2: On this PR's preview, the workflow runs on its own and measures `/login` signed out and `/teams` signed in, with neither ending on an unexpected URL; the PR has exactly one Lighthouse comment, and a re-run edits that comment instead of adding another.
+- [x] AC-2: On this PR's preview, the workflow runs on its own and measures `/login` signed out and `/teams` signed in, with neither ending on an unexpected URL; the PR has exactly one Lighthouse comment, and a re-run edits that comment instead of adding another.
 - [x] AC-3: `scripts/perf/budget.json` holds, per route, `docBytes`, `jsBytes`, `requests` and `a11y` computed from this PR's preview run by 02's rule; the `perf-budget` table in `docs/02-architecture.md` matches it, with the measured numbers, Lighthouse version and Chrome version beside it.
 - [x] AC-4: Vitest cases fail when `budget.json`'s keys differ from the route ids in `routes.mjs`, or when the `perf-budget` table in `docs/02-architecture.md` differs from `budget.json`.
 - [x] AC-5: The run's uploaded artifacts are only scrubbed reports and `metrics.json` with 14-day retention, and the guard step passed; no artifact goes to LHCI temporary public storage.
@@ -110,7 +110,8 @@ Approved 2026-10-13 at `a553689`.
 - Verify R1 PASS (one ESLint warning in the new test, fixed)
 - Preview runs: 38359279590 on `f5503aa` (unbudgeted; set the budgets) and 38402578345 on `2c0b806` (gated against them): plan, measure (login), measure (teams) and report all green
 - Audit R1 NOT RUN (rate limit) → R2: static OK on all 18 new cases. Dynamic NOT RUN: the permission classifier denied restoring `main`'s files in the working tree, and the tree was confirmed clean. Tests-first evidence from Phase 2: 17 of 18 new cases failed before the code existed (missing exports, workflow and budgets); the 18th, the versions-beside-the-table case, can only fail once `budget.json` has `measured`.
-- Spec R1 CHANGES (Follow-ups bullet had no path; TASK-013 was a dropped ID; AC-2's comment half pending the PR) → fixed at close-out (TASK-014)
+- Spec R1 CHANGES (Follow-ups bullet had no path; TASK-013 was a dropped ID; AC-2's comment half pending the PR) → fixed at close-out (TASK-014); follow-ups check APPROVE
+- AC-2 on PR #29: run 38403658087 (`8f2a0c8`) posted one comment (6146476302, "✅ within budget"); re-running its `report` job edited that comment (updated 13:19:27Z → 13:20:03Z) and added none. The `96ae829` run was cancelled by the newer push, as its concurrency group intends
 
 ## Blocked
 
@@ -120,5 +121,5 @@ _Only if status is Blocked: what failed, what was tried, best hypothesis, decisi
 
 - Verify rounds: 1
 - Review rounds: 2 (spec R1 CHANGES on follow-ups only; R2 the close-out follow-ups check)
-- First-pass AC FAILs: 0 (AC-2's comment half checked on the PR)
+- First-pass AC FAILs: 0
 - Plan revisions after approval: 0
