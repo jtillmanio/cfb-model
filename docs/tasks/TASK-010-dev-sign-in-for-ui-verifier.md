@@ -1,7 +1,7 @@
 ---
 id: TASK-010
 title: Let the ui-verifier sign in to the local dev server
-status: Ready
+status: Review
 depends_on: []
 size: S
 model: sonnet
@@ -28,16 +28,16 @@ The ui-verifier agent can open signed-in screens on the local dev server, so UI 
 
 ## Acceptance criteria
 
-- [ ] AC-1: `node web/e2e/dev-session.mjs <url>` prints exactly one line to stdout: a Playwright cookie as JSON (`authjs.session-token`, the given URL, `httpOnly`, `sameSite: "Lax"`, expiring in 1 hour). Its value is the session Auth.js would set after the allowlisted account signed in with GitHub. The script reads `AUTH_SECRET` and `AUTH_ALLOWED_GITHUB_ID` only, and only from the repo root's `.env.local`: no other file, no flag that picks a file, and no fallback to the process environment. It never prints `AUTH_SECRET`.
-- [ ] AC-2: The script refuses (exit 1, reason on stderr, nothing on stdout) when the URL isn't `http:` on a loopback host (`localhost`, `127.0.0.1`, `[::1]`), or when `.env.local` lacks either variable. Vitest covers each refusal. It also shows that a minted cookie decodes with the secret it was minted with and not with any other, which is why it can't open a preview or production (D-012).
-- [ ] AC-3: A test fails if any file under `web/app/` or `web/lib/` (tests excepted), or `web/proxy.ts`, `web/auth.ts` or `web/auth.config.ts`, imports from `e2e/`. The mint never becomes app source.
-- [ ] AC-4: `.claude/project/ui-verifier.md` § Sign-in tells the ui-verifier to:
+- [x] AC-1: `node web/e2e/dev-session.mjs <url>` prints exactly one line to stdout: a Playwright cookie as JSON (`authjs.session-token`, the given URL, `httpOnly`, `sameSite: "Lax"`, expiring in 1 hour). Its value is the session Auth.js would set after the allowlisted account signed in with GitHub. The script reads `AUTH_SECRET` and `AUTH_ALLOWED_GITHUB_ID` only, and only from the repo root's `.env.local`: no other file, no flag that picks a file, and no fallback to the process environment. It never prints `AUTH_SECRET`.
+- [x] AC-2: The script refuses (exit 1, reason on stderr, nothing on stdout) when the URL isn't `http:` on a loopback host (`localhost`, `127.0.0.1`, `[::1]`), or when `.env.local` lacks either variable. Vitest covers each refusal. It also shows that a minted cookie decodes with the secret it was minted with and not with any other, which is why it can't open a preview or production (D-012).
+- [x] AC-3: A test fails if any file under `web/app/` or `web/lib/` (tests excepted), or `web/proxy.ts`, `web/auth.ts` or `web/auth.config.ts`, imports from `e2e/`. The mint never becomes app source.
+- [x] AC-4: `.claude/project/ui-verifier.md` § Sign-in tells the ui-verifier to:
   - run the mint for the resolved base URL, add the cookie to the browser context, and then confirm a signed-in route doesn't redirect to `/login`;
   - report signed-in criteria as `NOT RUN: dev sign-in failed (<reason>)` if minting fails;
   - never put the cookie value in its report, a screenshot name or a URL.
   `ui.auth` stays null, and the section says why.
-- [ ] AC-5: A new `docs/decisions.md` row records the agent-run mint, with the dev-only route or form as the rejected alternative and the reason. `docs/02-architecture.md` › Test-only sign-in and clock names the dev mint beside e2e's.
-- [ ] AC-6: On the branch, the ui-verifier runs against a dev server started from `ui.startCommand`, signs in with the mint, and reports `/teams` rendering the Teams list at phone width (390) with no `NOT RUN` for sign-in. The cookie value appears nowhere in its report.
+- [x] AC-5: A new `docs/decisions.md` row records the agent-run mint, with the dev-only route or form as the rejected alternative and the reason. `docs/02-architecture.md` › Test-only sign-in and clock names the dev mint beside e2e's.
+- [x] AC-6: On the branch, the ui-verifier runs against a dev server started from `ui.startCommand`, signs in with the mint, and reports `/teams` rendering the Teams list at phone width (390) with no `NOT RUN` for sign-in. The cookie value appears nowhere in its report.
 
 ## Out of scope
 
@@ -63,6 +63,9 @@ The ui-verifier agent can open signed-in screens on the local dev server, so UI 
 
 _Work noticed during this task and deliberately left out. Each bullet ends `→ <path> § <section>` (where it was placed) or `→ not tracked: <reason>`. See `.claude/skills/track-follow-ups/classify.md`; the PR's Follow-ups section is copied from here._
 
+- The ui-verifier ran AC-6 with no Playwright MCP tools (its `mcpServers` server didn't reach the subagent), so neither `browser_run_code` nor `browser_evaluate` existed; it used the repo's `@playwright/test` from a scratch script. § Sign-in now documents that third path → not tracked: done in this PR (plan revision); the agent file itself is the kit's and isn't edited here
+- Candidate decision: the agent-run dev mint, with the dev-only route or form rejected → docs/decisions.md § D-111
+
 ## Plan
 
 Approved 2026-10-13 at `e02e2dc`.
@@ -79,6 +82,7 @@ Approved 2026-10-13 at `e02e2dc`.
    - If that tool is missing, use `browser_evaluate` to set `document.cookie` on the base URL's origin. Auth.js reads the cookie on the server, so `httpOnly` doesn't matter there.
    - Then open `/teams` and confirm the URL isn't `/login`.
    - Plus the NOT RUN wording, the never-print rule, and why `ui.auth` stays null.
+   - *Revision 1 (after AC-6, owner approved 2026-10-13):* a third path for when no Playwright MCP tools are available at all: headless Chromium through the repo's `@playwright/test` from a scratchpad script, `context.addCookies([cookie])`.
 5. `docs/decisions.md`: a new row via `.claude/scripts/next-id.ps1`, alternatives as in Context.
 6. `docs/02-architecture.md` › Test-only sign-in and clock: one bullet for the dev mint (loopback only, `.env.local` only, 1 hour).
 7. AC-6 on the branch (Manual).
@@ -96,7 +100,7 @@ Size check: S/M. Two new files and three doc edits; no app code.
 
 ## Review log
 
-_Filled by /implement-task. One line per round._
+Verify R1 PASS | Audit R1 PASS | Spec R1 APPROVE (note: D-111 row out of ID order, fixed) | UI R1 PASS (AC-6, phone and desktop; via `@playwright/test`, no MCP tools → plan revision 1)
 
 ## Blocked
 
@@ -104,7 +108,7 @@ _Only if status is Blocked: what failed, what was tried, best hypothesis, decisi
 
 ## Metrics
 
-- Verify rounds:
-- Review rounds:
-- First-pass AC FAILs:
-- Plan revisions after approval:
+- Verify rounds: 1
+- Review rounds: 1
+- First-pass AC FAILs: 0
+- Plan revisions after approval: 1 (§ Sign-in fallback for a session with no Playwright MCP tools)
