@@ -64,7 +64,7 @@ def entry(ecosystem: str, directory: str) -> str:
 def ignore(block: str, dependency: str) -> str:
     """The ignore rule for one dependency, with the comment line above it."""
     match = re.search(
-        rf"^( *#[^\n]*)\n *- dependency-name: {re.escape(dependency)}\n( +[a-z-]+: [^\n]*\n)",
+        rf"^( *#[^\n]*)\n *- dependency-name: {re.escape(dependency)}\n( +[a-z-]+: [^\n]*\n)?",
         block, re.M,
     )
     assert match, f"no ignore for {dependency} with a reason comment above it"
@@ -101,10 +101,20 @@ def test_only_majors_and_typescript_7_are_ignored_for_the_app():
     ]
 
 
+def test_perf_auth_core_moves_with_next_auth_not_alone():
+    rule = ignore(entry("npm", "/scripts/perf"), '"@auth/core"')
+    assert "next-auth" in rule
+
+
 # ─── AC-5: the CI check replaces the 0001 protected path ─────────────────────────────────────
 
 
 def test_no_migration_is_a_protected_path_any_more():
     patterns = [p["pattern"] for p in json.loads(KIT.read_text(encoding="utf-8"))["protectedPaths"]]
     assert not [p for p in patterns if "migrations/versions" in p]
-    assert ".env.live" in patterns and "design/*" in patterns
+    # Every other entry is unchanged.
+    assert patterns == [
+        ".env", ".env.local", ".env.*.local", ".env.live", "design/*", "data/*", "data",
+        "web/app/tokens.css", "pnpm-lock.yaml", "python/uv.lock", "*.pem", "*.key",
+        "docs/tasks/INDEX.md",
+    ]
