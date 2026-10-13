@@ -135,3 +135,4 @@ def downgrade() -> None:
     op.drop_table("team_seasons")
     op.drop_table("teams")
     op.drop_table("sports")
+# TASK-009 AC-3 throwaway edit: the merged-migration check must fail on this
