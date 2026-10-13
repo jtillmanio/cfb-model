@@ -1,0 +1,202 @@
+# Measures every PR preview (D-101, docs/02-architecture.md › Performance checks (Lighthouse)).
+# When Vercel reports a preview ready, this signs in to it with a minted session, runs Lighthouse
+# (mobile, devtools throttling: Slow 4G, 4× CPU; three runs per route, median) on every route in
+# scripts/perf/routes.mjs, and answers the PR with one comment, edited in place on every run.
+#
+#   plan     the URL (previews only), the routes, and the PR this run belongs to
+#   measure  one job per route, side by side: a run takes as long as its slowest route
+#   report   merge, compare with the last merged PR's run, comment, gate
+#
+# It fails only on numbers that hold still between runs: an /api/py/* request during a load or
+# prefetch, bytes or requests over scripts/perf/budget.json, CLS of 0.1 or more, accessibility
+# under its recorded score, or a route that didn't measure or landed elsewhere. Timings are
+# reported against the last merged PR's run, never gated.
+#
+# Never production on its own: a hand run there needs allow_production. Reports hold the rendered
+# pages, so they are this run's artifacts for 14 days and go nowhere else. Secrets reach scripts
+# only through env:. README › Performance checks says what it needs and how to read a failed run.
+name: Lighthouse
+
+on:
+  deployment_status:
+  workflow_dispatch:
+    inputs:
+      url:
+        description: "Preview to measure, e.g. https://cfb-model-<id>-<team>.vercel.app"
+        required: true
+        type: string
+      allow_production:
+        description: "The URL may be production (PRODUCTION_URL)"
+        type: boolean
+        default: false
+
+permissions: {}
+
+jobs:
+  plan:
+    # Vercel sends a status for every deployment and every state; only a finished preview, or a
+    # hand run, gets this far. report.mjs plan checks again and refuses production's URL.
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.deployment_status.state == 'success' && github.event.deployment.environment == 'Preview')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: read # the PR whose older runs this one cancels
+    outputs:
+      url: ${{ steps.plan.outputs.url }}
+      group: ${{ steps.plan.outputs.group }}
+      routes: ${{ steps.plan.outputs.routes }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.deployment.sha || github.sha }}
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+      - name: Plan
+        id: plan
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PRODUCTION_URL: ${{ vars.PRODUCTION_URL }}
+        run: node scripts/perf/report.mjs plan
+
+  measure:
+    needs: plan
+    if: needs.plan.outputs.url
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        route: ${{ fromJSON(needs.plan.outputs.routes) }}
+    # A newer push to the same PR cancels this route's measuring: only the newest commit matters.
+    concurrency:
+      group: lighthouse-${{ needs.plan.outputs.group }}-${{ matrix.route }}
+      cancel-in-progress: true
+    env:
+      SHA: ${{ github.event.deployment.sha || github.sha }}
+      TARGET_URL: ${{ needs.plan.outputs.url }}
+      PERF_ROUTES: ${{ matrix.route }}
+    steps:
+      # The session lives outside the reports folder, and only for this job.
+      - name: Folders
+        run: |
+          echo "HEADERS_DIR=$RUNNER_TEMP/lh-session" >> "$GITHUB_ENV"
+          echo "OUT_DIR=$RUNNER_TEMP/lighthouse" >> "$GITHUB_ENV"
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.deployment.sha || github.sha }}
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: scripts/perf/package-lock.json
+      - run: npm ci --prefix scripts/perf --no-audit --no-fund
+
+      # The preview's AUTH_SECRET, never production's (D-012, D-106). The bypass goes into both
+      # header files, so every request Lighthouse makes to the preview carries it.
+      - name: Sign in
+        env:
+          AUTH_SECRET: ${{ secrets.PREVIEW_AUTH_SECRET }}
+          AUTH_ALLOWED_GITHUB_ID: ${{ vars.AUTH_ALLOWED_GITHUB_ID }}
+          # Vercel › Settings › Deployment Protection › Protection Bypass for Automation
+          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+        run: node scripts/perf/mint-session.mjs
+
+      - name: Measure
+        env:
+          AUTH_SECRET: ${{ secrets.PREVIEW_AUTH_SECRET }}
+          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+          CHROME_PATH: /usr/bin/google-chrome
+        run: node scripts/perf/measure.mjs
+
+      # Fails, and so uploads nothing, if any report still holds a secret or the session.
+      - name: No secret in the reports
+        env:
+          AUTH_SECRET: ${{ secrets.PREVIEW_AUTH_SECRET }}
+          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+        run: node scripts/perf/report.mjs guard "$OUT_DIR"
+
+      - name: Forget the session
+        if: always()
+        run: rm -rf "$HEADERS_DIR"
+
+      - name: Upload the reports
+        uses: actions/upload-artifact@v7
+        with:
+          name: lighthouse-reports-${{ matrix.route }}
+          path: ${{ runner.temp }}/lighthouse/reports
+          retention-days: 14
+          if-no-files-found: error
+
+      - name: Upload the metrics
+        uses: actions/upload-artifact@v7
+        with:
+          name: lighthouse-metrics-${{ matrix.route }}
+          path: ${{ runner.temp }}/lighthouse/metrics.json
+          retention-days: 14
+          if-no-files-found: error
+
+  report:
+    needs: [plan, measure]
+    # Also when a route's job failed: that route is then reported as not measured. Not when a
+    # newer push cancelled the measuring.
+    if: ${{ !cancelled() && needs.plan.outputs.url && needs.measure.result != 'cancelled' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # The one job that writes anything: the PR comment.
+    permissions:
+      contents: read
+      actions: read # the baseline run's metrics artifact
+      pull-requests: write
+    concurrency:
+      group: lighthouse-${{ needs.plan.outputs.group }}-report
+      cancel-in-progress: true
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.deployment.sha || github.sha }}
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: lighthouse-metrics-*
+          path: ${{ runner.temp }}/parts
+
+      - name: Merge the routes
+        run: node scripts/perf/report.mjs merge "$RUNNER_TEMP/parts"
+
+      # Numbers only: what the next PR compares itself with, and what budgets are set from.
+      - name: Upload the metrics
+        uses: actions/upload-artifact@v7
+        with:
+          name: lighthouse-metrics
+          path: ${{ runner.temp }}/parts/metrics.json
+          retention-days: 14
+          if-no-files-found: error
+
+      - name: Find the last merged PR's run
+        id: baseline
+        run: node scripts/perf/report.mjs baseline
+
+      # Gone after 14 days; the comment then says there is no baseline.
+      - name: Fetch its metrics
+        if: steps.baseline.outputs.run_id
+        continue-on-error: true
+        env:
+          RUN_ID: ${{ steps.baseline.outputs.run_id }}
+        run: gh run download "$RUN_ID" -R "$GITHUB_REPOSITORY" -n lighthouse-metrics -D "$RUNNER_TEMP/baseline"
+
+      - name: Report
+        env:
+          METRICS: ${{ runner.temp }}/parts/metrics.json
+          BASELINE_METRICS: ${{ runner.temp }}/baseline/metrics.json
+          BASELINE_PR: ${{ steps.baseline.outputs.pr }}
+        run: node scripts/perf/report.mjs report

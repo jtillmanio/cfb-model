@@ -5,6 +5,8 @@
 //   node scripts/perf/report.mjs merge DIR  the per-route jobs' metrics.json files under DIR, as one
 //   node scripts/perf/report.mjs baseline   the newest merged PR's newest green run
 //   node scripts/perf/report.mjs report     job summary, the one PR comment, then the gate
+//   node scripts/perf/report.mjs budget FILE  budget.json and 02's perf-budget table from a run's
+//                                           merged metrics.json (its lighthouse-metrics artifact)
 //
 // Uses only Node and the GitHub REST API: nothing from scripts/perf/package.json.
 import { appendFileSync, existsSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
@@ -14,6 +16,8 @@ import {
   aggregateRoute,
   baselinePr,
   baselineRun,
+  budgetFrom,
+  budgetTable,
   eventInputs,
   findComment,
   gateProblems,
@@ -28,6 +32,7 @@ import { ROUTES } from "./routes.mjs";
 
 const env = process.env;
 const WORKFLOW = "lighthouse.yml";
+const BUDGET_FILE = new URL("./budget.json", import.meta.url);
 
 /** @param {string} key @param {string} value */
 const output = (key, value) => env.GITHUB_OUTPUT && appendFileSync(env.GITHUB_OUTPUT, `${key}=${value}\n`);
@@ -146,9 +151,8 @@ function load(file) {
 async function report() {
   if (!env.METRICS) throw new Error("METRICS (the merged metrics.json) is required");
   const current = load(env.METRICS);
-  // budget.json arrives with the first preview run's numbers (TASK-008); until then every route is unbudgeted.
-  const budgetFile = new URL("./budget.json", import.meta.url);
-  const budget = existsSync(budgetFile) ? JSON.parse(readFileSync(budgetFile, "utf8")).routes : {};
+  // A route with an empty entry (no run has set its budget yet) is reported as unbudgeted, not gated.
+  const budget = existsSync(BUDGET_FILE) ? JSON.parse(readFileSync(BUDGET_FILE, "utf8")).routes : {};
   const before = env.BASELINE_METRICS && existsSync(env.BASELINE_METRICS) ? load(env.BASELINE_METRICS) : null;
   const baseline = before ? { ...before, pr: env.BASELINE_PR ?? "?", at: before.measuredAt } : null;
   const problems = gateProblems(current.routes, budget, ROUTES.map((r) => r.id));
@@ -175,16 +179,42 @@ async function report() {
   }
 }
 
+/**
+ * Rewrites budget.json from a run's merged metrics.json and prints 02's table to paste between the
+ * perf-budget markers. Refuses a run with a route missing or bytes too noisy to gate on.
+ * @param {string} file
+ */
+function budget(file) {
+  /** @type {import("./lib/perf.mjs").Metrics} */
+  const metrics = readJson(file);
+  const missing = ROUTES.filter((r) => !metrics.routes[r.id]).map((r) => r.id);
+  if (missing.length) throw new Error(`the run didn't measure ${missing.join(", ")}`);
+  const { routes, measured, unsteady } = budgetFrom(metrics);
+  if (unsteady.length) throw new Error(`bytes too noisy to budget:\n${unsteady.join("\n")}`);
+  const current = JSON.parse(readFileSync(BUDGET_FILE, "utf8"));
+  writeFileSync(BUDGET_FILE, `${JSON.stringify({ ...current, measured, routes }, null, 2)}\n`);
+  console.log(budgetTable(routes));
+  console.log(`\nMeasured: Lighthouse ${measured.lighthouse}, Chrome ${measured.chrome}, ${measured.url} at ${measured.sha}`);
+  for (const [id, m] of Object.entries(measured.medians)) console.log(`  ${id}: ${JSON.stringify(m)}`);
+}
+
 const command = process.argv[2];
 const dirArg = () => {
   if (!process.argv[3]) throw new Error(`${command} needs a directory`);
   return process.argv[3];
 };
 /** @type {Record<string, () => unknown>} */
-const commands = { plan, guard: () => guard(dirArg()), merge: () => merge(dirArg()), baseline, report };
+const commands = {
+  plan,
+  guard: () => guard(dirArg()),
+  merge: () => merge(dirArg()),
+  baseline,
+  report,
+  budget: () => budget(dirArg()),
+};
 const run = commands[command];
 if (!run) {
-  console.error("usage: node scripts/perf/report.mjs <plan | guard DIR | merge DIR | baseline | report>");
+  console.error("usage: node scripts/perf/report.mjs <plan | guard DIR | merge DIR | baseline | report | budget FILE>");
   process.exit(2);
 }
 try {

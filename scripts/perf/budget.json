@@ -1,0 +1,8 @@
+{
+  "_readme": "Per-route budgets the lighthouse workflow gates on (02 › Performance checks (Lighthouse) › Budgets, D-101). Never invented: written by `node scripts/perf/report.mjs budget <a run's lighthouse-metrics/metrics.json>` from a real preview run (median + 20%, bytes rounded up to the next 1,000; a11y is the measured score). One key per route id in routes.mjs; the perf-budget table in docs/02-architecture.md matches it (web/lib/perf.test.ts). Raising a budget later needs a written reason in the PR.",
+  "measured": null,
+  "routes": {
+    "login": {},
+    "teams": {}
+  }
+}

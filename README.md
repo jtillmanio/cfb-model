@@ -166,6 +166,56 @@ Authentication. The health call also sends `x-vercel-protection-bypass` from the
 `VERCEL_AUTOMATION_BYPASS_SECRET` secret (shared with the Lighthouse job), in case Deployment
 Protection ever covers production (02 › Auth).
 
+## Performance checks
+
+The **Lighthouse** workflow (`.github/workflows/lighthouse.yml`) measures every PR preview on its
+own: when Vercel reports a preview ready, it signs in with a minted session, runs Lighthouse three
+times on each route in `scripts/perf/routes.mjs` (mobile, Slow 4G, 4× CPU), and posts one comment
+on the PR, edited in place on every later run. It fails on what holds still between runs: an
+`/api/py/*` request from the browser, bytes or requests over `scripts/perf/budget.json`, CLS of
+0.1 or more, accessibility below the recorded score, or a route that didn't measure or landed
+elsewhere. Timings are shown against the last merged PR's run and never fail it. Its reports are
+the run's artifacts for 14 days. The full design is in
+[02 › Performance checks](docs/02-architecture.md#performance-checks-lighthouse).
+
+### Run one by hand
+```powershell
+gh workflow run lighthouse.yml -f url=https://<preview>.vercel.app
+gh run watch
+```
+A hand run writes its report to the run's **Summary**, not the PR. It refuses `PRODUCTION_URL`
+unless `-f allow_production=true` is passed.
+
+### Read a failed run
+The PR comment (and the **report** job's Summary) lists every problem, each naming its route.
+
+| Problem | What it means | What to do |
+|---|---|---|
+| `requested /api/py/…` | A page made the browser call the API, usually a `<Link>` prefetch (hard rule 5) | Link to it with a plain `<a>` and fetch from server code |
+| `… is over the budget of …` | The page got heavier | Make it lighter, or raise the budget with the reason written in the PR |
+| `ended on /login` | The minted session didn't take | `PREVIEW_AUTH_SECRET` must equal Vercel Preview's `AUTH_SECRET`, and `AUTH_ALLOWED_GITHUB_ID` the preview's allowlisted ID |
+| `never finished measuring` | Lighthouse failed on every run, or the route's job died | Open that route's **measure** job log; a 401 page means the bypass secret is wrong |
+| **No secret in the reports** step failed | A report still held a secret, so nothing was uploaded | The step names the files, never the value; fix the scrubbing in `scripts/perf/lib/perf.mjs` |
+
+### Set a route's budget
+A new screen adds its route to `scripts/perf/routes.mjs` and its budget in the same PR. Push it,
+let the preview run, then:
+```powershell
+gh run download <run id> -n lighthouse-metrics -D $env:TEMP\lh
+node scripts/perf/report.mjs budget $env:TEMP\lh\metrics.json
+```
+It rewrites `budget.json` (median + 20%, bytes rounded up to the next 1,000, accessibility as
+measured) and prints the table to paste into 02 › Performance checks.
+
+### What it needs
+Repository **secrets**: `PREVIEW_AUTH_SECRET` (the same value as Vercel Preview's `AUTH_SECRET`,
+never production's, so the minted session can never open production) and
+`VERCEL_AUTOMATION_BYPASS_SECRET` (Vercel › Settings › Deployment Protection › Protection Bypass for
+Automation; sent as `x-vercel-protection-bypass` on every request to the preview). Repository
+**variables**: `AUTH_ALLOWED_GITHUB_ID` (the GitHub ID the session is minted for, the same as the
+preview's allowlist) and `PRODUCTION_URL` (shared with the release workflow; refused unless
+`allow_production` is set).
+
 ## Layout
 `web/` Next.js app · `python/` uv workspace: `db` (models, migrations, views, fixture),
 `engine` (CLI: ingest, seed), `api` (FastAPI) · `vercel.json` deploys `web` and `api` as one

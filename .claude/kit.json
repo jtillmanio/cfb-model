@@ -68,6 +68,7 @@
       "verify.full",
       "ci",
       { "name": "Vercel preview deployed", "check": "gh pr checks <n> shows the Vercel status as pass", "by": "claude", "failureLog": "the Vercel deployment log (the Vercel dashboard, not gh run view)" },
+      { "name": "Lighthouse within budget", "check": "gh pr checks <n> shows the Lighthouse workflow's report job as pass on the PR's newest preview, and the PR's one Lighthouse comment lists no problems", "by": "claude", "failureLog": "the Lighthouse run (gh run view <id> --log-failed) and its PR comment; README › Performance checks › Read a failed run" },
       { "name": "Changed workflow run on the branch", "check": "gh workflow run <file> --ref <branch>, then gh run watch <id> --exit-status", "by": "claude", "when": [".github/workflows/*"] }
     ],
     "decisions": "append",

@@ -11,6 +11,9 @@ import {
   BUDGETED,
   baselinePr,
   baselineRun,
+  budgetFrom,
+  budgetTable,
+  chromeVersion,
   eventInputs,
   findComment,
   forbiddenPath,
@@ -551,5 +554,210 @@ describe("AC-6: the route list (scripts/perf/routes.mjs)", () => {
     mkdirSync(join(tmp, "rankings/(list)"), { recursive: true });
     writeFileSync(join(tmp, "rankings/(list)/page.tsx"), "");
     expect(unlisted(tmp)).toEqual(["/rankings"]);
+  });
+});
+
+// TASK-008: the workflow itself, and the budgets it set from its first preview run.
+
+/** A repo file's text, or "" when it is missing, so each case below fails on its own. */
+const repoText = (path: string) => {
+  try {
+    return readFileSync(join(ROOT, path), "utf8");
+  } catch {
+    return "";
+  }
+};
+
+describe("TASK-008 AC-1: .github/workflows/lighthouse.yml has 02's shape", () => {
+  const WORKFLOW = repoText(".github/workflows/lighthouse.yml");
+  // Comments say what the workflow does in words that would satisfy these checks; read only code.
+  const code = WORKFLOW.split("\n")
+    .map((l) => l.replace(/(^|\s)#.*$/, ""))
+    .join("\n");
+  const jobsAt = code.indexOf("\njobs:\n");
+  // Each job's text, from its `  name:` line to the next job's.
+  const jobs = Object.fromEntries(
+    [...code.slice(jobsAt).matchAll(/^ {2}([a-z]+):\n([\s\S]*?)(?=^ {2}[a-z]+:\n|(?![\s\S]))/gm)].map((m) => [m[1], m[2]]),
+  );
+  const steps = (job: string) => (jobs[job] ?? "").split(/^ {6}- /m).slice(1);
+
+  it("runs on a deployment's status and by hand, with no permissions at the top", () => {
+    expect(code).toMatch(/^on:\n {2}deployment_status:\n {2}workflow_dispatch:\n/m);
+    expect(code).toMatch(/^ {6}url:\n[\s\S]*?^ {6}allow_production:\n[\s\S]*?type: boolean/m);
+    expect(code.slice(0, jobsAt)).toMatch(/^permissions: \{\}$/m);
+  });
+
+  it("plans, measures one route per job, then reports", () => {
+    expect(Object.keys(jobs)).toEqual(["plan", "measure", "report"]);
+    expect(jobs.measure).toMatch(/^ {4}needs: plan$/m);
+    expect(jobs.report).toMatch(/^ {4}needs: \[plan, measure\]$/m);
+    expect(jobs.measure).toMatch(/^ {6}fail-fast: false$/m);
+    expect(jobs.measure).toMatch(/^ {8}route: \$\{\{ fromJSON\(needs\.plan\.outputs\.routes\) \}\}$/m);
+    // plan's group is `pr-<n>`, so the measuring jobs' group is lighthouse-pr-<n>-<route>.
+    expect(jobs.measure).toMatch(
+      /concurrency:\n {6}group: lighthouse-\$\{\{ needs\.plan\.outputs\.group \}\}-\$\{\{ matrix\.route \}\}\n {6}cancel-in-progress: true/,
+    );
+    // The report runs when a route's job failed, so that route is reported; not when cancelled.
+    expect(jobs.report).toMatch(/if: \$\{\{ !cancelled\(\)/);
+  });
+
+  it("gives only the report job pull-requests: write, and no job anything else to write", () => {
+    expect(jobs.report).toMatch(/^ {6}pull-requests: write$/m);
+    for (const job of ["plan", "measure"]) expect(jobs[job]).not.toMatch(/: write/);
+    expect(jobs.report.match(/: write/g)).toHaveLength(1);
+  });
+
+  it("hands secrets to steps only as env: lines", () => {
+    const lines = code.split("\n").filter((l) => l.includes("secrets."));
+    expect(lines.length).toBeGreaterThan(0);
+    for (const line of lines) expect(line).toMatch(/^\s+[A-Z0-9_]+: \$\{\{ secrets\.[A-Z0-9_]+ \}\}$/);
+    expect(new Set(lines.map((l) => l.trim()))).toEqual(
+      new Set([
+        "AUTH_SECRET: ${{ secrets.PREVIEW_AUTH_SECRET }}",
+        "VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}",
+      ]),
+    );
+    expect(code).toMatch(/^\s+AUTH_ALLOWED_GITHUB_ID: \$\{\{ vars\.AUTH_ALLOWED_GITHUB_ID \}\}$/m);
+  });
+
+  it("signs in with the bypass, measures, guards, then forgets the session even on failure", () => {
+    const measure = steps("measure");
+    const at = (text: string) => measure.findIndex((s) => s.includes(text));
+    const order = ["mint-session.mjs", "measure.mjs", "report.mjs guard", 'rm -rf "$HEADERS_DIR"', "upload-artifact"];
+    expect(order.map(at)).toEqual([...order.map(at)].sort((a, b) => a - b));
+    expect(order.map(at)).not.toContain(-1);
+    // mint-session writes the bypass into both header files; measure.mjs hands Lighthouse one of them.
+    expect(measure[at("mint-session.mjs")]).toContain("VERCEL_AUTOMATION_BYPASS_SECRET:");
+    expect(measure[at('rm -rf "$HEADERS_DIR"')]).toMatch(/^ {8}if: always\(\)$/m);
+    expect(code).toMatch(/HEADERS_DIR=\$RUNNER_TEMP\/lh-session/);
+    expect(code).toMatch(/OUT_DIR=\$RUNNER_TEMP\/lighthouse\b/);
+  });
+
+  it("keeps its artifacts 14 days and never sends a report to LHCI's public storage", () => {
+    const uploads = code.split(/^ {6}- /m).filter((s) => s.includes("upload-artifact"));
+    expect(uploads).toHaveLength(3);
+    for (const u of uploads) expect(u).toMatch(/retention-days: 14\n/);
+    expect(WORKFLOW).not.toMatch(/lhci|temporary-public-storage/i);
+  });
+
+  it("installs Lighthouse only from scripts/perf, caching on its lockfile", () => {
+    expect(jobs.measure).toContain("npm ci --prefix scripts/perf");
+    expect(jobs.measure).toMatch(/cache-dependency-path: scripts\/perf\/package-lock\.json/);
+    expect(code).not.toMatch(/pnpm/);
+  });
+});
+
+describe("TASK-008 AC-3: budgets from a run, by 02's rule", () => {
+  const load = (o: Parameters<typeof page>[0] = {}) => summariseLhr(page(o));
+  const metrics = (loads: ReturnType<typeof load>[]) => ({
+    url: BASE,
+    sha: "abc1234",
+    lighthouse: "13.5.0",
+    chrome: "141.0.7390.54",
+    measuredAt: "2026-10-13T12:00:00Z",
+    runs: loads.length,
+    routes: { teams: { path: "/teams", loads } },
+  });
+
+  it("is the median + 20%, bytes rounded up to the next 1,000, requests up to a whole one", () => {
+    const steady = load({ docBytes: 10_000, jsBytes: 100_001, requests: 16, a11y: 95 });
+    const { routes } = budgetFrom(metrics([steady, steady, steady]));
+    // 12,000 exactly stays 12,000; 120,001.2 → 121,000; 19.2 → 20.
+    expect(routes).toEqual({ teams: { docBytes: 12_000, jsBytes: 121_000, requests: 20, a11y: 95 } });
+  });
+
+  it("takes the accessibility score as measured, without headroom", () => {
+    const loads = [load({ a11y: 92 }), load({ a11y: 100 }), load({ a11y: 96 })];
+    expect(budgetFrom(metrics(loads)).routes.teams.a11y).toBe(96);
+  });
+
+  it("uses the median run, so one heavy run doesn't raise the budget", () => {
+    const loads = [load({ jsBytes: 100_000 }), load({ jsBytes: 100_500 }), load({ jsBytes: 400_000 })];
+    expect(budgetFrom(metrics(loads)).routes.teams.jsBytes).toBe(121_000);
+  });
+
+  it("records the medians and versions the budgets came from", () => {
+    const steady = load({ docBytes: 10_000, jsBytes: 100_000, requests: 15, a11y: 95 });
+    const { measured } = budgetFrom(metrics([steady, steady, steady]));
+    expect(measured).toMatchObject({
+      url: BASE,
+      sha: "abc1234",
+      lighthouse: "13.5.0",
+      chrome: "141.0.7390.54",
+      at: "2026-10-13T12:00:00Z",
+      medians: { teams: { docBytes: 10_000, jsBytes: 100_000, requests: 15, a11y: 95 } },
+    });
+  });
+
+  it("flags bytes that move 1% or more between runs, and passes steadier ones", () => {
+    const loads = [load({ jsBytes: 100_000 }), load({ jsBytes: 100_500 }), load({ jsBytes: 101_100 })];
+    expect(budgetFrom(metrics(loads)).unsteady).toEqual(["teams: JS moves 1.1% between runs (100,000–101,100 bytes)"]);
+    const close = [load({ jsBytes: 100_000 }), load({ jsBytes: 100_500 }), load({ jsBytes: 100_900 })];
+    expect(budgetFrom(metrics(close)).unsteady).toEqual([]);
+  });
+
+  it("refuses a route that didn't measure, or that ended somewhere else", () => {
+    expect(() => budgetFrom(metrics([]))).toThrow(/teams: no run finished/);
+    const atLogin = summariseLhr(lhr({ path: "/login" }));
+    expect(() => budgetFrom(metrics([atLogin, atLogin, atLogin]))).toThrow(/teams: ended on \/login/);
+  });
+
+  it("reads the Chrome version from the user agent Lighthouse ran", () => {
+    const ua = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.54 Safari/537.36";
+    expect(chromeVersion({ environment: { hostUserAgent: ua } })).toBe("141.0.7390.54");
+    expect(chromeVersion({})).toBeNull();
+  });
+});
+
+describe("TASK-008 AC-4: budget.json, the route list and the table in docs/02 agree", () => {
+  type Budget = { measured: { lighthouse: string; chrome: string } | null; routes: Record<string, Record<string, number>> };
+  const BUDGET_JSON: Budget = JSON.parse(repoText("scripts/perf/budget.json") || '{ "measured": null, "routes": {} }');
+  const DOC = repoText("docs/02-architecture.md");
+  const COLUMNS = ["docBytes", "jsBytes", "requests", "a11y"] as const;
+
+  // The rows between the perf-budget markers, as budget.json's `routes`; "–" is no budget yet.
+  function parseTable(doc: string): Record<string, Record<string, number>> {
+    const block = doc.match(/<!-- perf-budget:start -->\n([\s\S]*?)<!-- perf-budget:end -->/)?.[1];
+    if (!block) throw new Error("no perf-budget markers");
+    const rows = block.trim().split("\n").slice(2);
+    return Object.fromEntries(
+      rows.map((row) => {
+        const [route, ...cells] = row.split("|").slice(1, -1).map((c) => c.trim());
+        const id = route.match(/^`([^`]+)`/)?.[1] ?? route;
+        const values = cells.map((c) => (c === "–" ? undefined : Number(c.replace(/,/g, ""))));
+        return [id, Object.fromEntries(COLUMNS.flatMap((k, i) => (values[i] === undefined ? [] : [[k, values[i]]])))];
+      }),
+    );
+  }
+
+  const keysMatchRoutes = (budget: Budget) =>
+    expect(Object.keys(budget.routes).sort()).toEqual(ROUTES.map((r) => r.id).sort());
+
+  it("has one budget per route id, no more and no fewer", () => {
+    keysMatchRoutes(BUDGET_JSON);
+    expect(() => keysMatchRoutes({ ...BUDGET_JSON, routes: { ...BUDGET_JSON.routes, rankings: {} } })).toThrow();
+    const noTeams = Object.fromEntries(Object.entries(BUDGET_JSON.routes).filter(([id]) => id !== "teams"));
+    expect(() => keysMatchRoutes({ ...BUDGET_JSON, routes: noTeams })).toThrow();
+  });
+
+  it("matches the perf-budget table in docs/02-architecture.md", () => {
+    expect(parseTable(DOC)).toEqual(BUDGET_JSON.routes);
+  });
+
+  it("catches a table that has drifted from budget.json", () => {
+    const table = budgetTable({ login: { docBytes: 13_000, jsBytes: 121_000, requests: 18, a11y: 100 }, teams: {} });
+    const doc = `<!-- perf-budget:start -->\n${table}\n<!-- perf-budget:end -->`;
+    expect(parseTable(doc)).toEqual({ login: { docBytes: 13_000, jsBytes: 121_000, requests: 18, a11y: 100 }, teams: {} });
+    expect(parseTable(doc.replace("121,000", "122,000"))).not.toEqual(parseTable(doc));
+  });
+
+  it("names the Lighthouse and Chrome versions the budgets were measured with beside the table", () => {
+    const after = DOC.slice(DOC.indexOf("<!-- perf-budget:end -->")).split(/\n## /)[0];
+    if (!BUDGET_JSON.measured) {
+      expect(Object.values(BUDGET_JSON.routes).every((b) => Object.keys(b).length === 0)).toBe(true);
+      return;
+    }
+    expect(after).toContain(`Lighthouse ${BUDGET_JSON.measured.lighthouse}`);
+    expect(after).toContain(`Chrome ${BUDGET_JSON.measured.chrome}`);
   });
 });

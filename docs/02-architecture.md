@@ -341,8 +341,11 @@ Every PR preview is measured with Lighthouse automatically. The job **fails the 
 <!-- perf-budget:start -->
 | Route | Doc bytes | JS bytes | Requests | A11y |
 |---|---|---|---|---|
-| _set from the first preview run_ | | | | |
+| `login` | – | – | – | – |
+| `teams` | – | – | – | – |
 <!-- perf-budget:end -->
+
+_Set from the first preview run (TASK-008) with `node scripts/perf/report.mjs budget <metrics.json>`, which writes `budget.json` and prints this table. `web/lib/perf.test.ts` checks the two match._
 
 ## Walking skeleton
 

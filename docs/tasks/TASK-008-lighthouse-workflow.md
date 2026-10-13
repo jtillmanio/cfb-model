@@ -1,14 +1,14 @@
 ---
 id: TASK-008
 title: Run Lighthouse on every PR preview and set the first budgets
-status: Ready
+status: In progress
 depends_on: [TASK-007, TASK-002]
 size: M
 model: opus
 autonomy: attended
 ui: false
-plan_status: none
-planned_at_commit:
+plan_status: approved
+planned_at_commit: a553689
 ---
 
 # TASK-008 — Run Lighthouse on every PR preview and set the first budgets
@@ -64,9 +64,44 @@ Every PR's preview is measured automatically: the PR gets one comment with the n
 - Automated: `web/lib/perf.test.ts` (AC-4); the workflow's run on this PR's preview (AC-2, AC-5); a `workflow_dispatch` run on the branch with the preview URL.
 - Manual: open the PR comment → one comment, both routes listed with bytes, requests, CLS and accessibility against budget, and timings as first hit / median with "no baseline". Download an artifact → no cookie or secret in any file.
 
+## Follow-ups
+
+- Tap → next-paint runner (ledger times screen-to-screen navigation, not only cold loads): not built here. Neither 02 nor D-101 plans it, and with one signed-in screen there is no screen-to-screen tap to time; plan it when a second signed-in screen ships (approved at plan) → new Draft task TASK-013
+
 ## Plan
 
-_Written by /plan-batch or /implement-task Phase 1. Approved by the user (plan_status: approved) before any code is written._
+Approved 2026-10-13 at `a553689`.
+
+**Steps**
+1. Tests first, in `web/lib/perf.test.ts`:
+   - AC-1: text checks on `.github/workflows/lighthouse.yml`, in the style of `python/db/tests/test_backup.py`: top-level `permissions: {}`; jobs `plan` → `measure` → `report`; the matrix with `fail-fast: false` and concurrency `lighthouse-<group>-<route>` with cancel-in-progress; `pull-requests: write` only in `report`; `secrets.` only as `VAR: ${{ secrets.X }}` env lines; an `if: always()` step that deletes the headers folder; 14-day uploads; no `lhci` or `temporary-public-storage`.
+   - AC-4: `budget.json` keys equal the `ROUTES` ids; the `perf-budget` table in `docs/02-architecture.md` equals `budget.json`.
+   - New helpers: `budgetFrom`, `chromeVersion`.
+2. `scripts/perf/lib/perf.mjs`: `budgetFrom(metrics)` applies 02's rule (median + 20%, bytes rounded up to the next 1,000, requests rounded up, a11y = the measured median) and flags any route whose bytes move ≥ 1% between runs. `chromeVersion(lhr)` reads `environment.hostUserAgent`. `scripts/perf/report.mjs` gets `budget FILE`, which prints `budget.json` from a merged `metrics.json`.
+3. `scripts/perf/measure.mjs` (new), following ledger minus the puppeteer tap runner: Lighthouse 3× on the matrix's one route, with ledger's flags plus `--disable-full-page-screenshot`. Raw output goes under `HEADERS_DIR` and is deleted once read. The JSON is scrubbed and the HTML rebuilt from the scrubbed result. `metrics.json` records the Lighthouse and Chrome versions.
+4. `.github/workflows/lighthouse.yml` (new), in ledger's shape: `PREVIEW_AUTH_SECRET` reaches the scripts as `AUTH_SECRET`, and the `AUTH_ALLOWED_GITHUB_ID` variable and the bypass secret go through `env:`. The npm cache is keyed on `scripts/perf/package-lock.json`, with Node from `.nvmrc`.
+5. Budgets in two pushes:
+   - First push: `budget.json` with an empty entry per route (not gated, "No budget recorded"); the 02 table shows "–".
+   - Second push: `report.mjs budget` on the run's `lighthouse-metrics` writes `budget.json`, the 02 table, and a "Measured" line (medians, Lighthouse and Chrome versions, run link).
+6. `README.md` › Performance checks: triggers, secrets and variables, how to read a failed run, re-running by hand (AC-6).
+7. `.claude/kit.json`: add the readyGate "Lighthouse within budget" (from #9's note in Context).
+8. Close-out: tick `docs/06-roadmap.md` Phase 0's lighthouse line and the CLAUDE.md status line.
+
+**Files:** `.github/workflows/lighthouse.yml` (new), `scripts/perf/measure.mjs` (new), `scripts/perf/budget.json` (new), `scripts/perf/lib/perf.mjs`*, `scripts/perf/report.mjs`*, `web/lib/perf.test.ts`, `docs/02-architecture.md`, `README.md`, `.claude/kit.json`*, plus bookkeeping in `docs/06-roadmap.md`* and `CLAUDE.md`* (* = not in "Files likely touched").
+
+**Test strategy**
+
+| AC | Proof |
+|---|---|
+| AC-1, AC-4 | Vitest |
+| AC-2 | This PR's preview run; `report` re-run, then still exactly one comment |
+| AC-3 | `budgetFrom` tests, plus the AC-4 table test |
+| AC-5 | `gh api …/artifacts` (names and expiry), plus the guard step's log |
+| AC-6 | Review |
+
+**Risks**
+- `workflow_dispatch` fires only once the file is on `main`, so the run with `-f url=…` is an after-merge check. The deployment-triggered run covers AC-2 and the ready gate.
+- Size: 9 files, one over the split limit. Kept whole because the budgets must come from this workflow's own run on this PR.
 
 ## Review log
 

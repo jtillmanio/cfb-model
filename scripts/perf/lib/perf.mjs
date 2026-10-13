@@ -227,6 +227,103 @@ export function unbudgeted(routes, budget) {
   );
 }
 
+/** Budgets sit this far above the run they were set from (02 › Performance checks › Budgets). */
+const HEADROOM_TENTHS = 12;
+
+/** Bytes that move this much between one route's runs are too noisy to gate on. */
+const STEADY_SPREAD = 0.01;
+
+/**
+ * The budgets a run sets, by 02's rule: the median + 20%, bytes rounded up to the next 1,000 and
+ * requests to a whole one; accessibility is the measured score. Never invented: only a real
+ * preview run's metrics.json goes in. Throws on a route that didn't measure or ended elsewhere,
+ * since its numbers aren't that page's.
+ * @param {Metrics} metrics
+ * @returns {{
+ *   routes: Record<string, Required<RouteBudget>>,
+ *   measured: { url: string, sha: string | null, lighthouse: string | null, chrome: string | null, at: string, runs: number | null, medians: Record<string, Required<RouteBudget>> },
+ *   unsteady: string[],
+ * }}
+ */
+export function budgetFrom(metrics) {
+  /** @type {Record<string, Required<RouteBudget>>} */
+  const routes = {};
+  /** @type {Record<string, Required<RouteBudget>>} */
+  const medians = {};
+  /** @type {string[]} */
+  const unsteady = [];
+  for (const [id, measured] of Object.entries(metrics.routes)) {
+    const r = aggregateRoute(measured);
+    if (!r.runs) throw new Error(`${id}: no run finished (${r.errors[0] ?? "no loads"})`);
+    const wrong = r.landedOn.filter((p) => p !== r.path);
+    if (wrong.length) throw new Error(`${id}: ended on ${wrong.join(", ")}, not ${r.path}`);
+    const m = /** @type {Required<RouteBudget>} */ (
+      Object.fromEntries(["docBytes", "jsBytes", "requests", "a11y"].map((k) => [k, /** @type {number} */ (r.median[k])]))
+    );
+    medians[id] = m;
+    // Integer arithmetic: 10,000 × 1.2 in floating point is 12,000.000000000002, which would round up a step.
+    routes[id] = {
+      docBytes: Math.ceil((m.docBytes * HEADROOM_TENTHS) / 10_000) * 1000,
+      jsBytes: Math.ceil((m.jsBytes * HEADROOM_TENTHS) / 10_000) * 1000,
+      requests: Math.ceil((m.requests * HEADROOM_TENTHS) / 10),
+      a11y: Math.floor(m.a11y),
+    };
+    const loads = /** @type {LoadSummary[]} */ (measured.loads.filter((l) => !failed(l)));
+    for (const { key, label, unit } of BUDGETED) {
+      if (unit !== "bytes") continue;
+      const v = loads.map((l) => l[key]);
+      const lo = Math.min(...v);
+      const hi = Math.max(...v);
+      if (lo > 0 && (hi - lo) / lo >= STEADY_SPREAD) {
+        unsteady.push(
+          `${id}: ${label} moves ${(((hi - lo) / lo) * 100).toFixed(1)}% between runs ` +
+            `(${lo.toLocaleString("en-US")}–${hi.toLocaleString("en-US")} bytes)`,
+        );
+      }
+    }
+  }
+  return {
+    routes,
+    measured: {
+      url: metrics.url,
+      sha: metrics.sha ?? null,
+      lighthouse: metrics.lighthouse ?? null,
+      chrome: metrics.chrome ?? null,
+      at: metrics.measuredAt,
+      runs: metrics.runs ?? null,
+      medians,
+    },
+    unsteady,
+  };
+}
+
+/**
+ * The perf-budget table in docs/02-architecture.md for budget.json's `routes`; "–" where a route
+ * has no budget yet. web/lib/perf.test.ts checks the doc's table against budget.json.
+ * @param {Record<string, RouteBudget>} routes
+ */
+export function budgetTable(routes) {
+  /** @param {number | undefined} v */
+  const cell = (v) => (typeof v === "number" ? v.toLocaleString("en-US") : "–");
+  return [
+    "| Route | Doc bytes | JS bytes | Requests | A11y |",
+    "|---|---|---|---|---|",
+    ...Object.entries(routes).map(
+      ([id, b]) => `| \`${id}\` | ${cell(b.docBytes)} | ${cell(b.jsBytes)} | ${cell(b.requests)} | ${cell(b.a11y)} |`,
+    ),
+  ].join("\n");
+}
+
+/**
+ * The Chrome version Lighthouse ran, from the user agent it records; null when it has none.
+ * @param {any} lhr
+ * @returns {string | null}
+ */
+export function chromeVersion(lhr) {
+  const ua = lhr?.environment?.hostUserAgent;
+  return (typeof ua === "string" && ua.match(/Chrome\/([\d.]+)/)?.[1]) || null;
+}
+
 /** @param {number | null | undefined} v @param {"bytes" | "count" | "ms"} unit */
 function fmt(v, unit) {
   if (v == null) return "–";
