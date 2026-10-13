@@ -1,0 +1,39 @@
+{
+  "_readme": "Per-route budgets the lighthouse workflow gates on (02 › Performance checks (Lighthouse) › Budgets, D-101). Never invented: written by `node scripts/perf/report.mjs budget <a run's lighthouse-metrics/metrics.json>` from a real preview run (median + 20%, bytes rounded up to the next 1,000; a11y is the measured score). One key per route id in routes.mjs; the perf-budget table in docs/02-architecture.md matches it (web/lib/perf.test.ts). Raising a budget later needs a written reason in the PR.",
+  "measured": {
+    "url": "https://cfb-model-jfbrlnlry-justin-tillman.vercel.app",
+    "sha": "f5503aafcc4a720e514e1c882157600497ff84fb",
+    "lighthouse": "13.5.0",
+    "chrome": "154.0.8037.97",
+    "at": "2026-10-13T06:53:38.217Z",
+    "runs": 3,
+    "medians": {
+      "login": {
+        "docBytes": 4041,
+        "jsBytes": 139263,
+        "requests": 12,
+        "a11y": 100
+      },
+      "teams": {
+        "docBytes": 5861,
+        "jsBytes": 139268,
+        "requests": 12,
+        "a11y": 100
+      }
+    }
+  },
+  "routes": {
+    "login": {
+      "docBytes": 5000,
+      "jsBytes": 168000,
+      "requests": 15,
+      "a11y": 100
+    },
+    "teams": {
+      "docBytes": 8000,
+      "jsBytes": 168000,
+      "requests": 15,
+      "a11y": 100
+    }
+  }
+}

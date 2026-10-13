@@ -98,6 +98,7 @@ _Written by `/milestones` on 2026-10-08 from [06-roadmap.md](06-roadmap.md). Eac
 | M1.8 → TASK-010 | Let the ui-verifier sign in to the local dev server | tooling | S | M1.1 | attended | Draft, from the kit 2.6 upgrade (`chore/kit-2.6`). `ui.auth` is null since sign-in shipped, so the ui-verifier stops at `/login`. Choose a dev-only sign-in or an agent-run mint (D-090, D-012); production stays GitHub-only |
 | M1.9 → TASK-011 | Add the test that forbids `<Link>` to `/api/` | web | S | — | attended | Draft, from #18 (TASK-007). `.claude/rules/web.md` says a test enforces it; none exists. `ledger` has `no-prefetched-handlers.test.ts` |
 | M1.10 → TASK-012 | Lint the scripts in `scripts/perf/` | tooling | S | — | attended | Draft, from #18 (TASK-007). `pnpm lint` covers `web/` and `python/` only |
+| M1.11 → TASK-014 | Time screen-to-screen taps in the lighthouse workflow | ops | M | M1.5 | attended | Draft, from #29 (TASK-008). `ledger`'s tap → next-paint runner; plan it when a second signed-in screen ships (M5.6). Needs an approved change to 02 › Performance checks |
 
 ## M2: Data pipeline (Phase 1) — MVP
 

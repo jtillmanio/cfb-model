@@ -50,7 +50,7 @@ Phase 8  Multi-sport (NFL)
 - [x] `release` workflow: plan → snapshot → migrate → views → promote → smoke test (with dry run) _(TASK-005; README › Releasing)_
 - [x] Nightly `backup` workflow with restore verification → R2 _(TASK-006; README › Backups, docs/runbooks/restore.md)_
 - [ ] Dependabot with documented ignores (Next majors, TypeScript ≥ 7)
-- [ ] `lighthouse` workflow on every PR preview, after Auth.js (D-101, [02 › Performance checks](02-architecture.md#performance-checks-lighthouse)): gates bytes, requests, CLS, accessibility and forbidden requests; reports timings in one PR comment; signs in by minting a session with the preview `AUTH_SECRET`; reports scrubbed and kept private. Routes `/login` and `/teams` to start, budgets set from the first preview run. Repo secrets documented in the setup docs
+- [x] `lighthouse` workflow on every PR preview, after Auth.js (D-101, [02 › Performance checks](02-architecture.md#performance-checks-lighthouse)): gates bytes, requests, CLS, accessibility and forbidden requests; reports timings in one PR comment; signs in by minting a session with the preview `AUTH_SECRET`; reports scrubbed and kept private. Routes `/login` and `/teams` to start, budgets set from the first preview run. Repo secrets documented in the setup docs _(TASK-007, TASK-008; README › Performance checks)_
 
 **Claude Code setup**
 - [x] `.claude/rules/` in place (git, database, web): **done in planning**
