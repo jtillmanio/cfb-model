@@ -1,7 +1,7 @@
 ---
 id: TASK-011
 title: Add the test that forbids <Link> to /api/
-status: In progress
+status: Review
 depends_on: []
 size: S
 model: sonnet
@@ -26,9 +26,9 @@ A test fails whenever web source renders a Next.js `<Link>` to anything under `/
 
 ## Acceptance criteria
 
-- [ ] AC-1: `web/lib/no-prefetched-handlers.test.ts` scans every `.ts` and `.tsx` file under `web/app/`, `web/lib/` and `web/components/` (when it exists), skipping `*.test.*` files, and fails with `<file>:<line>` for each `next/link` element whose `href` points under `/api/`. The element is matched by the name `next/link`'s default import is bound to in that file (`Link`, `NextLink`, …).
-- [ ] AC-2: The matcher is tested on inline sources. It flags `href="/api/x"`, `href={"/api/x"}`, `` href={`/api/${id}`} ``, `href={{ pathname: "/api/x" }}`, an `href` on a later line of a multi-line tag, and `<NextLink href="/api/x">` when `next/link` is imported as `NextLink`. It doesn't flag `<a href="/api/x">`, `<Link href="/teams">`, `<Link href="/apiary">`, `<LinkButton href="/api/x">`, or `<Link href="/api/x">` in a file that doesn't import `next/link`.
-- [ ] AC-3: The suite passes on the current tree, and the `<Link>` line in `.claude/rules/web.md` names the test file.
+- [x] AC-1: `web/lib/no-prefetched-handlers.test.ts` scans every `.ts` and `.tsx` file under `web/app/`, `web/lib/` and `web/components/` (when it exists), skipping `*.test.*` files, and fails with `<file>:<line>` for each `next/link` element whose `href` points under `/api/`. The element is matched by the name `next/link`'s default import is bound to in that file (`Link`, `NextLink`, …).
+- [x] AC-2: The matcher is tested on inline sources. It flags `href="/api/x"`, `href={"/api/x"}`, `` href={`/api/${id}`} ``, `href={{ pathname: "/api/x" }}`, an `href` on a later line of a multi-line tag, and `<NextLink href="/api/x">` when `next/link` is imported as `NextLink`. It doesn't flag `<a href="/api/x">`, `<Link href="/teams">`, `<Link href="/apiary">`, `<LinkButton href="/api/x">`, or `<Link href="/api/x">` in a file that doesn't import `next/link`.
+- [x] AC-3: The suite passes on the current tree, and the `<Link>` line in `.claude/rules/web.md` names the test file.
 
 ## Out of scope
 
@@ -48,6 +48,8 @@ A test fails whenever web source renders a Next.js `<Link>` to anything under `/
 ## Follow-ups
 
 _Work noticed during this task and deliberately left out. Each bullet ends `→ <path> § <section>` (where it was placed) or `→ not tracked: <reason>`. See `.claude/skills/track-follow-ups/classify.md`; the PR's Follow-ups section is copied from here._
+
+- The matcher doesn't flag an `href` built from a variable (`href={url}`), a named `{ default as X }` import of `next/link`, or `React.createElement(Link, …)`; none occurs in the codebase and the AC doesn't require them → not tracked: stated in the test's header comment; the rule in `.claude/rules/web.md` still applies to them
 
 ## Plan
 
@@ -76,13 +78,15 @@ Size check: S. One new test file and one rule line; no runtime code.
 
 _Filled by /implement-task. One line per round._
 
+Verify R1 PASS | Audit R1 PASS | Spec R1 APPROVE | Manual: throwaway `<Link href="/api/py/health">` in `app/teams/page.tsx` failed with `app/teams/page.tsx:20`, passed after revert
+
 ## Blocked
 
 _Only if status is Blocked: what failed, what was tried, best hypothesis, decision needed._
 
 ## Metrics
 
-- Verify rounds:
-- Review rounds:
-- First-pass AC FAILs:
-- Plan revisions after approval:
+- Verify rounds: 1
+- Review rounds: 1
+- First-pass AC FAILs: 0
+- Plan revisions after approval: 0
