@@ -1,14 +1,14 @@
 ---
 id: TASK-009
 title: Add Dependabot and the CI check that blocks edits to merged migrations
-status: Ready
+status: In progress
 depends_on: []
 size: M
 model: sonnet
 autonomy: attended
 ui: false
-plan_status: none
-planned_at_commit:
+plan_status: approved
+planned_at_commit: 5cbb932
 ---
 
 # TASK-009 — Add Dependabot and the CI check that blocks edits to merged migrations
@@ -55,9 +55,25 @@ Dependency updates arrive as PRs on their own, except the majors that need a han
 - Automated: `python/db/tests/test_merged_migrations.py`; CI green on the PR with the check running.
 - Manual: AC-3's throwaway commit on the branch → CI (or the local subcommand) fails naming `0001_reference_tables.py`; after the revert → passes. After merge, the repo's Insights › Dependency graph › Dependabot tab shows the three ecosystems with no config errors.
 
+## Follow-ups
+
+- Candidate decision: the merged-migration check's diff bases (PR: `origin/<base_ref>` three-dot, so the merge base; push to `main`: `github.event.before`), Dependabot's weekly Monday schedule with a 7-day cooldown, minor+patch grouped per ecosystem with majors one PR each, and `@auth/core` ignored in `scripts/perf` → `docs/decisions.md` § next D-ID (approved at plan)
+
 ## Plan
 
-_Written by /plan-batch or /implement-task Phase 1. Approved by the user (plan_status: approved) before any code is written._
+Approved 2026-10-13 at `5cbb932`.
+
+1. Tests first, failing: AC-1 (`python/db/tests/test_merged_migrations.py`), AC-2, AC-4, AC-5 (`python/db/tests/test_ci_config.py`).
+2. `python/db/src/db/merged_migrations.py`: `violations(name_status_lines) -> list[str]`, pure; fails `M`, `T`, `D`, and `R` whose old path is under `python/db/migrations/versions/`; `A` passes, `C` passes (the source is untouched). A git wrapper runs `git diff --name-status --find-renames <base>...HEAD`, prints each offending file and exits 1.
+3. `python/db/src/db/__main__.py`: `python -m db merged-migrations --base <ref>`.
+4. `.github/workflows/ci.yml`: checkout `fetch-depth: 0`; step "Merged migrations unchanged" after Install, before "Migrate the test DB"; base via `env`: PR → `origin/<base_ref>` (three-dot = merge base), push to `main` → `github.event.before`.
+5. `.github/dependabot.yml`: npm `/` + `/web` (ignore `next` and `eslint-config-next` majors, `typescript` ≥ 7, reason beside each); npm `/scripts/perf` (ignore `@auth/core`: must equal next-auth's, `web/lib/perf.test.ts`); uv `/python`; github-actions `/`. Weekly Monday, 7-day cooldown, minor+patch grouped per ecosystem, majors one PR each.
+6. `.claude/kit.json`: drop the `0001_*` protected path.
+7. AC-3 locally before the PR: throwaway commit editing `0001_reference_tables.py` → the check exits 1 naming it; `git revert` → exits 0. Net zero diff; the squash drops both.
+
+Files: `.github/dependabot.yml` (new), `.github/workflows/ci.yml`, `python/db/src/db/merged_migrations.py` (new), `python/db/src/db/__main__.py`, `python/db/tests/test_merged_migrations.py` (new), `python/db/tests/test_ci_config.py` (new, not in Files likely touched), `.claude/kit.json`.
+
+Tests: AC-1 unit tests for each status plus outside-folder changes, and a temp git repo run of the CLI on an edited migration; AC-2/AC-4/AC-5 text and JSON checks in `test_ci_config.py` (the `test_backup.py` style), plus the PR's own CI run; AC-3 manual (above), output in the PR.
 
 ## Review log
 

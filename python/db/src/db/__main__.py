@@ -1,5 +1,5 @@
 """`python -m db migrate|check --target dev|test|preview|live`, `python -m db release <step>` and
-`python -m db backup dump|verify`.
+`python -m db backup dump|verify` and `python -m db merged-migrations --base <ref>` (CI).
 
 Root scripts: db:migrate (dev), db:migrate:test, db:check (test). The preview target is the
 Vercel preview build's step; outside a preview build it does nothing. The live target is
@@ -13,7 +13,7 @@ import argparse
 from pathlib import Path
 from typing import cast
 
-from db import backup, release
+from db import backup, merged_migrations, release
 from db.config import MigrationTarget, direct_url, live_url, load_env, preview_migration_url
 from db.migrate import check, upgrade
 
@@ -27,9 +27,10 @@ def main(argv: list[str] | None = None) -> None:
         p.add_argument("--env-file", type=Path, help="Only with --target live: e.g. .env.live")
     release.add_commands(commands)
     backup.add_commands(commands)
+    merged_migrations.add_command(commands)
     args = parser.parse_args(argv)
 
-    if args.command in ("release", "backup"):
+    if args.command in ("release", "backup", "merged-migrations"):
         args.func(args)
         return
 
