@@ -1,7 +1,7 @@
 ---
 id: TASK-009
 title: Add Dependabot and the CI check that blocks edits to merged migrations
-status: Review
+status: Done
 depends_on: []
 size: M
 model: sonnet
