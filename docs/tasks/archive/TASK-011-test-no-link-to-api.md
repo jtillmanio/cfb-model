@@ -1,7 +1,7 @@
 ---
 id: TASK-011
 title: Add the test that forbids <Link> to /api/
-status: Review
+status: Done
 depends_on: []
 size: S
 model: sonnet
