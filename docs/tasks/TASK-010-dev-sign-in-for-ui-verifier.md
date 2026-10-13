@@ -1,7 +1,7 @@
 ---
 id: TASK-010
 title: Let the ui-verifier sign in to the local dev server
-status: Ready
+status: In progress
 depends_on: []
 size: S
 model: sonnet
