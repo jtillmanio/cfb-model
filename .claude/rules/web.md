@@ -13,7 +13,7 @@ paths:
 - Keep `agentRules: false` in `next.config.ts`.
 - UI matches the Claude Design handoff in `design/handoff/` (see "Design source" and "Design decisions" in `docs/05-ui-design-brief.md`). Use design-system tokens and shared components only; if something is missing, extend the system rather than adding a one-off style. All number display goes through the shared formatting module.
 - The browser never calls the FastAPI service. Server components call it with the signed JWT. **One API call per page.**
-- Never use `<Link>` to anything under `/api/`, because prefetch runs the handler. Use a plain `<a>`; a test enforces this.
+- Never use `<Link>` to anything under `/api/`, because prefetch runs the handler. Use a plain `<a>`; `web/lib/no-prefetched-handlers.test.ts` enforces this.
 - Every data route ships with a `loading.tsx` whose skeleton is drawn at the loaded size, with the pulse off under `prefers-reduced-motion`. Use route groups when a list and its `[id]` page need different skeletons. A route that only waits and then redirects (e.g. `/login/continue`, D-104) shows no API data, so it gets no `loading.tsx`: one would draw on the fast path, which must stay blank.
 - A stale or invalid session redirects to `/login`; it never throws a 500.
 - Vitest tests that spawn a shell get a 30 s timeout.
