@@ -1,5 +1,36 @@
 # Changelog
 
+## v2.7: Destructive-command guard
+
+Coding agents have deleted whole repositories, home folders, and drives with one bad shell command: `rm -rf $DIR/` with `DIR` unset, `rm -rf ~` where `~/project` was meant, a cleanup run from the wrong folder, `git clean -fdx` over someone's uncommitted work. Up to 2.6 the kit's only defence was a handful of deny rules, which match the start of a command, so `rm -fr /`, `Remove-Item -Recurse C:\`, or anything inside `bash -c` got past them. In 2.7 a hook reads every shell command, works out what it would delete, and stops it when the answer is outside the project, the project itself, or work git can't give back. Upgrading a 2.6.x project: `UPGRADING.md` § From 2.6 to 2.7.
+
+### Added
+
+- **`.claude/hooks/guard-destructive.ps1`** (PreToolUse on `Bash|PowerShell`). It tokenizes Git Bash, PowerShell, and cmd syntax, follows `cd`, variables the command assigns itself, `bash -c`, `powershell -Command`/`-EncodedCommand`, `cmd /c`, `wsl`, `$( )`, and heredocs, and resolves each delete target (`rm`, `Remove-Item` and its aliases, `del`/`rd`, `find -delete`, `xargs rm`, `rimraf`, `robocopy /MIR`, `Get-ChildItem | Remove-Item`) against the project and worktree roots.
+  - **Denied**, with Claude told to stop and ask: deleting outside the project and the temp folder; the project, a folder containing it, everything in it, its `.git`, a nested repository or worktree, a `protectedPaths` file; a recursive delete of an unresolvable path; disk and OS tools; `gh repo delete`/`archive`/visibility changes; `git push --mirror`, force pushes (including `+refspec`), deleting the base branch on the remote.
+  - **Asked**: a recursive delete inside the project of a folder holding tracked files or untracked, non-ignored files (git decides); `git clean -f` (not `-X`), `git reset --hard`, whole-tree `git checkout`/`restore`, `git stash drop`/`clear`, `git worktree remove --force`, history rewrites; inline `python -c`/`node -e` code that deletes folders. Under `bypassPermissions`, asks become denies.
+  - **Allowed**: files and ignored folders inside the project, anything in the temp folder, `.kit-incoming/`.
+  - Every deny and ask is appended to `.claude/state/guard-destructive.log`.
+- **`destructiveGuard`** in `kit.json`: `allowPaths` (default `[".kit-incoming"]`) and `commands` (`{ pattern, decision, reason }` regex rules for project commands such as database resets).
+- **Stop-and-ask lines** in the `CLAUDE.md` template: deleting outside the project, the project, `.git`, or a worktree; deleting folders git doesn't ignore; discarding uncommitted work. A bullet says the guard is a net, not permission, and must never be routed around.
+- **Deny rule** `gh repo delete*` (Bash and PowerShell).
+
+### Changed
+
+- **Every kit hook is registered in exec form** (`"command": "powershell"` plus `args`, Claude Code 2.1.139+). The 2.6 shell form put `$CLAUDE_PROJECT_DIR` in a command string; on a machine where Claude Code finds no Git Bash it runs hooks through PowerShell, which reads that as an empty variable, so no kit hook ran and nothing said so.
+- **`"onFailure": "block"`** on the two guards (Claude Code 2.1.295+; older versions ignore it): a guard that can't start or times out now blocks the action.
+- **`/customize-kit`** detects a 2.6 configuration, proposes the 2.7 rows, asks which outside folders Claude may clean and which destructive commands need a `destructiveGuard.commands` rule, and smoke-tests the guard.
+
+### Fixed
+
+- **`install-kit.ps1`** no longer copies local state from Claude sessions run in the kit folder itself (`.claude/state/`, `worktrees/`, `tmp/`, `agent-memory-local/`, `settings.local.json`) into projects.
+
+### Upgrade notes
+
+- The guard stops some commands an existing project's instructions may tell Claude to run (`rm -rf` on a tracked folder, `git clean -fd`, `git reset --hard`). Step 3 of the upgrade finds them.
+- In an unattended session an ask can't be answered, so the command doesn't run and the session reports it. A `--bg` session waits in Needs input.
+- Known limits: a script file that deletes things (`python cleanup.py`) and spellings the tokenizer doesn't follow get through. The stop-and-ask list is the rule; the hook is the net.
+
 ## v2.6: Follow-up tracking
 
 Until 2.5, a follow-up (work noticed during a task and deliberately left out) lived only in the PR body's Follow-ups section, and after the squash merge nothing read it again. One project's audit of 18 PRs over four days found an owner-requested change in no doc at all, three candidate decisions never recorded, notes for the very next task missing from its task file, a roadmap item promising "a follow-up task" that didn't exist, and two small bugs mentioned twice each and tracked nowhere. In 2.6 every follow-up is written where the work that will do it will read it, in the PR that noticed it, and the PR says where each one went. Upgrading a 2.5.x project: `UPGRADING.md` § From 2.5 to 2.6.

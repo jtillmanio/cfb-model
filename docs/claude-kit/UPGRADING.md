@@ -4,9 +4,63 @@ For the owner of a project on an earlier kit 2.x, and for the Claude session tha
 
 | Project is on | Do |
 |---|---|
-| 2.5.x | [From 2.5 to 2.6](#from-25-to-26) |
-| 2.4.x | One branch, one installer run (it puts 2.6 in place directly): step 1 of [From 2.5 to 2.6](#from-25-to-26), then steps 2–4 of [From 2.4 to 2.5](#from-24-to-25), then steps 2–5 of [From 2.5 to 2.6](#from-25-to-26), and step 6 after merging |
-| 2.3.x | [From 2.3 to 2.4](#from-23-to-24) on one branch (the installer puts 2.6 in place directly; the branch name doesn't matter), then steps 3–5 of [From 2.4 to 2.5](#from-24-to-25) and steps 2–5 of [From 2.5 to 2.6](#from-25-to-26) on the same branch, and step 6 after merging |
+| 2.6.x | [From 2.6 to 2.7](#from-26-to-27) |
+| 2.5.x | One branch, one installer run (it puts 2.7 in place directly): step 1 of [From 2.6 to 2.7](#from-26-to-27), then steps 2–4 of [From 2.5 to 2.6](#from-25-to-26), then steps 2–5 of [From 2.6 to 2.7](#from-26-to-27), and step 6 of [From 2.5 to 2.6](#from-25-to-26) after merging |
+| 2.4.x | One branch, one installer run (it puts 2.7 in place directly): step 1 of [From 2.6 to 2.7](#from-26-to-27), then steps 2–4 of [From 2.4 to 2.5](#from-24-to-25), steps 2–4 of [From 2.5 to 2.6](#from-25-to-26), and steps 2–5 of [From 2.6 to 2.7](#from-26-to-27), and step 6 of [From 2.5 to 2.6](#from-25-to-26) after merging |
+| 2.3.x | [From 2.3 to 2.4](#from-23-to-24) on one branch (the installer puts 2.7 in place directly; the branch name doesn't matter), then steps 3–5 of [From 2.4 to 2.5](#from-24-to-25), steps 2–5 of [From 2.5 to 2.6](#from-25-to-26), and steps 2–5 of [From 2.6 to 2.7](#from-26-to-27) on the same branch, and step 6 of [From 2.5 to 2.6](#from-25-to-26) after merging |
+
+## From 2.6 to 2.7
+
+2.7 has one change: a PreToolUse hook, `guard-destructive.ps1`, reads every command the Bash and PowerShell tools are about to run and stops the ones that destroy work nobody can give back. On the way, every kit hook moves to exec form, because the shell form silently doesn't run on a machine where Claude Code has no Git Bash. The upgrade is one branch and one PR.
+
+### Behaviour changes
+
+These apply once the merged `settings.json` registers the hook (step 2) and Claude Code restarts. The hook file itself arrives with `-Upgrade`, but does nothing until it is registered.
+
+| Change | What you'll see | Opt out |
+|---|---|---|
+| **Denied deletes** | Claude is blocked, told why, and told to stop and ask, when a command deletes outside the project (other than the temp folder or `destructiveGuard.allowPaths`), the project itself or a folder containing it, everything in it, its `.git`, a nested repository or worktree, or a `protectedPaths` file; when a recursive delete's path can't be resolved (an unset variable, `$( )`, `xargs`); disk tools; `gh repo delete`/`archive`/visibility changes; `git push --mirror`, force pushes, deleting the base branch on the remote | Add a folder to `destructiveGuard.allowPaths`. Run the command yourself |
+| **Asked deletes** | A permission prompt labelled `guard-destructive:` before a recursive delete of a folder holding tracked files or untracked files git doesn't ignore, `git clean -f`, `git reset --hard`, `git checkout -- .`, `git restore .`, `git stash drop`/`clear`, `git worktree remove --force`, history rewrites, and inline code that deletes folders. Unattended, the command doesn't run; a `--bg` session waits in Needs input. `bypassPermissions` turns these into denies | Approve the prompt. There is no switch to silence it: use `git rm -r`, or `git clean -fdX` for ignored files only |
+| **Not affected** | Deleting files, and ignored folders (`node_modules`, build output, caches), inside the project; anything inside the temp folder; `git checkout <ref> -- <file>` (test-auditor's revert); `git worktree remove` without `--force` | — |
+| **Exec-form hooks** | `settings.json` registers each kit hook as `"command": "powershell"` with an `args` array. Claude Code fills in `${CLAUDE_PROJECT_DIR}` itself, so the hooks run whether or not it found Git Bash. Under 2.6, a machine with only the PowerShell tool ran no kit hook at all, silently | — |
+| **`onFailure: "block"`** | On the destructive-command guard and the protected-paths guard: if the hook can't start or times out, the action is blocked instead of going ahead. Needs Claude Code 2.1.295; older versions ignore the field | Remove the field |
+| **New deny rule** | `gh repo delete*`, for both tools | — |
+| **One more process per shell call** | Each Bash or PowerShell call starts one short PowerShell process (about half a second) | Remove the `Bash\|PowerShell` entry from `hooks.PreToolUse`. Not recommended |
+
+### Steps
+
+1. **Run the installer** on a new branch, from the project root:
+   ```powershell
+   git switch main; git pull --ff-only; git switch -c chore/kit-2.7
+   powershell -NoProfile -ExecutionPolicy Bypass -File C:\Development\tools\claude-code-starter-kit\install-kit.ps1 -Upgrade -WhatIf
+   powershell -NoProfile -ExecutionPolicy Bypass -File C:\Development\tools\claude-code-starter-kit\install-kit.ps1 -Upgrade
+   ```
+   Expect: **Added** for `.claude/hooks/guard-destructive.ps1`; **Updated** for the `customize-kit` skill and five guides under `docs/claude-kit/` (`README.md`, `USER-GUIDE.md`, `WORKFLOW.md`, `UPGRADING.md`, `CHANGELOG.md`); **To merge** for `settings.json`, `kit.json`, and `CLAUDE.md`. Restart Claude Code.
+2. **Merge `.kit-incoming/`**, or run `/customize-kit`, which detects a 2.6 configuration (`guard-destructive.ps1` not registered, or hooks in shell form) and proposes these as rows:
+   - `settings.json`: the `Bash|PowerShell` PreToolUse entry for `guard-destructive.ps1` (timeout 30, `"onFailure": "block"`); every kit hook rewritten in exec form, keeping your timeouts; `"onFailure": "block"` on `guard-protected-paths.ps1`; deny `Bash(gh repo delete*)` and `PowerShell(gh repo delete*)`. Keep your allow and deny rules.
+   - `kit.json`: `"destructiveGuard": { "allowPaths": [".kit-incoming"], "commands": [] }`. Add folders outside the project Claude may clean freely, and a `commands` rule for each destructive command whose wording varies too much for a deny rule (a database reset run through `npx`, a truncating seed script).
+   - `CLAUDE.md`: under **Stop and ask before**, the two lines on deleting outside the project and discarding uncommitted work, "or deleting or archiving one" on the repository line, and the bullet on `guard-destructive.ps1` after the list.
+3. **Find project text that tells Claude to run what now prompts.** `git grep -n -e "rm -rf" -e "Remove-Item" -e "git clean" -e "reset --hard" -e "rd /s" -- CLAUDE.md .claude/project .claude/rules .claude/skills/verify scripts`. A step that deletes a tracked folder becomes `git rm -r`; one that cleans build output can stay if the output is git-ignored; one that must wipe untracked work becomes an owner step.
+4. **Check the Claude Code version**: `claude --version`. Exec form needs 2.1.139 or later (the kit already needs it for agent view). `onFailure` needs 2.1.295; on an older version, `claude update`, or accept that a guard that can't start lets the command through.
+5. **Commit by path**, push, and open the PR, e.g. `chore: upgrade claude kit to 2.7`.
+
+### Verification
+
+On the upgrade branch:
+
+```powershell
+'{"tool_name":"Bash","tool_input":{"command":"rm -rf ~"}}' | powershell -NoProfile -ExecutionPolicy Bypass -File .claude/hooks/guard-destructive.ps1; $LASTEXITCODE         # expect 2 and "targets the home folder"
+'{"tool_name":"PowerShell","tool_input":{"command":"git reset --hard"}}' | powershell -NoProfile -ExecutionPolicy Bypass -File .claude/hooks/guard-destructive.ps1 # expect JSON with "permissionDecision":"ask"
+'{"tool_name":"Bash","tool_input":{"command":"rm -rf node_modules"}}' | powershell -NoProfile -ExecutionPolicy Bypass -File .claude/hooks/guard-destructive.ps1; $LASTEXITCODE  # expect 0, no output (if node_modules is git-ignored)
+(Get-Content .claude/settings.json -Raw | ConvertFrom-Json).hooks.PreToolUse | ForEach-Object { $_.matcher }                                                          # expect Read, Edit|Write|MultiEdit|NotebookEdit, Bash|PowerShell
+```
+
+In a Claude session after restarting: `/hooks` shows three PreToolUse entries and one PostToolUse entry. Ask Claude to run `rm -rf ~/nonexistent-test-folder`: it is blocked, and `.claude/state/guard-destructive.log` has a `deny` line. Ask it to run `git stash clear` when the stash is empty: you get a `guard-destructive:` prompt (decline it).
+
+### Rolling back
+
+- Remove the `Bash|PowerShell` entry from `hooks.PreToolUse` in `settings.json` to turn the guard off; the rest of 2.7 stays.
+- To return to 2.6, reinstall it with its `install-kit.ps1 -Upgrade` and revert `settings.json`, `kit.json`, and `CLAUDE.md` from git. Keep the exec-form hooks if you can: they work with 2.6's hook scripts unchanged. The `destructiveGuard` key is harmless to 2.6.
 
 ## From 2.5 to 2.6
 

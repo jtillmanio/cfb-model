@@ -1,6 +1,6 @@
 ---
 name: customize-kit
-description: One-time setup (or re-run after an upgrade) that tailors the Claude Code starter kit v2 to this project — kit.json, CLAUDE.md, rules, agent project files, permissions, ignore files, the /verify skill, and the GitHub workflow templates — from the real codebase. Detects a 2.3.x, 2.4.x, or 2.5.x configuration and proposes the upgrade to the installed version. Use only when the user runs /customize-kit or explicitly asks to customize, re-customize, or upgrade the kit.
+description: One-time setup (or re-run after an upgrade) that tailors the Claude Code starter kit v2 to this project — kit.json, CLAUDE.md, rules, agent project files, permissions, ignore files, the /verify skill, and the GitHub workflow templates — from the real codebase. Detects a 2.3.x, 2.4.x, 2.5.x, or 2.6.x configuration and proposes the upgrade to the installed version. Use only when the user runs /customize-kit or explicitly asks to customize, re-customize, or upgrade the kit.
 ---
 
 # Customize the starter kit (v2)
@@ -20,10 +20,11 @@ Goal: every `{{...}}` placeholder and every empty `kit.json` value that applies 
 - Never put project text into a kit-owned file (`.claude/skills/<kit skill>/`, `.claude/hooks/`, `.claude/scripts/`, `docs/templates/`): `install-kit.ps1 -Upgrade` overwrites them. Project instructions for a kit skill or agent go in `.claude/project/<name>.md`. A project script goes in the project's own folder (e.g. `scripts/`), not in `.claude/scripts/`: the installer wouldn't overwrite it there, but it reads as a kit file and an uninstall removes it.
 - Never open an env file whole. To learn which variables exist, read `.env.example` or the code.
 
-## Phase 0: Upgrade from 2.3.x, 2.4.x, or 2.5.x (only when it applies)
+## Phase 0: Upgrade from 2.3.x, 2.4.x, 2.5.x, or 2.6.x (only when it applies)
 
 Run this phase when `.claude/kit-version` is 2.4 or later and any of these hold; otherwise skip to Phase 1.
 
+- 2.7: `.claude/settings.json` doesn't register `guard-destructive.ps1`, or registers a kit hook in shell form (`"command": "powershell -NoProfile ... $CLAUDE_PROJECT_DIR ..."` instead of `"command": "powershell"` with `args`).
 - 2.6: `.claude/kit.json` has no `workflow.followUps` key.
 - 2.5: `.claude/kit.json` has no `workflow.archiveDone` key, or it isn't `false` and task files with `status: Done` sit in `docs/tasks/` outside `archive/`.
 
@@ -38,8 +39,14 @@ Run this phase when `.claude/kit-version` is 2.4 or later and any of these hold;
 Then, reading `docs/claude-kit/UPGRADING.md` for the mapping:
 
 1. Merge `.kit-incoming/` first: keep the user's content, add the kit's new sections, keys, and rules. For agents, take the kit's body and keep the user's `model:` and `effort:` frontmatter. `.kit-incoming/.github/workflows/ci.yml` is the kit's unfilled template: never merge it into a filled-in `ci.yml`; only check that the project's CI keeps the parse step, `timeout-minutes`, `concurrency`, the job name, and test-database isolation. One-line summary per file.
-2. Build an upgrade table, one row per proposed change: what changes, why (the 2.4 item, or the 2.5 or 2.6 change), the exact edit, and what text it lets you delete.
-   - From 2.5, only the 2.6 rows apply (UPGRADING.md § From 2.5 to 2.6):
+2. Build an upgrade table, one row per proposed change: what changes, why (the 2.4 item, or the 2.5, 2.6, or 2.7 change), the exact edit, and what text it lets you delete.
+   - From 2.6, only the 2.7 rows apply (UPGRADING.md § From 2.6 to 2.7):
+     - `settings.json`: register `guard-destructive.ps1` (PreToolUse, matcher `Bash|PowerShell`, timeout 30, `"onFailure": "block"`); rewrite every kit hook in exec form (`"command": "powershell"`, `"args": ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "${CLAUDE_PROJECT_DIR}/.claude/hooks/<hook>.ps1"]`), keeping each hook's timeout; `"onFailure": "block"` on `guard-protected-paths.ps1`; deny `Bash(gh repo delete*)` and `PowerShell(gh repo delete*)`. Keep project hooks the user added, and leave their form alone unless they share the shell-form problem (then propose the same rewrite).
+     - `kit.json`: `destructiveGuard` with `allowPaths: [".kit-incoming"]`, plus any folder outside the project that Claude legitimately empties (a sibling build cache, a shared scratch drive); and `commands` for the project's destructive commands whose wording varies too much for a deny rule (database resets such as `prisma migrate reset`, `supabase db reset`, `dropdb`; seed scripts that truncate). Offer candidates from the manifests and scripts; `deny` for anything that touches a non-test database, `ask` for the rest.
+     - `CLAUDE.md`: the two new stop-and-ask lines and the bullet on `guard-destructive.ps1`; the visibility line gains "or deleting or archiving one".
+     - `.claude/project/*.md`, `CLAUDE.md`, and project scripts that tell Claude to run `rm -rf` on a folder holding tracked files, `git clean -f`, or `git reset --hard`: say each will now prompt (or, unattended, stop), and propose `git rm -r`, `git clean -fdX` (ignored files only), or an owner step.
+     - Report `claude --version`: exec form needs 2.1.139 or later; `onFailure` takes effect from 2.1.295 (older versions ignore it, and a guard that can't start lets the command through).
+   - From 2.5, the 2.6 rows as well (UPGRADING.md § From 2.5 to 2.6):
      - `kit.json`: `"followUps": "apply"` in `workflow` (or `review` / `propose` if the owner wants to see placements first). Say what candidate decisions will do: an explicit `workflow.decisions` keeps winning (`propose` now means Claude records a decision once the owner approves it); a missing one follows `followUps`.
      - The **Owner checklist** role: if it is `—`, offer to create one from `docs/templates/owner-checklist.md` (approvals and owner actions are queued there) and add the row. If one exists, propose adding Actions and Approvals headings in its own style.
      - `.claude/rules/git.md`: the follow-up placements paragraph after "One task per branch, one branch per PR", and the `→` sentence on the PR body.
@@ -49,7 +56,7 @@ Then, reading `docs/claude-kit/UPGRADING.md` for the mapping:
      - `settings.json`: allow `gh pr list *`, `gh pr view *`, and the kit's scripts (Phase 3).
      - `.claude/project/*.md` files that say how follow-ups or candidate decisions are handled (e.g. "decisions are proposed, the owner adds them"): replace them with the switches, or keep them as the project's rule; they win.
      - After merge, run `/track-follow-ups` once (it defaults to every PR since the kit was installed).
-   - From 2.4, the 2.5 rows as well (UPGRADING.md § From 2.4 to 2.5): the `archiveDone` key; the `CLAUDE.md`, `git.md`, spec-reviewer, and PR-template lines; archiving the existing Done tasks with `archive-done.ps1` on the upgrade branch; and links or project files that read task file paths.
+   - From 2.4, the 2.5 and 2.6 rows as well (UPGRADING.md § From 2.4 to 2.5): the `archiveDone` key; the `CLAUDE.md`, `git.md`, spec-reviewer, and PR-template lines; archiving the existing Done tasks with `archive-done.ps1` on the upgrade branch; and links or project files that read task file paths.
    - From 2.3, cover all of these as well:
    - new `kit.json` keys, with values derived from what the project already does (its git rules, CLAUDE.md overrides, CI, hosting);
    - settings: the staging deny rules, `PowerShell(...)` twins, the large-read hook, branch-prefix push rules, deploy-command denies, `Read(...)` denies for production env files;
@@ -75,7 +82,8 @@ Then, reading `docs/claude-kit/UPGRADING.md` for the mapping:
    - confirm or correct the table;
    - pick 3–6 hard rules (offer candidates from the architecture doc);
    - **shared test resources**: would two parallel worktree sessions share a stateful test resource (one test database that tests reset or truncate, fixed ports, files on disk)? If yes, `wipLimit` becomes 1;
-   - **commands Claude must never run**: deploy, release, production-data, and destructive reload commands (offer candidates from the manifests and workflows);
+   - **commands Claude must never run**: deploy, release, production-data, and destructive reload commands (offer candidates from the manifests and workflows). Each becomes a deny rule; one whose wording varies (flags before the subcommand, a package-runner prefix) also becomes a `destructiveGuard.commands` entry;
+   - **folders outside the project** Claude may delete in freely (`destructiveGuard.allowPaths`); the default is none besides the temp folder;
    - **files to protect**, by category: production env files, design sources exported from a design tool, the owner's source data, generated folders, vendored assets;
    - **workflow switches** that differ from the defaults (see Phase 2), when the project's own git rules or docs already say how it works;
    - the stop-and-ask list in `CLAUDE.md`, tailored to this project's data.
@@ -89,6 +97,7 @@ Then, reading `docs/claude-kit/UPGRADING.md` for the mapping:
 | `verify.full` | typecheck → lint → tests → production build |
 | `protectedPaths` | Keep the defaults; add each category the user confirmed, each with a `reason`. Never migrations (a CI migration check enforces append-only; see `/skeleton`), and never a file in `ui.redrawFiles` |
 | `largeFiles` | One entry per large file found, with a `hint` naming the cheap way to read part of it (a section-printer script, Grep, or offset/limit); `"always": true` for generated data that should be queried, never read |
+| `destructiveGuard` | `allowPaths`: keep `.kit-incoming`; add the outside folders the user named. `commands`: one `{ pattern, decision, reason }` per destructive command from Phase 1 whose wording varies; `deny` if it touches a non-test database |
 | `workflow.baseBranch` | The repo's default branch |
 | `workflow.wipLimit` | 2, or 1 when parallel worktrees would share a stateful test resource; then also `workflow._wipLimitReason` with the resource named, e.g. "Every worktree uses the same test database, which the tests reset" |
 | `workflow.worktreeSetup` | What a fresh worktree needs: dependency install (`npm ci`, venv + pip install). A per-task DB setup only if the user wants one (that is also how the WIP limit can go back up) |
@@ -185,6 +194,9 @@ Run these and report each exit code:
 '{"tool_input":{"file_path":"<a file no fast check applies to>"}}' | powershell -NoProfile -ExecutionPolicy Bypass -File .claude/hooks/post-edit-verify.ps1; $LASTEXITCODE   # expect 0, instantly
 '{"tool_input":{"file_path":".env"}}' | powershell -NoProfile -ExecutionPolicy Bypass -File .claude/hooks/guard-protected-paths.ps1; $LASTEXITCODE          # expect 2
 '{"tool_input":{"file_path":"<a largeFiles path>"}}' | powershell -NoProfile -ExecutionPolicy Bypass -File .claude/hooks/guard-large-reads.ps1; $LASTEXITCODE   # expect 2 (skip if largeFiles is empty)
+'{"tool_name":"Bash","tool_input":{"command":"rm -rf ~"}}' | powershell -NoProfile -ExecutionPolicy Bypass -File .claude/hooks/guard-destructive.ps1; $LASTEXITCODE           # expect 2
+'{"tool_name":"PowerShell","tool_input":{"command":"git reset --hard"}}' | powershell -NoProfile -ExecutionPolicy Bypass -File .claude/hooks/guard-destructive.ps1   # expect JSON with "permissionDecision":"ask"
+'{"tool_name":"Bash","tool_input":{"command":"git status"}}' | powershell -NoProfile -ExecutionPolicy Bypass -File .claude/hooks/guard-destructive.ps1; $LASTEXITCODE         # expect 0, no output
 powershell -NoProfile -ExecutionPolicy Bypass -File .claude/scripts/build-index.ps1; $LASTEXITCODE                                                           # expect 0
 powershell -NoProfile -ExecutionPolicy Bypass -File .claude/scripts/dispatch-approved.ps1 -DryRun                                                           # expect a summary, no dispatch
 ```

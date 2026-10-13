@@ -4,7 +4,7 @@ How to install, set up, and use the kit day to day. For the reasoning behind the
 
 > **Starting a new project, or have only a brainstorm so far?** Follow `KICKOFF.md` first.
 > **Existing project with docs, a design, CI, a database, or code already in place?** Follow `ADOPTING.md`. `/adopt` maps your files to the kit without renaming anything.
-> **Project already on kit 2.3.x, 2.4.x, or 2.5.x?** Follow `UPGRADING.md`.
+> **Project already on kit 2.3.x, 2.4.x, 2.5.x, or 2.6.x?** Follow `UPGRADING.md`.
 > All of them hand back to §7 of this guide.
 
 ## Contents
@@ -155,7 +155,7 @@ Never fix a kit behaviour by editing a kit skill, hook, or script: the next `-Up
 2. **Confirm everything loaded:**
    - Type `/` and confirm `implement-task`, `next-task`, `plan-batch`, `new-task`, `customize-kit`, `adopt`, `product-brief`, `architecture`, `skeleton`, and `milestones` appear.
    - Type `@` and confirm `spec-reviewer`, `test-runner`, `test-auditor`, `schema-reviewer`, and `ui-verifier` appear.
-   - Run `/hooks` and confirm two PreToolUse entries (Read, and Edit|Write) and one PostToolUse entry.
+   - Run `/hooks` and confirm three PreToolUse entries (Read, Edit|Write, and Bash|PowerShell) and one PostToolUse entry.
 3. **Run `/customize-kit` on Opus** (`/model opus` first). It:
    - detects your stack and asks you to confirm it, along with 3–6 hard rules, the files to protect, the commands Claude must never run (deploys, releases, production data), and whether parallel sessions would share a test database;
    - fills `kit.json`, including the `workflow` switches, and runs every command once, reporting timings;
@@ -356,7 +356,7 @@ The PR body is pre-filled from `.github/pull_request_template.md`. Spend your 5�
 | `/skeleton` | Build the walking skeleton: scaffold, scripts, one end-to-end slice, tests, CI |
 | `/milestones [MVP or Next]` | Break scope into demoable milestones and task stubs with a coverage check |
 | `/milestones --coverage [roadmap]` | Check an existing roadmap's coverage of features, screens, and entities; add the gaps to it as numbered items with a check line. Writes no new file |
-| `/customize-kit` | Tailor the kit to a project. Run once, and again after upgrades (it detects a 2.3.x, 2.4.x, or 2.5.x setup) |
+| `/customize-kit` | Tailor the kit to a project. Run once, and again after upgrades (it detects a 2.3.x, 2.4.x, 2.5.x, or 2.6.x setup) |
 | `/new-task <description or path [M#] or roadmap IDs>` | Create task files with checkable ACs; bulk-convert a task list one milestone at a time, or a roadmap one sitting at a time |
 | `/verify` | Generated per project by `/customize-kit`: run `verify.full` before a push and report the actual output |
 | `/next-task [--dry-run]` | Pick the best Ready task (respecting WIP and dependencies) and implement it attended |
@@ -394,7 +394,22 @@ Each agent reads `.claude/project/<agent-name>.md` first, if it exists, as its p
 |---|---|---|
 | `guard-protected-paths.ps1` | Before Edit/Write | Blocks edits to `protectedPaths` |
 | `guard-large-reads.ps1` | Before Read | Blocks a whole-file read of a `largeFiles` entry (any read, with `always`) and returns its hint |
+| `guard-destructive.ps1` | Before Bash/PowerShell | Denies or asks about shell commands that destroy work (below) |
 | `post-edit-verify.ps1` | After Edit/Write | Runs the `verify.fast` checks whose extensions match the edited file |
+
+Each hook is registered in exec form (`"command": "powershell"` plus an `args` array, Claude Code 2.1.139+), so it runs the same whether Claude Code found Git Bash or not. The two guards that protect work also set `"onFailure": "block"` (Claude Code 2.1.295+): a guard that can't start or times out blocks the action instead of letting it through. Older versions ignore the field and let the action through, as before.
+
+**What `guard-destructive.ps1` does.** It reads each command the Bash and PowerShell tools are about to run, including what they hand to `bash -c`, `powershell -Command` or `-EncodedCommand`, `cmd /c`, `wsl`, `$( )`, and heredocs, and resolves every delete target against the project folder (or worktree).
+
+| Decision | When |
+|---|---|
+| **Deny** (Claude is told to stop and ask you) | A delete outside the project, other than inside the temp folder or a `destructiveGuard.allowPaths` entry: a drive, your home folder, a system folder, another repository. Deleting the project itself, a folder that contains it, everything in it (`rm -rf *`), its `.git`, a nested repository or worktree, or a `protectedPaths` file. A recursive delete whose path it can't resolve (an unset variable, `$( )`, `xargs` input). Disk and OS tools (`format`, `diskpart`, `Format-Volume`, `Clear-Disk`, `mkfs`, `dd` to a device). `gh repo delete`/`archive`, visibility changes, `git push --mirror`, force pushes, deleting the base branch on the remote |
+| **Ask** (you approve or decline) | A recursive delete inside the project of a folder holding tracked files (Claude should use `git rm -r`) or untracked files git doesn't ignore (possibly your work in progress). `git clean -f`, `git reset --hard`, `git checkout -- .`, `git restore .`, `git stash drop`/`clear`, `git worktree remove --force`, history rewrites. Inline code that deletes folders (`python -c "...rmtree..."`). Each `destructiveGuard.commands` rule |
+| **Allow** | Deleting files, and folders whose contents git ignores (`node_modules`, build output, caches), inside the project. Anything inside the temp folder |
+
+Variables the command sets itself are followed (`D=dist; rm -rf "$D"`, `$d = 'dist'; Remove-Item $d -Recurse`); environment variables are read from the session. An unattended session can't show a prompt, so an ask stops the command there; a `--bg` session waits in Needs input until you attach. In `bypassPermissions` mode every ask becomes a deny. Every deny and ask is logged to `.claude/state/guard-destructive.log`.
+
+It is a net, not a sandbox. A script file that deletes things (`python cleanup.py`), or a spelling it doesn't parse, gets through; the stop-and-ask list in `CLAUDE.md` is the rule it backs up. Each Bash or PowerShell call starts one short PowerShell process (about half a second).
 
 For huge files Claude reads often (a design export with dozens of screens, a long roadmap), add a small section-printer script, e.g. `scripts/screen.ps1 <screen-id>` or `scripts/task.ps1 <roadmap-id>`, and name it in the `largeFiles` hint.
 
@@ -423,6 +438,8 @@ Every key is optional. A missing key takes the default below, which is the 2.3.1
 | `verify.maxOutputLines` | `60` | Lines of a failing fast check fed back to Claude |
 | `protectedPaths` | secrets, keys, `INDEX.md` | `[{ pattern, reason }]`: files the Edit/Write tools can't touch |
 | `largeFiles` | `[]` | `[{ pattern, hint, always? }]`: files the Read tool can't read whole (or at all, with `always`) |
+| `destructiveGuard.allowPaths` | `[".kit-incoming"]` | Project-relative patterns or absolute folders that `guard-destructive.ps1` lets deletes touch without a check. A list here replaces the default |
+| `destructiveGuard.commands` | `[]` | `[{ pattern, decision: ask\|deny, reason }]`: extra commands the guard stops, matched as a case-insensitive regex against the whole command (e.g. `prisma\\s+migrate\\s+reset`). Use it for destructive commands whose wording varies too much for a deny rule |
 | `workflow.baseBranch` | `main` | The branch PRs target; never committed on directly |
 | `workflow.wipLimit` / `_wipLimitReason` | `2` / — | Tasks in progress or review at once; the reason it is lower, printed by the dispatcher |
 | `workflow.openPullRequests` / `waitForCi` / `maxCiFixRounds` | `true` / `true` / `2` | Whether to open PRs, check the ready gates, and how many fix rounds |
@@ -488,9 +505,12 @@ The settings template denies, for both the `Bash` and `PowerShell` tools (on Win
 | `git push --force *`, `-f *`, `--force-with-lease *` | No rewriting pushed history (`allowForceWithLease` drops the last one) |
 | `gh pr merge *` | You merge |
 | `git reset --hard *`, `git clean -fdx *` | No destroying uncommitted work |
+| `gh repo delete*` | No deleting the GitHub repository |
 | `git add -A*`, `git add --all*`, `git add .`, `git commit -a*`, `git commit --all*` | Staging by path: never sweep in your edits, env files, or scratch output |
 
 `/customize-kit` adds allow-rules for your verify, test, git, and gh commands and one push rule per branch prefix, plus deny rules for your deploy, release, production-data, and destructive-reload commands and `Read(...)` denies for production env files. Deny always beats allow.
+
+Deny rules match the start of a command, so `rm -fr /`, `Remove-Item -Recurse C:\`, or a delete inside `bash -c` slip past any list of them. `guard-destructive.ps1` (§12, Hooks) reads the command instead, and its deny wins over an allow rule too.
 
 ## 13. Troubleshooting
 
@@ -498,8 +518,11 @@ The settings template denies, for both the `Bash` and `PowerShell` tools (on Win
 |---|---|---|
 | Skills or agents missing | Session started before install | Restart Claude Code |
 | Hook never fires | Not registered or merge dropped it | `/hooks`; `claude --debug` and edit a file |
-| `powershell: command not found` in hook output | Git Bash PATH | Use `C:/Windows/System32/WindowsPowerShell/v1.0/powershell.exe` in `settings.json` |
-| Hook path error | Your version runs hooks in PowerShell | Change `$CLAUDE_PROJECT_DIR` to `$env:CLAUDE_PROJECT_DIR` and add `"shell": "powershell"` to each hook |
+| `powershell` not found when a hook runs | `powershell.exe` isn't on the PATH Claude Code sees | Set each hook's `"command"` to `C:/Windows/System32/WindowsPowerShell/v1.0/powershell.exe` in `settings.json` |
+| Hooks never fire on a machine without Git Bash (only the PowerShell tool) | Hooks registered in shell form (`"command": "powershell ... \"$CLAUDE_PROJECT_DIR/...\""`, kit 2.6 and earlier): PowerShell reads `$CLAUDE_PROJECT_DIR` as an empty variable, the hook fails, and the action goes ahead | Use the exec form from the kit's `settings.json` (`"command": "powershell"` and an `args` array) |
+| Every Bash/PowerShell call is blocked with a hook error | `guard-destructive.ps1` can't start or times out, and `"onFailure": "block"` stops the call | Fix the path or `powershell` (rows above); run the hook by hand with the smoke test in `UPGRADING.md` § From 2.6 to 2.7 |
+| "Blocked by .claude/hooks/guard-destructive.ps1" | The command deletes outside the project, the project or its `.git`, a path the guard can't resolve, or is on the deny list | Run it yourself if you meant it. For a folder outside the project that Claude should clean freely, add it to `destructiveGuard.allowPaths` |
+| "guard-destructive: …" permission prompt | A delete of tracked or uncommitted work, or a git command that discards it | Approve if intended; otherwise decline and tell Claude what to do instead (often `git rm -r`) |
 | Every edit reports failures | Baseline not green, or slow check in `fast` | Fix the baseline; move slow checks to `full` |
 | Edits to `.css`, `.sql`, `.py` (or ignored paths) fail the linter | A `fast` command runs on extensions it doesn't accept | Use the object form `{ "command", "extensions" }`, or the linter's flag for ignored files (eslint `--no-warn-ignored`) |
 | "Blocked: … matches largeFiles pattern" | The guard stopped a whole-file read | Read it in parts (offset/limit), or use the script the hint names |

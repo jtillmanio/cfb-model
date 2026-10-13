@@ -79,8 +79,12 @@ Checkable against a diff; the spec-reviewer agent enforces them. Each restates a
 - Any schema change (new table or column, a type change, a dropped column) or changing how a stored date or line is interpreted
 - Touching any database other than test/dev, or running anything with `.env.live`
 - Deleting or rewriting user data (contest entries, adjustments, lab models) or live predictions/picks
-- Creating GitHub repos, changing visibility, or editing secrets
+- Creating GitHub repos, changing visibility, deleting or archiving one, or editing secrets
+- Deleting anything outside the project and the temp folder, the project itself, its `.git`, or a worktree (use `git worktree remove`)
+- Deleting a folder that holds files git doesn't ignore (remove tracked files with `git rm -r`), or discarding uncommitted work: `git clean -f`, `git reset --hard`, `git checkout -- .`, `git restore .`, `git stash drop`
 - Anything where the task is ambiguous. Ask rather than guess.
+
+`.claude/hooks/guard-destructive.ps1` denies or asks about the common forms of these deletes. It is a net, not permission: never route around a block with another command, tool, script, or path spelling. Stop and ask.
 
 ## Working with the user
 The user is an experienced software developer, new to statistical modeling. Explain modeling concepts and the reasoning behind choices briefly as you go, linking to `docs/04-model.md`. Engineering explanations can stay terse.
