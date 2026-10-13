@@ -1,7 +1,7 @@
 ---
 id: TASK-009
 title: Add Dependabot and the CI check that blocks edits to merged migrations
-status: In progress
+status: Review
 depends_on: []
 size: M
 model: sonnet
@@ -29,11 +29,11 @@ Dependency updates arrive as PRs on their own, except the majors that need a han
 
 ## Acceptance criteria
 
-- [ ] AC-1: The merged-migration check is a tested Python function: given `git diff --name-status` lines between the base and the branch, it fails on any `M`, `R` or `D` entry under `python/db/migrations/versions/` and names each file, and passes when the only change there is an added file. Unit tests cover modified, renamed, deleted, added, and changes outside the folder.
-- [ ] AC-2: The `verify` job in `.github/workflows/ci.yml` runs the check on every PR and push to `main` (checkout with enough history for the merge base), before the migration steps.
-- [ ] AC-3: Shown on the branch before the PR is ready: a throwaway commit that edits `0001_reference_tables.py` makes the check exit non-zero naming that file; reverting it makes the check pass. (The throwaway commit never reaches the PR's final diff.)
-- [ ] AC-4: `.github/dependabot.yml` covers npm at `/` and `/web`, uv at `/python` and `github-actions` at `/`, and ignores `next` and `eslint-config-next` major versions and `typescript` versions ≥ 7, with a comment beside each ignore giving the reason (hand upgrade; TypeScript 7 ships no JS API).
-- [ ] AC-5: The `0001_*` entry is removed from `protectedPaths` in `.claude/kit.json`, as its reason asks; every other entry is unchanged.
+- [x] AC-1: The merged-migration check is a tested Python function: given `git diff --name-status` lines between the base and the branch, it fails on any `M`, `R` or `D` entry under `python/db/migrations/versions/` and names each file, and passes when the only change there is an added file. Unit tests cover modified, renamed, deleted, added, and changes outside the folder.
+- [x] AC-2: The `verify` job in `.github/workflows/ci.yml` runs the check on every PR and push to `main` (checkout with enough history for the merge base), before the migration steps.
+- [x] AC-3: Shown on the branch before the PR is ready: a throwaway commit that edits `0001_reference_tables.py` makes the check exit non-zero naming that file; reverting it makes the check pass. (The throwaway commit never reaches the PR's final diff.)
+- [x] AC-4: `.github/dependabot.yml` covers npm at `/` and `/web`, uv at `/python` and `github-actions` at `/`, and ignores `next` and `eslint-config-next` major versions and `typescript` versions ≥ 7, with a comment beside each ignore giving the reason (hand upgrade; TypeScript 7 ships no JS API).
+- [x] AC-5: The `0001_*` entry is removed from `protectedPaths` in `.claude/kit.json`, as its reason asks; every other entry is unchanged.
 
 ## Out of scope
 
@@ -57,7 +57,7 @@ Dependency updates arrive as PRs on their own, except the majors that need a han
 
 ## Follow-ups
 
-- Candidate decision: the merged-migration check's diff bases (PR: `origin/<base_ref>` three-dot, so the merge base; push to `main`: `github.event.before`), Dependabot's weekly Monday schedule with a 7-day cooldown, minor+patch grouped per ecosystem with majors one PR each, and `@auth/core` ignored in `scripts/perf` → `docs/decisions.md` § next D-ID (approved at plan)
+- Candidate decision: the merged-migration check's diff bases (PR: `origin/<base_ref>` three-dot, so the merge base; push to `main`: `github.event.before`), Dependabot's weekly Monday schedule with a 7-day cooldown, minor+patch grouped per ecosystem with majors one PR each, and `@auth/core` ignored in `scripts/perf` → docs/decisions.md § D-110 (approved at plan)
 
 ## Plan
 
@@ -77,7 +77,7 @@ Tests: AC-1 unit tests for each status plus outside-folder changes, and a temp g
 
 ## Review log
 
-_Filled by /implement-task. One line per round._
+Verify R1 PASS | AC-3 shown locally (1a8b156 edit → exit 1 naming `0001_reference_tables.py`; fe90352 revert → exit 0) | Audit R1 PASS (two optional strengthenings taken in 4fa7cab) | Spec R1 APPROVE (on the D-110 row at close-out)
 
 ## Blocked
 
@@ -85,7 +85,7 @@ _Only if status is Blocked: what failed, what was tried, best hypothesis, decisi
 
 ## Metrics
 
-- Verify rounds:
-- Review rounds:
-- First-pass AC FAILs:
-- Plan revisions after approval:
+- Verify rounds: 1
+- Review rounds: 1
+- First-pass AC FAILs: 0
+- Plan revisions after approval: 0
