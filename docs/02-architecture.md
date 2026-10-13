@@ -274,7 +274,6 @@ Screen and feature IDs: [05 › Screen inventory](05-ui-design-brief.md#screen-i
 
 ### Test-only sign-in and clock
 - **Sign-in:** e2e mints a session cookie with the test `AUTH_SECRET`. The helper lives in the Playwright fixtures, never in `web/` source, so production has no way in except GitHub.
-- **Dev sign-in (ui-verifier):** `web/e2e/dev-session.mjs <url>` mints the same cookie for the local dev server with the dev `AUTH_SECRET`, read from the repo root's `.env.local` only, valid 1 hour, and refuses any URL that isn't `http:` on a loopback host (D-111). It sits beside e2e's mint; a Vitest case fails if app source imports from `e2e/`.
 - **Clock:** the engine and the web app each read "now" from one clock function, which honors `FIXTURE_NOW` only when `APP_ENV=test`. The fixture uses four times:
   - Thu 2026-10-08 10:00 PM ET: Contest, Best lines.
   - Fri 2026-10-09 8:12 PM ET: the locked game.
