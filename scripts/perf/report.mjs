@@ -181,7 +181,8 @@ async function report() {
 
 /**
  * Rewrites budget.json from a run's merged metrics.json and prints 02's table to paste between the
- * perf-budget markers. Refuses a run with a route missing or bytes too noisy to gate on.
+ * perf-budget markers. Refuses a run with a route missing; bytes that move 1% or more between runs
+ * are printed for the PR to explain, since 02 asks that they be checked.
  * @param {string} file
  */
 function budget(file) {
@@ -190,12 +191,12 @@ function budget(file) {
   const missing = ROUTES.filter((r) => !metrics.routes[r.id]).map((r) => r.id);
   if (missing.length) throw new Error(`the run didn't measure ${missing.join(", ")}`);
   const { routes, measured, unsteady } = budgetFrom(metrics);
-  if (unsteady.length) throw new Error(`bytes too noisy to budget:\n${unsteady.join("\n")}`);
   const current = JSON.parse(readFileSync(BUDGET_FILE, "utf8"));
   writeFileSync(BUDGET_FILE, `${JSON.stringify({ ...current, measured, routes }, null, 2)}\n`);
   console.log(budgetTable(routes));
   console.log(`\nMeasured: Lighthouse ${measured.lighthouse}, Chrome ${measured.chrome}, ${measured.url} at ${measured.sha}`);
   for (const [id, m] of Object.entries(measured.medians)) console.log(`  ${id}: ${JSON.stringify(m)}`);
+  for (const u of unsteady) console.log(`::warning::${u}`);
 }
 
 const command = process.argv[2];

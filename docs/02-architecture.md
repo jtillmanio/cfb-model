@@ -341,11 +341,11 @@ Every PR preview is measured with Lighthouse automatically. The job **fails the 
 <!-- perf-budget:start -->
 | Route | Doc bytes | JS bytes | Requests | A11y |
 |---|---|---|---|---|
-| `login` | – | – | – | – |
-| `teams` | – | – | – | – |
+| `login` | 5,000 | 168,000 | 15 | 100 |
+| `teams` | 8,000 | 168,000 | 15 | 100 |
 <!-- perf-budget:end -->
 
-_Set from the first preview run (TASK-008) with `node scripts/perf/report.mjs budget <metrics.json>`, which writes `budget.json` and prints this table. `web/lib/perf.test.ts` checks the two match._
+_Set 2026-10-13 from TASK-008's first preview run ([run 38359279590](https://github.com/jtillmanio/cfb-model/actions/runs/38359279590), commit `f5503aa`), measured with Lighthouse 13.5.0 and Chrome 154.0.8037.97. Medians of three runs: `login` 4,041 doc bytes, 139,263 JS bytes, 12 requests, accessibility 100; `teams` 5,861, 139,268, 12, 100. Bytes moved under 1% between runs except `login`'s document (4,005–4,058 bytes, 1.3%: 53 bytes, well inside its 959-byte headroom). Written with `node scripts/perf/report.mjs budget <metrics.json>`, which writes `budget.json` and prints this table; `web/lib/perf.test.ts` checks the two match._
 
 ## Walking skeleton
 
