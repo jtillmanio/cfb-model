@@ -1,0 +1,65 @@
+# Dependency updates (TASK-009, D-021). Weekly, a week after release (cooldown); minor and patch
+# updates in one PR per entry, each major in its own PR. Every PR runs the same CI.
+# Majors that need a hand upgrade are ignored below, each with its reason beside it
+# (docs/02-architecture.md › Release & operations › Dependabot; .claude/rules/web.md).
+version: 2
+updates:
+  # The pnpm workspace: the root (concurrently) and the app.
+  - package-ecosystem: npm
+    directories: ["/", "/web"]
+    schedule:
+      interval: weekly
+      day: monday
+    cooldown:
+      default-days: 7
+    groups:
+      npm-minor-and-patch:
+        update-types: [minor, patch]
+    ignore:
+      # Next.js majors are a hand upgrade: read the version-matched docs and run its codemods (D-005).
+      - dependency-name: next
+        update-types: ["version-update:semver-major"]
+      # eslint-config-next ships with each Next.js major, so it is a hand upgrade alongside next.
+      - dependency-name: eslint-config-next
+        update-types: ["version-update:semver-major"]
+      # TypeScript 7 (the native port) ships no JS API, which typescript-eslint and Next.js rely on.
+      - dependency-name: typescript
+        versions: [">=7"]
+
+  # The lighthouse workflow's own dependencies (D-101), outside the pnpm workspace.
+  - package-ecosystem: npm
+    directory: "/scripts/perf"
+    schedule:
+      interval: weekly
+      day: monday
+    cooldown:
+      default-days: 7
+    groups:
+      perf-minor-and-patch:
+        update-types: [minor, patch]
+    ignore:
+      # Must equal the version next-auth installs (web/lib/perf.test.ts); bump it with next-auth.
+      - dependency-name: "@auth/core"
+
+  - package-ecosystem: uv
+    directory: "/python"
+    schedule:
+      interval: weekly
+      day: monday
+    cooldown:
+      default-days: 7
+    groups:
+      uv-minor-and-patch:
+        update-types: [minor, patch]
+
+  # The workflows in .github/workflows; the local start-postgres action uses no other actions.
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+    cooldown:
+      default-days: 7
+    groups:
+      actions-minor-and-patch:
+        update-types: [minor, patch]

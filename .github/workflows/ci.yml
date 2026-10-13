@@ -34,7 +34,10 @@ jobs:
       UV_FROZEN: "1"
 
     steps:
+      # Full history: the merged-migration check diffs against the merge base with main.
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
 
       - name: Task files parse cleanly
         shell: pwsh
@@ -63,6 +66,14 @@ jobs:
           pnpm install --frozen-lockfile
           uv --directory python sync
           pnpm --dir web exec playwright install --with-deps chromium
+
+      # Migrations are forward-only (D-020): fail if one already on main was edited, renamed or
+      # deleted. A PR diffs from its merge base with the base branch; a push to main from the
+      # previous tip of main.
+      - name: Merged migrations unchanged
+        env:
+          BASE: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || github.event.before }}
+        run: uv --directory python run python -m db merged-migrations --base "$BASE"
 
       - name: Migrate the test DB
         run: pnpm db:migrate:test
