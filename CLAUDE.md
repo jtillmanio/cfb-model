@@ -2,7 +2,7 @@
 
 Personal sports-analytics app. A college football model makes game predictions, compares them to spreads (market and Splash pick'em contest lines), recommends picks, ranks teams (later also seasons, programs and coaches across history), projects seasons, and tracks its own record. Multi-sport later.
 
-**Status:** Phase 0 in progress. The walking skeleton is merged: Neon DB and migration `0001`, `/api/py/health` and `/teams`, CI and Vercel previews. The `release` workflow (TASK-005) and the nightly `backup` workflow (TASK-006) are built. Not built yet: shadcn/ui, the R2 lake bucket, Dependabot. Status lives in the `docs/06-roadmap.md` checklists.
+**Status:** Phase 0 in progress. The walking skeleton is merged: Neon DB and migration `0001`, `/api/py/health` and `/teams`, CI and Vercel previews. The `release` workflow (TASK-005), the nightly `backup` workflow (TASK-006) and the `lighthouse` workflow on PR previews (TASK-008) are built. Not built yet: shadcn/ui, the R2 lake bucket, Dependabot. Status lives in the `docs/06-roadmap.md` checklists.
 
 ## Where things are
 - `docs/01`–`07`: product, architecture, data model, model, UI brief, roadmap, Claude Design playbook. Read the relevant one before starting a phase task.

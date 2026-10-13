@@ -1,7 +1,7 @@
 ---
 id: TASK-008
 title: Run Lighthouse on every PR preview and set the first budgets
-status: In progress
+status: Review
 depends_on: [TASK-007, TASK-002]
 size: M
 model: opus
@@ -36,12 +36,12 @@ Every PR's preview is measured automatically: the PR gets one comment with the n
 
 ## Acceptance criteria
 
-- [ ] AC-1: `.github/workflows/lighthouse.yml` matches 02's shape: top-level `permissions: {}`, the `plan`, `measure` (matrix per route, `fail-fast: false`, concurrency `lighthouse-pr-<n>-<route>` with cancel-in-progress) and `report` jobs, with only `report` granted `pull-requests: write`; secrets reach scripts only through `env:`; header files go to a temp folder removed in an `if: always()` step; every request to the preview (Lighthouse `--extra-headers` and the session mint) carries `x-vercel-protection-bypass` from `VERCEL_AUTOMATION_BYPASS_SECRET`.
+- [x] AC-1: `.github/workflows/lighthouse.yml` matches 02's shape: top-level `permissions: {}`, the `plan`, `measure` (matrix per route, `fail-fast: false`, concurrency `lighthouse-pr-<n>-<route>` with cancel-in-progress) and `report` jobs, with only `report` granted `pull-requests: write`; secrets reach scripts only through `env:`; header files go to a temp folder removed in an `if: always()` step; every request to the preview (Lighthouse `--extra-headers` and the session mint) carries `x-vercel-protection-bypass` from `VERCEL_AUTOMATION_BYPASS_SECRET`.
 - [ ] AC-2: On this PR's preview, the workflow runs on its own and measures `/login` signed out and `/teams` signed in, with neither ending on an unexpected URL; the PR has exactly one Lighthouse comment, and a re-run edits that comment instead of adding another.
-- [ ] AC-3: `scripts/perf/budget.json` holds, per route, `docBytes`, `jsBytes`, `requests` and `a11y` computed from this PR's preview run by 02's rule; the `perf-budget` table in `docs/02-architecture.md` matches it, with the measured numbers, Lighthouse version and Chrome version beside it.
-- [ ] AC-4: Vitest cases fail when `budget.json`'s keys differ from the route ids in `routes.mjs`, or when the `perf-budget` table in `docs/02-architecture.md` differs from `budget.json`.
-- [ ] AC-5: The run's uploaded artifacts are only scrubbed reports and `metrics.json` with 14-day retention, and the guard step passed; no artifact goes to LHCI temporary public storage.
-- [ ] AC-6: The README (or the setup doc the plan names) lists the workflow's secret and variable and what each is for.
+- [x] AC-3: `scripts/perf/budget.json` holds, per route, `docBytes`, `jsBytes`, `requests` and `a11y` computed from this PR's preview run by 02's rule; the `perf-budget` table in `docs/02-architecture.md` matches it, with the measured numbers, Lighthouse version and Chrome version beside it.
+- [x] AC-4: Vitest cases fail when `budget.json`'s keys differ from the route ids in `routes.mjs`, or when the `perf-budget` table in `docs/02-architecture.md` differs from `budget.json`.
+- [x] AC-5: The run's uploaded artifacts are only scrubbed reports and `metrics.json` with 14-day retention, and the guard step passed; no artifact goes to LHCI temporary public storage.
+- [x] AC-6: The README (or the setup doc the plan names) lists the workflow's secret and variable and what each is for.
 
 ## Out of scope
 
@@ -66,7 +66,9 @@ Every PR's preview is measured automatically: the PR gets one comment with the n
 
 ## Follow-ups
 
-- Tap → next-paint runner (ledger times screen-to-screen navigation, not only cold loads): not built here. Neither 02 nor D-101 plans it, and with one signed-in screen there is no screen-to-screen tap to time; plan it when a second signed-in screen ships (approved at plan) → new Draft task TASK-013
+- Tap → next-paint runner (ledger times screen-to-screen navigation, not only cold loads): not built here. Neither 02 nor D-101 plans it, and with one signed-in screen there is no screen-to-screen tap to time; plan it when a second signed-in screen ships → docs/tasks/TASK-014-perf-tap-runner.md (new, Draft) (approved at plan), with its stub in docs/08-tasklist.md § M1: Rails (M1.11)
+- `gh workflow run lighthouse.yml -f url=…` can't run before merge: `workflow_dispatch` fires only once the file is on `main`. The branch's own `deployment_status` runs cover the ready gate → not tracked: listed in the PR's "How it was verified" as the check to run straight after merge
+- `login`'s document bytes moved 1.3% between runs (4,005–4,058), over 02's "< 1%" check; `report.mjs budget` warns rather than refuses, and the 53 bytes sit well inside the 959-byte headroom → not tracked: recorded under the perf-budget table in docs/02-architecture.md and in the PR
 
 ## Plan
 
@@ -105,7 +107,10 @@ Approved 2026-10-13 at `a553689`.
 
 ## Review log
 
-_Filled by /implement-task. One line per round._
+- Verify R1 PASS (one ESLint warning in the new test, fixed)
+- Preview runs: 38359279590 on `f5503aa` (unbudgeted; set the budgets) and 38402578345 on `2c0b806` (gated against them): plan, measure (login), measure (teams) and report all green
+- Audit R1 NOT RUN (rate limit) → R2: static OK on all 18 new cases. Dynamic NOT RUN: the permission classifier denied restoring `main`'s files in the working tree, and the tree was confirmed clean. Tests-first evidence from Phase 2: 17 of 18 new cases failed before the code existed (missing exports, workflow and budgets); the 18th, the versions-beside-the-table case, can only fail once `budget.json` has `measured`.
+- Spec R1 CHANGES (Follow-ups bullet had no path; TASK-013 was a dropped ID; AC-2's comment half pending the PR) → fixed at close-out (TASK-014)
 
 ## Blocked
 
@@ -113,7 +118,7 @@ _Only if status is Blocked: what failed, what was tried, best hypothesis, decisi
 
 ## Metrics
 
-- Verify rounds:
-- Review rounds:
-- First-pass AC FAILs:
-- Plan revisions after approval:
+- Verify rounds: 1
+- Review rounds: 2 (spec R1 CHANGES on follow-ups only; R2 the close-out follow-ups check)
+- First-pass AC FAILs: 0 (AC-2's comment half checked on the PR)
+- Plan revisions after approval: 0
