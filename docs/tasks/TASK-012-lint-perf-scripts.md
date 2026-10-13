@@ -1,14 +1,14 @@
 ---
 id: TASK-012
 title: Lint the scripts in scripts/perf
-status: Draft
+status: Ready
 depends_on: []
 size: S
 model: sonnet
 autonomy: attended
 ui: false
-plan_status: none
-planned_at_commit:
+plan_status: approved
+planned_at_commit: e02e2dc
 ---
 
 # TASK-012 — Lint the scripts in scripts/perf
@@ -22,24 +22,34 @@ planned_at_commit:
 - *From #18 (TASK-007):* `scripts/perf/*.mjs` isn't linted: root `pnpm lint` runs `pnpm --dir web lint` (ESLint over `web/` only) and ruff on `python/`. `scripts/perf/` has its own `package.json` and lockfile.
 - TASK-008 adds `measure.mjs` to the same folder.
 - Keep `.claude/kit.json` › `verify` and the Commands table in `CLAUDE.md` in sync if the lint command changes.
+- Found while planning (2026-10-13): web's ESLint can't reach `scripts/perf/`. ESLint 9 ignores files outside the config file's folder ("outside of the base path"). A config placed in `scripts/perf/` can't import `@eslint/js` or `globals` either, because nothing is installed there except by the lighthouse workflow. A spike ran `@eslint/js` recommended rules with Node globals over a copy of `scripts/perf/`: zero findings.
 
 ## Acceptance criteria
 
-_To be written when the task moves to Ready._
+- [ ] AC-1: `pnpm lint` also runs ESLint over `scripts/**/*.mjs`, with `@eslint/js` recommended rules and Node globals, from a repo-root `eslint.config.mjs` that ignores `web/`, `python/` and every `node_modules/`. It passes on the current tree.
+- [ ] AC-2: A Vitest test proves the config: linting a `scripts/perf/` source with an unused variable and an undefined name fails with `no-unused-vars` and `no-undef`, a clean source that uses `process` and `console` passes, and a `web/` path is ignored. On the branch, a throwaway unused variable in `scripts/perf/lib/perf.mjs` makes `pnpm lint` exit non-zero naming the file and line; reverting it makes it pass. The throwaway never reaches the PR's final diff.
+- [ ] AC-3: `eslint` (major 9, matching web's), `@eslint/js` and `globals` are root devDependencies added through `pnpm`. `pnpm install` (and so `pnpm bootstrap`, CI's Install step and the worktree setup) installs them with no new step.
+- [ ] AC-4: `.claude/kit.json` › `verify` lints an edited `.mjs`: `.mjs` is in `sourceExtensions`, web's `verify.fast` ESLint entry covers `.mjs`, and a new entry runs the root ESLint on `.mjs` files. The `CLAUDE.md` Commands table's Lint row says ESLint covers `web/` and `scripts/`.
 
 ## Out of scope
 
 - Fixing lint findings beyond what turning the linter on requires.
+- Type-checking the scripts (`// @ts-check` / `checkJs`).
+- Adding ESLint to `scripts/perf/package.json` (the lighthouse workflow's own install).
 
 ## Files likely touched
 
-- `package.json` — the root `lint` script
-- an ESLint config covering `scripts/perf/` — the plan decides where
+- `package.json` — root `lint` script and devDependencies
+- `pnpm-lock.yaml` — through `pnpm add` only
+- `eslint.config.mjs` (new, repo root)
+- `web/lib/lint-scripts.test.ts` (new)
+- `.claude/kit.json` — `verify`
+- `CLAUDE.md` — Commands table
 
 ## Verification
 
-- Automated: _to be written_
-- Manual: _to be written_
+- Automated: `pnpm --dir web exec vitest run lib/lint-scripts.test.ts`; `pnpm lint`; CI's `verify` job runs `pnpm lint` on the PR.
+- Manual: AC-2's throwaway edit on the branch → `pnpm lint` fails naming `scripts/perf/lib/perf.mjs:<line>`; after the revert → passes.
 
 ## Follow-ups
 
@@ -47,7 +57,33 @@ _Work noticed during this task and deliberately left out. Each bullet ends `→ 
 
 ## Plan
 
-_Written by /plan-batch or /implement-task Phase 1. Approved by the user (plan_status: approved) before any code is written._
+Approved 2026-10-13 at `e02e2dc`.
+
+1. Test first: `web/lib/lint-scripts.test.ts` (30 s timeout, it spawns a process). From the repo root, run `node node_modules/eslint/bin/eslint.js --stdin --stdin-filename <path> --format json` with `spawnSync`, then assert:
+   - `scripts/perf/x.mjs` with `const unused = 1; undefinedName();` → exit 1, rule IDs `no-unused-vars` and `no-undef`.
+   - `scripts/perf/x.mjs` with `console.log(process.env.X);` → exit 0.
+   - `web/x.mjs` → the JSON shows the file ignored (a warning, no errors).
+   It fails before step 2: there is no root ESLint.
+2. `pnpm add -D -w eslint@^9 @eslint/js@^9 globals`. The lockfile changes only through this command.
+3. Root `eslint.config.mjs`: `defineConfig` / `globalIgnores` from `eslint/config`. Ignore `web/**`, `python/**`, `**/node_modules/**`, `design/**`, `data/**`, `docs/**` and `.claude/**`. Then one block for `files: ["scripts/**/*.mjs"]` with `js.configs.recommended` and `languageOptions: { globals: globals.node }`.
+4. Root `package.json` `lint`: `pnpm --dir web lint && eslint scripts && uv --directory python run ruff check .`
+5. `.claude/kit.json` › `verify`:
+   - Add `.mjs` to `sourceExtensions`.
+   - Add `.mjs` to the web ESLint entry's `extensions`.
+   - Add `{ "command": "pnpm exec eslint --no-warn-ignored {file}", "extensions": [".mjs"] }`.
+   Each ESLint ignores the other's files, so `--no-warn-ignored` keeps both quiet.
+6. `CLAUDE.md` Commands › Lint: "`pnpm lint` (ESLint on `web/` and `scripts/`, ruff)".
+7. AC-2's throwaway edit → `pnpm lint` fails; revert → passes. Paste both outputs in the PR.
+
+Files: `package.json`, `pnpm-lock.yaml` (via pnpm), `eslint.config.mjs` (new), `web/lib/lint-scripts.test.ts` (new), `.claude/kit.json`, `CLAUDE.md`.
+
+Tests: AC-1 by `pnpm lint` passing locally and in CI, plus the test's clean case. AC-2 by `lint-scripts.test.ts` and the throwaway edit. AC-3 by CI's `pnpm install --frozen-lockfile` and the root `package.json` diff. AC-4 by editing a `.mjs` after step 5 and seeing the post-edit hook run the root ESLint, plus reading the kit.json and CLAUDE.md diff.
+
+Risks / open questions:
+- A second ESLint install (root and `web/`). pnpm's store shares the files. Moving web's lint to the root config would be a larger change to `web/eslint.config.mjs`; not now.
+- The root ESLint also runs on `web/e2e/*.mjs` edits through verify.fast. Its `web/**` ignore plus `--no-warn-ignored` turns that into a no-op; web's ESLint lints those files.
+
+Size check: S. Six files, no runtime code.
 
 ## Review log
 
