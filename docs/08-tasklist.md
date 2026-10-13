@@ -98,7 +98,7 @@ _Written by `/milestones` on 2026-10-08 from [06-roadmap.md](06-roadmap.md). Eac
 | M1.8 → TASK-010 | Let the ui-verifier sign in to the local dev server | tooling | S | M1.1 | attended | Draft, from the kit 2.6 upgrade (`chore/kit-2.6`). `ui.auth` is null since sign-in shipped, so the ui-verifier stops at `/login`. Choose a dev-only sign-in or an agent-run mint (D-090, D-012); production stays GitHub-only |
 | M1.9 → TASK-011 | Add the test that forbids `<Link>` to `/api/` | web | S | — | attended | Draft, from #18 (TASK-007). `.claude/rules/web.md` says a test enforces it; none exists. `ledger` has `no-prefetched-handlers.test.ts` |
 | M1.10 → TASK-012 | Lint the scripts in `scripts/perf/` | tooling | S | — | attended | Draft, from #18 (TASK-007). `pnpm lint` covers `web/` and `python/` only |
-| M1.11 → TASK-014 | Time screen-to-screen taps in the lighthouse workflow | ops | M | M1.5 | attended | Draft, from #29 (TASK-008). `ledger`'s tap → next-paint runner; plan it when a second signed-in screen ships (M5.6). Needs an approved change to 02 › Performance checks |
+| M1.11 | _Moved to M5.8 (TASK-014): it needs a second signed-in screen, which M5.6 ships_ | | | | | |
 
 ## M2: Data pipeline (Phase 1) — MVP
 
@@ -173,6 +173,7 @@ _Written by `/milestones` on 2026-10-08 from [06-roadmap.md](06-roadmap.md). Eac
 | M5.5 | Build the `/slate` endpoint | api | M | M4.6, M2.5, M5.4 | attended | First screen endpoint (BFF pattern, D-010): games for a week with `game_market` opener/current/snapshots, latest prediction, current pick, pick outcomes for the record strip; ≤ 6 queries in one wave; fixture values from F-01 |
 | M5.6 | Build the This Week slate | ui | M | M5.3, M5.5 | attended | S-01, F-01/F-02/F-06/F-10. Compact desktop table (D-084), 768 layout, 390 cards; row states (upcoming pick, line moved since pick, live, final, no line, neutral); day/time windows. Spread/Total/Both and the star are hidden until F-11/F-14. Decide roadmap open question 5 before setting this route's budget. Design: `This Week Desktop.dc.html`, `This Week Mobile.dc.html`, `This Week Tablet.dc.html`, `Pass C1 - Slate Contest Game.dc.html` C1a–e; shots `01-this-week-desktop.png`, `02-this-week-mobile.png`, `28-this-week-tablet.png` |
 | M5.7 | Add the record strip, filters and empty states to This Week | ui | M | M5.6 | unattended | S-01, F-32: "This week 1-0 · 2 live …", live picks never shown as lost; All / Picks only; lines not posted, off-season, stale banner; loading skeleton. Design: `This Week.dc.html`, `App States Desktop.dc.html` (off-season), `Loading States.dc.html`; shots `20-offseason-empty-desktop.png`, `21-offseason-empty-mobile.png` |
+| M5.8 → TASK-014 | Time screen-to-screen taps in the lighthouse workflow | ops | M | M1.5, M5.6 | attended | Draft, from #29 (TASK-008); moved from M1.11. `ledger`'s tap → next-paint runner; This Week → Teams is the first tap to time. Needs an approved change to 02 › Performance checks and D-101 |
 
 ## M6: Contest (Phase 4, part 2) — MVP, Phase 4 acceptance
 
