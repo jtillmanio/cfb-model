@@ -99,6 +99,7 @@ The planned files' staleness check still works: the plans PR touches only task f
 | Never sweep in the owner's work | Staging by path (`workflow.staging`); `git add -A`, `git add .` and `git commit -a` denied |
 | Never deploy or touch production | Deny rules for the project's deploy, release, and production-data commands; `Read(...)` denies for production env files; tests read the test database only |
 | No secrets or source files edited | `protectedPaths` + PreToolUse guard hook |
+| Nothing destroyed that can't be given back | The destructive-command guard hook reads every shell command: deletes outside the project or of the project, its `.git`, or a worktree, disk tools, and repo deletion are denied; deleting tracked or uncommitted work needs your approval (in an unattended session that means the command doesn't run); the `CLAUDE.md` stop-and-ask list |
 | No context blown on one file | `largeFiles` + the large-read guard hook |
 | Isolated workspaces | Background sessions move into `.claude/worktrees/<id>` before editing |
 | Bounded effort | Round limits: verify 3, audit 2, review 2, CI 2; then Blocked with a written hypothesis |

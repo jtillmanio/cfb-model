@@ -41,12 +41,13 @@ Without editing a single kit file, so `install-kit.ps1 -Upgrade` never undoes it
 | `VERSION` | Kit version; recorded in each project's `.claude/kit-version` |
 | `CLAUDE.md` | Project memory template: commands, project docs, which document wins, hard rules, workflow, stop-and-ask list |
 | `.claude/kit.json` | One config for verify commands, protected paths, large files, workflow switches, test audit, UI checks |
-| `.claude/settings.json` | Hook registration and deny rules (no pushes to the base branch, no force-push, no merges, no `git add -A`), for both the Bash and PowerShell tools |
+| `.claude/settings.json` | Hook registration and deny rules (no pushes to the base branch, no force-push, no merges, no `git add -A`, no `gh repo delete`), for both the Bash and PowerShell tools |
 | `.claude/rules/git.md` | Branches, staging, commit messages, testing on the branch, PRs, merging; loads in every session |
 | `.claude/.gitignore` | Keeps worktrees, state, tmp, and local settings out of git |
 | `.claude/hooks/post-edit-verify.ps1` | Runs the fast checks that apply to an edited file; failures go straight back to Claude |
 | `.claude/hooks/guard-protected-paths.ps1` | Blocks edits to secrets, design sources, generated files |
 | `.claude/hooks/guard-large-reads.ps1` | Blocks whole-file reads of files listed in `largeFiles`, with a hint for reading one part |
+| `.claude/hooks/guard-destructive.ps1` | Reads every Bash/PowerShell command and denies deletes outside the project, of the project, its `.git` or a worktree, disk tools, and repo deletion; asks before deleting tracked or uncommitted work |
 | `.claude/agents/test-runner.md` | Runs the full suite; returns failures only (Haiku) |
 | `.claude/agents/test-auditor.md` | Proves new tests fail without the change, with one or several test runners (Sonnet) |
 | `.claude/agents/spec-reviewer.md` | Diff vs. ACs (and the roadmap check), plan, scope, hard rules, decisions, UX floor (Opus, read-only) |
@@ -57,7 +58,7 @@ Without editing a single kit file, so `install-kit.ps1 -Upgrade` never undoes it
 | `.claude/skills/architecture/` | `/architecture`: decision options → architecture doc + seeded decisions |
 | `.claude/skills/skeleton/` | `/skeleton`: walking skeleton with every script, tests, test-database guard, migration check, and CI working |
 | `.claude/skills/milestones/` | `/milestones`: demoable milestones and task stubs, or `--coverage` of an existing roadmap |
-| `.claude/skills/customize-kit/` | `/customize-kit`: tailor everything to the project; upgrade pass for 2.3.x, 2.4.x, and 2.5.x |
+| `.claude/skills/customize-kit/` | `/customize-kit`: tailor everything to the project; upgrade pass for 2.3.x, 2.4.x, 2.5.x, and 2.6.x |
 | `.claude/skills/new-task/` | `/new-task`: task files with checkable ACs; bulk-convert a task list or a roadmap sitting |
 | `.claude/skills/next-task/` | `/next-task`: pick the best Ready task and run it attended |
 | `.claude/skills/implement-task/` | `/implement-task`: the full loop, attended or `--unattended` |
