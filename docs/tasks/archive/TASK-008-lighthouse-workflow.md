@@ -1,7 +1,7 @@
 ---
 id: TASK-008
 title: Run Lighthouse on every PR preview and set the first budgets
-status: Review
+status: Done
 depends_on: [TASK-007, TASK-002]
 size: M
 model: opus
