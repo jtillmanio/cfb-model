@@ -22,6 +22,7 @@ planned_at_commit: e02e2dc
 - *From #18 (TASK-007):* `scripts/perf/*.mjs` isn't linted: root `pnpm lint` runs `pnpm --dir web lint` (ESLint over `web/` only) and ruff on `python/`. `scripts/perf/` has its own `package.json` and lockfile.
 - TASK-008 adds `measure.mjs` to the same folder.
 - Keep `.claude/kit.json` › `verify` and the Commands table in `CLAUDE.md` in sync if the lint command changes.
+- *From #44 (chore/token-trim):* the full Commands table moved to `docs/COMMANDS.md`; `CLAUDE.md` › Commands keeps the daily rows, Lint included, so AC-4's Lint row now lives in both files: update both. `verify.fast`'s first entry is now `node scripts/typecheck/run.mjs`, and `scripts/typecheck/*.mjs` falls under AC-1's `scripts/**/*.mjs` lint.
 - Found while planning (2026-10-13): web's ESLint can't reach `scripts/perf/`. ESLint 9 ignores files outside the config file's folder ("outside of the base path"). A config placed in `scripts/perf/` can't import `@eslint/js` or `globals` either, because nothing is installed there except by the lighthouse workflow. A spike ran `@eslint/js` recommended rules with Node globals over a copy of `scripts/perf/`: zero findings.
 
 ## Acceptance criteria
