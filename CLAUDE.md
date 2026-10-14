@@ -2,7 +2,7 @@
 
 Personal sports-analytics app. A college football model makes game predictions, compares them to spreads (market and Splash pick'em contest lines), recommends picks, ranks teams (later also seasons, programs and coaches across history), projects seasons, and tracks its own record. Multi-sport later.
 
-**Status:** Phase 0 in progress. The walking skeleton is merged: Neon DB and migration `0001`, `/api/py/health` and `/teams`, CI and Vercel previews. The `release` workflow (TASK-005), the nightly `backup` workflow (TASK-006) and the `lighthouse` workflow on PR previews (TASK-008) are built. Not built yet: shadcn/ui, the R2 lake bucket, Dependabot. Status lives in the `docs/06-roadmap.md` checklists.
+**Status:** Phase 0 in progress; what's built and what isn't lives in the `docs/06-roadmap.md` checklists.
 
 ## Where things are
 - `docs/01`–`07`: product, architecture, data model, model, UI brief, roadmap, Claude Design playbook. Read the relevant one before starting a phase task.
@@ -90,11 +90,10 @@ Checkable against a diff; the spec-reviewer agent enforces them. Each restates a
 The user is an experienced software developer, new to statistical modeling. Explain modeling concepts and the reasoning behind choices briefly as you go, linking to `docs/04-model.md`. Engineering explanations can stay terse.
 
 ## Commands
-Windows; commands also run under `cmd.exe /c` (the hooks do). `.claude/kit.json` is the source of truth for verification (`verify.fast` after every edit, `verify.full` for the test-runner); keep this table in sync.
+Windows; commands also run under `cmd.exe /c` (the hooks do). `.claude/kit.json` is the source of truth for verification (`verify.fast` after every edit, `verify.full` for the test-runner); keep this table and `docs/COMMANDS.md` in sync with it. The daily ones are below; install, seed and the post-edit typecheck wrapper are in `docs/COMMANDS.md`.
 
 | Purpose | Command |
 |---|---|
-| Install dependencies | `pnpm bootstrap` (worktrees: `pnpm install --frozen-lockfile`, `uv --directory python sync`) |
 | Dev server | `pnpm dev` (web :3000, API :8000) |
 | Typecheck | `pnpm typecheck` (`next typegen && tsc`, pyright) |
 | Lint | `pnpm lint` (ESLint, ruff) |
@@ -103,22 +102,18 @@ Windows; commands also run under `cmd.exe /c` (the hooks do). `.claude/kit.json`
 | End to end | `pnpm test:e2e` (after `pnpm db:migrate:test` and `pnpm db:seed`) |
 | Production build | `pnpm build` |
 | Migrations | `pnpm db:migrate` (dev), `pnpm db:migrate:test`, `pnpm db:check` (one head, models match) |
-| Seed | `pnpm db:seed` (fixture; test DB only) |
 
 ## Conventions
-- Styling: Tailwind v4 utilities mapped to tokens in the `@theme` block of `web/app/globals.css` (colors, `text-caption`/`text-body`/…, radii). `web/app/tokens.css` is a byte copy of the handoff tokens.
-- Data: server components fetch through `web/lib/api.ts` (`server-only`), one call per page. Response types and pure helpers live in `web/lib/*.ts` with Vitest tests beside them (`*.test.ts`).
-- Every data route has a `loading.tsx` drawn at the loaded size (`web/app/teams/loading.tsx`).
-- Python tests live in `python/<pkg>/tests/test_*.py`; DB tests use the `db_conn` fixture from `python/conftest.py` (test-DB guard, rolled back). E2E specs live in `web/e2e/` and run at phone and desktop widths.
+Web conventions (styling, data fetching, `loading.tsx`, e2e specs) are in `.claude/rules/web.md` and the Python test layout is in `.claude/rules/python.md`; each loads when you touch its paths.
 
 ## Workflow
 - One task per session: `/implement-task TASK-###` or `/next-task`. No code before the task's `plan_status: approved`. Claude sets `Review`; only the user's "accepted" sets `Done`.
-- Work noticed and left out is a follow-up: it is written where the work that will do it will read it (another task's Context, the roadmap, the decisions log, an approved doc edit, the Owner checklist), per `workflow.followUps`, and the PR lists where each went.
+- Work noticed and left out is a follow-up, written where the work that will do it will read it, per `workflow.followUps`; the PR lists where each went.
 - Never hand-edit `docs/tasks/INDEX.md`; run `.claude/scripts/build-index.ps1`.
-- Done task files move to `docs/tasks/archive/` (`workflow.archiveDone`). `.claude/scripts/archive-done.ps1` moves every Done task, not only the current one, at each task's close-out and accept. It never runs on the base branch.
+- Done task files move to `docs/tasks/archive/` (`workflow.archiveDone`): `.claude/scripts/archive-done.ps1` moves every Done task at each close-out and accept, never on the base branch.
 - Post-edit check failures in the middle of a multi-file change are expected. Finish the change, then fix what still fails.
 - Kit behaviour is changed through the switches in `.claude/kit.json` and the files in `.claude/project/`, never by editing the kit's skills, hooks or scripts (`install-kit.ps1 -Upgrade` overwrites those).
 - Claude never starts a deploy or release, dry run included, unless the user says so for that release.
 
 ## Git
-Branches, staging, commit messages, testing on the branch, pushing, PRs and merging are in `.claude/rules/git.md`, which loads in every session.
+Branches, staging, commit messages and merging are in `.claude/rules/git.md`, which loads in every session. Testing on the branch, pushing and the PR body are in `docs/GIT-PR.md`: read it before pushing.

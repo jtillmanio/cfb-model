@@ -2,6 +2,14 @@
 
 Read by `/implement-task` (and so by `/next-task`, which hands over to it) at the start. It wins where it conflicts with the skill, except for the kit's floor.
 
+## Implement on the task's model (attended only)
+
+Before Phase 2, in attended mode only: compare the task's `model:` front matter (`opus`, `sonnet`, `haiku`) with the model family this session runs on. If they differ, stop before writing any code and tell the owner to run, in order: `/clear`, `/model <x>`, `/implement-task TASK-###`, where `<x>` is the task's `model:`. Leave the branch and the task file as they are; the re-run's Phase 0 finds the approved plan and goes straight to Phase 2.
+
+- **Why:** `model:` only took effect in unattended runs, so attended tasks were implemented on whatever model the session happened to be on (owner's instruction, 2026-10-14).
+- **Planning is unaffected:** Phase 1 runs on the session's model (the task template says planning always uses Opus). The check sits between plan approval and the first edit.
+- **Unattended runs skip this:** `.claude/scripts/dispatch-approved.ps1` already starts them with `--model`.
+
 ## Push and open the PR without asking
 
 In attended mode, Phase 6 does **not** ask "Push and open a draft PR?". Once the close-out commit is made and every reviewer has approved, push the task branch and open the draft PR straight away, exactly as unattended mode does. Then continue into Phase 7 (ready gates).
