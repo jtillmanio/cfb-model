@@ -6,7 +6,7 @@
     "fast": [
       "node scripts/typecheck/run.mjs",
       { "command": "pnpm --dir web exec eslint --no-warn-ignored ..\\{file}", "extensions": [".ts", ".tsx", ".mts", ".mjs"] },
-      { "command": "pnpm exec eslint --no-warn-ignored {file}", "extensions": [".mjs"] },
+      { "command": "pnpm exec eslint --config eslint.config.mjs --no-warn-ignored {file}", "extensions": [".mjs"] },
       { "command": "uv --directory python run ruff check .", "extensions": [".py"] }
     ],
     "full": ["pnpm typecheck", "pnpm lint", "pnpm db:check", "pnpm test", "pnpm build", "pnpm test:e2e"],
