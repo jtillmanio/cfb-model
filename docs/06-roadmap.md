@@ -41,15 +41,15 @@ Phase 8  Multi-sport (NFL)
 **Schema & migrations**
 - [x] SQLAlchemy models + Alembic; first migration: `sports`, `teams`, `team_seasons`, `venues`, `games`
 - [ ] `python/db/views/` applied after every migration (rebuild, preview build, release) _(partial: every `db migrate`, the preview build and the release apply them; rebuild pending, with `transform --rebuild` in M2.3)_
-- [ ] CI migration checks: single head, `alembic check`, no edits to merged migrations, downgrade test for destructive changes _(partial: single head and `alembic check` run in CI; edits to merged migrations are blocked only by the kit's protected paths, not CI; no destructive migration yet to need a downgrade test)_
+- [ ] CI migration checks: single head, `alembic check`, no edits to merged migrations, downgrade test for destructive changes _(partial: single head, `alembic check` and the merged-migration check run in CI (TASK-009, D-110); no destructive migration yet to need a downgrade test)_
 
 **Deploy & ops**
 - [x] FastAPI `/api/py/health` (outside auth, no data) + `/teams`; Next.js page renders teams from the API
-- [ ] Auth.js with GitHub login + allowlist; bad session → redirect to `/login`; API JWT check
+- [x] Auth.js with GitHub login + allowlist; bad session → redirect to `/login`; API JWT check _(TASK-001–TASK-004)_
 - [x] CI on PR: ruff, pyright, pytest, eslint, tsc, vitest, migration checks
 - [x] `release` workflow: plan → snapshot → migrate → views → promote → smoke test (with dry run) _(TASK-005; README › Releasing)_
 - [x] Nightly `backup` workflow with restore verification → R2 _(TASK-006; README › Backups, docs/runbooks/restore.md)_
-- [ ] Dependabot with documented ignores (Next majors, TypeScript ≥ 7)
+- [x] Dependabot with documented ignores (Next majors, TypeScript ≥ 7) _(TASK-009, D-110)_
 - [x] `lighthouse` workflow on every PR preview, after Auth.js (D-101, [02 › Performance checks](02-architecture.md#performance-checks-lighthouse)): gates bytes, requests, CLS, accessibility and forbidden requests; reports timings in one PR comment; signs in by minting a session with the preview `AUTH_SECRET`; reports scrubbed and kept private. Routes `/login` and `/teams` to start, budgets set from the first preview run. Repo secrets documented in the setup docs _(TASK-007, TASK-008; README › Performance checks)_
 
 **Claude Code setup**
