@@ -11,6 +11,10 @@ Things only you can do: secrets, dashboard and hosting settings, purchases, prod
 - [x] Neon: delete old `release/*` snapshot branches now and then; each release with pending migrations makes one, and they count against the project's branch limit (from TASK-005, PR #24) (owner confirmed 2026-10-12)
 - [ ] Neon production: confirm the role in `BACKUP_DATABASE_URL` (`backup_reader`) is read-only and reads every table and sequence, including future ones: `GRANT pg_read_all_data TO backup_reader;` and no write grants. Per-table grants would miss the next migration's tables and fail the nightly dump (from TASK-006, PR #27)
 
+- [ ] Cloudflare R2: create a bucket for the data lake, separate from `cfb-backups`, and an API token with Object Read & Write on that bucket only. Needed by TASK-015's R2 check, the TASK-021 backfill and the TASK-022 jobs (from the M2 task files)
+- [ ] GitHub Actions secrets for the TASK-022 jobs: `CFBD_API_KEY`, the lake bucket's R2 token, and the production database URL the publish step uses (TASK-022's plan names each one). Needed before the jobs' first branch run (from the M2 task files)
+- [ ] Copy the current Splash contest page's text and save it for TASK-023 as its third parser fixture, noting how many games the page shows (from the M2 task files)
+
 ## Approvals
 
 Follow-ups that change a planning doc, or decisions to record, that Claude makes only with your yes. Tick one (or say "approve <item>" in a session) and the session you told, or the next `/track-follow-ups` run, makes the change and adds where it went.
