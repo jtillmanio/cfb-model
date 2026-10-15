@@ -1,7 +1,7 @@
 ---
 id: TASK-012
 title: Lint the scripts in scripts/perf
-status: Review
+status: Done
 depends_on: []
 size: S
 model: sonnet
