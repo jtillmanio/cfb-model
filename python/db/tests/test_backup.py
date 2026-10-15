@@ -231,7 +231,7 @@ def test_the_backup_installs_the_client_for_pg_major_from_pgdg():
     assert "/usr/lib/postgresql/${PG_MAJOR}/bin" in workflow
 
 
-BACKUP_SECRETS = ("R2_ACCESS_KEY_ID", "R2_SECRET_ACCESS_KEY", "BACKUP_DATABASE_URL")
+BACKUP_SECRETS = ("R2_BACKUPS_ACCESS_KEY_ID", "R2_BACKUPS_SECRET_ACCESS_KEY", "BACKUP_DATABASE_URL")
 BYPASS = "VERCEL_AUTOMATION_BYPASS_SECRET"  # shared with the Lighthouse job; not a backup secret
 
 

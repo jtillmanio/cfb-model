@@ -153,11 +153,11 @@ the previous nights' dumps are untouched.
 | Find the commit production serves | `/api/py/health` on `PRODUCTION_URL` didn't answer (no release has put a build live yet, or the site is down), answered with Vercel's login page, or named no commit | Check `PRODUCTION_URL` is the production domain (Vercel › Settings › Domains), not a generated `*.vercel.app` alias, and that a release has run; re-run |
 | Restore the dump | The dump has something a plain Postgres can't restore | Read the `pg_restore` error; production is unaffected |
 | Re-apply views… | A view fails on production's data, or a table's counts differ | The summary names the view or table; a mismatch means the dump isn't trustworthy |
-| Upload to R2 | The R2 token, bucket or account is wrong | Check `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_ACCOUNT_ID`, `R2_BUCKET` |
+| Upload to R2 | The R2 token, bucket or account is wrong | Check `R2_BACKUPS_ACCESS_KEY_ID`, `R2_BACKUPS_SECRET_ACCESS_KEY`, `R2_ACCOUNT_ID`, `R2_BUCKET` |
 
 ### What it needs
 Repository **secrets**: `BACKUP_DATABASE_URL` (the read-only `backup_reader` role's direct URL on
-production), `R2_ACCESS_KEY_ID` and `R2_SECRET_ACCESS_KEY` (an R2 token with Object Read & Write on
+production), `R2_BACKUPS_ACCESS_KEY_ID` and `R2_BACKUPS_SECRET_ACCESS_KEY` (an R2 token with Object Read & Write on
 the backup bucket only). Repository **variables**: `R2_ACCOUNT_ID`, `R2_BUCKET` (`cfb-backups`, a
 bucket of its own, never the lake's), and `PRODUCTION_URL` (shared with the release workflow).
 `PRODUCTION_URL` must be the production domain (`https://cfb-model-delta.vercel.app`), which only a
