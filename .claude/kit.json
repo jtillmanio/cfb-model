@@ -2,10 +2,11 @@
   "_readme": "Kit v2 config. Read by .claude/hooks/*.ps1, .claude/scripts/*.ps1, the skills, and the agents. Run /customize-kit to fill it in. Empty values disable the related feature; a missing key takes the default in USER-GUIDE §12 'kit.json keys'. Commands run from the project (or worktree) root via 'cmd.exe /c'. Placeholders: {file} = edited file (verify.fast), {tests} = space-separated test files (testAudit.run, testAudit.runners[].run), {port} = per-task dev-server port (ui.*). Project-specific instructions for a skill or agent go in .claude/project/<name>.md, never in the kit's own files.",
 
   "verify": {
-    "sourceExtensions": [".ts", ".tsx", ".mts", ".py"],
+    "sourceExtensions": [".ts", ".tsx", ".mts", ".mjs", ".py"],
     "fast": [
       "node scripts/typecheck/run.mjs",
-      { "command": "pnpm --dir web exec eslint --no-warn-ignored ..\\{file}", "extensions": [".ts", ".tsx", ".mts"] },
+      { "command": "pnpm --dir web exec eslint --no-warn-ignored ..\\{file}", "extensions": [".ts", ".tsx", ".mts", ".mjs"] },
+      { "command": "pnpm exec eslint --no-warn-ignored {file}", "extensions": [".mjs"] },
       { "command": "uv --directory python run ruff check .", "extensions": [".py"] }
     ],
     "full": ["pnpm typecheck", "pnpm lint", "pnpm db:check", "pnpm test", "pnpm build", "pnpm test:e2e"],

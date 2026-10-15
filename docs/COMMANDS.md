@@ -7,7 +7,7 @@ The full command list. `CLAUDE.md` › Commands keeps the ones used daily. Windo
 | Install dependencies | `pnpm bootstrap` (worktrees: `pnpm install --frozen-lockfile`, `uv --directory python sync`) |
 | Dev server | `pnpm dev` (web :3000, API :8000) |
 | Typecheck | `pnpm typecheck` (`next typegen && tsc`, pyright) |
-| Lint | `pnpm lint` (ESLint, ruff) |
+| Lint | `pnpm lint` (ESLint on `web/` and `scripts/`, ruff) |
 | Unit / integration tests | `pnpm test` (Vitest, pytest; pytest reads only `TEST_DATABASE_URL`) |
 | Specific test files | `uv --directory python run pytest <paths>`, `pnpm --dir web exec vitest run <paths>`, `pnpm --dir web exec playwright test <paths>` (paths relative to `python/` or `web/`; `testAudit.runners` routes them the same way) |
 | End to end | `pnpm test:e2e` (after `pnpm db:migrate:test` and `pnpm db:seed`) |
