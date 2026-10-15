@@ -1,7 +1,7 @@
 ---
 id: TASK-021
 title: Backfill 2014–2025 and 2026 to date, then explore it in notebook #1
-status: Draft
+status: Ready
 depends_on: [TASK-015, TASK-017, TASK-018, TASK-020]
 size: M
 model: opus

@@ -1,7 +1,7 @@
 ---
 id: TASK-022
 title: Schedule the results and lines jobs
-status: Draft
+status: Ready
 depends_on: [TASK-020, TASK-021]
 size: M
 model: opus

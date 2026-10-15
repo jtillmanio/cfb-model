@@ -1,7 +1,7 @@
 ---
 id: TASK-015
 title: Build the CFBD ingest client with call-budget tracking and a raw Parquet writer
-status: Draft
+status: Ready
 depends_on: []
 size: M
 model: opus
