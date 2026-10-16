@@ -1,0 +1,75 @@
+# Deletes a PR's Neon preview database when the PR closes (docs/02-architecture.md › Environments &
+# databases). The Vercel integration creates `preview/<git branch>` for each preview build, and its
+# own "delete obsolete branches" setting misses some, which then count against the branch limit.
+#
+# Finds the branch by exact name and deletes it; a missing branch (never built, or Neon's cleanup got
+# there first) passes. Never touches a default or protected branch, or anything outside `preview/`.
+# Run it by hand for a leftover: `gh workflow run neon-preview-cleanup.yml -f branch=<git branch>`.
+# Secrets reach steps only through `env:`, and the branch name never goes into the script text.
+name: Neon preview cleanup
+
+on:
+  pull_request:
+    types: [closed]
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: Git branch whose Neon preview/<branch> database to delete
+        type: string
+        required: true
+
+concurrency:
+  group: neon-preview-cleanup-${{ github.head_ref || inputs.branch }}
+  cancel-in-progress: false
+
+permissions: {}
+
+jobs:
+  delete:
+    name: delete preview branch
+    # A fork's PR gets no secrets, and its preview isn't built from this project anyway.
+    if: >-
+      ${{ github.event_name == 'workflow_dispatch'
+      || github.event.pull_request.head.repo.full_name == github.repository }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Delete Neon branch preview/<git branch>
+        env:
+          NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+          NEON_PROJECT_ID: ${{ vars.NEON_PROJECT_ID }}
+          GIT_BRANCH: ${{ github.head_ref || inputs.branch }}
+        run: |
+          set -euo pipefail
+          # Dependabot closing its own PR runs without Actions secrets.
+          if [ -z "$NEON_API_KEY" ] || [ -z "$NEON_PROJECT_ID" ]; then
+            echo "::warning::NEON_API_KEY or NEON_PROJECT_ID is unavailable to this run; nothing deleted"
+            exit 0
+          fi
+          name="preview/$GIT_BRANCH"
+          api="https://console.neon.tech/api/v2/projects/$NEON_PROJECT_ID/branches"
+          auth=(-H "Authorization: Bearer $NEON_API_KEY" -H "Accept: application/json")
+          say() { echo "$1"; echo "$1" >> "$GITHUB_STEP_SUMMARY"; }
+
+          branches=$(curl -sS --fail-with-body "${auth[@]}" "$api")
+          id=$(jq -r --arg n "$name" '.branches[]
+            | select(.name == $n and (.default | not) and (.protected // false | not)) | .id' <<<"$branches")
+          if [ -z "$id" ]; then
+            say "No Neon branch \`$name\`; nothing to delete."
+            echo "Preview branches in Neon now:"
+            jq -r '.branches[].name | select(startswith("preview/"))' <<<"$branches"
+            exit 0
+          fi
+
+          # 423 means another operation on the branch is still running (e.g. the last preview build).
+          for attempt in 1 2 3 4 5 6; do
+            status=$(curl -sS -o "$RUNNER_TEMP/neon.json" -w '%{http_code}' -X DELETE "${auth[@]}" "$api/$id")
+            case "$status" in
+              200|202) say "Deleted Neon branch \`$name\` ($id)."; exit 0 ;;
+              404) say "Neon branch \`$name\` was already gone."; exit 0 ;;
+              423) echo "Branch busy (attempt $attempt); retrying in 10 s"; sleep 10 ;;
+              *) echo "::error::Neon answered $status deleting $name"; cat "$RUNNER_TEMP/neon.json"; exit 1 ;;
+            esac
+          done
+          echo "::error::$name stayed locked for a minute; delete it in the Neon console or re-run"
+          exit 1

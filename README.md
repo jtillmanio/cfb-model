@@ -216,6 +216,15 @@ Automation; sent as `x-vercel-protection-bypass` on every request to the preview
 preview's allowlist) and `PRODUCTION_URL` (shared with the release workflow; refused unless
 `allow_production` is set).
 
+## Preview databases
+
+Each PR preview gets its own Neon branch, `preview/<git branch>`, made by the Vercel integration.
+The **Neon preview cleanup** workflow (`.github/workflows/neon-preview-cleanup.yml`) deletes it
+when the PR closes, merged or not. A missing branch passes; a failed run names Neon's answer.
+Delete a leftover by hand with `gh workflow run neon-preview-cleanup.yml -f branch=<git branch>`;
+when nothing matches, the run lists the `preview/*` branches still in Neon. It uses the
+`NEON_API_KEY` secret and `NEON_PROJECT_ID` variable the release workflow already has.
+
 ## Layout
 `web/` Next.js app · `python/` uv workspace: `db` (models, migrations, views, fixture),
 `engine` (CLI: ingest, seed), `api` (FastAPI) · `vercel.json` deploys `web` and `api` as one
