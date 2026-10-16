@@ -44,7 +44,7 @@ Where to look inside these files:
 - **Design tokens:** color only; type, spacing, radius and elevation values are in `design/README.md` › Design tokens.
 - **Reference screenshots:** default state, dark, 1440 and 390; This Week also at 768.
 - **Roadmap:** the status source of truth; `/milestones` writes the task list from it.
-- **Sample data / fixture seeds** (no kit role): `design/sample-data.md`, `design/sample-splash.txt`, `design/handoff/designs/*-data.js`.
+- **Sample data / fixture seeds** (no kit role): `design/sample-data.md`, `design/sample-splash-10062026.txt`, `design/sample-splash-10152026.txt`, `design/handoff/designs/*-data.js`.
 
 ## Which document wins
 When two sources disagree, believe them in this order, and fix the loser in the same PR:

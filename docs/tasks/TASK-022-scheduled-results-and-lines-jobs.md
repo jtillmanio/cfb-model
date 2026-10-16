@@ -25,7 +25,7 @@ With nobody running anything, Sunday and Monday mornings pick up the weekend's f
 - Decisions: D-001 (batch-first), D-015 (`LIVE`, production URL only by explicit flag or workflow environment), D-016, D-027, D-092.
 - Existing code: `.github/workflows/release.yml` and `backup.yml` (secrets through `env:`, `concurrency`, job summary), `python/db/src/db/config.py` (target URLs, `refuse_if_live`).
 - **Stop and ask:** these workflows write to production. Running one on the branch (`gh workflow run <file> --ref <branch>`, a ready gate for changed workflows) needs the owner's go-ahead in the session.
-- **Owner prerequisites:** Actions secrets for `CFBD_API_KEY`, the R2 lake token (read/write on the lake bucket only, not `cfb-backups`) and the production database URL the publish uses; Claude never edits secrets.
+- **Owner prerequisites:** Actions secrets `CFBD_API_KEY` and the R2 lake token as `R2_DATA_LAKE_ACCESS_KEY_ID` / `R2_DATA_LAKE_SECRET_ACCESS_KEY` (read/write on the lake bucket only, not `cfb-backups`) and the production database URL the publish uses; Claude never edits secrets.
 - **Decide at the plan gate:** cron in UTC for ET times across daylight saving (two entries per slot, or a time check in the job); how the job gets the lake it transforms (incremental staging, or DuckDB reading R2 directly) so a run stays under 10 minutes; where the call ledger lives (TASK-015's decision); which production URL secret publishing uses, given the release workflow already holds `PRODUCTION_DATABASE_URL_UNPOOLED`.
 
 ## Acceptance criteria
