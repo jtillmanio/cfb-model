@@ -26,3 +26,9 @@ Right after `gh pr create` (and the link commit), run `gh pr ready <n>`. Don't h
 - **Applies to every PR Claude opens** in this repo (task PRs, docs/ and chore/ PRs), unless the owner asks for a draft.
 - **Follow-up approvals are still asked.** If Phase 6's Follow-ups step has approvals (planning-doc edits), ask for them as the numbered list, just without the push question; whatever isn't approved goes to the **Owner checklist**.
 - **Still stop and ask** when something other than this prompt calls for it: a Blocked task, a failing gate the owner must fix (`ownerFix`), or a SPEC GAP.
+
+## Size check limits
+
+Phase 1's size check uses this project's limits, set in `.claude/project/new-task.md` › Size limits. A task fails it at more than 12 files (not 8), or with schema and UI together.
+
+- **Why:** 8 files forced splits that only separated code from its doc edits (owner's instruction, 2026-10-16).
