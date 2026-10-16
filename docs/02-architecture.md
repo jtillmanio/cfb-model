@@ -152,7 +152,7 @@ Four databases from day one, each a Neon branch:
 |---|---|---|---|
 | **development** (`.env`) | `next dev` + `uvicorn` | Neon `dev` branch | local `./data/` |
 | **test** | pytest / vitest | Neon `test` branch (or a Postgres container in CI) | fixtures |
-| **preview** | Vercel preview per PR | Neon `preview/<branch>` (Vercel integration), migrated by the preview build | read-only prod lake |
+| **preview** | Vercel preview per PR | Neon `preview/<branch>` (Vercel integration), migrated by the preview build, deleted when the PR closes (`neon-preview-cleanup.yml`) | read-only prod lake |
 | **production** | Vercel production | Neon `main` | R2 bucket |
 
 Guards, all enforced in code:

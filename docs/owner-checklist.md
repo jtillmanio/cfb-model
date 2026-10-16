@@ -15,6 +15,7 @@ Things only you can do: secrets, dashboard and hosting settings, purchases, prod
 - [x] Copy the current Splash contest page's text and save it for TASK-023 as its third parser fixture, noting how many games the page shows (from the M2 task files) (owner confirmed 2026-10-15: `design/sample-splash-10152026.txt`, a full-page copy with 73 game blocks, counted by Claude from its `Over` lines)
 - [x] GitHub Actions: add secrets `R2_BACKUPS_ACCESS_KEY_ID` and `R2_BACKUPS_SECRET_ACCESS_KEY` with the values of `R2_ACCESS_KEY_ID` and `R2_SECRET_ACCESS_KEY` **before** merging the PR that renames them in `backup.yml` (from the owner, 2026-10-15) (owner confirmed 2026-10-15)
 - [x] GitHub Actions: delete the old secrets `R2_ACCESS_KEY_ID` and `R2_SECRET_ACCESS_KEY` once the PR renaming them in `backup.yml` has merged; until then, the nightly backup on `main` still reads them (from the owner, 2026-10-15) (owner confirmed 2026-10-16: `gh secret list` shows neither)
+- [ ] Neon: once the preview-cleanup workflow is on `main`, delete the `preview/*` branches left from PRs that are already closed: in the Neon console, or `gh workflow run neon-preview-cleanup.yml -f branch=<git branch>` for each. The workflow only catches PRs that close after it lands (from the owner, 2026-10-16, PR adding `neon-preview-cleanup.yml`)
 
 ## Approvals
 
