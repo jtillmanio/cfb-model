@@ -49,13 +49,14 @@ jobs:
           name="preview/$GIT_BRANCH"
           api="https://console.neon.tech/api/v2/projects/$NEON_PROJECT_ID/branches"
           auth=(-H "Authorization: Bearer $NEON_API_KEY" -H "Accept: application/json")
+          say() { echo "$1"; echo "$1" >> "$GITHUB_STEP_SUMMARY"; }
 
           branches=$(curl -sS --fail-with-body "${auth[@]}" "$api")
           id=$(jq -r --arg n "$name" '.branches[]
             | select(.name == $n and (.default | not) and (.protected // false | not)) | .id' <<<"$branches")
           if [ -z "$id" ]; then
-            echo "No Neon branch \`$name\`; nothing to delete." >> "$GITHUB_STEP_SUMMARY"
-            echo "No Neon branch $name. Preview branches in Neon now:"
+            say "No Neon branch \`$name\`; nothing to delete."
+            echo "Preview branches in Neon now:"
             jq -r '.branches[].name | select(startswith("preview/"))' <<<"$branches"
             exit 0
           fi
@@ -64,8 +65,8 @@ jobs:
           for attempt in 1 2 3 4 5 6; do
             status=$(curl -sS -o "$RUNNER_TEMP/neon.json" -w '%{http_code}' -X DELETE "${auth[@]}" "$api/$id")
             case "$status" in
-              200|202) echo "Deleted Neon branch \`$name\` ($id)." >> "$GITHUB_STEP_SUMMARY"; exit 0 ;;
-              404) echo "Neon branch \`$name\` was already gone." >> "$GITHUB_STEP_SUMMARY"; exit 0 ;;
+              200|202) say "Deleted Neon branch \`$name\` ($id)."; exit 0 ;;
+              404) say "Neon branch \`$name\` was already gone."; exit 0 ;;
               423) echo "Branch busy (attempt $attempt); retrying in 10 s"; sleep 10 ;;
               *) echo "::error::Neon answered $status deleting $name"; cat "$RUNNER_TEMP/neon.json"; exit 1 ;;
             esac
