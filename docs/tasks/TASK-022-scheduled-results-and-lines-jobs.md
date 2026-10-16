@@ -2,7 +2,7 @@
 id: TASK-022
 title: Schedule the results and lines jobs
 status: Ready
-depends_on: [TASK-020, TASK-021]
+depends_on: [TASK-020, TASK-021, TASK-025]
 size: M
 model: opus
 autonomy: attended
@@ -26,6 +26,7 @@ With nobody running anything, Sunday and Monday mornings pick up the weekend's f
 - Existing code: `.github/workflows/release.yml` and `backup.yml` (secrets through `env:`, `concurrency`, job summary), `python/db/src/db/config.py` (target URLs, `refuse_if_live`).
 - **Stop and ask:** these workflows write to production. Running one on the branch (`gh workflow run <file> --ref <branch>`, a ready gate for changed workflows) needs the owner's go-ahead in the session.
 - **Owner prerequisites:** Actions secrets `CFBD_API_KEY` and the R2 lake token as `R2_DATA_LAKE_ACCESS_KEY_ID` / `R2_DATA_LAKE_SECRET_ACCESS_KEY` (read/write on the lake bucket only, not `cfb-backups`) and the production database URL the publish uses; Claude never edits secrets.
+- *From TASK-025 (drafted 2026-10-16):* GitHub's `schedule` started the backup 5–8 hours late (2026-10-13 to 10-15), which would miss the Sun 10 AM ET predictions target. TASK-025 proposes an external dispatcher that starts workflows by `workflow_dispatch` at ET times, with daylight saving handled in its code. The owner made this task depend on TASK-025 (2026-10-16): these jobs register with the dispatcher (a GitHub `schedule` fallback as in TASK-026), and the daylight-saving question below goes away.
 - **Decide at the plan gate:** cron in UTC for ET times across daylight saving (two entries per slot, or a time check in the job); how the job gets the lake it transforms (incremental staging, or DuckDB reading R2 directly) so a run stays under 10 minutes; where the call ledger lives (TASK-015's decision); which production URL secret publishing uses, given the release workflow already holds `PRODUCTION_DATABASE_URL_UNPOOLED`.
 
 ## Acceptance criteria

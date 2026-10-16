@@ -14,7 +14,7 @@ Things only you can do: secrets, dashboard and hosting settings, purchases, prod
 - [ ] GitHub Actions secrets for the TASK-022 jobs: `CFBD_API_KEY`, the lake bucket's R2 token as `R2_DATA_LAKE_ACCESS_KEY_ID` and `R2_DATA_LAKE_SECRET_ACCESS_KEY`, and the production database URL the publish step uses (TASK-022's plan names it). Needed before the jobs' first branch run (from the M2 task files) _(`CFBD_API_KEY` and both `R2_DATA_LAKE_*` secrets added 2026-10-15; the production URL waits for TASK-022's plan)_
 - [x] Copy the current Splash contest page's text and save it for TASK-023 as its third parser fixture, noting how many games the page shows (from the M2 task files) (owner confirmed 2026-10-15: `design/sample-splash-10152026.txt`, a full-page copy with 73 game blocks, counted by Claude from its `Over` lines)
 - [x] GitHub Actions: add secrets `R2_BACKUPS_ACCESS_KEY_ID` and `R2_BACKUPS_SECRET_ACCESS_KEY` with the values of `R2_ACCESS_KEY_ID` and `R2_SECRET_ACCESS_KEY` **before** merging the PR that renames them in `backup.yml` (from the owner, 2026-10-15) (owner confirmed 2026-10-15)
-- [ ] GitHub Actions: delete the old secrets `R2_ACCESS_KEY_ID` and `R2_SECRET_ACCESS_KEY` once the PR renaming them in `backup.yml` has merged; until then, the nightly backup on `main` still reads them (from the owner, 2026-10-15)
+- [x] GitHub Actions: delete the old secrets `R2_ACCESS_KEY_ID` and `R2_SECRET_ACCESS_KEY` once the PR renaming them in `backup.yml` has merged; until then, the nightly backup on `main` still reads them (from the owner, 2026-10-15) (owner confirmed 2026-10-16: `gh secret list` shows neither)
 
 ## Approvals
 
