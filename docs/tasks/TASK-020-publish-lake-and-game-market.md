@@ -28,7 +28,7 @@ The dev database receives every team, venue, game and line from the staged lake.
 - Existing code: `python/engine/src/engine/publish/reference.py` (the upsert pattern) and `python/engine/tests/test_publish_reference.py` (the idempotency test pattern, `source = 'pytest'`, rolled back).
 - **Where publishing goes:** this task publishes to the dev database from the CLI. Production is published only by the scheduled workflows (TASK-022): the settings and the destructive guard deny local commands that target production (D-015).
 - **Decide at the plan gate:** what `game_market` returns as "closing" for a game that hasn't kicked off (the latest snapshot so far, or NULL until kickoff); how backfilled open/close lines (stored per TASK-016's decision) feed the view; which column records whether the line came from `consensus` or a median; whether the view also exposes totals.
-- *From TASK-016 (docs/plans-2026-10-16), open question for the plan:* `seasons.current_week` is stored (03 › Reference; TASK-016's AC-4), though it follows from `seasons.weeks` and the clock. Who keeps it current: the `/calendar` publish, or a view over `weeks`?
+- *From TASK-016 (PR #52), open question for the plan:* `seasons.current_week` is stored (03 › Reference; TASK-016's AC-4), though it follows from `seasons.weeks` and the clock. Who keeps it current: the `/calendar` publish, or a view over `weeks`?
 
 ## Acceptance criteria
 
