@@ -26,9 +26,14 @@ LEDGER = "cfbd_calls.json"
 
 
 @pytest.fixture(autouse=True)
-def fixed_clock(monkeypatch: pytest.MonkeyPatch) -> None:
+def isolated(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """A fixed clock, and no way to reach CFBD, the real lake or .env.local, even if the code
+    under test ignores the fakes. An empty key is "set", so load_env can't fill it in."""
     monkeypatch.setenv("APP_ENV", "test")
     monkeypatch.setenv("FIXTURE_NOW", "2025-09-02T12:00:00Z")
+    monkeypatch.setenv("CFBD_API_KEY", "")
+    monkeypatch.setenv("LAKE_URI", str(tmp_path / "env-lake"))
+    monkeypatch.setattr(cli, "load_env", lambda: None)
 
 
 def fake_cfbd(
@@ -133,6 +138,18 @@ def test_a_file_saved_before_the_games_completed_is_fetched_again(tmp_path: Path
     assert key.endswith("fetched_at=2025-09-02T120000Z.parquet")
 
 
+def test_an_empty_file_saved_after_the_week_completed_is_fetched_again(tmp_path: Path) -> None:
+    # CFBD may not have filled the week in yet; a zero-row file must not freeze it forever.
+    lake = LocalLake(tmp_path)
+    save(lake, "games", 1, datetime(2025, 9, 1, 8, tzinfo=UTC), all_completed(GAMES))
+    save(lake, "lines", 1, datetime(2025, 9, 1, 9, tzinfo=UTC), [])
+    client, requests = fake_cfbd(lake, [{"id": 1}])
+
+    pull(lake, "lines", 2025, week=1, client=client)
+
+    assert len(requests) == 1
+
+
 def test_a_week_with_an_unfinished_game_is_fetched_again(tmp_path: Path) -> None:
     lake = LocalLake(tmp_path)
     save(lake, "games", 1, datetime(2025, 9, 1, 8, tzinfo=UTC), GAMES)  # one game not completed
@@ -161,6 +178,35 @@ def endpoints_in_03() -> set[str]:
     section = doc.split("### CollegeFootballData", 1)[1].split("\n### ", 1)[0]
     rows = [line for line in section.splitlines() if line.startswith("| `/")]
     return {path for row in rows for path in re.findall(r"`(/[^`]+)`", row.split("|")[1])}
+
+
+# 03's "Granularity → calls" column, as pulled: name -> (path, granularity, required params).
+EXPECTED = {
+    "teams": ("/teams", "season", ("year",)),
+    "teams_fbs": ("/teams/fbs", "season", ("year",)),
+    "conferences": ("/conferences", "season", ()),
+    "venues": ("/venues", "season", ()),
+    "games": ("/games", "season_or_week", ("year",)),
+    "games_teams": ("/games/teams", "week", ("year", "week")),
+    "stats_game_advanced": ("/stats/game/advanced", "season_or_week", ("year",)),
+    "plays": ("/plays", "week", ("year", "week")),
+    "drives": ("/drives", "week", ("year", "week")),
+    "lines": ("/lines", "season_or_week", ("year",)),
+    "talent": ("/talent", "season", ("year",)),
+    "player_returning": ("/player/returning", "season", ("year",)),
+    "recruiting_teams": ("/recruiting/teams", "season", ("year",)),
+    "ratings_sp": ("/ratings/sp", "season", ("year",)),
+    "ratings_fpi": ("/ratings/fpi", "season", ("year",)),
+    "ratings_elo": ("/ratings/elo", "season", ("year",)),
+    "ppa_predicted": ("/ppa/predicted", "static", ("down", "distance")),
+    "calendar": ("/calendar", "season", ("year",)),
+}
+
+
+@pytest.mark.parametrize("name", sorted(EXPECTED))
+def test_each_endpoint_names_its_path_params_and_granularity(name: str) -> None:
+    endpoint = ENDPOINTS[name]
+    assert (endpoint.path, endpoint.granularity, endpoint.required) == EXPECTED[name]
 
 
 def test_registry_covers_every_endpoint_in_03() -> None:
@@ -194,6 +240,8 @@ def test_the_cli_accepts_every_registry_endpoint(monkeypatch: pytest.MonkeyPatch
         pulled.append(name)
         return "key"
 
+    # No dev DB: pytest reads only TEST_DATABASE_URL (CLAUDE.md).
+    monkeypatch.setattr(cli, "direct_url", lambda _target: "postgresql://dev")
     monkeypatch.setattr(endpoints, "pull", fake_pull)
     monkeypatch.setattr(games, "ingest_games", lambda *_args: pulled.append("games"))
     for name in ENDPOINTS:
@@ -204,6 +252,17 @@ def test_the_cli_accepts_every_registry_endpoint(monkeypatch: pytest.MonkeyPatch
 def test_the_cli_refuses_a_week_endpoint_without_a_week() -> None:
     with pytest.raises(SystemExit):
         cli.main(["ingest", "plays", "--season", "2025"])
+
+
+@pytest.mark.parametrize(
+    ("name", "param"),
+    [("lines", "year=2019"), ("lines", "week=2"), ("games", "classification=fcs"),
+     ("lines", "seasonType=postseason"), ("plays", "team=Ohio State")],
+)
+def test_the_cli_refuses_a_param_that_would_misfile_the_response(name: str, param: str) -> None:
+    # The folder says season=2025/week=01: a query for anything else must not land there.
+    with pytest.raises(SystemExit):
+        cli.main(["ingest", name, "--season", "2025", "--week", "1", "--param", param])
 
 
 def test_ingest_games_publishes_what_it_read_back_from_parquet(

@@ -97,7 +97,15 @@ def query(
         params["week"] = week
     if endpoint.season_type:
         params["seasonType"] = season_type
-    params |= {**endpoint.fixed, **(extra or {})}
+    params |= endpoint.fixed
+    # --param only fills a required param no flag sets (ppa_predicted's down and distance).
+    # Anything else (a year, a week, a filter) would file a different response under this
+    # endpoint's season and week folder.
+    allowed = set(endpoint.required) - set(params)
+    refused = sorted(set(extra or {}) - allowed)
+    if refused:
+        raise ValueError(f"{name} doesn't take --param {', '.join(refused)}.")
+    params |= extra or {}
     missing = [p for p in endpoint.required if p not in params]
     if missing:
         flags = " ".join(f"--param {p}=…" for p in missing)
@@ -113,12 +121,16 @@ def _week_complete(records: list[Any], week: int, season_type: str) -> bool:
 def _is_final(
     lake: Lake, name: str, season: int, week: int | None, season_type: str, key: str
 ) -> bool:
-    """A week-level file is final when a saved /games file covering that week (the week's own
-    or the season's) shows every game completed and was fetched no later than it."""
+    """A week-level file is final when it isn't empty, and a saved /games file covering that
+    week (the week's own or the season's) shows every game completed and was fetched no later
+    than it."""
     if week is None:
         return False
+    records = decode_raw(lake.read(key))
     if name == "games":
-        return _week_complete(decode_raw(lake.read(key)), week, season_type)
+        return _week_complete(records, week, season_type)
+    if not records:
+        return False  # CFBD may not have filled the week in yet
     saved_at = fetched_at_of(key)
     games_files = [
         *lake.list(raw_folder("games", season, week, season_type)),

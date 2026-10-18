@@ -51,14 +51,24 @@ class LocalLake:
     def __init__(self, root: Path) -> None:
         self.root = root
 
+    def _temp(self, path: Path, data: bytes) -> Path:
+        """Write beside the target first, so a crash never leaves a torn file under its name."""
+        path.parent.mkdir(parents=True, exist_ok=True)
+        temp = path.with_name(f".{path.name}.{os.getpid()}.tmp")
+        temp.write_bytes(data)
+        return temp
+
     def write_new(self, key: str, data: bytes) -> None:
         path = self.root / key
-        path.parent.mkdir(parents=True, exist_ok=True)
+        if path.exists():
+            raise _never_overwritten(key)
+        temp = self._temp(path, data)
         try:
-            with path.open("xb") as f:  # exclusive create: fails if the file exists
-                f.write(data)
+            os.link(temp, path)  # fails if the file exists: never overwrites
         except FileExistsError:
             raise _never_overwritten(key) from None
+        finally:
+            temp.unlink()
 
     def read(self, key: str) -> bytes:
         return (self.root / key).read_bytes()
@@ -75,8 +85,7 @@ class LocalLake:
 
     def write_text(self, key: str, text: str) -> None:
         path = self.root / key
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(text, encoding="utf-8")
+        os.replace(self._temp(path, text.encode("utf-8")), path)
 
 
 class S3Lake:
