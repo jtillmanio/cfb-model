@@ -25,9 +25,9 @@ Phase 8  Multi-sport (NFL)
 - [x] Create the private GitHub repo (Claude asks first) and push the bootstrap commit (planning docs, `.claude/rules`, `.gitignore`) as the initial `main`. This is the only direct commit to `main`; everything after goes through PRs.
 
 **Accounts & scaffolding**
-- [ ] Accounts: CFBD key (Patreon tier 1, already active), Neon, Cloudflare R2, Vercel _(partial: CFBD, Neon and Vercel done; R2 account and the backup bucket `cfb-backups` exist (TASK-006); the lake bucket for the Phase 1 raw writer isn't created yet)_
+- [x] Accounts: CFBD key (Patreon tier 1, already active), Neon, Cloudflare R2, Vercel _(R2 holds the backup bucket `cfb-backups` (TASK-006) and the lake bucket for the Phase 1 raw writer (TASK-015))_
 - [x] Install `uv` and `pnpm`; uv workspace (`python/engine`, `python/api`, `python/db`), Python 3.13
-- [ ] Next.js 16 app in `web/` (TS strict, Tailwind, shadcn/ui, `agentRules: false`) _(partial: shadcn/ui not set up yet)_
+- [x] Next.js 16 app in `web/` (TS strict, Tailwind, shadcn/ui, `agentRules: false`) _(shadcn/ui moved to M5.2, the first task that uses it; [08-tasklist](08-tasklist.md))_
 - [x] One Vercel project serving Next.js + the FastAPI function, or two projects if that doesn't work (decide and record)
 
 **Databases & environments**
@@ -40,8 +40,8 @@ Phase 8  Multi-sport (NFL)
 
 **Schema & migrations**
 - [x] SQLAlchemy models + Alembic; first migration: `sports`, `teams`, `team_seasons`, `venues`, `games`
-- [ ] `python/db/views/` applied after every migration (rebuild, preview build, release) _(partial: every `db migrate`, the preview build and the release apply them; rebuild pending, with `transform --rebuild` in M2.3)_
-- [ ] CI migration checks: single head, `alembic check`, no edits to merged migrations, downgrade test for destructive changes _(partial: single head, `alembic check` and the merged-migration check run in CI (TASK-009, D-110); no destructive migration yet to need a downgrade test)_
+- [x] `python/db/views/` applied after every migration (rebuild, preview build, release) _(every `db migrate`, the preview build and the release apply them. `transform --rebuild` (M2.3) is lake-only, so the database rebuild and its view re-apply land with a dev-DB rebuild command when one is first needed; TASK-017 › Context)_
+- [x] CI migration checks: single head, `alembic check`, no edits to merged migrations, downgrade test for destructive changes _(single head, `alembic check` and the merged-migration check run in CI (TASK-009, D-110). The up → down → up test is written with the first migration that drops or retypes a column (D-020, `.claude/rules/database.md`); none exists yet)_
 
 **Deploy & ops**
 - [x] FastAPI `/api/py/health` (outside auth, no data) + `/teams`; Next.js page renders teams from the API
