@@ -7,8 +7,8 @@ size: M
 model: opus
 autonomy: attended
 ui: false
-plan_status: none
-planned_at_commit:
+plan_status: approved
+planned_at_commit: 1bf71ef
 ---
 
 # TASK-025 — Start scheduled workflows on time with an external dispatcher
@@ -60,9 +60,61 @@ Scheduled jobs start within minutes of their ET time instead of hours late, and 
 
 _Work noticed during this task and deliberately left out. Each bullet ends `→ <path> § <section>` (where it was placed) or `→ not tracked: <reason>`. See `.claude/skills/track-follow-ups/classify.md`; the PR's Follow-ups section is copied from here._
 
+- Owner: create the fine-grained token (this repository only, Actions: Read and write), store it with `wrangler secret put GITHUB_DISPATCH_TOKEN`, and deploy with `pnpm dlx wrangler@<pinned> deploy` from `infra/dispatcher/` (README › Dispatcher) → docs/owner-checklist.md § Actions
+- TASK-022 adds its jobs as lines in `SCHEDULE` in `infra/dispatcher/src/index.ts` (ET times on quarter hours, none between 01:00 and 02:59 ET), with no two-crons-per-slot DST workaround → docs/tasks/TASK-022-scheduled-results-and-lines-jobs.md § Context
+- `verify.fast` lints only `web/` and `scripts/` files; the Worker's `.ts` files are linted by `pnpm lint` → not tracked: verify.full and CI cover it
+
 ## Plan
 
-_Written by /plan-batch or /implement-task Phase 1. Approved by the user (plan_status: approved) before any code is written._
+Approved 2026-10-16 (/plan-batch): every gate decision as recommended.
+
+**Decisions at the gate** (recommended)
+- A. **Tick:** a Cloudflare Worker with one Cron Trigger, `*/15 * * * *`.
+  - Entries sit on quarter hours. `due(now)` floors `now` to its 15-minute slot in `America/New_York` and returns the entries for that weekday and `hh:mm`.
+  - A tick that runs late but within its slot still fires; a missed slot isn't retried (TASK-026's fallback covers the backup).
+  - That's 96 runs a day on the free plan, using 1 Cron Trigger.
+- B. **Package:** `infra/dispatcher/` is a pnpm workspace package with its own `lint` (ESLint and typescript-eslint), `typecheck` (`tsc --noEmit` with `@cloudflare/workers-types`) and `test` (Vitest) scripts. The root scripts call them the way they call `web`'s. Wrangler isn't installed: the owner runs `pnpm dlx wrangler@<pinned> …`, which keeps workerd and its build scripts out of CI's install.
+- C. **Token:** a fine-grained token for this repository only, with Actions: Read and write and nothing else, stored as the Worker secret `GITHUB_DISPATCH_TOKEN`. The repo (`jtillmanio/cfb-model`) and ref (`main`) are plain `vars` in `wrangler.jsonc`.
+- D. **Failures:**
+  - A non-2xx answer is logged with its status and body (`console.error`), and the remaining workflows are still sent.
+  - The handler then throws, so the Cron event shows as failed in the Cloudflare dashboard.
+  - `observability.enabled` keeps the logs (Workers Logs). Nothing GitHub-side until TASK-026.
+- E. **No entries between 01:00 and 02:59 ET:** those times repeat or vanish when daylight saving changes. A test checks the table.
+
+**Steps**
+1. `infra/dispatcher/src/index.ts`:
+   - `SCHEDULE = [{ workflow: "backup.yml", days: "daily", time: "03:30" }]`.
+   - `due(now: Date): string[]`, using `Intl.DateTimeFormat` in `America/New_York`.
+   - `dispatch(env, workflows, fetchFn = fetch)`: POST `https://api.github.com/repos/${repo}/actions/workflows/${file}/dispatches` with body `{"ref":"main"}`. Headers: `Authorization: Bearer …`, `Accept: application/vnd.github+json`, `X-GitHub-Api-Version: 2022-11-28`, and `User-Agent: cfb-dispatcher`, since GitHub refuses requests without a User-Agent.
+   - `export default { scheduled(controller, env) }`, timed by `controller.scheduledTime`.
+2. `src/index.test.ts` (the AC-1 and AC-2 tests below).
+3. `wrangler.jsonc` (name, main, `compatibility_date`, `triggers.crons`, vars, observability), `package.json`, `tsconfig.json`, `eslint.config.mjs`.
+4. `pnpm-workspace.yaml` adds `infra/dispatcher`; the root `package.json`'s `lint`, `typecheck` and `test` call the package; `pnpm install` updates `pnpm-lock.yaml`.
+5. `README.md` › Dispatcher (AC-5's list).
+6. `docs/02-architecture.md` › Components › 4 Jobs: jobs are started at their ET times by the dispatcher, and GitHub's schedule ran 5–8 h late, not 10–30 min.
+7. `docs/decisions.md`: a new D-### recording A–E.
+
+**Files** (12): in `infra/dispatcher/`: `src/index.ts`, `src/index.test.ts`, `wrangler.jsonc`, `package.json`, `tsconfig.json`, `eslint.config.mjs` (all new); then `pnpm-workspace.yaml`, `package.json`, `pnpm-lock.yaml` (through pnpm), `README.md`, `docs/02-architecture.md`, `docs/decisions.md`. Unlike Files likely touched, `schedule.ts` and its test fold into `index.ts` and `index.test.ts`, and `eslint.config.mjs` is added, to stay at 12.
+
+**Test strategy** (Vitest, `infra/dispatcher/src/index.test.ts`)
+- AC-1, `due`:
+  - "fires at 03:30 ET in EDT and EST" (2026-10-17T07:30Z, 2026-11-07T08:30Z);
+  - "not at 02:30 EST" (2026-11-07T07:30Z);
+  - "not in the slots either side" (07:15Z and 07:45Z on 10-17; 08:15Z and 08:45Z on 11-07);
+  - "no entry between 01:00 and 02:59 ET".
+- AC-2, `dispatch`:
+  - "one POST per due workflow, ref main, bearer token" (a stubbed `fetch` records the calls);
+  - "a non-2xx is logged with status and body and the rest still go" (two entries, the first answers 422).
+- AC-3: `pnpm lint`, `pnpm typecheck` and `pnpm test` cover the package in CI. "no token-shaped string in the package" scans `infra/dispatcher/` for `github_pat_` and `ghp_`.
+- AC-4: after the owner deploys, `gh run list --workflow backup.yml --event workflow_dispatch --limit 1 --json createdAt` must show a start within 5 minutes of 03:30 ET.
+- AC-5: by review.
+
+**Risks / open questions**
+- AC-4 waits on the owner (token, secret, deploy), so the PR may sit with AC-4 open until the first tick after the deploy.
+- Until TASK-026 gates `backup.yml`'s `schedule`, the backup runs twice a day: dispatched at 03:30 ET, then GitHub's late cron. It's harmless, since a same-day run replaces the dump, but it costs about 5 extra Actions minutes a day. README says so.
+- Cloudflare's free-plan Cron and Workers limits are checked again at deploy. The token's expiry and how to rotate it go in README.
+
+**Size check:** 12 files, ops only, no schema or UI: passes at the limit.
 
 ## Review log
 

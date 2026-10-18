@@ -240,7 +240,7 @@ cfb-model/
 - **Data leakage in backtests:** "as-of week" is a first-class concept in the data model and the harness (see [04-model.md](04-model.md)).
 - **Backtest overfitting through the model lab:** trying many variants and keeping the best one fools you. Holdout seasons stay locked, and the lab shows how many variants were tried (see [04-model.md §6](04-model.md)).
 - **Vercel function limits** (bundle 250 MB, 300s on Hobby): the API stays light, and heavy compute never runs there.
-- **Splash paste format** (added 2026-10-07): the Thursday contest flow depends on parsing a page we don't control, and its text shape can change without notice. The parser is tested against a real page copy (`design/sample-splash-10062026.txt`); unmatched rows fall back to an inline team picker, and manual entry always works. Spike the parser on a fresh paste at the start of Phase 4, before the Contest screen is built on it.
+- **Splash paste format** (added 2026-10-07): the Thursday contest flow depends on parsing a page we don't control, and its text shape can change without notice. The parser is tested against a real page copy (`design/sample-splash-10062026.txt`); unmatched rows fall back to an inline team picker, and manual entry always works. The parser spike moved forward to M2.8 (planned: TASK-023): it's tested on a fresh full-page copy (`design/sample-splash-10152026.txt`) long before the Contest screen is built on it.
 
 ## Testing strategy
 
