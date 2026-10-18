@@ -3,10 +3,21 @@
 name = "cfb"
 version = "0.0.0"
 requires-python = ">=3.13,<3.14"
-dependencies = ["cfb-db", "cfb-engine", "cfb-api"]
+dependencies = [
+    "cfb-db",
+    "cfb-engine[train]",
+    "cfb-api",
+]
 
 [dependency-groups]
-dev = ["pytest>=8.4", "ruff>=0.13", "pyright>=1.1.405", "uvicorn>=0.37", "httpx2>=2.13"]
+dev = [
+    "pytest>=8.4",
+    "ruff>=0.13",
+    "pyright>=1.1.405",
+    "uvicorn>=0.37",
+    "httpx2>=2.13",
+    "moto[s3]>=5.2.4",
+]
 
 [tool.uv]
 package = false
@@ -16,8 +27,8 @@ members = ["db", "engine", "api"]
 
 [tool.uv.sources]
 cfb-db = { workspace = true }
-cfb-engine = { workspace = true }
 cfb-api = { workspace = true }
+cfb-engine = { workspace = true }
 
 [tool.ruff]
 target-version = "py313"

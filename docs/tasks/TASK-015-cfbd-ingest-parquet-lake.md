@@ -1,7 +1,7 @@
 ---
 id: TASK-015
 title: Build the CFBD ingest client with call-budget tracking and a raw Parquet writer
-status: Ready
+status: In progress
 depends_on: []
 size: M
 model: opus
@@ -96,6 +96,8 @@ Approved 2026-10-16 (/plan-batch): every gate decision as recommended, including
 8. `.env.example`: R2 lake variables; drop "s3:// isn't supported yet".
 
 **Files** (12): `ingest/lake.py`, `ingest/cfbd.py`, `ingest/endpoints.py` (new), `ingest/games.py`, `cli.py`, `python/engine/pyproject.toml`, `python/pyproject.toml` (root dependency and dev group; not in Files likely touched), `python/uv.lock` (through uv), `tests/test_cfbd_client.py` (new), `tests/test_lake.py` (new), `tests/fixtures/cfbd_lines_sample.json` (new), `.env.example`. `docs/COMMANDS.md` is dropped to stay at 12; the CLI's `--help` lists the endpoints.
+
+**Revision 1** (approved 2026-10-18): `python/api/tests/conftest.py` (13th file), `make_token(secret: str | None)` narrowed to `str`. moto[s3] brings in `cryptography`, which makes pyjwt's `encode()` key type strict, so pyright rejected the `None` no test ever passes.
 
 **Test strategy** (no test opens a socket: `httpx.MockTransport`, `mock_aws`, a fixed `FIXTURE_NOW` with `APP_ENV=test`)
 - AC-1 `test_cfbd_client.py`: `test_the_4000th_call_is_counted_and_warns` (output has `4000/5000`), `test_a_spent_budget_raises_before_any_request` (transport saw 0 requests).
