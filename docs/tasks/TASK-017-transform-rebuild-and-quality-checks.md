@@ -27,7 +27,7 @@ planned_at_commit:
 - Rules: `.claude/rules/python.md` (destructive commands such as `--rebuild` check `LIVE` and refuse).
 - **Roadmap note to resolve:** Phase 0's item "`python/db/views/` applied after every migration" says "rebuild pending, with `transform --rebuild` in M2.3". `transform` writes only to the lake. If this task doesn't touch Postgres, the plan says where a dev-DB rebuild (and its view re-apply) will land and updates that note. *Direction agreed with the owner (2026-10-15):* `transform --rebuild` stays lake-only. The roadmap note is reworded to say the database half lands with a dev-DB rebuild command when one is first needed, and that is recorded as a follow-up.
 - **Decide at the plan gate:** how "latest version" is picked when one entity appears in several raw pulls (the newest `fetched_at` wins); whether lines stage every pull (each is a snapshot) or only the newest; the staging file layout; DuckDB as an `engine[train]` dependency (D-004); and how the DQ report is shown (CLI output and an exit code).
-- *From TASK-015 (feat/task-015-cfbd-ingest-parquet-lake):* CFBD's `/lines` takes no `classification`, so a week's raw lines include games with no FBS team (2025 week 1 has Colgate–Monmouth, with one provider and null opening lines and moneylines). Staging lines should keep only games present in staged `/games`, or count the extras in a data-quality check.
+- *From TASK-015 (PR #54):* CFBD's `/lines` takes no `classification`, so a week's raw lines include games with no FBS team (2025 week 1 has Colgate–Monmouth, with one provider and null opening lines and moneylines). Staging lines should keep only games present in staged `/games`, or count the extras in a data-quality check.
 
 ## Acceptance criteria
 
