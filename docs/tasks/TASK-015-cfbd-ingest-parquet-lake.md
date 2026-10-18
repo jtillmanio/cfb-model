@@ -134,7 +134,7 @@ Verify R1 PASS → R2 PASS (after review fixes) | Audit R1 PASS | Spec R1 CHANGE
 
 Incident: on the round-1 code, the new un-isolated `--param` tests ran real pulls, making 4 CFBD calls (counted under 2025-09 by the test clock) and writing 3 misfiled files to the local `data/raw/`. The tests now block CFBD, the real lake and `.env.local`. The owner was given the cleanup commands (protected path).
 
-Ready gates: CI verify PASS | Vercel PASS | Lighthouse FAIL ×2 (/teams rendered Next's error page: Vercel's runtime dependency install failed, owner's logs) → revision 2 → re-run below
+Ready gates: CI verify PASS | Vercel PASS | Lighthouse FAIL ×2 (/teams rendered Next's error page: Vercel's runtime dependency install failed, owner's logs) → revision 2 → CI verify PASS | Vercel PASS | Lighthouse PASS (/teams accessibility 100) on 6e15e41
 
 ## Blocked
 
