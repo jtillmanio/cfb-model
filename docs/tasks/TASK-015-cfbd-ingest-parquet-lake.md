@@ -1,7 +1,7 @@
 ---
 id: TASK-015
 title: Build the CFBD ingest client with call-budget tracking and a raw Parquet writer
-status: In progress
+status: Review
 depends_on: []
 size: M
 model: opus
@@ -35,11 +35,11 @@ Any CFBD endpoint the model needs can be pulled for a season or a week. Every ca
 
 ## Acceptance criteria
 
-- [ ] AC-1: Given a ledger at 3,999 of 5,000 calls for the current month (fixed clock), when the client makes one call, the ledger reads 4,000 and the output warns with `4000/5000`. Given a ledger at 5,000, the next call raises `BudgetExceededError` and the fake HTTP transport records zero requests.
-- [ ] AC-2: Given a recorded CFBD response, when it's ingested into a local lake, exactly one Parquet file is written at `raw/cfbd/<endpoint>/season=<Y>[/week=<NN>]/fetched_at=<UTC>.parquet`, and reading it back returns records equal to the original JSON. The test covers at least `/games` and `/lines`. Writing to a path that exists raises, and the existing file is unchanged.
-- [ ] AC-3: Given a week-level endpoint whose response for that week was already saved after every game in the week was completed (per the saved `/games` response), when that endpoint is requested again, no HTTP request is made, the ledger is unchanged, and the command says it used the saved file.
-- [ ] AC-4: With `LAKE_URI=s3://<bucket>`, the writer writes and reads through R2's S3 API. A test against a fake S3 writes one file, reads it back unchanged, and refuses to overwrite it.
-- [ ] AC-5: `engine ingest <endpoint> --season Y [--week N]` accepts every endpoint in 03 › Data sources' table. A registry test checks that each entry names its CFBD path, required params and granularity. `engine ingest games` still publishes to the dev DB as before (D-098), now reading the Parquet it wrote.
+- [x] AC-1: Given a ledger at 3,999 of 5,000 calls for the current month (fixed clock), when the client makes one call, the ledger reads 4,000 and the output warns with `4000/5000`. Given a ledger at 5,000, the next call raises `BudgetExceededError` and the fake HTTP transport records zero requests.
+- [x] AC-2: Given a recorded CFBD response, when it's ingested into a local lake, exactly one Parquet file is written at `raw/cfbd/<endpoint>/season=<Y>[/week=<NN>]/fetched_at=<UTC>.parquet`, and reading it back returns records equal to the original JSON. The test covers at least `/games` and `/lines`. Writing to a path that exists raises, and the existing file is unchanged.
+- [x] AC-3: Given a week-level endpoint whose response for that week was already saved after every game in the week was completed (per the saved `/games` response), when that endpoint is requested again, no HTTP request is made, the ledger is unchanged, and the command says it used the saved file.
+- [x] AC-4: With `LAKE_URI=s3://<bucket>`, the writer writes and reads through R2's S3 API. A test against a fake S3 writes one file, reads it back unchanged, and refuses to overwrite it.
+- [x] AC-5: `engine ingest <endpoint> --season Y [--week N]` accepts every endpoint in 03 › Data sources' table. A registry test checks that each entry names its CFBD path, required params and granularity. `engine ingest games` still publishes to the dev DB as before (D-098), now reading the Parquet it wrote.
 
 ## Out of scope
 
@@ -71,6 +71,16 @@ _Work noticed during this task and deliberately left out. Each bullet ends `→ 
 - The scheduled jobs reach the R2 lake through `LAKE_URI=s3://<bucket>`, `R2_ACCOUNT_ID`, `R2_DATA_LAKE_ACCESS_KEY_ID` and `R2_DATA_LAKE_SECRET_ACCESS_KEY` in the step's `env:` (gate decision C), and the call ledger lives in R2 with the lake (D) → docs/tasks/TASK-022-scheduled-results-and-lines-jobs.md § Context
 - 03 › Lake layout gains the raw file's shape (one row per record: `row`, `record` JSON text, `params`, `fetched_at`), the `season_type=postseason` level, and the ledger at the lake root → docs/03-data-model.md § Lake layout (approved at plan)
 - Candidate decision: gate decisions A–G (Parquet shape, the `train` extra, R2 through boto3, the ledger, the D-098 files, partitions, the registry); amends D-098 → docs/decisions.md § D-112 (recorded with the approved plan)
+- A non-empty but incomplete week file saved soon after the final whistle is reused forever; a settle time or a `--refetch` flag (schema review R1) → docs/tasks/TASK-022-scheduled-results-and-lines-jobs.md § Context (open question for the plan)
+- `/lines` takes no `classification`, so raw lines include games with no FBS team; staging should filter or count them → docs/tasks/TASK-017-transform-rebuild-and-quality-checks.md § Context
+- Candidate decision: the "final" rule (non-empty, saved after `/games` showed the week complete), `--param` only for required params no flag sets, temp-then-link local writes → docs/decisions.md § D-114
+- 03 › Lake layout: drop "planned" from Raw files, name the `{endpoint}` folders after the registry, state the final rule → docs/03-data-model.md § Lake layout (approved at close-out)
+- `fetched_at` has one-second resolution, so two pulls of one folder within a second would spend a call and then refuse the write (schema review R1) → not tracked: one writer, pulls are serial, and the key format is D-112's
+- A non-list response decodes as a one-item list, and a zero-row file keeps no `params` (schema review R1) → not tracked: every registry endpoint returns an array
+- Every `ppa_predicted` pull files under `season=Y` and only the `params` column tells them apart (schema review R1) → not tracked: no task stages it yet, and the column records each down and distance
+- A lake run against `./data` and one against R2 keep separate ledgers, so together they can pass 5,000 a month (schema review R1) → not tracked: stated in `.env.example`; the scheduled jobs use R2 only
+- `os.link` needs a filesystem with hard links (not exFAT/FAT32 or some network shares) for a local `LAKE_URI` (spec review R2) → not tracked: the lake is `./data` on NTFS locally and R2 elsewhere
+- The two pytest warnings are an existing Alembic `path_separator` deprecation in `db/tests/test_release.py` → not tracked: predates this task and doesn't fail anything
 
 ## Plan
 
@@ -117,13 +127,17 @@ Approved 2026-10-16 (/plan-batch): every gate decision as recommended, including
 
 _Filled by /implement-task. One line per round._
 
+Verify R1 PASS → R2 PASS (after review fixes) | Audit R1 PASS | Spec R1 CHANGES (CLI test needs .env.local; fails in CI) → R2 APPROVE | Schema R1 CHANGES (--param misfiles a response; an empty week file final forever; test isolation) → R2 APPROVE
+
+Incident: on the round-1 code, the new un-isolated `--param` tests ran real pulls, making 4 CFBD calls (counted under 2025-09 by the test clock) and writing 3 misfiled files to the local `data/raw/`. The tests now block CFBD, the real lake and `.env.local`. The owner was given the cleanup commands (protected path).
+
 ## Blocked
 
 _Only if status is Blocked: what failed, what was tried, best hypothesis, decision needed._
 
 ## Metrics
 
-- Verify rounds:
-- Review rounds:
-- First-pass AC FAILs:
-- Plan revisions after approval:
+- Verify rounds: 2
+- Review rounds: 2
+- First-pass AC FAILs: 1 (AC-5's CLI test, CI only)
+- Plan revisions after approval: 1
