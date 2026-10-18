@@ -71,6 +71,8 @@ features/   # model-ready, point-in-time-safe tables
 backups/    # nightly verified pg_dumps of the serving DB
 ```
 
+**Raw files** (planned: TASK-015, D-112): each pull is one Parquet file with one row per top-level record of the response. The columns are `row` (the record's position), `record` (the record as JSON text), `params` (the query sent, as JSON text) and `fetched_at` (UTC). Reading `record` back in `row` order gives exactly what the API returned, and an empty response is a zero-row file. Partitions are `season=Y[/season_type=postseason][/week=NN]`: regular-season files add no `season_type` level. The CFBD call ledger, `cfbd_calls.json`, sits at the lake root beside `raw/`, so it moves to R2 with the lake.
+
 DuckDB SQL builds `staging/` and `features/` from `raw/`, so it's fully reproducible. The point-in-time rule is enforced in `features/`: a `team_week_features` row for week N aggregates only games with `week < N` (or kickoff before `as_of`).
 
 ## Serving database (Postgres) schema

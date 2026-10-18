@@ -25,6 +25,7 @@ The nightly backup runs at 03:30 ET from the dispatcher. If the dispatcher ever 
 - Decisions: D-109 (schedule), D-092 (recovery point ≤ 24 h), and the decisions TASK-024 and TASK-025 record.
 - **Decide at the plan gate:** the fallback's cron (proposed: a few hours after 03:30 ET, e.g. `0 12 * * *`; even 8 hours late it starts on the same UTC date as that night's dispatched run); how the check reads R2 (`aws s3api head-object` with the backup token, before the dump step so a skipped run costs under a minute).
 - **Stop and ask:** the backup reads production. Running it on the branch needs the owner's go-ahead in the session.
+- *From TASK-024 (docs/plans-2026-10-16):* the day's dump is `backups/daily/<UTC date>.dump`, the first key `object_keys(date)` returns in `python/db/src/db/backup.py`. The `dump` step's `date` output is the run's UTC date (it replaces the `key` output).
 
 ## Acceptance criteria
 

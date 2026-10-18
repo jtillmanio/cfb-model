@@ -7,8 +7,8 @@ size: M
 model: opus
 autonomy: attended
 ui: false
-plan_status: none
-planned_at_commit:
+plan_status: approved
+planned_at_commit: 1bf71ef
 ---
 
 # TASK-023 — Parse Splash pastes against ContestRules
@@ -65,9 +65,53 @@ Text copied from a Splash contest page becomes one row per game with both teams,
 
 _Work noticed during this task and deliberately left out. Each bullet ends `→ <path> § <section>` (where it was placed) or `→ not tracked: <reason>`. See `.claude/skills/track-follow-ups/classify.md`; the PR's Follow-ups section is copied from here._
 
+- 02 › Risks & mitigations still says "Spike the parser on a fresh paste at the start of Phase 4"; the spike is now M2.8 (TASK-023), run on `design/sample-splash-10152026.txt` → docs/02-architecture.md § Risks & mitigations (approved at plan)
+- The contest import builds the parser's alias lookup from `team_aliases WHERE source = 'splash'` and passes the user's time zone (gate decisions C and E) → docs/08-tasklist.md § M6.4
+- `engine/core/` is first created here (for `ContestRules`), not in M3.1, which adds the rest of the light core to it → docs/08-tasklist.md § M3.1
+- Candidate decision: gate decisions A–F (where `ContestRules` and the parser live, kickoffs read as ET, away listed first, `PK` = 0, the alias lookup's shape) → docs/decisions.md § D-113 (recorded with the approved plan)
+
 ## Plan
 
-_Written by /plan-batch or /implement-task Phase 1. Approved by the user (plan_status: approved) before any code is written._
+Approved 2026-10-16 (/plan-batch): every gate decision as recommended; the owner confirmed C (kickoffs are Eastern) and F (away is listed first).
+
+**Decisions at the gate** (recommended)
+- A. `ContestRules` lives in `engine/core/contest_rules.py`, which creates `engine/core/` (the sport-agnostic light core, D-004, 02 › Repository layout). pydantic v2 becomes a main engine dependency (light core).
+- B. The parser lives in `engine/contests/splash.py`, one module per platform. It imports no sport module (D-022).
+- C. Kickoffs are read as `America/New_York` (the owner's zone; the page prints none), via `parse_splash(text, aliases, *, tz=ZoneInfo("America/New_York"))`. The year comes from the `Picks lock:` line; a block dated in a later month than the lock belongs to the year before (a Dec–Jan slate). A `Final` block prints no time, so its `kickoff_at` is None and only `game_date` is set.
+- D. `PK`, `EVEN` and `Pick` mean `spread_home` 0. A side with no line gives `no line`; sides that don't sum to zero give `lines disagree`. Both kinds of problem row have `spread_home` None.
+- E. The alias lookup is a `Mapping[str, int]` from the name exactly as Splash writes it (trimmed, case-sensitive) to `teams.id`.
+- F. A block lists away first and home second (the Week 6 paste's `@`/`vs`). The page doesn't mark neutral sites; the matched game decides that later (M6).
+
+**Steps**
+1. `uv add --package cfb-engine pydantic`.
+2. `core/contest_rules.py`: frozen `ContestRules` with `extra="forbid"`:
+   - `period: Literal["week", "day"]`, `sports: list[str]` (at least one lowercase sport id), `slate: Literal["all_games", "curated"]`;
+   - `picks_per_period: int = Field(ge=1)`, `picks_exact: bool = True` (False means at most N);
+   - `lock: Literal["per_game_kickoff", "fixed_time"]`, `scoring: Literal["point_per_win", "confidence"]`, `push: Literal["zero", "half", "void"]`;
+   - `SPLASH_PRESET`.
+3. `contests/splash.py`: `SplashRow` (`away_name`, `home_name`, `away_team_id`, `home_team_id`, `spread_home: Decimal | None`, `game_date`, `kickoff_at` (UTC), `status`, `problem`, `source_lines`, plus a `matched` property) and `parse_splash(...) -> SplashParse(rows, lock_at)`. How it reads the text:
+   - Blocks end at each `Under …` line.
+   - Inside a block, each side is a record line (`^\d+-\d+(-\d+)?$`) with the team name on the nearest non-blank line before it and the line on the line after it.
+   - It skips the page header (`Pick against the spread`, `Picks lock:`, `PICKS`, `PTS`, `STATUS`, `GAME DETAILS`), rank lines (`#3ranked #3`), day headers (`Saturday, Oct 10`), score and status lines, and the trailing `0` / `/4` / `Picks made` counter.
+   - A block without exactly two sides becomes a row with problem `unreadable block`; no block is ever dropped.
+4. `tests/fixtures/splash_week6.txt`: written once from `blocks` and `L()` in `design/handoff/designs/contest-data.js` (lines 150–179), line for line.
+
+**Files** (9): `python/engine/pyproject.toml`, `python/uv.lock` (through uv), `engine/core/__init__.py` (new), `engine/core/contest_rules.py` (new), `engine/contests/__init__.py` (new), `engine/contests/splash.py` (new), `tests/test_contest_rules.py` (new), `tests/test_splash_parser.py` (new), `tests/fixtures/splash_week6.txt` (new). The two `__init__.py` files aren't in Files likely touched.
+
+**Test strategy**
+- AC-1 `test_splash_parser.py::test_the_oct_6_copy_gives_one_row_per_over_line`: 72 rows, as many as the `Over ` lines. Each away line is −`spread_home`. No name matches a rank, record, score, status or total pattern. Spot check: Notre Dame @ North Carolina, home +21.5.
+- AC-2 `::test_week6_paste_matches_nine_and_flags_hou_jax`: 10 rows, 9 matched; the unmatched row keeps "Hou Texans" / "Jax"; TEX @ OU is +7 and UNLV @ BSU is −10.
+- AC-3 `::test_disagreeing_and_missing_lines_are_flagged_not_dropped`: the Week 6 text edited in the test, one block's home line changed and another's lines removed; still 10 rows.
+- AC-4 `test_contest_rules.py::test_the_splash_preset_validates`, `::test_zero_picks_names_picks_per_period`, `::test_an_unknown_scoring_names_scoring`.
+- AC-5 `::test_the_oct_15_copy_gives_73_rows_without_the_counter_or_ties_in_names`.
+- Plus `::test_kickoffs_are_eastern_time_in_utc` (UNLV @ BSU Fri 8:00pm → 2026-10-10T00:00Z; a `Final` block has None).
+
+**Risks / open questions**
+- Away-first (F) and ET (C) were confirmed by the owner (2026-10-16). The manual step still checks one known game's side and kickoff against the live page, since a wrong reading flips every sign or shifts every kickoff.
+- Neither real copy has a live game. An unrecognised status line is kept as raw `status` text, never read as a name.
+- `python/uv.lock` also changes in TASK-015: the second branch re-locks after the first merges.
+
+**Size check:** 9 files, one layer (engine), no schema or UI: passes.
 
 ## Review log
 
