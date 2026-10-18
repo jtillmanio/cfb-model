@@ -73,7 +73,8 @@ _Work noticed during this task and deliberately left out. Each bullet ends `→ 
 - Candidate decision: gate decisions A–G (Parquet shape, the `train` extra, R2 through boto3, the ledger, the D-098 files, partitions, the registry); amends D-098 → docs/decisions.md § D-112 (recorded with the approved plan)
 - A non-empty but incomplete week file saved soon after the final whistle is reused forever; a settle time or a `--refetch` flag (schema review R1) → docs/tasks/TASK-022-scheduled-results-and-lines-jobs.md § Context (open question for the plan)
 - `/lines` takes no `classification`, so raw lines include games with no FBS team; staging should filter or count them → docs/tasks/TASK-017-transform-rebuild-and-quality-checks.md § Context
-- Candidate decision: the "final" rule (non-empty, saved after `/games` showed the week complete), `--param` only for required params no flag sets, temp-then-link local writes → docs/decisions.md § D-114
+- Candidate decision: the "final" rule (non-empty, saved after `/games` showed the week complete), `--param` only for required params no flag sets, temp-then-link local writes, and `cfb-engine[train]` in the root's dev group (revision 2) → docs/decisions.md § D-114
+- TASK-022's jobs must install the dev group (never `--no-dev`) to get pyarrow and boto3 (revision 2) → docs/tasks/TASK-022-scheduled-results-and-lines-jobs.md § Context
 - 03 › Lake layout: drop "planned" from Raw files, name the `{endpoint}` folders after the registry, state the final rule → docs/03-data-model.md § Lake layout (approved at close-out)
 - `fetched_at` has one-second resolution, so two pulls of one folder within a second would spend a call and then refuse the write (schema review R1) → not tracked: one writer, pulls are serial, and the key format is D-112's
 - A non-list response decodes as a one-item list, and a zero-row file keeps no `params` (schema review R1) → not tracked: every registry endpoint returns an array
@@ -109,6 +110,8 @@ Approved 2026-10-16 (/plan-batch): every gate decision as recommended, including
 
 **Revision 1** (approved 2026-10-18): `python/api/tests/conftest.py` (13th file), `make_token(secret: str | None)` narrowed to `str`. moto[s3] brings in `cryptography`, which makes pyjwt's `encode()` key type strict, so pyright rejected the `None` no test ever passes.
 
+**Revision 2** (approved 2026-10-18, after the Lighthouse gate failed on PR #54): the workspace root's `cfb-engine[train]` moves from `[project] dependencies` to the `dev` group. Vercel installs the API from the workspace lock with `--no-dev`; pyarrow and boto3 pushed it to a runtime install, which failed on the editable `cfb-api`, so every `/api/py/teams` returned 500 (D-114).
+
 **Test strategy** (no test opens a socket: `httpx.MockTransport`, `mock_aws`, a fixed `FIXTURE_NOW` with `APP_ENV=test`)
 - AC-1 `test_cfbd_client.py`: `test_the_4000th_call_is_counted_and_warns` (output has `4000/5000`), `test_a_spent_budget_raises_before_any_request` (transport saw 0 requests).
 - AC-2 `test_lake.py`: `test_raw_round_trip[games]`, `test_raw_round_trip[lines]` (one file, path regex, records equal the fixture), `test_writing_an_existing_key_raises_and_keeps_the_file`.
@@ -131,6 +134,8 @@ Verify R1 PASS → R2 PASS (after review fixes) | Audit R1 PASS | Spec R1 CHANGE
 
 Incident: on the round-1 code, the new un-isolated `--param` tests ran real pulls, making 4 CFBD calls (counted under 2025-09 by the test clock) and writing 3 misfiled files to the local `data/raw/`. The tests now block CFBD, the real lake and `.env.local`. The owner was given the cleanup commands (protected path).
 
+Ready gates: CI verify PASS | Vercel PASS | Lighthouse FAIL ×2 (/teams rendered Next's error page: Vercel's runtime dependency install failed, owner's logs) → revision 2 → re-run below
+
 ## Blocked
 
 _Only if status is Blocked: what failed, what was tried, best hypothesis, decision needed._
@@ -140,4 +145,4 @@ _Only if status is Blocked: what failed, what was tried, best hypothesis, decisi
 - Verify rounds: 2
 - Review rounds: 2
 - First-pass AC FAILs: 1 (AC-5's CLI test, CI only)
-- Plan revisions after approval: 1
+- Plan revisions after approval: 2

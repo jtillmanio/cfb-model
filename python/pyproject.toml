@@ -5,8 +5,8 @@ version = "0.0.0"
 requires-python = ">=3.13,<3.14"
 dependencies = [
     "cfb-db",
-    "cfb-engine[train]",
     "cfb-api",
+    "cfb-engine",
 ]
 
 [dependency-groups]
@@ -17,6 +17,9 @@ dev = [
     "uvicorn>=0.37",
     "httpx2>=2.13",
     "moto[s3]>=5.2.4",
+    # The engine's ingest stack (pyarrow, boto3). Here, not in [project]: Vercel installs the
+    # API from this lock with --no-dev, and these would push it to a failing runtime install (D-114).
+    "cfb-engine[train]",
 ]
 
 [tool.uv]

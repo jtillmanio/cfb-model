@@ -31,6 +31,7 @@ With nobody running anything, Sunday and Monday mornings pick up the weekend's f
 - *From TASK-015 (PR #52):* the engine reaches the R2 lake through `LAKE_URI=s3://<bucket>`, `R2_ACCOUNT_ID`, `R2_DATA_LAKE_ACCESS_KEY_ID` and `R2_DATA_LAKE_SECRET_ACCESS_KEY`; pass them to the engine in the step's `env:`. The call ledger is `cfbd_calls.json` at the lake root, so it lives in R2 with the lake (D-112).
 - *From TASK-025 (PR #52):* add this task's jobs as lines in `SCHEDULE` in `infra/dispatcher/src/index.ts`: ET times on quarter hours, none between 01:00 and 02:59 ET (those times repeat or vanish at a daylight-saving change). The dispatcher converts to ET itself, so no two-crons-per-slot workaround is needed.
 - *From TASK-015 (PR #54), open question for the plan:* a week's raw file is reused forever once it's non-empty and saved after `/games` showed the week complete (D-114). A `results` run soon after the last game could save a week CFBD hasn't fully filled in (plays, drives, box scores). Should the job wait a settle time after the games complete before pulling, or should the engine gain a `--refetch` that appends a newer file through the budget?
+- *From TASK-015 (PR #54):* `engine ingest` needs pyarrow and boto3, which the workspace root installs only through its `dev` group (D-114). Install the job's Python with `uv sync` or `uv run` as they default, never `--no-dev`.
 
 ## Acceptance criteria
 
