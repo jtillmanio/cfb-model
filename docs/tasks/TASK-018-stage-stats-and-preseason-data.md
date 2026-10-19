@@ -24,7 +24,7 @@ The same `engine transform --rebuild` also stages team box scores, advanced stat
 - Model: `docs/04-model.md` § 9.2 (preseason inputs use values published before that season; SP+, FPI and Elo count as baselines only if published before the game, otherwise they're labeled "hindsight benchmark"); § 2 Rung 2 (off/def efficiency with rush/pass splits, success rate, explosiveness: the columns TASK-019 reads).
 - Decisions: D-027, D-042.
 - **Decide at the plan gate:** which advanced-stats variant is pulled and staged (garbage time excluded, included, or both) and how the choice is recorded; how a benchmark row records when its value was published (a pre-game weekly value or season-final), so M3.4 can tell the two apart; play/drive partitioning by season; how many calls recording one fixture per endpoint costs (a handful, counted by the budget tracker).
-- *From TASK-017 (docs/plans-2026-10-19):* `engine.transform` keeps a `TABLES` registry and `engine.transform.quality` a `CHECKS` registry: register the new staged tables and the advanced-stats check there. Raw files are read through the `Lake` protocol into pyarrow and registered in DuckDB in memory (no `httpfs`, D-112), so a full backfill of plays may need staging one season at a time.
+- *From TASK-017 (PR #60):* `engine.transform` keeps a `TABLES` registry and `engine.transform.quality` a `CHECKS` registry: register the new staged tables and the advanced-stats check there. Raw files are read through the `Lake` protocol into pyarrow and registered in DuckDB in memory (no `httpfs`, D-112), so a full backfill of plays may need staging one season at a time.
 
 ## Acceptance criteria
 
