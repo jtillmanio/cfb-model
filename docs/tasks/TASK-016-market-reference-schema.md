@@ -1,7 +1,7 @@
 ---
 id: TASK-016
 title: Add seasons, team_aliases, sportsbooks and line_snapshots
-status: Ready
+status: In progress
 depends_on: []
 size: M
 model: opus
@@ -121,6 +121,10 @@ Approved 2026-10-16 (/plan-batch): the schema below as written, including the `s
 - The fixture's snapshot times are invented (fixture only). D-031 still governs real rows.
 
 **Size check:** 9 files, one layer (data), schema without UI: passes.
+
+**Revisions after approval** (agreed with the owner, 2026-10-19, during implementation)
+1. A statement-level `BEFORE TRUNCATE` trigger, `line_snapshots_no_truncate`, on the same function: TRUNCATE skips row triggers, so the approved trigger alone left the history open to a wipe. `test_snapshots_cannot_be_updated_deleted_or_truncated` covers it.
+2. `python/api/tests/test_api_health.py` (a 10th file): it asserted `migration_head == "0001"`, which 0002 breaks. It now compares with `db.migrate.heads()[0]`, so later migrations don't break it again. `web/e2e/auth.spec.ts` (an 11th file) had the same hard-coded `"0001"`, found by verify R1; it gets the same fix, reading the newest revision from `python/db/migrations/versions/`.
 
 ## Review log
 

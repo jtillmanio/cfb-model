@@ -1,3 +1,6 @@
+import { readdirSync } from "node:fs";
+import path from "node:path";
+
 import { expect, test, type Page } from "@playwright/test";
 
 import { findSessionCookie, mintSessionCookie } from "./fixtures";
@@ -6,6 +9,13 @@ import { findSessionCookie, mintSessionCookie } from "./fixtures";
 // stale or forged one lands on /login, never a 500.
 
 const DAY = 24 * 60 * 60;
+
+// The newest migration's revision: they're numbered 0001, 0002, … and `pnpm db:check` keeps one
+// head, so the test DB e2e runs against is at this one.
+const MIGRATION_HEAD = readdirSync(path.join(__dirname, "../../python/db/migrations/versions"))
+  .flatMap((file) => /^(\d{4})_\w+\.py$/.exec(file)?.[1] ?? [])
+  .sort()
+  .at(-1);
 
 // Every response the page sees, redirects included.
 function recordStatuses(page: Page): number[] {
@@ -39,7 +49,7 @@ test.describe("signed out", () => {
     const response = await request.get("/api/py/health", { maxRedirects: 0 });
     expect(response.status()).toBe(200);
     expect(response.headers()["content-type"]).toContain("application/json");
-    expect(await response.json()).toMatchObject({ db_reachable: true, migration_head: "0001" });
+    expect(await response.json()).toMatchObject({ db_reachable: true, migration_head: MIGRATION_HEAD });
   });
 });
 
