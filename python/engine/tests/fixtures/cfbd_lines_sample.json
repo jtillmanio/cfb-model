@@ -1,0 +1,129 @@
+[
+  {
+    "id": 401752677,
+    "season": 2025,
+    "seasonType": "regular",
+    "week": 1,
+    "startDate": "2025-08-30T16:00:00.000Z",
+    "homeTeamId": 194,
+    "homeTeam": "Ohio State",
+    "homeConference": "Big Ten",
+    "homeClassification": "fbs",
+    "homeScore": 14,
+    "awayTeamId": 251,
+    "awayTeam": "Texas",
+    "awayConference": "SEC",
+    "awayClassification": "fbs",
+    "awayScore": 7,
+    "lines": [
+      {
+        "provider": "ESPN Bet",
+        "spread": -1.5,
+        "formattedSpread": "Ohio State -1.5",
+        "spreadOpen": -2.5,
+        "overUnder": 46.5,
+        "overUnderOpen": 48.5,
+        "homeMoneyline": -125,
+        "awayMoneyline": 105
+      },
+      {
+        "provider": "DraftKings",
+        "spread": -3,
+        "formattedSpread": "Ohio State -3",
+        "spreadOpen": -3,
+        "overUnder": 47.5,
+        "overUnderOpen": null,
+        "homeMoneyline": -135,
+        "awayMoneyline": 114
+      },
+      {
+        "provider": "Bovada",
+        "spread": -2,
+        "formattedSpread": "Ohio State -2.0",
+        "spreadOpen": -3,
+        "overUnder": 46.5,
+        "overUnderOpen": 50.5,
+        "homeMoneyline": -140,
+        "awayMoneyline": 120
+      }
+    ]
+  },
+  {
+    "id": 401756847,
+    "season": 2025,
+    "seasonType": "regular",
+    "week": 1,
+    "startDate": "2025-08-23T22:30:00.000Z",
+    "homeTeamId": 2305,
+    "homeTeam": "Kansas",
+    "homeConference": "Big 12",
+    "homeClassification": "fbs",
+    "homeScore": 31,
+    "awayTeamId": 278,
+    "awayTeam": "Fresno State",
+    "awayConference": "Mountain West",
+    "awayClassification": "fbs",
+    "awayScore": 7,
+    "lines": [
+      {
+        "provider": "DraftKings",
+        "spread": -14,
+        "formattedSpread": "Kansas -14",
+        "spreadOpen": -14,
+        "overUnder": 51.5,
+        "overUnderOpen": 51.5,
+        "homeMoneyline": -550,
+        "awayMoneyline": 410
+      },
+      {
+        "provider": "ESPN Bet",
+        "spread": -14.5,
+        "formattedSpread": "Kansas -14.5",
+        "spreadOpen": -13.5,
+        "overUnder": 50.5,
+        "overUnderOpen": 51.5,
+        "homeMoneyline": -650,
+        "awayMoneyline": 425
+      },
+      {
+        "provider": "Bovada",
+        "spread": -14,
+        "formattedSpread": "Kansas -14.0",
+        "spreadOpen": -14.5,
+        "overUnder": 50,
+        "overUnderOpen": 51.5,
+        "homeMoneyline": -575,
+        "awayMoneyline": 400
+      }
+    ]
+  },
+  {
+    "id": 401767256,
+    "season": 2025,
+    "seasonType": "regular",
+    "week": 1,
+    "startDate": "2025-08-29T23:00:00.000Z",
+    "homeTeamId": 2142,
+    "homeTeam": "Colgate",
+    "homeConference": "Patriot",
+    "homeClassification": "fcs",
+    "homeScore": 39,
+    "awayTeamId": 2405,
+    "awayTeam": "Monmouth",
+    "awayConference": "Coastal Athletic",
+    "awayClassification": "fcs",
+    "awayScore": 42,
+    "lines": [
+      {
+        "provider": "ESPN Bet",
+        "spread": 14.5,
+        "formattedSpread": "Monmouth -14.5",
+        "spreadOpen": null,
+        "overUnder": 65.5,
+        "overUnderOpen": null,
+        "homeMoneyline": null,
+        "awayMoneyline": null
+      }
+    ]
+  }
+]

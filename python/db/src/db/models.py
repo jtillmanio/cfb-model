@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import date, datetime
 from decimal import Decimal
+from typing import Any
 
 from sqlalchemy import (
     BigInteger,
@@ -19,7 +20,7 @@ from sqlalchemy import (
     UniqueConstraint,
     func,
 )
-from sqlalchemy.dialects.postgresql import TIMESTAMP
+from sqlalchemy.dialects.postgresql import JSONB, TIMESTAMP
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 NAMING = {
@@ -31,6 +32,9 @@ NAMING = {
 }
 
 GAME_STATUSES = ("scheduled", "in_progress", "final", "canceled", "postponed")
+LINE_SOURCES = ("cfbd", "oddsapi", "manual", "fixture")
+# A backfilled open or close has no capture time (D-031); a live pull is a timed snapshot.
+LINE_KINDS = ("opening", "closing", "snapshot")
 
 
 class Base(DeclarativeBase):
@@ -132,4 +136,94 @@ class Game(Base):
     updated_at: Mapped[datetime] = mapped_column(
         TIMESTAMP(timezone=True), server_default=func.now()
     )
+    created_at: Mapped[datetime] = _created_at()
+
+
+class Season(Base):
+    """One row per sport and year. `weeks` is CFBD /calendar as
+    [{"week", "season_type", "start", "end"}, ...] with UTC ISO times."""
+
+    __tablename__ = "seasons"
+    __table_args__ = (
+        CheckConstraint("jsonb_typeof(weeks) = 'array'", name="weeks_is_array"),
+        CheckConstraint("end_date >= start_date", name="end_after_start"),
+    )
+
+    sport_id: Mapped[str] = mapped_column(ForeignKey("sports.id"), primary_key=True)
+    year: Mapped[int] = mapped_column(primary_key=True)
+    source: Mapped[str] = mapped_column(Text)
+    start_date: Mapped[date] = mapped_column(Date)
+    end_date: Mapped[date] = mapped_column(Date)
+    current_week: Mapped[int | None]
+    weeks: Mapped[list[dict[str, Any]]] = mapped_column(JSONB)
+    updated_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True), server_default=func.now()
+    )
+    created_at: Mapped[datetime] = _created_at()
+
+
+class TeamAlias(Base):
+    """Every spelling a source uses for a team (D-036). `source` is whose spelling it is."""
+
+    __tablename__ = "team_aliases"
+    __table_args__ = (UniqueConstraint("source", "alias"), Index(None, "team_id"))
+
+    id: Mapped[int] = mapped_column(BigInteger, Identity(), primary_key=True)
+    team_id: Mapped[int] = mapped_column(ForeignKey("teams.id"))
+    source: Mapped[str] = mapped_column(Text)
+    alias: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[datetime] = _created_at()
+
+
+class Sportsbook(Base):
+    """A provider as one line source names it, e.g. CFBD's `consensus`."""
+
+    __tablename__ = "sportsbooks"
+    __table_args__ = (UniqueConstraint("source", "source_id"),)
+
+    id: Mapped[int] = mapped_column(BigInteger, Identity(), primary_key=True)
+    source: Mapped[str] = mapped_column(Text)
+    source_id: Mapped[str] = mapped_column(Text)
+    name: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[datetime] = _created_at()
+
+
+class LineSnapshot(Base):
+    """Append-only price history (D-037): triggers refuse UPDATE, DELETE and TRUNCATE. The
+    key makes re-publishing one raw file a no-op; NULLS NOT DISTINCT keeps an untimed open to
+    one row."""
+
+    __tablename__ = "line_snapshots"
+    __table_args__ = (
+        UniqueConstraint(
+            "game_id",
+            "book_id",
+            "source",
+            "kind",
+            "captured_at",
+            postgresql_nulls_not_distinct=True,
+        ),
+        Index(None, "game_id", "captured_at"),
+        CheckConstraint(f"source IN {LINE_SOURCES!r}", name="source"),
+        CheckConstraint(f"kind IN {LINE_KINDS!r}", name="kind"),
+        CheckConstraint(
+            "kind <> 'snapshot' OR captured_at IS NOT NULL", name="snapshot_has_captured_at"
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(BigInteger, Identity(), primary_key=True)
+    game_id: Mapped[int] = mapped_column(ForeignKey("games.id"))
+    book_id: Mapped[int] = mapped_column(ForeignKey("sportsbooks.id"))
+    source: Mapped[str] = mapped_column(Text)
+    kind: Mapped[str] = mapped_column(Text)
+    # NULL for a backfilled open or close: CFBD doesn't say when it was quoted (D-031).
+    captured_at: Mapped[datetime | None] = mapped_column(TIMESTAMP(timezone=True))
+    spread_home: Mapped[Decimal | None] = mapped_column(Numeric(4, 1))
+    total: Mapped[Decimal | None] = mapped_column(Numeric(4, 1))
+    spread_home_price: Mapped[int | None]
+    spread_away_price: Mapped[int | None]
+    over_price: Mapped[int | None]
+    under_price: Mapped[int | None]
+    ml_home: Mapped[int | None]
+    ml_away: Mapped[int | None]
     created_at: Mapped[datetime] = _created_at()
