@@ -7,8 +7,8 @@ size: M
 model: opus
 autonomy: attended
 ui: false
-plan_status: none
-planned_at_commit:
+plan_status: approved
+planned_at_commit: 40debbf
 ---
 
 # TASK-017 — Stage games, teams, venues, calendar and lines with transform --rebuild and data-quality checks
@@ -62,9 +62,48 @@ planned_at_commit:
 
 _Work noticed during this task and deliberately left out. Each bullet ends `→ <path> § <section>` (where it was placed) or `→ not tracked: <reason>`. See `.claude/skills/track-follow-ups/classify.md`; the PR's Follow-ups section is copied from here._
 
+Found while planning (approved at plan, placed on `docs/plans-2026-10-19`):
+- The roadmap's Phase 0 views/rebuild note already says `transform --rebuild` is lake-only and the dev-DB rebuild lands when first needed (PR #53), so this task changes nothing there → not tracked: already in docs/06-roadmap.md › Phase 0
+- TASK-020: staged lines are one row per (game, provider, `fetched_at`) with `spread_home_open`; publish chooses which pulls become `opening`/`closing`/`snapshot` rows (D-115), and calls `engine.transform.quality.run(lake)` and refuses when `not report.ok` (its AC-2) → docs/tasks/TASK-020-publish-lake-and-game-market.md § Context (approved at plan)
+- TASK-018: register tables in `engine.transform.TABLES` and the advanced-stats check in `quality.CHECKS`; raw is loaded into memory through the `Lake` protocol (no `httpfs`), so a full backfill of plays may need staging one season at a time → docs/tasks/TASK-018-stage-stats-and-preseason-data.md § Context (approved at plan)
+- TASK-021: the `closing_line` check passes only for games covered by a `/lines` pull fetched after kickoff, so the backfill should pull `/lines` per season after it ends → docs/tasks/TASK-021-backfill-and-notebook-1.md § Context (approved at plan)
+
 ## Plan
 
-_Written by /plan-batch or /implement-task Phase 1. Approved by the user (plan_status: approved) before any code is written._
+**Plan-gate decisions** (recorded as a new D-### in `docs/decisions.md`; 03 › Lake layout gets the staged tables)
+- **Latest version:** per entity id, the record from the newest `fetched_at` across every raw file of that endpoint (week and season files alike); ties break on the raw key, then `row`. Only `*.parquet` keys with `fetched_at=` are read, so D-098's JSON files stay unread (D-112).
+- **Lines stage every pull:** one row per (game, provider, `fetched_at`), with `spread_home`, `spread_home_open`, `total`, `total_open`, `ml_home`, `ml_away`. TASK-020 decides how a pull becomes `opening`/`closing`/`snapshot` rows (D-115). Line rows for games not in staged games (no FBS team) are dropped, and `transform` prints how many.
+- **Closing-line mark (AC-5):** staged games get `closing_line_missing`: `false` if any `/lines` pull fetched after the game's `startDate` has a non-null spread; `true` if such a pull covers the game's season/week/season type (from its key) but quotes no spread; NULL if no post-kickoff pull covers it. The check fails on NULL for completed FBS-vs-FBS games in 2014–2025 (04 § 9.1) and lists the `true` ones. So "unmarked" means lines were never pulled after kickoff, which keeps the check from passing by definition.
+- **Layout:** single files `staging/{games,teams,team_seasons,venues,calendar,lines}.parquet`. Teams, team seasons and venues come from the newest `/teams`, `/venues` pulls, filled in from `/games` for ids those don't have (the local lake has no `/teams` pull yet).
+- **DuckDB** joins `engine[train]` (D-004, D-114: dev group, never the API). Raw bytes come through the `Lake` protocol into pyarrow and are registered in DuckDB in memory, so R2 works without `httpfs` (D-112). The connection sets `autoinstall_known_extensions=false`, so a missing `json`/`icu` extension fails instead of downloading.
+- **DQ report:** `engine transform --rebuild` stages and then runs the checks; `engine check` runs them on the existing `staging/`. Each prints a report (failures with every offending `source_id`, then notes) and exits 1 on any failure, 0 otherwise. A LIVE refusal or usage error exits 2.
+
+**Steps**
+1. `uv add --package cfb-engine --optional train duckdb`. In a scratch script, confirm `json_extract_string` and `AT TIME ZONE 'America/New_York'` run with autoinstall off and no network.
+2. `ingest/lake.py`: `Lake.walk(prefix)` (every key below it, recursive, sorted) and `Lake.replace(key, data)` (atomic overwrite; refuses `raw/` keys) on `LocalLake` and `S3Lake`. Update the docstring: staging is derived, so it's overwritten.
+3. `transform/__init__.py`: `TABLES` registry (TASK-018/019 append) and `rebuild(lake) -> dict[str, int]`: `refuse_if_live("rebuild staging")` first, then build every table in memory before any `replace` (ordered by key, so reruns give identical rows).
+4. `transform/staging.py`: `load_raw(lake, endpoint)` → a pyarrow table (`key`, `season`, `week`, `season_type` parsed from the key, `fetched_at`, `row`, `record`), plus one SQL builder per table. Games mirror `GameRow` (Eastern `game_date`, `kickoff_at` NULL when TBD, `status`) plus home/away classification, `fetched_at` and `closing_line_missing`. A final game with no score is staged as-is, so the check can report it (`map_games` would raise).
+5. `transform/quality.py`: `Report` (`failures`, `notes`, `ok`, `render()`), the `CHECKS` registry and `run(lake)`. Checks: `final_has_score`, `no_duplicate_games` (same unordered team pair and `game_date`), `closing_line`. TASK-020's publish calls `run`.
+6. `cli.py`: `transform --rebuild` (`--rebuild` required for now) and `check`. `load_env()` runs before the LIVE check.
+7. Docs: 03 › Lake layout (staged tables and columns), the D-### above (it also amends D-112's "only the ledger is overwritten").
+
+**Files** (12): `python/engine/pyproject.toml`, `python/uv.lock` (by uv), `python/engine/src/engine/ingest/lake.py`, `python/engine/src/engine/transform/__init__.py`, `…/transform/staging.py`, `…/transform/quality.py` (new), `python/engine/src/engine/cli.py`, `python/engine/tests/fixtures/lake.json` (new: raw key → records), `python/engine/tests/test_transform.py` (new), `python/engine/tests/test_lake.py`, `docs/03-data-model.md`, `docs/decisions.md`. The quality tests go in `test_transform.py`, not a separate `test_quality.py`, to stay at 12 files.
+
+**Test strategy** (`test_transform.py` writes `lake.json` into a `tmp_path` `LocalLake` with `encode_raw`; CLI runs through `cli.main` with `load_env` patched out)
+- AC-1: `test_rebuild_stages_every_table_with_no_api_calls`. `CfbdClient.__init__`, `httpx.Client.__init__` and `httpx.HTTPTransport.__init__` are patched to raise. It asserts the six tables' row counts, identical rows on a second run, the non-FBS line row dropped, and staged games matching `map_games` on the clean records.
+- AC-2: `test_newest_pull_wins` (week-1 game scheduled in the earlier pull, final in the later one: one row, the later score).
+- AC-3: `test_rebuild_refuses_under_live` (a sentinel `staging/games.parquet` is byte-identical afterwards; exit code 2; stderr names `LIVE`).
+- AC-4: `test_check_names_bad_games[final_no_score|duplicate]` (exit 1, each `source_id` in the output) and `test_check_passes_on_clean_fixture` (exit 0).
+- AC-5: `test_marked_missing_line_passes` (a post-kickoff week-2 pull without game X: `closing_line_missing` true, X listed in the notes, exit 0) and `test_unmarked_missing_line_fails` (game Y's week has only a pre-kickoff pull: exit 1 naming Y).
+- `test_lake.py`: `walk` and `replace` on local and moto S3; `replace` refuses a `raw/` key.
+
+**Risks / open questions**
+- **Fixture recording costs 3 CFBD calls** (`engine ingest teams|venues|calendar --season 2025` into the local lake), trimmed by hand into `lake.json`. Games and lines are trimmed from the lake's existing files. If you'd rather not spend the calls, the fixture is hand-written from CFBD's v2 schema instead.
+- If the DuckDB wheel doesn't bundle `json`/`icu`, step 1 catches it. The fallback is to decode JSON with pyarrow and convert to Eastern time in Python.
+- The raw lake is loaded into memory. That's fine for these tables; TASK-018's plays may need one season at a time (follow-up 2).
+- A crash between `replace` calls can leave staging mixed. That's acceptable: staging is rebuilt, and publish re-runs the checks.
+
+**Size check:** 12 files, data layer plus its docs, no schema or UI: M, passes.
 
 ## Review log
 
