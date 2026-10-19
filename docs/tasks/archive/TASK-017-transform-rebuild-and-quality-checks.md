@@ -1,7 +1,7 @@
 ---
 id: TASK-017
 title: Stage games, teams, venues, calendar and lines with transform --rebuild and data-quality checks
-status: Review
+status: Done
 depends_on: [TASK-015]
 size: M
 model: opus
