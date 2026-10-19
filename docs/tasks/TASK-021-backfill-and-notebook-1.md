@@ -28,6 +28,7 @@ The lake holds every CFBD endpoint the model uses for 2014–2025 and 2026 to da
 - **Production:** the tasklist's "backfill reaching prod" happens through TASK-022's first workflow run, the only path that publishes to production (local commands against production are denied, D-015). This task publishes to dev.
 - **Decide at the plan gate:** marimo or Jupyter, and where notebook dependencies live (a dependency group, not the API's); the pull order, so a run stopped by the budget resumes without re-fetching; how the local lake is copied to R2 (written to both during the run, or synced after); where the benchmark number is recorded (04 § 9.6 is a planning doc, so the edit needs the owner's approval).
 - *From TASK-015 (PR #52), open question for the plan:* TASK-015's `pull()` treats a week-level file as final once a saved `/games` file shows every game of that week completed, but has no rule for season-level files, which it always fetches. A resumable backfill needs one, e.g. a season's file is final when it was saved after the season's last game completed.
+- *From TASK-017 (docs/plans-2026-10-19):* the `closing_line` data-quality check passes only for completed FBS-vs-FBS games covered by a `/lines` pull fetched after kickoff (or marked `closing_line_missing` from one), so the backfill should pull `/lines` for each season after it ends.
 
 ## Acceptance criteria
 
