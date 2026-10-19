@@ -25,6 +25,7 @@ The same `engine transform --rebuild` also stages team box scores, advanced stat
 - Decisions: D-027, D-042.
 - **Decide at the plan gate:** which advanced-stats variant is pulled and staged (garbage time excluded, included, or both) and how the choice is recorded; how a benchmark row records when its value was published (a pre-game weekly value or season-final), so M3.4 can tell the two apart; play/drive partitioning by season; how many calls recording one fixture per endpoint costs (a handful, counted by the budget tracker).
 - *From TASK-017 (PR #60):* `engine.transform` keeps a `TABLES` registry and `engine.transform.quality` a `CHECKS` registry: register the new staged tables and the advanced-stats check there. Raw files are read through the `Lake` protocol into pyarrow and registered in DuckDB in memory (no `httpfs`, D-112), so a full backfill of plays may need staging one season at a time.
+- *From TASK-017 (feat/017-transform-rebuild-and-quality-checks):* staging skips a raw file whose `params` don't match its key and lists it in `staging/skipped_raw.parquet` (D-116). The local lake's `plays/season=2025/week=01/fetched_at=2025-09-02T120000Z.parquet` was pulled with a `team=Ohio State` filter, so it'll be skipped. DuckDB needs `pytz` to return a `TIMESTAMPTZ` to Python through `fetchall()`; read results through Arrow instead (as `rebuild` does) or add the dependency.
 
 ## Acceptance criteria
 

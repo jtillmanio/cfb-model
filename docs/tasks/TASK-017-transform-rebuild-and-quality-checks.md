@@ -1,7 +1,7 @@
 ---
 id: TASK-017
 title: Stage games, teams, venues, calendar and lines with transform --rebuild and data-quality checks
-status: In progress
+status: Review
 depends_on: [TASK-015]
 size: M
 model: opus
@@ -31,11 +31,11 @@ planned_at_commit: 40debbf
 
 ## Acceptance criteria
 
-- [ ] AC-1: Given the lake fixture of recorded responses, `engine transform --rebuild` writes `staging/` tables for games, teams, venues, calendar and lines. Running it twice gives identical rows. A test that makes any CFBD client or HTTP transport raise when constructed still passes, so the rebuild makes zero API calls.
-- [ ] AC-2: Given two raw pulls of the same game (an earlier one scheduled, a later one final), staged games hold one row for that game, with the final score from the later pull.
-- [ ] AC-3: With `LIVE=true`, `engine transform --rebuild` exits non-zero with a message naming `LIVE`, and `staging/` is unchanged.
-- [ ] AC-4: Given a fixture final game with no score, or two games with the same teams on the same date, the data-quality run exits non-zero and names each offending game's `source_id`. On the clean fixture it exits 0.
-- [ ] AC-5: Given an FBS-vs-FBS game in a 2014–2025 season with no line from any provider, staging marks it as missing a closing line, the DQ report lists it, and the check passes. An unmarked game with no line fails the check.
+- [x] AC-1: Given the lake fixture of recorded responses, `engine transform --rebuild` writes `staging/` tables for games, teams, venues, calendar and lines. Running it twice gives identical rows. A test that makes any CFBD client or HTTP transport raise when constructed still passes, so the rebuild makes zero API calls.
+- [x] AC-2: Given two raw pulls of the same game (an earlier one scheduled, a later one final), staged games hold one row for that game, with the final score from the later pull.
+- [x] AC-3: With `LIVE=true`, `engine transform --rebuild` exits non-zero with a message naming `LIVE`, and `staging/` is unchanged.
+- [x] AC-4: Given a fixture final game with no score, or two games with the same teams on the same date, the data-quality run exits non-zero and names each offending game's `source_id`. On the clean fixture it exits 0.
+- [x] AC-5: Given an FBS-vs-FBS game in a 2014–2025 season with no line from any provider, staging marks it as missing a closing line, the DQ report lists it, and the check passes. An unmarked game with no line fails the check.
 
 ## Out of scope
 
@@ -55,18 +55,28 @@ planned_at_commit: 40debbf
 
 ## Verification
 
-- Automated: `test_transform.py` (AC-1 to AC-3), `test_quality.py` (AC-4, AC-5).
+- Automated: `test_transform.py` (AC-1 to AC-5; the approved plan keeps the quality tests there instead of a separate `test_quality.py`).
 - Manual: on the local lake from D-098, `uv --directory python run engine transform --rebuild` → staged games match the raw `/games` files' game count, and the DQ report prints with exit 0.
 
 ## Follow-ups
 
 _Work noticed during this task and deliberately left out. Each bullet ends `→ <path> § <section>` (where it was placed) or `→ not tracked: <reason>`. See `.claude/skills/track-follow-ups/classify.md`; the PR's Follow-ups section is copied from here._
 
-Found while planning (approved at plan, placed on `docs/plans-2026-10-19`):
+Found while planning (approved at plan, placed by PR #60):
 - The roadmap's Phase 0 views/rebuild note already says `transform --rebuild` is lake-only and the dev-DB rebuild lands when first needed (PR #53), so this task changes nothing there → not tracked: already in docs/06-roadmap.md › Phase 0
 - TASK-020: staged lines are one row per (game, provider, `fetched_at`) with `spread_home_open`; publish chooses which pulls become `opening`/`closing`/`snapshot` rows (D-115), and calls `engine.transform.quality.run(lake)` and refuses when `not report.ok` (its AC-2) → docs/tasks/TASK-020-publish-lake-and-game-market.md § Context (approved at plan)
 - TASK-018: register tables in `engine.transform.TABLES` and the advanced-stats check in `quality.CHECKS`; raw is loaded into memory through the `Lake` protocol (no `httpfs`), so a full backfill of plays may need staging one season at a time → docs/tasks/TASK-018-stage-stats-and-preseason-data.md § Context (approved at plan)
 - TASK-021: the `closing_line` check passes only for games covered by a `/lines` pull fetched after kickoff, so the backfill should pull `/lines` per season after it ends → docs/tasks/TASK-021-backfill-and-notebook-1.md § Context (approved at plan)
+
+Found while implementing and reviewing:
+- Candidate decision: how staging is built, deduped and checked (layout, newest pull wins, every lines pull kept, mismatched raw skipped, the closing-line mark, DuckDB in `engine[train]` without `httpfs`); amends D-112 → docs/decisions.md § D-116
+- The local lake holds a 2019 `/lines` response filed under 2025 week 1 (pulled through `--param` before D-114) → not tracked: done in this PR (plan revision 1: mismatched raw files are skipped and listed)
+- TASK-020: map staged columns by meaning (`team_seasons.classification` is Postgres `division`; `cfbd_division` has no column); confirm CFBD's `elevation` unit before `venues.elevation_m`; a venue filled in from `/games` can have a NULL name; `closing_line_missing` is never a `games` column; a game dropped from a newer pull keeps its older record (schema review R1) → docs/tasks/TASK-020-publish-lake-and-game-market.md § Context
+- TASK-021: an empty `/lines` pull isn't coverage, so an empty week needs a re-pull; the 2025 data, the fixture's 3 calls and the test-clock-stamped files are in the local `./data` lake and ledger, not the R2 dev lake → docs/tasks/TASK-021-backfill-and-notebook-1.md § Context
+- TASK-018: the local lake's `/plays` file has a `team` filter and will be skipped; DuckDB needs `pytz` for `TIMESTAMPTZ` through `fetchall()` → docs/tasks/TASK-018-stage-stats-and-preseason-data.md § Context
+- `Lake.replace` still accepts an absolute or drive-qualified key (schema review R2, optional) → not tracked: its only caller passes the constant `staging/<table>.parquet` keys
+- Missing `neutralSite`, `conferenceGame` or `completed` stage as false (schema review R1) → not tracked: accepted as is; it matches `GameRow` and the NOT NULL `games` columns
+- Playwright's Chromium build 1248 was missing locally, so e2e failed until `playwright install chromium` (part of `pnpm bootstrap`) → not tracked: local setup, already in `pnpm bootstrap`
 
 ## Plan
 
@@ -109,7 +119,7 @@ Found while planning (approved at plan, placed on `docs/plans-2026-10-19`):
 
 ## Review log
 
-_Filled by /implement-task. One line per round._
+Verify R1 FAIL (e2e only: Playwright Chromium not installed) → R2 PASS | Audit R1 PASS | Spec R1 APPROVE | Schema R1 CHANGES (2 major: team_seasons division naming, empty `/lines` pulls as coverage; 7 minor) → R2 APPROVE | Verify R3 PASS | Audit R2 PASS
 
 ## Blocked
 
@@ -117,7 +127,7 @@ _Only if status is Blocked: what failed, what was tried, best hypothesis, decisi
 
 ## Metrics
 
-- Verify rounds:
-- Review rounds:
-- First-pass AC FAILs:
-- Plan revisions after approval:
+- Verify rounds: 2 (R1 failed on the missing Playwright browser, not code); 1 more after the review fixes
+- Review rounds: 2 (schema), 1 (spec)
+- First-pass AC FAILs: 0
+- Plan revisions after approval: 1 (mismatched raw files skipped; `staging/skipped_raw.parquet`)
