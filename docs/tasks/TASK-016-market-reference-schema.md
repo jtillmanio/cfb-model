@@ -1,7 +1,7 @@
 ---
 id: TASK-016
 title: Add seasons, team_aliases, sportsbooks and line_snapshots
-status: In progress
+status: Review
 depends_on: []
 size: M
 model: opus
@@ -38,11 +38,11 @@ The serving database can hold each season's calendar, every name a source uses f
 
 ## Acceptance criteria
 
-- [ ] AC-1: Migration `0002` creates `seasons`, `team_aliases`, `sportsbooks` and `line_snapshots`; on a database at `0001`, `pnpm db:migrate:test` applies it, and `pnpm db:check` passes (one head, `alembic check` clean).
-- [ ] AC-2: Given the alias `('splash', 'Ohio St')` for one team, inserting `('splash', 'Ohio St')` for any team fails with a unique violation, and `('cfbd', 'Ohio St')` succeeds.
-- [ ] AC-3: Inserting a line snapshot for a game or book that doesn't exist fails on its foreign key. Re-inserting a snapshot with the same idempotency key (as decided at the plan gate) through `ON CONFLICT DO NOTHING` leaves the row count unchanged.
-- [ ] AC-4: On the seeded test DB, `seasons` holds `('cfb', 2026)` with `current_week = 6`. Texas @ Oklahoma (home Oklahoma, Texas favored) has snapshots whose `spread_home`, ordered by capture time, is `+7, +6.5, +6, +6.5`. Furman @ Clemson has no snapshots.
-- [ ] AC-5: Every fixture row in the new tables has `source = 'fixture'`, and `pnpm db:seed` still refuses any target except `TEST_DATABASE_URL` (the existing guard test passes).
+- [x] AC-1: Migration `0002` creates `seasons`, `team_aliases`, `sportsbooks` and `line_snapshots`; on a database at `0001`, `pnpm db:migrate:test` applies it, and `pnpm db:check` passes (one head, `alembic check` clean).
+- [x] AC-2: Given the alias `('splash', 'Ohio St')` for one team, inserting `('splash', 'Ohio St')` for any team fails with a unique violation, and `('cfbd', 'Ohio St')` succeeds.
+- [x] AC-3: Inserting a line snapshot for a game or book that doesn't exist fails on its foreign key. Re-inserting a snapshot with the same idempotency key (as decided at the plan gate) through `ON CONFLICT DO NOTHING` leaves the row count unchanged.
+- [x] AC-4: On the seeded test DB, `seasons` holds `('cfb', 2026)` with `current_week = 6`. Texas @ Oklahoma (home Oklahoma, Texas favored) has snapshots whose `spread_home`, ordered by capture time, is `+7, +6.5, +6, +6.5`. Furman @ Clemson has no snapshots.
+- [x] AC-5: Every fixture row in the new tables has `source = 'fixture'`, and `pnpm db:seed` still refuses any target except `TEST_DATABASE_URL` (the existing guard test passes).
 
 ## Out of scope
 
@@ -69,11 +69,20 @@ The serving database can hold each season's calendar, every name a source uses f
 
 _Work noticed during this task and deliberately left out. Each bullet ends `→ <path> § <section>` (where it was placed) or `→ not tracked: <reason>`. See `.claude/skills/track-follow-ups/classify.md`; the PR's Follow-ups section is copied from here._
 
-- Fixture: the other 43 Week 6 games that make "54 games" (Tulane @ Memphis final 27-24, Iowa State @ Cincinnati, Arizona State @ Baylor, and filler with edges under 1.0; 02 › Seed data) → docs/08-tasklist.md § M5.5
-- Fixture: Ohio State's weeks 1–7 lines (sample-data §6) → docs/08-tasklist.md § M8.3
-- Fixture: the 5 NFL games (§3) and the `nfl` sports row → docs/08-tasklist.md § M6.3
-- Fixture: `splash` aliases for every Week 6 paste name except "Hou Texans" and "Jax", so the import shows "9 rows match · 1 unmatched" → docs/08-tasklist.md § M6.4
-- `seasons.current_week` is stored, as 03 and AC-4 have it, though it follows from `weeks` and the clock; who keeps it current (the `/calendar` publish, or a view) → docs/tasks/TASK-020-publish-lake-and-game-market.md § Context (open question for the plan)
+- Fixture: the other 43 Week 6 games that make "54 games" (Tulane @ Memphis final 27-24, Iowa State @ Cincinnati, Arizona State @ Baylor, and filler with edges under 1.0; 02 › Seed data) → docs/08-tasklist.md § M5.5 (approved at plan; placed in PR #52)
+- Fixture: Ohio State's weeks 1–7 lines (sample-data §6) → docs/08-tasklist.md § M8.3 (approved at plan; placed in PR #52)
+- Fixture: the 5 NFL games (§3) and the `nfl` sports row → docs/08-tasklist.md § M6.3 (approved at plan; placed in PR #52)
+- Fixture: `splash` aliases for every Week 6 paste name except "Hou Texans" and "Jax", so the import shows "9 rows match · 1 unmatched" → docs/08-tasklist.md § M6.4 (approved at plan; placed in PR #52)
+- `seasons.current_week` is stored, as 03 and AC-4 have it, though it follows from `weeks` and the clock; who keeps it current (the `/calendar` publish, or a view) → docs/tasks/TASK-020-publish-lake-and-game-market.md § Context (approved at plan; placed in PR #52)
+- 03 › Reference and › Games & market get the approved shapes (`kind`, the key, `sportsbooks.source`/`source_id`, `seasons.source`, the triggers) → docs/03-data-model.md § Games & market (approved at plan; done in this PR)
+- Candidate decision: line `kind`, the NULLS NOT DISTINCT key, triggers on UPDATE/DELETE/TRUNCATE, source CHECKs, sportsbooks by `(source, source_id)`, the `weeks` shape → docs/decisions.md § D-115
+- Fixture totals: line snapshots carry no totals; sample-data §1 gives OSU/PUR 52.5 and TEX/OU 61.5 (schema-reviewer) → docs/08-tasklist.md § M15.2
+- Fixture sparklines: only the opener and current line per game (plus Texas vs Oklahoma's and BYU's moves); `this-week-data.js`'s illustrative in-between points aren't seeded → docs/08-tasklist.md § M5.6
+- `insert_line_snapshots` for TASK-020: chunk under Postgres's 65,535 bind parameters, give it a direct idempotency test (spec-reviewer), and an untimed `opening` row keeps the first value published (schema-reviewer) → docs/tasks/TASK-020-publish-lake-and-game-market.md § Context
+- How `game_market` and the point-in-time checks read untimed `opening`/`closing` rows (03 › Views says closing = last snapshot before kickoff) → docs/tasks/TASK-020-publish-lake-and-game-market.md § Context
+- `line_snapshots.book_id` has no index of its own (schema-reviewer, optional) → not tracked: snapshots are never deleted and there are few books, so nothing scans by book
+- `ruff format --check` would reformat 9 files that were already on main → not tracked: CI runs `ruff check`, not the formatter, and no rule asks for it
+- Alembic's "No path_separator found" DeprecationWarning in pytest → not tracked: predates this task and is harmless until an Alembic upgrade removes the fallback
 
 ## Plan
 
@@ -130,13 +139,15 @@ Approved 2026-10-16 (/plan-batch): the schema below as written, including the `s
 
 _Filled by /implement-task. One line per round._
 
+Verify R1 FAIL(1: `web/e2e/auth.spec.ts` hard-coded migration head "0001") → R2 PASS | Audit R1 PASS | Spec R1 APPROVE | Schema R1 APPROVE (6 minor, placed as follow-ups) | UI not run (`ui: false`, no UI files)
+
 ## Blocked
 
 _Only if status is Blocked: what failed, what was tried, best hypothesis, decision needed._
 
 ## Metrics
 
-- Verify rounds:
-- Review rounds:
-- First-pass AC FAILs:
-- Plan revisions after approval:
+- Verify rounds: 2
+- Review rounds: 1
+- First-pass AC FAILs: 0
+- Plan revisions after approval: 2 (TRUNCATE trigger; the health checks derive the migration head, 2 files)
