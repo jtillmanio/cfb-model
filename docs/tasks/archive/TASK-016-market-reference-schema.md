@@ -1,7 +1,7 @@
 ---
 id: TASK-016
 title: Add seasons, team_aliases, sportsbooks and line_snapshots
-status: Review
+status: Done
 depends_on: []
 size: M
 model: opus
