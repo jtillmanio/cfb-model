@@ -150,7 +150,7 @@ Four databases from day one, each a Neon branch:
 
 | Env | Web/API | DB | Lake |
 |---|---|---|---|
-| **development** (`.env`) | `next dev` + `uvicorn` | Neon `dev` branch | local `./data/` |
+| **development** (`.env`) | `next dev` + `uvicorn` | Neon `dev` branch | the R2 lake for every CFBD call (its ledger is the jobs'), mirrored to local `./data/` by `engine lake sync` for rebuilds and notebooks (planned: TASK-021) |
 | **test** | pytest / vitest | Neon `test` branch (or a Postgres container in CI) | fixtures |
 | **preview** | Vercel preview per PR | Neon `preview/<branch>` (Vercel integration), migrated by the preview build, deleted when the PR closes (`neon-preview-cleanup.yml`) | read-only prod lake |
 | **production** | Vercel production | Neon `main` | R2 bucket |

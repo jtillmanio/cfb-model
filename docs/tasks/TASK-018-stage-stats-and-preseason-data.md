@@ -7,8 +7,8 @@ size: M
 model: opus
 autonomy: attended
 ui: false
-plan_status: none
-planned_at_commit:
+plan_status: approved
+planned_at_commit: 57badb4
 ---
 
 # TASK-018 — Stage box scores, advanced stats, play-by-play, preseason inputs and benchmark ratings
@@ -58,9 +58,48 @@ The same `engine transform --rebuild` also stages team box scores, advanced stat
 
 _Work noticed during this task and deliberately left out. Each bullet ends `→ <path> § <section>` (where it was placed) or `→ not tracked: <reason>`. See `.claude/skills/track-follow-ups/classify.md`; the PR's Follow-ups section is copied from here._
 
+- Staged advanced-stats column names (`off_*`/`def_*`, rush/pass splits), `garbage_time_excluded`, and plays/drives partitioned by season for TASK-019's features → docs/tasks/TASK-019-point-in-time-features.md § Context (approved at plan)
+- M3.4: benchmark rows carry `season_final`/`known_at`. Backfilled SP+/FPI are season-final (hindsight only). A weekly `/ratings/elo?week=` pull would give pre-game values, but the registry pulls Elo per season → docs/08-tasklist.md § M3.4 (approved at plan)
+- M4.2: CFBD's talent, returning production and recruiting carry no publication date, and backfilled pulls are fetched after the season, so "published before the season" has to be assumed per source → docs/08-tasklist.md § M4.2 (approved at plan)
+
 ## Plan
 
-_Written by /plan-batch or /implement-task Phase 1. Approved by the user (plan_status: approved) before any code is written._
+**Gate decisions** (recommended)
+- A. **Garbage time:** pull only the excluded variant. `stats_game_advanced` gets `fixed={"excludeGarbageTime": "true"}` in `ENDPOINTS` (no raw stats files exist yet, so nothing is skipped). The staged `garbage_time_excluded` comes from each raw file's `params`, so a later "included" endpoint would be a second registry entry, not a second row per (game, team).
+- B. **Box scores:** `team_games` has one row per (game, team): `game_source_id`, `team_source_id`, `home_away`, `points`, and `stats` (JSON text of category→stat as CFBD sends it, e.g. `"20-31"`). Typed columns wait for the first reader.
+- C. **Benchmarks:** one table, `benchmark_ratings`, with one row per (system `sp|fpi|elo`, season, team, `fetched_at`). Every pull is kept, as with lines. `season_final` is true when `fetched_at` ≥ the season's last staged `calendar.end_at`, false before it, and NULL when the season has no calendar. `known_at` is `fetched_at` when not season-final, else NULL. M3.4 uses only rows with `known_at` < kickoff.
+- D. **Plays/drives:** `staging/{plays,drives}/season=YYYY/data.parquet`, from a new `SEASON_TABLES` registry built and written one season at a time after `TABLES`. `quality.run` doesn't load them.
+- E. **Fixture cost:** 10 counted calls into the local `./data` lake: `games_teams`, `stats_game_advanced`, `plays`, `drives` for 2025 week 1, plus `talent`, `player_returning`, `recruiting_teams`, `ratings_sp|fpi|elo` for 2025. They're trimmed to the 5 fixture games and 10 fixture teams (plays and drives to 2 games).
+- F. **`advanced_stats` check:** a final game's FBS side with no (game, team) row fails when the game is in `BACKTEST_SEASONS`, or when a non-empty stats pull fetched after kickoff covers its week. Otherwise it's listed as a note, so the live season's lines job isn't blocked before `results` runs.
+
+**Steps**
+1. Record and trim the 10 responses (a scratch script, not committed) into `fixtures/lake.json`. Confirm field names from them, including SP+'s `nationalAverages` row (dropped if present).
+2. `staging.py`: `load_raw(lake, endpoint, season=None)` and `Staging.raw(endpoint, season=None)` walk one season's prefix.
+3. `transform/stats.py` (new) holds the builders:
+   - `team_games`, `team_game_advanced` (offense and defense: plays, ppa, success_rate, explosiveness, plus rush and pass ppa/success/explosiveness, plus power_success, stuff_rate, line_yards; newest pull per (game, team));
+   - `talent`, `returning_production`, `recruiting`, `benchmark_ratings`;
+   - `plays(s, season)` and `drives(s, season)`.
+   - Name-keyed records resolve `team_source_id`: advanced stats by the game's home/away names in `latest_games`, season endpoints by staged `teams.school`. An unmatched name stays NULL.
+4. `transform/__init__.py`: register the six tables before `skipped_raw`. Add `SEASON_TABLES` and season discovery from `raw/cfbd/{plays,drives}/season=*`. `rebuild` returns the totals under `plays` and `drives`.
+5. `quality.py`: add the `advanced_stats` check (F).
+6. `endpoints.py`: the fixed param (A).
+7. `tests/conftest.py` (new): move `lake`, `write` and `engine` out of `test_transform.py`.
+8. Docs: `03-data-model.md` › Lake layout gets the staged-table rows, and › Data quality checks gets the check. `decisions.md` gets one new D-### for A–F.
+
+**Files** (12): `transform/stats.py` (new), `transform/__init__.py`, `transform/quality.py`, `transform/staging.py`, `ingest/endpoints.py`, `tests/conftest.py` (new), `tests/test_transform_stats.py` (new), `tests/test_transform.py`, `tests/fixtures/lake.json` (the fixture is one JSON file, not `fixtures/lake/`), `tests/test_cfbd_client.py` (the registry row, if it checks `fixed`), `docs/03-data-model.md`, `docs/decisions.md`.
+
+**Test strategy**
+- AC-1 `test_each_staged_table_matches_its_raw_record_count`: one assertion per table. `team_games` = 2 × records; benchmarks = the sum of the 3 systems minus any `nationalAverages` row; plays and drives are read from `season=2025`.
+- AC-2 `test_advanced_stats_one_row_per_game_team_newest_wins`: a newer pull repeats one (game, team) with a changed `off_ppa`. One row remains, with the new value, and `garbage_time_excluded` is true on every row.
+- AC-3 `test_advanced_stats_check_names_missing_game` (parametrized, row present or removed): exit 1 and the `source_id` under `FAIL advanced_stats`, or exit 0.
+- AC-4 `test_season_final_sp_marked`: every row is `season_final`, with `known_at` NULL. A 2025-10-01 pull gives `season_final` false and `known_at` = `fetched_at`.
+- AC-5: `test_rebuild_stages_every_table_with_no_api_calls` asserts the new counts and keys. `test_check_passes_on_clean_fixture` expects 5 passed. `test_marked_missing_line_passes` adds a stats row for its week-2 game.
+
+**Risks / open questions**
+- CFBD omits advanced stats for some old games, so TASK-021's full-lake check may list failures (its AC-3 allows that, with causes).
+- Name matching: a school spelled differently in `/talent` or SP+ stays unmatched (NULL), and a note counts them.
+
+**Size check:** 12 files, no schema, no UI: passes (limit 20).
 
 ## Review log
 

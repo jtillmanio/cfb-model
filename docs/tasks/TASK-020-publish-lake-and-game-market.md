@@ -7,8 +7,8 @@ size: M
 model: opus
 autonomy: attended
 ui: false
-plan_status: none
-planned_at_commit:
+plan_status: approved
+planned_at_commit: 57badb4
 ---
 
 # TASK-020 — Publish reference data, games and line snapshots to Postgres, with the game_market view
@@ -69,9 +69,57 @@ The dev database receives every team, venue, game and line from the staged lake.
 
 _Work noticed during this task and deliberately left out. Each bullet ends `→ <path> § <section>` (where it was placed) or `→ not tracked: <reason>`. See `.claude/skills/track-follow-ups/classify.md`; the PR's Follow-ups section is copied from here._
 
+- `game_market` closing prefers CFBD's untimed `closing` row over the last snapshot, and is NULL until the cutoff (gate B). This amends 03 › Views and D-037's "closing = last snapshot before kickoff" → docs/03-data-model.md § Views (approved at plan)
+- Backtest point-in-time: lines are targets and pick-time inputs, never features. Untimed `opening` rows count as before kickoff, and `closing` is a target only (gate F) → docs/08-tasklist.md § M3.2 (approved at plan)
+- `team_seasons.talent` and `returning_ppa_pct` stay NULL: TASK-018 stages them in the lake, and publishing them waits for the priors → docs/08-tasklist.md § M4.2 (approved at plan)
+- The jobs publish with `engine.publish.staging.publish_lake(lake, conn)`, which refuses on a failed check. `seasons.current_week` is set at each publish, so the daily `lines` run keeps it current → not tracked: already in TASK-022's approved plan (step 3: `publish_lake` after the check), and `current_week` is this task's gate E
+
 ## Plan
 
-_Written by /plan-batch or /implement-task Phase 1. Approved by the user (plan_status: approved) before any code is written._
+**Gate decisions** (recommended)
+- A. **Which kind each staged line pull becomes** (D-115). "Cutoff" means `kickoff_at`, or the end of `game_date` in Eastern time when the kickoff is TBA.
+  - A pull before the cutoff is a `snapshot` at `fetched_at`.
+  - A pull at or after the cutoff is one untimed `closing` row; the key keeps the first.
+  - A non-NULL `spread_home_open` or `total_open` is one untimed `opening` row.
+  - A row with no spread, total or moneyline is skipped.
+- B. **`game_market` columns, one row per game:**
+  - **Opening** comes from the `opening` rows, else the earliest snapshot.
+  - **Current** is the newest snapshot, else the closing row, else the opening.
+  - **Closing** is the `closing` row (CFBD's close, quoted nearer kickoff than our last daily snapshot), else the last snapshot before the cutoff. It's NULL until the cutoff has passed (`now()`), so a future game never shows a "closing" line.
+  - This amends 03 › Views and D-037: needs approval (Follow-ups).
+- C. **Source:** each of opening, current and closing uses the `consensus` book when it quoted that price, else the median (`percentile_cont(0.5)`) across books for the same kind and `captured_at`. `opening_source`, `current_source` and `closing_source` say `consensus` or `median`, and `closing_from` says `cfbd_close` or `last_snapshot`.
+- D. **Totals:** exposed (`*_total`), from the same rows.
+- E. **`seasons.current_week`:** each publish sets it from the clock and the staged calendar: the regular week containing `now()`, else NULL. The daily `lines` job keeps it within a day.
+- F. **Untimed rows and point-in-time:** lines are never rating features (04 § 9.2), so the feature checks never read them. An untimed open is before kickoff by definition, and closing is a target (Follow-ups, M3.2).
+- G. **Venues:** CFBD's `elevation` is meters (the fixture: Fresno 102.6, Ames 274.9), so it maps straight to `elevation_m`. A venue with a NULL `name` isn't published, and its games get `venue_id` NULL (counted). A team color that isn't `#RRGGBB` becomes NULL.
+
+**Steps**
+1. `publish/reference.py`: chunk every multi-row statement at 1,000 rows (`upsert_games` has 15 columns, under 65,535 binds). `RETURNING (xmax = 0)` counts new rows. Venues take every column.
+2. `publish/lines.py` (new): `map_lines(lines, games)` implements rule A, plus `publish_lines(conn, …)` for sportsbooks and snapshots.
+3. `publish/staging.py` (new): `publish_lake(lake, conn, source="cfbd") -> dict[str, int]`.
+   - It calls `quality.run(lake)` first and raises `DataQualityFailed` when the report isn't ok.
+   - It then reads the staged parquet and upserts teams, team_seasons (`classification` → `division`), venues, seasons (from `calendar`), games and lines in the caller's one transaction.
+4. `cli.py`: `engine publish --target dev|test` uses `direct_url`. It exits 1 with the report on a failed check (before any connection) and prints new rows per table.
+5. `python/db/views/010_game_market.sql`: `CREATE OR REPLACE VIEW game_market` as `games g` with a `LEFT JOIN LATERAL` per line, each lateral filtered `ls.game_id = g.id` (the `(game_id, captured_at)` index).
+6. `python/db/views/README.md`: drop "Empty until…".
+7. Docs: `03-data-model.md` › Views and the `line_snapshots` note (A–C); `decisions.md`: one D-### for A–G.
+
+**Files** (12): `publish/reference.py`, `publish/lines.py` (new), `publish/staging.py` (new), `cli.py`, `db/views/010_game_market.sql` (new), `db/views/README.md`, `engine/tests/test_publish_staging.py` (new), `engine/tests/test_publish_reference.py`, `db/tests/test_game_market.py` (new), `docs/03-data-model.md`, `docs/decisions.md`, and `engine/tests/conftest.py` only if TASK-018 hasn't already moved the `lake` fixture there.
+
+**Test strategy** (`db_conn`, rolled back; lines use `source='cfbd'`, which the CHECK allows, on the test DB only)
+- AC-1 `test_publish_twice_keeps_ids_and_counts`: rebuild the fixture lake, `publish_lake` twice, then compare ids and counts for the 6 tables. The second run's new-row counts are all 0. Also `test_insert_line_snapshots_twice_inserts_nothing` and `test_upsert_games_chunks_past_bind_limit` (5,000 rows).
+- AC-2 `test_failed_check_publishes_nothing`: inject a final game with no score and rebuild. `engine publish --target test` exits 1, and the counts of all 6 tables are unchanged.
+- AC-3 `test_closing_is_last_snapshot_before_kickoff`: Sun/Tue/Thu/Sat snapshots plus one after kickoff. Also `test_closing_null_before_kickoff` (kickoff in 2099).
+- AC-4 `test_tba_closing_uses_end_of_eastern_date`, `test_median_without_consensus`: 3 books, `closing_source = 'median'`.
+- AC-5 `test_seeded_texas_oklahoma_and_furman`: +7 and +6.5; Furman's lines all NULL.
+- AC-6 `test_single_game_read_uses_index`: `SET LOCAL enable_seqscan = off`, then `EXPLAIN` has no `Seq Scan on line_snapshots`.
+
+**Risks / open questions**
+- `now()` makes `closing` time-dependent. The tests use past or 2099 kickoffs, never today.
+- B prefers CFBD's close. If its post-kickoff `spread` isn't the pre-game close, `closing_from` lets M3.4 tell the two apart.
+- A full dev publish of 12 seasons (~50k games, ~500k lines) runs in one transaction on the unpooled URL. Watch the run time in TASK-021.
+
+**Size check:** 11–12 files, a view but no table or column change, no UI: passes (limit 20).
 
 ## Review log
 

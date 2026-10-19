@@ -188,7 +188,7 @@ IDX `(game_id, model_version_id, created_at DESC)`
 ### Views (derived data lives here)
 | View | What it computes |
 |---|---|
-| `game_market` | Per game: opening, current, and closing consensus line (closing = last snapshot before kickoff, or before `game_date` end if the kickoff time is unknown) |
+| `game_market` | Per game: opening, current, and closing line, each from the `consensus` book when it quoted one, else the median across books, with a column saying which. Closing is CFBD's untimed `closing` row when present, else the last snapshot before kickoff (or before the end of `game_date` in Eastern time when the kickoff time is unknown), and NULL until that cutoff has passed (planned: TASK-020) |
 | `team_rankings` | Rank and week-over-week rank change from `team_ratings` |
 | `current_picks` | Latest pick per (game, model version, market, line source) |
 | `pick_outcomes` | Per pick: result (`won|lost|push|void|pending`) from final scores, closing line, CLV in points |
