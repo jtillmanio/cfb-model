@@ -8,6 +8,12 @@ dependencies = ["cfb-db", "httpx>=0.28", "tzdata>=2025.2"]
 [project.scripts]
 engine = "engine.cli:main"
 
+[project.optional-dependencies]
+train = [
+    "boto3>=1.43.114",
+    "pyarrow>=26.0.0",
+]
+
 [tool.uv.sources]
 cfb-db = { workspace = true }
 
