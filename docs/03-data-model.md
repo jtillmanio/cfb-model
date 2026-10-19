@@ -79,13 +79,13 @@ backups/    # nightly verified pg_dumps of the serving DB
 |---|---|---|
 | `games` | CFBD game (`/games`) | `source_id`, `season`, `week`, `season_type`, `game_date` (Eastern), `kickoff_at` (NULL when TBA), `neutral_site`, `conference_game`, `venue_source_id`, `home_source_id`, `away_source_id`, `home_points`, `away_points`, `status` (`final`/`scheduled`), `home_classification`, `away_classification`, `fetched_at`, `closing_line_missing` |
 | `teams` | team (`/teams`, else `/games`) | `source_id`, `school`, `mascot`, `abbreviation`, `color`, `alt_color`, `logo_url`, `fetched_at` |
-| `team_seasons` | team and season | `team_source_id`, `season`, `conference`, `division`, `classification`, `fetched_at` |
-| `venues` | venue (`/venues`, else `/games`) | `source_id`, `name`, `city`, `state`, `lat`, `lon`, `elevation`, `dome`, `grass`, `timezone`, `capacity`, `fetched_at` |
+| `team_seasons` | team and season | `team_source_id`, `season`, `conference`, `classification` (fbs/fcs: Postgres `team_seasons.division`), `cfbd_division` (CFBD's own, e.g. East/West), `fetched_at` |
+| `venues` | venue (`/venues`, else `/games`) | `source_id`, `name`, `city`, `state`, `lat`, `lon`, `elevation` (CFBD's value; unit unconfirmed), `dome`, `grass`, `timezone`, `capacity`, `fetched_at` |
 | `calendar` | season, season type and week (`/calendar`) | `season`, `season_type`, `week`, `start_at`, `end_at`, `first_game_start`, `last_game_start`, `fetched_at` |
 | `lines` | game, provider and pull (`/lines`; every pull is kept) | `game_source_id`, `provider`, `fetched_at`, `spread_home`, `spread_home_open`, `total`, `total_open`, `ml_home`, `ml_away` |
 | `skipped_raw` | raw file left out | `key`, `reason` |
 
-`lines` keeps only games in staged `games`: CFBD's `/lines` takes no `classification`, so a week's pull includes games with no FBS team, and the rebuild prints how many rows it dropped. `games.closing_line_missing` is `false` when a `/lines` pull fetched after kickoff quotes a spread for the game, `true` when such a pull covers the game's season and week but quotes none, and NULL when no post-kickoff pull covers it.
+`lines` keeps only games in staged `games`: CFBD's `/lines` takes no `classification`, so a week's pull includes games with no FBS team, and the rebuild prints how many rows it dropped. `games.closing_line_missing` is `false` when a non-empty `/lines` pull fetched after kickoff quotes a spread for the game, `true` when such a pull covers the game's season and week but quotes none, and NULL when no post-kickoff pull covers it. An empty pull isn't coverage (CFBD can answer empty just after the games, D-114), and a TBA kickoff counts as the end of its Eastern `game_date`. The flag is a staging fact for the check, not a Postgres column (hard rule 1).
 
 DuckDB SQL builds `staging/` and `features/` from `raw/`, so it's fully reproducible. The point-in-time rule is enforced in `features/`: a `team_week_features` row for week N aggregates only games with `week < N` (or kickoff before `as_of`).
 

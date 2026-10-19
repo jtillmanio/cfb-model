@@ -16,6 +16,7 @@ from __future__ import annotations
 import io
 import json
 import os
+import posixpath
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Protocol
@@ -57,7 +58,10 @@ def _never_overwritten(key: str) -> FileExistsError:
 
 
 def _refuse_raw(key: str) -> None:
-    if key == "raw" or key.startswith("raw/"):
+    """Refuse a key that resolves to raw (`./raw/…`, `staging/../raw/…`), climbs out of the
+    lake, or holds a backslash (Windows would read it as a separator)."""
+    normal = posixpath.normpath(key.replace("\\", "/")).lstrip("/")
+    if "\\" in key or normal == "raw" or normal.startswith(("raw/", "../")):
         raise _never_overwritten(key)
 
 

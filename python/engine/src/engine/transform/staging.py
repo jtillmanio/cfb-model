@@ -70,6 +70,7 @@ def _file_schema() -> pa.Schema:
             ("week", pa.int32()),
             ("season_type", pa.string()),
             ("fetched_at", pa.timestamp("us", "UTC")),
+            ("records", pa.int32()),
         ]
     )
 
@@ -77,7 +78,8 @@ def _file_schema() -> pa.Schema:
 @dataclass
 class RawEndpoint:
     """Every usable raw file of one endpoint: `records` has a row per record, `files` a row per
-    file (an empty response included), and `skipped` the files left out, with the reason."""
+    file (an empty response included, with its record count), and `skipped` the files left out,
+    with the reason. An empty file has no `params` to check, so it's never skipped."""
 
     records: pa.Table
     files: pa.Table
@@ -115,19 +117,24 @@ def load_raw(lake: Lake, endpoint: str) -> RawEndpoint:
             "week": week,
             "season_type": season_type,
             "fetched_at": fetched_at_of(key),
+            "records": table.num_rows,
         }
         files.append(info)
         schema = _file_schema()
         columns = {
             name: pa.array([value] * table.num_rows, schema.field(name).type)
             for name, value in info.items()
+            if name != "records"
         }
         parts.append(
             pa.table({**columns, "row": table.column("row"), "record": table.column("record")})
         )
 
-    record_schema = _file_schema().append(pa.field("row", pa.int32())).append(
-        pa.field("record", pa.string())
+    file_schema = _file_schema()
+    record_schema = (
+        file_schema.remove(file_schema.get_field_index("records"))
+        .append(pa.field("row", pa.int32()))
+        .append(pa.field("record", pa.string()))
     )
     records = (
         pa.concat_tables([p.cast(record_schema) for p in parts])
@@ -196,8 +203,10 @@ def _sides(s: Staging) -> str:
 
 def games(s: Staging) -> str:
     """Games as `GameRow` maps them, plus each side's classification, the pull they came from,
-    and `closing_line_missing`: false when a /lines pull fetched after kickoff quotes a spread,
-    true when such a pull covers the game's week but quotes none, NULL when none covers it."""
+    and `closing_line_missing`: false when a non-empty /lines pull fetched after kickoff quotes
+    a spread, true when such a pull covers the game's week but quotes none, NULL when none
+    covers it. An empty pull isn't coverage: CFBD can answer empty just after the games (D-114).
+    A TBA kickoff counts as the end of its Eastern `game_date`."""
     latest = s.latest("games", "id")
     lines = s.raw("lines")
     return f"""
@@ -222,14 +231,18 @@ def games(s: Staging) -> str:
             {_j("homeClassification")} AS home_classification,
             {_j("awayClassification")} AS away_classification,
             fetched_at,
-            {_start()} AS start_at
+            CASE WHEN coalesce({_j("startTimeTBD", "BOOLEAN")}, false)
+                THEN timezone('America/New_York', CAST(
+                    CAST({_start()} AT TIME ZONE 'America/New_York' AS DATE) + 1 AS TIMESTAMP))
+                ELSE {_start()} END AS line_cutoff
         FROM {latest}
     ),
-    covering AS (  -- /lines pulls fetched after kickoff whose season and week hold the game
+    covering AS (  -- non-empty /lines pulls after kickoff whose season and week hold the game
         SELECT g.source_id, f.key
         FROM g JOIN {lines}_files f
           ON f.season = g.season AND f.season_type = g.season_type
-         AND (f.week IS NULL OR f.week = g.week) AND f.fetched_at > g.start_at
+         AND (f.week IS NULL OR f.week = g.week) AND f.fetched_at > g.line_cutoff
+         AND f.records > 0
     ),
     quoted AS (
         SELECT DISTINCT r.key, {_j("id", source="r.record")} AS game_source_id
@@ -242,7 +255,7 @@ def games(s: Staging) -> str:
         LEFT JOIN quoted q ON q.key = c.key AND q.game_source_id = c.source_id
         GROUP BY c.source_id
     )
-    SELECT g.* EXCLUDE (start_at), NOT m.has_spread AS closing_line_missing
+    SELECT g.* EXCLUDE (line_cutoff), NOT m.has_spread AS closing_line_missing
     FROM g LEFT JOIN mark m USING (source_id)
     ORDER BY season, season_type, week, source_id
     """
@@ -272,13 +285,15 @@ def teams(s: Staging) -> str:
 
 
 def team_seasons(s: Staging) -> str:
-    """Conference, division and classification per team and season: /teams for that season,
-    else the team's newest game record that season."""
+    """Conference, classification (fbs/fcs: Postgres `team_seasons.division`) and CFBD's own
+    division (e.g. East/West) per team and season: /teams for that season, else the team's
+    newest game record that season."""
     teams_raw = s.raw("teams")
     return f"""
     WITH t AS (
         SELECT {_j("id")} AS team_source_id, season, {_j("conference")} AS conference,
-            {_j("division")} AS division, {_j("classification")} AS classification, fetched_at
+            {_j("classification")} AS classification, {_j("division")} AS cfbd_division,
+            fetched_at
         FROM {teams_raw}
         QUALIFY row_number() OVER (
             PARTITION BY {_j("id")}, season ORDER BY fetched_at DESC, key DESC, row DESC) = 1
@@ -291,7 +306,7 @@ def team_seasons(s: Staging) -> str:
     )
     SELECT * FROM t
     UNION ALL
-    SELECT team_source_id, season, conference, NULL, classification, fetched_at FROM g
+    SELECT team_source_id, season, conference, classification, NULL, fetched_at FROM g
     WHERE (team_source_id, season) NOT IN (SELECT (team_source_id, season) FROM t)
     ORDER BY season, team_source_id
     """
@@ -345,8 +360,13 @@ def lines(s: Staging) -> str:
     raw = s.raw("lines")
     s.con.execute(
         f"""CREATE OR REPLACE TEMP VIEW lines_exploded AS
-        SELECT r.key, r.fetched_at, {_j("id", source="r.record")} AS game_source_id, l.line
-        FROM {raw} r, unnest(CAST(json_extract(r.record, '$.lines') AS JSON[])) AS l(line)"""
+        SELECT key, row, fetched_at, game_source_id, unnest(lines) AS line,
+            unnest(range(len(lines))) AS idx
+        FROM (
+            SELECT key, row, fetched_at, {_j("id")} AS game_source_id,
+                CAST(json_extract(record, '$.lines') AS JSON[]) AS lines
+            FROM {raw}
+        )"""
     )
     row = s.con.execute(
         "SELECT count(*) FROM lines_exploded WHERE game_source_id NOT IN "
@@ -364,7 +384,8 @@ def lines(s: Staging) -> str:
     FROM lines_exploded
     WHERE game_source_id IN (SELECT source_id FROM games)
     QUALIFY row_number() OVER (
-        PARTITION BY game_source_id, provider, fetched_at ORDER BY key DESC) = 1
+        PARTITION BY game_source_id, provider, fetched_at
+        ORDER BY key DESC, row DESC, idx DESC) = 1
     ORDER BY game_source_id, provider, fetched_at
     """
 

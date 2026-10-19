@@ -74,11 +74,11 @@ def _rows(con: duckdb.DuckDBPyConnection, sql: str) -> list[str]:
     return [row[0] for row in con.execute(sql).fetchall()]
 
 
-def _game(prefix: str = "") -> str:
+def _game() -> str:
+    """A game's label; concat() skips a NULL part, so the `source_id` always prints."""
     return (
-        f"{prefix}source_id || ' (' || {prefix}season || ' ' || {prefix}season_type || "
-        f"' week ' || {prefix}week || ', ' || {prefix}away_source_id || ' at ' || "
-        f"{prefix}home_source_id || ')'"
+        "concat(source_id, ' (', season, ' ', season_type, ' week ', week, ', ', "
+        "away_source_id, ' at ', home_source_id, ')')"
     )
 
 
@@ -98,9 +98,9 @@ def no_duplicate_games(con: duckdb.DuckDBPyConnection) -> Finding:
     return Finding(
         _rows(
             con,
-            """SELECT string_agg(source_id, ', ' ORDER BY source_id) || ': teams '
-                || least(home_source_id, away_source_id) || ' and '
-                || greatest(home_source_id, away_source_id) || ' on ' || game_date
+            """SELECT concat(string_agg(source_id, ', ' ORDER BY source_id), ': teams ',
+                least(home_source_id, away_source_id), ' and ',
+                greatest(home_source_id, away_source_id), ' on ', game_date)
             FROM games
             GROUP BY least(home_source_id, away_source_id),
                 greatest(home_source_id, away_source_id), game_date
@@ -113,10 +113,11 @@ def no_duplicate_games(con: duckdb.DuckDBPyConnection) -> Finding:
 def closing_line(con: duckdb.DuckDBPyConnection) -> Finding:
     """A final FBS-vs-FBS game in a backtest season needs `closing_line_missing` set: false
     (a post-kickoff pull quotes a spread) or true (one covers it and quotes none, listed as a
-    note). NULL means /lines was never pulled after kickoff for it, which fails."""
+    note). NULL means /lines was never pulled after kickoff for it, which fails. A game whose
+    classification is unknown can't be scoped, so it's listed as a note."""
     first, last = BACKTEST_SEASONS
-    scope = f"""FROM games WHERE status = 'final' AND season BETWEEN {first} AND {last}
-        AND home_classification = 'fbs' AND away_classification = 'fbs'"""
+    finals = f"FROM games WHERE status = 'final' AND season BETWEEN {first} AND {last}"
+    scope = f"{finals} AND home_classification = 'fbs' AND away_classification = 'fbs'"
     return Finding(
         failures=_rows(
             con,
@@ -124,14 +125,21 @@ def closing_line(con: duckdb.DuckDBPyConnection) -> Finding:
         ),
         notes=_rows(
             con,
-            f"SELECT {_game()} || ': no closing line from any provider' {scope} "
+            f"SELECT concat({_game()}, ': no closing line from any provider') {scope} "
             "AND closing_line_missing ORDER BY source_id",
+        )
+        + _rows(
+            con,
+            f"SELECT concat({_game()}, ': classification unknown, so not checked') {finals} "
+            "AND (home_classification IS NULL OR away_classification IS NULL) "
+            "ORDER BY source_id",
         ),
     )
 
 
 def raw_files(con: duckdb.DuckDBPyConnection) -> Finding:
-    return Finding(notes=_rows(con, "SELECT key || ': ' || reason FROM skipped_raw ORDER BY key"))
+    sql = "SELECT concat(key, ': ', reason) FROM skipped_raw ORDER BY key"
+    return Finding(notes=_rows(con, sql))
 
 
 CHECKS: list[Check] = [

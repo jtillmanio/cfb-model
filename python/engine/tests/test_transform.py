@@ -126,6 +126,13 @@ def test_rebuild_stages_every_table_with_no_api_calls(
     assert teams["304"]["school"] == "Idaho State"
     assert teams["304"]["mascot"] is None
     assert teams["2305"]["mascot"] == "Jayhawks"
+    # Postgres team_seasons.division is fbs/fcs, so it's staged as `classification`; CFBD's own
+    # division (East/West) is `cfbd_division` (schema review R1).
+    rows = staged(lake, "team_seasons").to_pylist()
+    seasons = {(r["team_source_id"], r["season"]): r for r in rows}
+    assert seasons[("2305", 2025)]["classification"] == "fbs"
+    assert seasons[("304", 2025)]["classification"] == "fcs"  # filled in from /games
+    assert seasons[("304", 2025)]["cfbd_division"] is None
     assert by_id(staged(lake, "venues"))["6501"]["name"] == "Allegiant Stadium"
     calendar = staged(lake, "calendar").to_pylist()
     assert (calendar[0]["season_type"], calendar[0]["week"]) == ("postseason", 1)
@@ -298,3 +305,60 @@ def test_check_without_staging_exits_2(
 
 def test_fetched_at_round_trips() -> None:
     assert fetched_at_of(GAMES_KEY) == datetime.fromisoformat("2025-09-02T12:00:00+00:00")
+
+
+def test_empty_post_kickoff_pull_is_not_coverage(
+    lake: LocalLake, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """CFBD can answer empty just after the games (D-114), so an empty /lines pull marks nothing:
+    the game stays unmarked and the check fails (schema review R1)."""
+    y = _week_game(900000040, 3, "2025-09-13T19:00:00.000Z")
+    write(
+        lake,
+        "raw/cfbd/games/season=2025/week=03/fetched_at=2025-09-15T120000Z.parquet",
+        [y],
+        games_params(3),
+    )
+    write(
+        lake,
+        "raw/cfbd/lines/season=2025/week=03/fetched_at=2025-09-14T120000Z.parquet",
+        [],
+        lines_params(3),
+    )
+    assert engine("transform", "--rebuild") == 1
+    assert by_id(staged(lake, "games"))["900000040"]["closing_line_missing"] is None
+    assert "900000040" in capsys.readouterr().out.split("FAIL closing_line")[1]
+
+
+def test_tba_kickoff_needs_a_pull_after_its_date(lake: LocalLake) -> None:
+    """A TBA game's start is CFBD's midnight placeholder, so only a pull after the end of its
+    Eastern game_date counts as after kickoff (schema review R1)."""
+    tba = {**_week_game(900000050, 3, "2025-09-13T04:00:00.000Z"), "startTimeTBD": True}
+    write(
+        lake,
+        "raw/cfbd/games/season=2025/week=03/fetched_at=2025-09-15T120000Z.parquet",
+        [tba],
+        games_params(3),
+    )
+    quote = {**FIXTURE[LINES_KEY]["records"][0], "id": 900000050}
+    # Game day, 4 PM Eastern: possibly before kickoff, so it doesn't count.
+    write(
+        lake,
+        "raw/cfbd/lines/season=2025/week=03/fetched_at=2025-09-13T200000Z.parquet",
+        [quote],
+        lines_params(3),
+    )
+    rebuild(lake)
+    game = by_id(staged(lake, "games"))["900000050"]
+    assert game["kickoff_at"] is None
+    assert str(game["game_date"]) == "2025-09-13"
+    assert game["closing_line_missing"] is None
+
+    write(  # just after midnight Eastern: the game is over
+        lake,
+        "raw/cfbd/lines/season=2025/week=03/fetched_at=2025-09-14T041000Z.parquet",
+        [quote],
+        lines_params(3),
+    )
+    rebuild(lake)
+    assert by_id(staged(lake, "games"))["900000050"]["closing_line_missing"] is False

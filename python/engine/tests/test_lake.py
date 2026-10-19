@@ -122,8 +122,9 @@ def _walk_and_replace(lake: LocalLake | S3Lake) -> None:
     assert lake.read("staging/games.parquet") == b"second"
     assert lake.walk("staging") == ["staging/games.parquet"]
     raw = "raw/cfbd/games/season=2025/fetched_at=2025-09-02T120000Z.parquet"
-    with pytest.raises(FileExistsError, match="never overwritten"):
-        lake.replace(raw, b"changed")
+    for spelling in (raw, f"./{raw}", f"staging/../{raw}", raw.replace("/", "\\"), "../x"):
+        with pytest.raises(FileExistsError, match="never overwritten"):
+            lake.replace(spelling, b"changed")
     assert lake.read(raw) == b"r"
 
 
