@@ -1,5 +1,5 @@
 {
-  "_source": "design/sample-data.md §4 and design/handoff/designs/rankings-data.js (team colors). Test DB only (D-089).",
+  "_source": "design/sample-data.md §1 and §4, with team colors from design/handoff/designs/rankings-data.js and this-week-data.js. Test DB only (D-089).",
   "season": 2026,
   "teams": [
     { "source_id": "osu", "school": "Ohio State", "abbreviation": "OSU", "color": "#BB0000", "conference": "Big Ten", "division": "fbs" },
@@ -20,6 +20,16 @@
     { "source_id": "ohio", "school": "Ohio", "abbreviation": "OHIO", "color": "#00694E", "conference": "MAC", "division": "fbs" },
     { "source_id": "rutg", "school": "Rutgers", "abbreviation": "RUTG", "color": "#CC0033", "conference": "Big Ten", "division": "fbs" },
     { "source_id": "minn", "school": "Minnesota", "abbreviation": "MINN", "color": "#7A0019", "conference": "Big Ten", "division": "fbs" },
-    { "source_id": "uw", "school": "Washington", "abbreviation": "UW", "color": "#4B2E83", "conference": "Big Ten", "division": "fbs" }
+    { "source_id": "uw", "school": "Washington", "abbreviation": "UW", "color": "#4B2E83", "conference": "Big Ten", "division": "fbs" },
+    { "source_id": "unlv", "school": "UNLV", "abbreviation": "UNLV", "color": "#CF0A2C", "conference": "Mountain West", "division": "fbs" },
+    { "source_id": "bsu", "school": "Boise State", "abbreviation": "BSU", "color": "#0033A0", "conference": "Pac-12", "division": "fbs" },
+    { "source_id": "iowa", "school": "Iowa", "abbreviation": "IOWA", "color": "#FFCD00", "conference": "Big Ten", "division": "fbs" },
+    { "source_id": "wis", "school": "Wisconsin", "abbreviation": "WIS", "color": "#C5050C", "conference": "Big Ten", "division": "fbs" },
+    { "source_id": "fur", "school": "Furman", "abbreviation": "FUR", "color": "#582C83", "conference": "SoCon", "division": "fcs" },
+    { "source_id": "clem", "school": "Clemson", "abbreviation": "CLEM", "color": "#F56600", "conference": "ACC", "division": "fbs" },
+    { "source_id": "mich", "school": "Michigan", "abbreviation": "MICH", "color": "#00274C", "conference": "Big Ten", "division": "fbs" },
+    { "source_id": "nw", "school": "Northwestern", "abbreviation": "NW", "color": "#4E2A84", "conference": "Big Ten", "division": "fbs" },
+    { "source_id": "colo", "school": "Colorado", "abbreviation": "COLO", "color": "#CFB87C", "conference": "Big 12", "division": "fbs" },
+    { "source_id": "byu", "school": "BYU", "abbreviation": "BYU", "color": "#002E5D", "conference": "Big 12", "division": "fbs" }
   ]
 }

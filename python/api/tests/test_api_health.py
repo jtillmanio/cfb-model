@@ -4,11 +4,14 @@ from collections.abc import Callable
 
 from fastapi.testclient import TestClient
 
+from db.migrate import heads
+
 
 def test_health_reports_commit_db_and_migration_head(client: TestClient):
     # No token: health is the one open route (TASK-004).
     body = client.get("/api/py/health").json()
-    assert body == {"commit": "abc1234", "db_reachable": True, "migration_head": "0001"}
+    # The test DB is migrated to the one head (`pnpm db:check`), whichever migration that is.
+    assert body == {"commit": "abc1234", "db_reachable": True, "migration_head": heads()[0]}
 
 
 def test_teams_returns_the_seeded_fixture_season(
