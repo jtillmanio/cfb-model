@@ -51,7 +51,7 @@ jobs:
           database: cfb_test
 
       # setup-uv publishes exact version tags only (no floating major).
-      - uses: astral-sh/setup-uv@v10.2.0
+      - uses: astral-sh/setup-uv@v10.3.0
         with:
           enable-cache: true
           cache-dependency-glob: python/uv.lock
