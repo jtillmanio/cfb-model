@@ -104,3 +104,46 @@ def test_s3_lake_round_trip_and_refuses_overwrite(monkeypatch: pytest.MonkeyPatc
         lake.write_text("cfbd_calls.json", '{"2025-09": 1}')
         lake.write_text("cfbd_calls.json", '{"2025-09": 2}')
         assert lake.read_text("cfbd_calls.json") == '{"2025-09": 2}'
+
+
+def _walk_and_replace(lake: LocalLake | S3Lake) -> None:
+    lake.write_new("raw/cfbd/games/season=2025/week=01/fetched_at=2025-09-02T120000Z.parquet", b"r")
+    lake.write_new("raw/cfbd/games/season=2025/fetched_at=2025-09-02T120000Z.parquet", b"r")
+    lake.write_new("raw/cfbd/gamesx/season=2025/fetched_at=2025-09-02T120000Z.parquet", b"r")
+    assert lake.walk("raw/cfbd/games") == [
+        "raw/cfbd/games/season=2025/fetched_at=2025-09-02T120000Z.parquet",
+        "raw/cfbd/games/season=2025/week=01/fetched_at=2025-09-02T120000Z.parquet",
+    ]
+    assert lake.walk("staging") == []
+
+    # Staging is derived (D-116): replace overwrites it, but never a raw file.
+    lake.replace("staging/games.parquet", b"first")
+    lake.replace("staging/games.parquet", b"second")
+    assert lake.read("staging/games.parquet") == b"second"
+    assert lake.walk("staging") == ["staging/games.parquet"]
+    raw = "raw/cfbd/games/season=2025/fetched_at=2025-09-02T120000Z.parquet"
+    with pytest.raises(FileExistsError, match="never overwritten"):
+        lake.replace(raw, b"changed")
+    assert lake.read(raw) == b"r"
+
+
+def test_local_lake_walk_and_replace(tmp_path: Path) -> None:
+    _walk_and_replace(LocalLake(tmp_path))
+
+
+def test_s3_lake_walk_and_replace(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("MOTO_S3_CUSTOM_ENDPOINTS", "https://acct.r2.cloudflarestorage.com")
+    with mock_aws():
+        import boto3
+
+        client = boto3.client(
+            "s3",
+            endpoint_url="https://acct.r2.cloudflarestorage.com",
+            region_name="auto",
+            aws_access_key_id="testing",
+            aws_secret_access_key="testing",
+        )
+        client.create_bucket(
+            Bucket="cfb-lake-test", CreateBucketConfiguration={"LocationConstraint": "auto"}
+        )
+        _walk_and_replace(S3Lake(client, "cfb-lake-test", "dev"))

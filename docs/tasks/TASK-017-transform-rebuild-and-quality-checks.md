@@ -1,7 +1,7 @@
 ---
 id: TASK-017
 title: Stage games, teams, venues, calendar and lines with transform --rebuild and data-quality checks
-status: Ready
+status: In progress
 depends_on: [TASK-015]
 size: M
 model: opus
@@ -102,6 +102,8 @@ Found while planning (approved at plan, placed on `docs/plans-2026-10-19`):
 - If the DuckDB wheel doesn't bundle `json`/`icu`, step 1 catches it. The fallback is to decode JSON with pyarrow and convert to Eastern time in Python.
 - The raw lake is loaded into memory. That's fine for these tables; TASK-018's plays may need one season at a time (follow-up 2).
 - A crash between `replace` calls can leave staging mixed. That's acceptable: staging is rebuilt, and publish re-runs the checks.
+
+**Plan revision 1 (2026-10-19, agreed with the owner):** a raw file whose `params` disagree with its key (`year` ≠ `season=`, `week` ≠ `week=`, `seasonType` ≠ the key's season type) is skipped by every staged table, so it neither adds rows nor counts as `/lines` coverage, and the DQ report lists each skipped key as a note (`raw_files`). The keys persist in a seventh staged table, `staging/skipped_raw.parquet` (`key`, `reason`), so `engine check` can report them without reading raw. The local lake has one: `lines/season=2025/week=01/fetched_at=2025-09-02T120000Z.parquet` holds 2019 lines, pulled through `--param year=2019` before D-114. Test: `test_mismatched_raw_file_is_skipped`.
 
 **Size check:** 12 files, data layer plus its docs, no schema or UI: M, passes.
 

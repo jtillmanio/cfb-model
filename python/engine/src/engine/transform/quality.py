@@ -1,0 +1,163 @@
+"""Data-quality checks on `staging/` (docs/03-data-model.md › Data quality checks, D-116).
+
+`run(lake)` loads the staged tables and runs every check in `CHECKS`. A check returns failures
+(each names the offending game's `source_id`) and notes (listed, never failing). Publishing
+(TASK-020) calls `run` and refuses when `not report.ok`, so nothing partial reaches Postgres.
+"""
+
+from __future__ import annotations
+
+import io
+from collections.abc import Callable
+from dataclasses import dataclass, field
+from typing import TYPE_CHECKING
+
+from engine.ingest.lake import Lake
+from engine.transform import TABLES, staging_key
+from engine.transform.staging import connect
+
+if TYPE_CHECKING:
+    import duckdb
+
+# The backtest seasons (docs/04-model.md § 9.1): each FBS-vs-FBS game in them needs a closing
+# line, or a mark saying none exists.
+BACKTEST_SEASONS = (2014, 2025)
+
+
+class StagingMissingError(RuntimeError):
+    pass
+
+
+@dataclass(frozen=True)
+class Finding:
+    failures: list[str] = field(default_factory=list)
+    notes: list[str] = field(default_factory=list)
+
+
+@dataclass(frozen=True)
+class Check:
+    name: str
+    description: str
+    run: Callable[[duckdb.DuckDBPyConnection], Finding]
+
+
+@dataclass
+class Report:
+    results: list[tuple[Check, Finding]] = field(default_factory=list)
+
+    @property
+    def failures(self) -> dict[str, list[str]]:
+        return {c.name: f.failures for c, f in self.results if f.failures}
+
+    @property
+    def notes(self) -> dict[str, list[str]]:
+        return {c.name: f.notes for c, f in self.results if f.notes}
+
+    @property
+    def ok(self) -> bool:
+        return not self.failures
+
+    def render(self) -> str:
+        failed = len(self.failures)
+        lines = [f"Data quality: {len(self.results) - failed} passed, {failed} failed."]
+        for check, finding in self.results:
+            status = "FAIL" if finding.failures else "PASS"
+            lines.append(f"{status} {check.name}: {check.description}")
+            lines += [f"  {item}" for item in finding.failures]
+            if finding.notes:
+                lines.append(f"  notes ({len(finding.notes)}):")
+                lines += [f"    {item}" for item in finding.notes]
+        return "\n".join(lines)
+
+
+def _rows(con: duckdb.DuckDBPyConnection, sql: str) -> list[str]:
+    return [row[0] for row in con.execute(sql).fetchall()]
+
+
+def _game(prefix: str = "") -> str:
+    return (
+        f"{prefix}source_id || ' (' || {prefix}season || ' ' || {prefix}season_type || "
+        f"' week ' || {prefix}week || ', ' || {prefix}away_source_id || ' at ' || "
+        f"{prefix}home_source_id || ')'"
+    )
+
+
+def final_has_score(con: duckdb.DuckDBPyConnection) -> Finding:
+    return Finding(
+        _rows(
+            con,
+            f"""SELECT {_game()} FROM games
+            WHERE status = 'final' AND (home_points IS NULL OR away_points IS NULL)
+            ORDER BY source_id""",
+        )
+    )
+
+
+def no_duplicate_games(con: duckdb.DuckDBPyConnection) -> Finding:
+    """Same two teams (either way round) on the same Eastern date."""
+    return Finding(
+        _rows(
+            con,
+            """SELECT string_agg(source_id, ', ' ORDER BY source_id) || ': teams '
+                || least(home_source_id, away_source_id) || ' and '
+                || greatest(home_source_id, away_source_id) || ' on ' || game_date
+            FROM games
+            GROUP BY least(home_source_id, away_source_id),
+                greatest(home_source_id, away_source_id), game_date
+            HAVING count(*) > 1
+            ORDER BY 1""",
+        )
+    )
+
+
+def closing_line(con: duckdb.DuckDBPyConnection) -> Finding:
+    """A final FBS-vs-FBS game in a backtest season needs `closing_line_missing` set: false
+    (a post-kickoff pull quotes a spread) or true (one covers it and quotes none, listed as a
+    note). NULL means /lines was never pulled after kickoff for it, which fails."""
+    first, last = BACKTEST_SEASONS
+    scope = f"""FROM games WHERE status = 'final' AND season BETWEEN {first} AND {last}
+        AND home_classification = 'fbs' AND away_classification = 'fbs'"""
+    return Finding(
+        failures=_rows(
+            con,
+            f"SELECT {_game()} {scope} AND closing_line_missing IS NULL ORDER BY source_id",
+        ),
+        notes=_rows(
+            con,
+            f"SELECT {_game()} || ': no closing line from any provider' {scope} "
+            "AND closing_line_missing ORDER BY source_id",
+        ),
+    )
+
+
+def raw_files(con: duckdb.DuckDBPyConnection) -> Finding:
+    return Finding(notes=_rows(con, "SELECT key || ': ' || reason FROM skipped_raw ORDER BY key"))
+
+
+CHECKS: list[Check] = [
+    Check("final_has_score", "every final game has both scores", final_has_score),
+    Check("no_duplicate_games", "no two games with the same teams on one date", no_duplicate_games),
+    Check(
+        "closing_line",
+        f"every final FBS-vs-FBS game in {BACKTEST_SEASONS[0]}-{BACKTEST_SEASONS[1]} has a "
+        "closing line or is marked as missing one",
+        closing_line,
+    ),
+    Check("raw_files", "raw files skipped because their params don't match their key", raw_files),
+]
+
+
+def run(lake: Lake) -> Report:
+    """Run every check on the staged tables in `lake`."""
+    import pyarrow.parquet as pq
+
+    present = set(lake.walk("staging"))
+    missing = [staging_key(n) for n in TABLES if staging_key(n) not in present]
+    if missing:
+        raise StagingMissingError(
+            f"{', '.join(missing)} not found: run `engine transform --rebuild` first."
+        )
+    con = connect()
+    for name in TABLES:
+        con.register(name, pq.read_table(io.BytesIO(lake.read(staging_key(name)))))
+    return Report([(check, check.run(con)) for check in CHECKS])
