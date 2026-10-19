@@ -1,4 +1,5 @@
-"""The raw lake: every API response saved exactly as fetched, append-only (D-027, D-112).
+"""The lake: `raw/`, every API response saved exactly as fetched and append-only (D-027, D-112),
+and `staging/`, derived from raw and overwritten by `engine transform --rebuild` (D-116).
 
 `LAKE_URI` picks where it lives: unset or a path is a local folder (default ./data at the repo
 root); `s3://<bucket>[/<prefix>]` is the Cloudflare R2 bucket, through R2's S3 API. Keys are
@@ -15,6 +16,7 @@ from __future__ import annotations
 import io
 import json
 import os
+import posixpath
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Protocol
@@ -42,9 +44,25 @@ class Lake(Protocol):
         """Overwrite a small text object. Only the call ledger uses it."""
         ...
 
+    def walk(self, prefix: str) -> list[str]:
+        """Keys of every file below `prefix`, at any depth, sorted."""
+        ...
+
+    def replace(self, key: str, data: bytes) -> None:
+        """Overwrite a derived file in one step. Refuses `raw/` keys."""
+        ...
+
 
 def _never_overwritten(key: str) -> FileExistsError:
     return FileExistsError(f"Raw files are never overwritten: {key}")
+
+
+def _refuse_raw(key: str) -> None:
+    """Refuse a key that resolves to raw (`./raw/…`, `staging/../raw/…`), climbs out of the
+    lake, or holds a backslash (Windows would read it as a separator)."""
+    normal = posixpath.normpath(key.replace("\\", "/")).lstrip("/")
+    if "\\" in key or normal == "raw" or normal.startswith(("raw/", "../")):
+        raise _never_overwritten(key)
 
 
 class LocalLake:
@@ -86,6 +104,21 @@ class LocalLake:
     def write_text(self, key: str, text: str) -> None:
         path = self.root / key
         os.replace(self._temp(path, text.encode("utf-8")), path)
+
+    def walk(self, prefix: str) -> list[str]:
+        path = self.root / prefix
+        if not path.is_dir():
+            return []
+        return sorted(
+            p.relative_to(self.root).as_posix()
+            for p in path.rglob("*")
+            if p.is_file() and not p.name.startswith(".")  # skip a crashed write's temp file
+        )
+
+    def replace(self, key: str, data: bytes) -> None:
+        _refuse_raw(key)
+        path = self.root / key
+        os.replace(self._temp(path, data), path)
 
 
 class S3Lake:
@@ -134,6 +167,20 @@ class S3Lake:
 
     def write_text(self, key: str, text: str) -> None:
         self.client.put_object(Bucket=self.bucket, Key=self._key(key), Body=text.encode("utf-8"))
+
+    def walk(self, prefix: str) -> list[str]:
+        keys: list[str] = []
+        pages = self.client.get_paginator("list_objects_v2").paginate(
+            Bucket=self.bucket, Prefix=f"{self._key(prefix)}/"
+        )
+        for page in pages:
+            keys += [obj["Key"] for obj in page.get("Contents", [])]
+        strip = len(self.prefix) + 1 if self.prefix else 0
+        return sorted(k[strip:] for k in keys)
+
+    def replace(self, key: str, data: bytes) -> None:
+        _refuse_raw(key)  # an object PUT replaces the whole object, so it's one step
+        self.client.put_object(Bucket=self.bucket, Key=self._key(key), Body=data)
 
 
 def _required_env(name: str) -> str:

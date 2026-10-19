@@ -73,6 +73,20 @@ backups/    # nightly verified pg_dumps of the serving DB
 
 **Raw files** (TASK-015, D-112, D-114): each pull is one Parquet file with one row per top-level record of the response. The columns are `row` (the record's position), `record` (the record as JSON text), `params` (the query sent, as JSON text) and `fetched_at` (UTC). Reading `record` back in `row` order gives exactly what the API returned, and an empty response is a zero-row file. Partitions are `season=Y[/season_type=postseason][/week=NN]`: regular-season files add no `season_type` level. `{endpoint}` is the endpoint's name in the registry, `python/engine/src/engine/ingest/endpoints.py` (e.g. `games_teams` for `/games/teams`). A week's file counts as final, and is never fetched again, only when it isn't empty and was saved after a `/games` file showed every game of that week completed. The CFBD call ledger, `cfbd_calls.json`, sits at the lake root beside `raw/`, so it moves to R2 with the lake.
 
+**Staged tables** (TASK-017, D-116): `engine transform --rebuild` rebuilds every table from `raw/` with no API calls, then runs the data-quality checks; `engine check` runs the checks alone. Each table is one file, `staging/<table>.parquet`, overwritten on every rebuild (staging is derived; raw never is). An entity's row comes from its record in the newest pull (`fetched_at`) across the endpoint's week and season files; a raw file whose `params` disagree with its key is skipped and listed in `skipped_raw`. The registry is `engine/transform/__init__.py` › `TABLES`.
+
+| Table | One row per | Columns |
+|---|---|---|
+| `games` | CFBD game (`/games`) | `source_id`, `season`, `week`, `season_type`, `game_date` (Eastern), `kickoff_at` (NULL when TBA), `neutral_site`, `conference_game`, `venue_source_id`, `home_source_id`, `away_source_id`, `home_points`, `away_points`, `status` (`final`/`scheduled`), `home_classification`, `away_classification`, `fetched_at`, `closing_line_missing` |
+| `teams` | team (`/teams`, else `/games`) | `source_id`, `school`, `mascot`, `abbreviation`, `color`, `alt_color`, `logo_url`, `fetched_at` |
+| `team_seasons` | team and season | `team_source_id`, `season`, `conference`, `classification` (fbs/fcs: Postgres `team_seasons.division`), `cfbd_division` (CFBD's own, e.g. East/West), `fetched_at` |
+| `venues` | venue (`/venues`, else `/games`) | `source_id`, `name`, `city`, `state`, `lat`, `lon`, `elevation` (CFBD's value; unit unconfirmed), `dome`, `grass`, `timezone`, `capacity`, `fetched_at` |
+| `calendar` | season, season type and week (`/calendar`) | `season`, `season_type`, `week`, `start_at`, `end_at`, `first_game_start`, `last_game_start`, `fetched_at` |
+| `lines` | game, provider and pull (`/lines`; every pull is kept) | `game_source_id`, `provider`, `fetched_at`, `spread_home`, `spread_home_open`, `total`, `total_open`, `ml_home`, `ml_away` |
+| `skipped_raw` | raw file left out | `key`, `reason` |
+
+`lines` keeps only games in staged `games`: CFBD's `/lines` takes no `classification`, so a week's pull includes games with no FBS team, and the rebuild prints how many rows it dropped. `games.closing_line_missing` is `false` when a non-empty `/lines` pull fetched after kickoff quotes a spread for the game, `true` when such a pull covers the game's season and week but quotes none, and NULL when no post-kickoff pull covers it. An empty pull isn't coverage (CFBD can answer empty just after the games, D-114), and a TBA kickoff counts as the end of its Eastern `game_date`. The flag is a staging fact for the check, not a Postgres column (hard rule 1).
+
 DuckDB SQL builds `staging/` and `features/` from `raw/`, so it's fully reproducible. The point-in-time rule is enforced in `features/`: a `team_week_features` row for week N aggregates only games with `week < N` (or kickoff before `as_of`).
 
 ## Serving database (Postgres) schema
@@ -219,8 +233,10 @@ Phase 6 ([04-model.md §7](04-model.md)) will need a way to mark a rating as *pr
 About 3,800 games/season including FCS × 13 seasons comes to roughly 50k games. Line snapshots run around 10 per game, so ~500k rows. Ratings: ~260 teams × 17 weeks × 13 seasons × a few model versions ≈ 200k rows. Altogether that's **well under 100 MB**, comfortably inside Neon's 0.5 GB. Lab experiments add more ratings and predictions, so we'll prune old `dev`-status backtest runs if needed.
 
 ## Data quality checks (run after each ingest)
-- Every final game has scores, and every FBS game has advanced stats.
-- Every FBS-vs-FBS game in a backtest season has a closing line, or is explicitly flagged as missing.
-- No duplicate games (same teams, same date).
+`engine check` (and `engine transform --rebuild`, after staging) runs the checks built so far (`engine/transform/quality.py` › `CHECKS`, D-116). It prints each failure with the offending game's `source_id` and each note, and exits 1 when any check fails; publishing refuses on a failed report.
+- Every final game has scores (`final_has_score`), and every FBS game has advanced stats (TASK-018).
+- Every final FBS-vs-FBS game in a backtest season (2014–2025) has a closing line, or is explicitly flagged as missing (`closing_line`: `closing_line_missing` true is listed as a note, NULL fails).
+- No duplicate games: the same two teams, either way round, on the same Eastern date (`no_duplicate_games`).
+- Raw files skipped because their `params` don't match their key are listed as notes (`raw_files`).
 - Team mapping coverage: 100% of non-CFBD names (Splash, Odds API) resolve to a team.
 - Feature tables pass the "no future data" assertion: max source game time < `as_of`.

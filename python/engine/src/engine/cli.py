@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import argparse
+import sys
+from typing import NoReturn
 
-from db.config import direct_url, load_env
+from db.config import UnsafeDatabaseError, direct_url, load_env
 from engine.ingest.endpoints import ENDPOINTS, SEASON_TYPES, query
 
 
@@ -16,6 +18,26 @@ def _extra_params(parser: argparse.ArgumentParser, pairs: list[str]) -> dict[str
             parser.error(f"--param takes NAME=VALUE, not {pair!r}")
         extra[name] = value
     return extra
+
+
+def _refuse(message: str) -> NoReturn:
+    """A refusal or a missing prerequisite: exit 2, so it isn't read as a failed check (1)."""
+    print(f"error: {message}", file=sys.stderr)
+    sys.exit(2)
+
+
+def _quality() -> None:
+    """Run the data-quality checks on staging/ and exit 1 if any fails."""
+    from engine.ingest.lake import open_lake
+    from engine.transform import quality
+
+    try:
+        report = quality.run(open_lake())
+    except quality.StagingMissingError as e:
+        _refuse(str(e))
+    print(report.render())
+    if not report.ok:
+        sys.exit(1)
 
 
 def main(argv: list[str] | None = None) -> None:
@@ -38,6 +60,22 @@ def main(argv: list[str] | None = None) -> None:
         default=[],
         metavar="NAME=VALUE",
         help="Another CFBD query param, e.g. --param down=1 for ppa_predicted",
+    )
+
+    transform = commands.add_parser(
+        "transform",
+        help="Rebuild staging/ from raw/ with no API calls, then run the data-quality checks",
+        description="Recreates every staged table in LAKE_URI from its raw files alone, then runs "
+        "the checks. Exits 1 if a check fails, 2 if it refuses (LIVE=true).",
+    )
+    transform.add_argument(
+        "--rebuild", action="store_true", required=True, help="Rebuild every staged table"
+    )
+
+    commands.add_parser(
+        "check",
+        help="Run the data-quality checks on staging/",
+        description="Exits 1 if a check fails, 2 if staging/ hasn't been built.",
     )
 
     seed = commands.add_parser("seed", help="Load seed data into the test DB")
@@ -63,6 +101,19 @@ def main(argv: list[str] | None = None) -> None:
             endpoints.pull(
                 open_lake(), args.endpoint, args.season, args.week, args.season_type, extra
             )
+    elif args.command == "transform":
+        load_env()  # before the LIVE check, so a LIVE in .env.local counts
+        from engine.ingest.lake import open_lake
+        from engine.transform import rebuild
+
+        try:
+            rebuild(open_lake())
+        except UnsafeDatabaseError as e:
+            _refuse(str(e))
+        _quality()
+    elif args.command == "check":
+        load_env()
+        _quality()
     elif args.command == "seed":
         load_env()
         from engine.fixture import seed_fixture
