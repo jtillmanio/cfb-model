@@ -71,7 +71,7 @@ features/   # model-ready, point-in-time-safe tables
 backups/    # nightly verified pg_dumps of the serving DB
 ```
 
-**Raw files** (planned: TASK-015, D-112): each pull is one Parquet file with one row per top-level record of the response. The columns are `row` (the record's position), `record` (the record as JSON text), `params` (the query sent, as JSON text) and `fetched_at` (UTC). Reading `record` back in `row` order gives exactly what the API returned, and an empty response is a zero-row file. Partitions are `season=Y[/season_type=postseason][/week=NN]`: regular-season files add no `season_type` level. The CFBD call ledger, `cfbd_calls.json`, sits at the lake root beside `raw/`, so it moves to R2 with the lake.
+**Raw files** (TASK-015, D-112, D-114): each pull is one Parquet file with one row per top-level record of the response. The columns are `row` (the record's position), `record` (the record as JSON text), `params` (the query sent, as JSON text) and `fetched_at` (UTC). Reading `record` back in `row` order gives exactly what the API returned, and an empty response is a zero-row file. Partitions are `season=Y[/season_type=postseason][/week=NN]`: regular-season files add no `season_type` level. `{endpoint}` is the endpoint's name in the registry, `python/engine/src/engine/ingest/endpoints.py` (e.g. `games_teams` for `/games/teams`). A week's file counts as final, and is never fetched again, only when it isn't empty and was saved after a `/games` file showed every game of that week completed. The CFBD call ledger, `cfbd_calls.json`, sits at the lake root beside `raw/`, so it moves to R2 with the lake.
 
 DuckDB SQL builds `staging/` and `features/` from `raw/`, so it's fully reproducible. The point-in-time rule is enforced in `features/`: a `team_week_features` row for week N aggregates only games with `week < N` (or kickoff before `as_of`).
 
@@ -107,13 +107,13 @@ erDiagram
 ### Reference
 **sports**: `id text PK ('cfb','nfl')`, `name`
 
-**seasons**: `sport_id`, `year`, `start_date`, `end_date`, `current_week`, `weeks jsonb` (calendar) · PK `(sport_id, year)`
+**seasons**: `sport_id`, `year`, `source`, `start_date`, `end_date`, `current_week NULL`, `weeks jsonb`, `updated_at` · PK `(sport_id, year)` · CHECK `weeks` is an array, `end_date >= start_date`. `weeks` is CFBD `/calendar` as `[{"week": 6, "season_type": "regular", "start": "<UTC ISO>", "end": "<UTC ISO>"}, …]` (TASK-016).
 
 **teams**: `id PK`, `sport_id`, `source`, `source_id`, `school`, `mascot`, `abbreviation`, `color`, `alt_color`, `logo_url` · UQ `(sport_id, source, source_id)`
 
 **team_seasons**: `team_id`, `season`, `conference`, `division` (`fbs`/`fcs`/…), `talent`, `returning_ppa_pct` · PK `(team_id, season)`. *Conference realignment means conference is a per-season fact, not a team attribute.*
 
-**team_aliases**: `team_id`, `source`, `alias` · UQ `(source, alias)`
+**team_aliases**: `id PK`, `team_id`, `source` (whose spelling: `cfbd`, `splash`, `manual`, `fixture`, …; no CHECK, since each new platform adds one), `alias` · UQ `(source, alias)` · IDX `(team_id)`
 
 **venues**: `id PK`, `source`, `source_id`, `name`, `city`, `state`, `lat`, `lon`, `elevation_m`, `dome bool`, `grass bool`, `timezone`, `capacity`
 
@@ -121,11 +121,12 @@ erDiagram
 **games**: `id PK`, `sport_id`, `source`, `source_id`, `season`, `week`, `season_type`, `game_date date NOT NULL`, `kickoff_at timestamptz NULL`, `neutral_site`, `conference_game`, `venue_id`, `home_team_id`, `away_team_id`, `home_points`, `away_points`, `status` (`scheduled|in_progress|final|canceled|postponed`), `updated_at`
 UQ `(sport_id, source, source_id)` · IDX `(sport_id, season, week)` · CHECK final ⇒ points not null
 
-**sportsbooks**: `id PK`, `key` (`consensus`, `draftkings`, …), `name`
+**sportsbooks**: `id PK`, `source`, `source_id` (the provider as that source writes it, e.g. CFBD's `consensus`, `DraftKings`), `name` · UQ `(source, source_id)`. Matching one book across sources waits for a second line source (TASK-016).
 
-**line_snapshots**: append-only price history
-`id PK`, `game_id`, `book_id`, `source` (`cfbd|oddsapi|manual`), `captured_at`, `spread_home`, `spread_home_price`, `spread_away_price`, `total`, `over_price`, `under_price`, `ml_home`, `ml_away`, `is_opening bool`
-IDX `(game_id, captured_at)`
+**line_snapshots**: append-only price history (D-037, D-115)
+`id PK`, `game_id`, `book_id`, `source` (`cfbd|oddsapi|manual|fixture`), `kind` (`opening|closing|snapshot`), `captured_at timestamptz NULL`, `spread_home numeric(4,1)`, `total numeric(4,1)`, `spread_home_price`, `spread_away_price`, `over_price`, `under_price`, `ml_home`, `ml_away` (prices are `int`; any of them NULL when not quoted)
+UQ `(game_id, book_id, source, kind, captured_at)` NULLS NOT DISTINCT · IDX `(game_id, captured_at)` · CHECK `kind = 'snapshot'` ⇒ `captured_at` not null · triggers refuse UPDATE, DELETE and TRUNCATE
+*CFBD's historical open and close are `opening` and `closing` rows with `captured_at` NULL, because CFBD doesn't say when either was quoted (D-031). A live pull writes its current spread as a `snapshot` at the raw file's `fetched_at`, and its open as one `opening` row, which the key keeps to one. Re-publishing a raw file inserts nothing (`ON CONFLICT DO NOTHING` on the key).*
 
 ### Models & outputs
 **model_versions**: `id PK`, `sport_id`, `name` (`power-v1`, or your own name), `version`, `description`, `spec jsonb` (a validated `ModelSpec`: inputs, hyperparameters, fixed-or-fitted weights, pick rules), `spec_schema_version`, `parent_version_id NULL` (cloned from), `created_by` (`system|user`), `code_sha`, `status` (`dev|candidate|production|retired`), `created_at`, `deleted_at`

@@ -4,12 +4,15 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import httpx
 
 from engine.clock import now
+from engine.ingest.lake import LEDGER_KEY
+
+if TYPE_CHECKING:
+    from engine.ingest.lake import Lake
 
 BASE_URL = "https://api.collegefootballdata.com"
 MONTHLY_LIMIT = 5000
@@ -21,16 +24,17 @@ class BudgetExceededError(RuntimeError):
 
 
 class CallBudget:
-    """Calls per calendar month (UTC), kept in a small JSON file next to the lake."""
+    """Calls per calendar month (UTC), kept in `cfbd_calls.json` at the lake root, so the ledger
+    lives wherever the lake does: a local file, or an object in R2 that every scheduled run
+    shares (D-112)."""
 
-    def __init__(self, path: Path, limit: int = MONTHLY_LIMIT) -> None:
-        self.path = path
+    def __init__(self, lake: Lake, limit: int = MONTHLY_LIMIT) -> None:
+        self.lake = lake
         self.limit = limit
 
     def _load(self) -> dict[str, int]:
-        if not self.path.is_file():
-            return {}
-        return json.loads(self.path.read_text(encoding="utf-8"))
+        text = self.lake.read_text(LEDGER_KEY)
+        return json.loads(text) if text else {}
 
     def used(self) -> int:
         return self._load().get(now().strftime("%Y-%m"), 0)
@@ -42,8 +46,7 @@ class CallBudget:
         if used >= self.limit:
             raise BudgetExceededError(f"CFBD budget spent: {used}/{self.limit} calls in {month}.")
         counts[month] = used + 1
-        self.path.parent.mkdir(parents=True, exist_ok=True)
-        self.path.write_text(json.dumps(counts, indent=2), encoding="utf-8")
+        self.lake.write_text(LEDGER_KEY, json.dumps(counts, indent=2))
         if counts[month] >= self.limit * WARN_FRACTION:
             print(f"Warning: CFBD calls this month {counts[month]}/{self.limit}.")
         return counts[month]

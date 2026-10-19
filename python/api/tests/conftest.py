@@ -16,7 +16,7 @@ MakeToken = Callable[..., str]
 
 def make_token(
     *,
-    secret: str | None = TEST_SECRET,
+    secret: str = TEST_SECRET,
     algorithm: str = "HS256",
     drop: tuple[str, ...] = (),
     **claims: Any,

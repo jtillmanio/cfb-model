@@ -1,0 +1,85 @@
+{
+  "_source": "design/sample-data.md §1 (the 11 Week 6 slate rows: statuses, scores, opened and market lines), §2 (Texas vs Oklahoma line movement) and the BYU alert (Wed 7:04 PM). spread_home is from the home team's side (negative = home favored). Kickoffs and capture times are Eastern converted to UTC; the opener is captured Sun 6:00 AM ET and the current line Thu 9:02 PM ET ('Updated Thu 9:02 PM ET'). Snapshot times are invented for the fixture (TASK-016). Test DB only (D-089).",
+  "season": {
+    "year": 2026,
+    "current_week": 6,
+    "start_date": "2026-08-30",
+    "end_date": "2026-12-19",
+    "weeks": [
+      {"week": 1, "season_type": "regular", "start": "2026-08-30T04:00:00Z", "end": "2026-09-06T03:59:59Z"},
+      {"week": 2, "season_type": "regular", "start": "2026-09-06T04:00:00Z", "end": "2026-09-13T03:59:59Z"},
+      {"week": 3, "season_type": "regular", "start": "2026-09-13T04:00:00Z", "end": "2026-09-20T03:59:59Z"},
+      {"week": 4, "season_type": "regular", "start": "2026-09-20T04:00:00Z", "end": "2026-09-27T03:59:59Z"},
+      {"week": 5, "season_type": "regular", "start": "2026-09-27T04:00:00Z", "end": "2026-10-04T03:59:59Z"},
+      {"week": 6, "season_type": "regular", "start": "2026-10-04T04:00:00Z", "end": "2026-10-11T03:59:59Z"},
+      {"week": 7, "season_type": "regular", "start": "2026-10-11T04:00:00Z", "end": "2026-10-18T03:59:59Z"},
+      {"week": 8, "season_type": "regular", "start": "2026-10-18T04:00:00Z", "end": "2026-10-25T03:59:59Z"},
+      {"week": 9, "season_type": "regular", "start": "2026-10-25T04:00:00Z", "end": "2026-11-01T03:59:59Z"},
+      {"week": 10, "season_type": "regular", "start": "2026-11-01T04:00:00Z", "end": "2026-11-08T04:59:59Z"},
+      {"week": 11, "season_type": "regular", "start": "2026-11-08T05:00:00Z", "end": "2026-11-15T04:59:59Z"},
+      {"week": 12, "season_type": "regular", "start": "2026-11-15T05:00:00Z", "end": "2026-11-22T04:59:59Z"},
+      {"week": 13, "season_type": "regular", "start": "2026-11-22T05:00:00Z", "end": "2026-11-29T04:59:59Z"},
+      {"week": 14, "season_type": "regular", "start": "2026-11-29T05:00:00Z", "end": "2026-12-06T04:59:59Z"},
+      {"week": 15, "season_type": "regular", "start": "2026-12-06T05:00:00Z", "end": "2026-12-13T04:59:59Z"},
+      {"week": 1, "season_type": "postseason", "start": "2026-12-13T05:00:00Z", "end": "2026-12-20T04:59:59Z"}
+    ]
+  },
+  "sportsbooks": [{"source_id": "consensus", "name": "Consensus"}],
+  "venues": [{"source_id": "cotton-bowl", "name": "Cotton Bowl", "city": "Dallas", "state": "TX", "timezone": "America/Chicago", "dome": false}],
+  "games": [
+    { "source_id": "2026-w6-unlv-bsu", "game_date": "2026-10-09", "kickoff_at": "2026-10-10T00:00:00Z", "neutral_site": false, "conference_game": false, "venue": null, "away": "unlv", "home": "bsu", "away_points": 24, "home_points": 31, "status": "final", "lines": [
+        {"kind": "opening", "captured_at": null, "spread_home": -9.5},
+        {"kind": "snapshot", "captured_at": "2026-10-04T10:00:00Z", "spread_home": -9.5},
+        {"kind": "snapshot", "captured_at": "2026-10-09T01:02:00Z", "spread_home": -10}
+      ] },
+    { "source_id": "2026-w6-pur-osu", "game_date": "2026-10-10", "kickoff_at": "2026-10-10T16:00:00Z", "neutral_site": false, "conference_game": true, "venue": null, "away": "pur", "home": "osu", "away_points": 3, "home_points": 24, "status": "in_progress", "lines": [
+        {"kind": "opening", "captured_at": null, "spread_home": -28},
+        {"kind": "snapshot", "captured_at": "2026-10-04T10:00:00Z", "spread_home": -28},
+        {"kind": "snapshot", "captured_at": "2026-10-09T01:02:00Z", "spread_home": -27.5}
+      ] },
+    { "source_id": "2026-w6-iowa-wis", "game_date": "2026-10-10", "kickoff_at": "2026-10-10T16:00:00Z", "neutral_site": false, "conference_game": true, "venue": null, "away": "iowa", "home": "wis", "away_points": 10, "home_points": 7, "status": "in_progress", "lines": [
+        {"kind": "opening", "captured_at": null, "spread_home": -2.5},
+        {"kind": "snapshot", "captured_at": "2026-10-04T10:00:00Z", "spread_home": -2.5},
+        {"kind": "snapshot", "captured_at": "2026-10-09T01:02:00Z", "spread_home": -1.5}
+      ] },
+    { "source_id": "2026-w6-fur-clem", "game_date": "2026-10-10", "kickoff_at": "2026-10-10T16:00:00Z", "neutral_site": false, "conference_game": false, "venue": null, "away": "fur", "home": "clem", "away_points": null, "home_points": null, "status": "scheduled", "lines": [] },
+    { "source_id": "2026-w6-miss-lsu", "game_date": "2026-10-10", "kickoff_at": "2026-10-10T19:30:00Z", "neutral_site": false, "conference_game": true, "venue": null, "away": "miss", "home": "lsu", "away_points": null, "home_points": null, "status": "scheduled", "lines": [
+        {"kind": "opening", "captured_at": null, "spread_home": -2.5},
+        {"kind": "snapshot", "captured_at": "2026-10-04T10:00:00Z", "spread_home": -2.5},
+        {"kind": "snapshot", "captured_at": "2026-10-09T01:02:00Z", "spread_home": -3.5}
+      ] },
+    { "source_id": "2026-w6-nd-stan", "game_date": "2026-10-10", "kickoff_at": "2026-10-10T19:30:00Z", "neutral_site": false, "conference_game": false, "venue": null, "away": "nd", "home": "stan", "away_points": null, "home_points": null, "status": "scheduled", "lines": [
+        {"kind": "opening", "captured_at": null, "spread_home": 16.5},
+        {"kind": "snapshot", "captured_at": "2026-10-04T10:00:00Z", "spread_home": 16.5},
+        {"kind": "snapshot", "captured_at": "2026-10-09T01:02:00Z", "spread_home": 17}
+      ] },
+    { "source_id": "2026-w6-mich-nw", "game_date": "2026-10-10", "kickoff_at": "2026-10-10T19:30:00Z", "neutral_site": false, "conference_game": true, "venue": null, "away": "mich", "home": "nw", "away_points": null, "home_points": null, "status": "scheduled", "lines": [
+        {"kind": "opening", "captured_at": null, "spread_home": 9},
+        {"kind": "snapshot", "captured_at": "2026-10-04T10:00:00Z", "spread_home": 9},
+        {"kind": "snapshot", "captured_at": "2026-10-09T01:02:00Z", "spread_home": 9}
+      ] },
+    { "source_id": "2026-w6-ksu-utah", "game_date": "2026-10-10", "kickoff_at": "2026-10-10T23:00:00Z", "neutral_site": false, "conference_game": true, "venue": null, "away": "ksu", "home": "utah", "away_points": null, "home_points": null, "status": "scheduled", "lines": [
+        {"kind": "opening", "captured_at": null, "spread_home": -3.5},
+        {"kind": "snapshot", "captured_at": "2026-10-04T10:00:00Z", "spread_home": -3.5},
+        {"kind": "snapshot", "captured_at": "2026-10-09T01:02:00Z", "spread_home": -4}
+      ] },
+    { "source_id": "2026-w6-tex-ou", "game_date": "2026-10-10", "kickoff_at": "2026-10-10T23:30:00Z", "neutral_site": true, "conference_game": true, "venue": "cotton-bowl", "away": "tex", "home": "ou", "away_points": null, "home_points": null, "status": "scheduled", "lines": [
+        {"kind": "opening", "captured_at": null, "spread_home": 7},
+        {"kind": "snapshot", "captured_at": "2026-10-04T10:00:00Z", "spread_home": 7},
+        {"kind": "snapshot", "captured_at": "2026-10-06T16:00:00Z", "spread_home": 6.5},
+        {"kind": "snapshot", "captured_at": "2026-10-09T01:02:00Z", "spread_home": 6},
+        {"kind": "snapshot", "captured_at": "2026-10-10T13:00:00Z", "spread_home": 6.5}
+      ] },
+    { "source_id": "2026-w6-uk-uga", "game_date": "2026-10-10", "kickoff_at": "2026-10-10T23:30:00Z", "neutral_site": false, "conference_game": true, "venue": null, "away": "uk", "home": "uga", "away_points": null, "home_points": null, "status": "scheduled", "lines": [
+        {"kind": "opening", "captured_at": null, "spread_home": -22.5},
+        {"kind": "snapshot", "captured_at": "2026-10-04T10:00:00Z", "spread_home": -22.5},
+        {"kind": "snapshot", "captured_at": "2026-10-09T01:02:00Z", "spread_home": -21}
+      ] },
+    { "source_id": "2026-w6-colo-byu", "game_date": "2026-10-10", "kickoff_at": "2026-10-11T02:30:00Z", "neutral_site": false, "conference_game": true, "venue": null, "away": "colo", "home": "byu", "away_points": null, "home_points": null, "status": "scheduled", "lines": [
+        {"kind": "opening", "captured_at": null, "spread_home": -7},
+        {"kind": "snapshot", "captured_at": "2026-10-04T10:00:00Z", "spread_home": -7},
+        {"kind": "snapshot", "captured_at": "2026-10-07T23:04:00Z", "spread_home": -6},
+        {"kind": "snapshot", "captured_at": "2026-10-09T01:02:00Z", "spread_home": -6}
+      ] }
+  ]
+}
