@@ -29,6 +29,6 @@ Right after `gh pr create` (and the link commit), run `gh pr ready <n>`. Don't h
 
 ## Size check limits
 
-Phase 1's size check uses this project's limits, set in `.claude/project/new-task.md` › Size limits. A task fails it at more than 12 files (not 8), or with schema and UI together.
+Phase 1's size check uses this project's limits, set in `.claude/project/new-task.md` › Size limits. A task fails it at more than 20 files (not 8), or with schema and UI together.
 
-- **Why:** 8 files forced splits that only separated code from its doc edits (owner's instruction, 2026-10-16).
+- **Why:** 8 files forced splits that only separated code from its doc edits (owner's instruction, 2026-10-16; raised from 12 to 20 on 2026-10-19).
