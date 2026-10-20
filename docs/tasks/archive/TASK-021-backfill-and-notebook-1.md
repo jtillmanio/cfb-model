@@ -1,7 +1,7 @@
 ---
 id: TASK-021
 title: Backfill 2014–2025 and 2026 to date, then explore it in notebook #1
-status: Ready
+status: Done
 depends_on: [TASK-015, TASK-017, TASK-018, TASK-020]
 size: M
 model: opus
@@ -34,11 +34,11 @@ The lake holds every CFBD endpoint the model uses for 2014–2025 and 2026 to da
 
 ## Acceptance criteria
 
-- [ ] AC-1: `engine backfill --from 2014 --to 2026 --dry-run` prints the calls per endpoint and the total, makes zero API calls, and counts only pulls not already in the lake. After a partial backfill, the dry run estimates only what's left.
-- [ ] AC-2: A backfill that would exceed the month's budget stops before the call that would exceed it, and a re-run resumes without re-fetching anything already saved for a completed week or season. The ledger's total across both runs equals the first dry-run estimate, apart from calls for the current, incomplete week.
-- [ ] AC-3: After the owner-approved backfill, `engine transform --rebuild` and the data-quality checks exit 0 on the full lake, or the PR lists each failure with its cause and how it's handled. `engine publish --target dev` then loads it, and the dev database's 2026 FBS team count equals the staged 2026 FBS team count.
-- [ ] AC-4: Notebook #1 (`python/notebooks/01-explore.*`) runs top to bottom from the lake with zero API calls and shows home-field advantage by season, the margin distribution, and closing-line MAE for each season 2014–2025 and pooled. The pooled MAE is recorded where the plan gate agreed.
-- [ ] AC-5: The R2 lake holds the same `raw/cfbd/` files as the local lake: a listing of each shows the same file count and names.
+- [x] AC-1: `engine backfill --from 2014 --to 2026 --dry-run` prints the calls per endpoint and the total, makes zero API calls, and counts only pulls not already in the lake. After a partial backfill, the dry run estimates only what's left.
+- [x] AC-2: A backfill that would exceed the month's budget stops before the call that would exceed it, and a re-run resumes without re-fetching anything already saved for a completed week or season. The ledger's total across both runs equals the first dry-run estimate, apart from calls for the current, incomplete week.
+- [x] AC-3: After the owner-approved backfill, `engine transform --rebuild` and the data-quality checks exit 0 on the full lake, or the PR lists each failure with its cause and how it's handled. `engine publish --target dev` then loads it, and the dev database's 2026 FBS team count equals the staged 2026 FBS team count.
+- [x] AC-4: Notebook #1 (`python/notebooks/01-explore.*`) runs top to bottom from the lake with zero API calls and shows home-field advantage by season, the margin distribution, and closing-line MAE for each season 2014–2025 and pooled. The pooled MAE is recorded where the plan gate agreed.
+- [x] AC-5: The R2 lake holds the same `raw/cfbd/` files as the local lake: a listing of each shows the same file count and names.
 
 ## Out of scope
 
@@ -67,7 +67,13 @@ _Work noticed during this task and deliberately left out. Each bullet ends `→ 
 
 - 02 › Environments & databases lists the development lake as local `./data/`. From this task on, R2 is the lake every CFBD call writes to, and `./data` is a mirror made by `engine lake sync` → docs/02-architecture.md § Environments & databases (approved at plan)
 - The jobs read and write the same R2 lake and ledger as the backfill. The season-level final rule (gate C) also covers a `results` run's season files → not tracked: already in TASK-022's approved plan (gate B for the shared lake and ledger; its dependency line names the season-level final rule)
-- M3.4's closing-line baseline reuses `engine.transform.market.closing_lines()`, so it matches notebook #1's benchmark → docs/08-tasklist.md § M3.4 (approved at plan)
+- M3.4's closing-line baseline reuses `engine.transform.market.closing_lines()`, so it matches notebook #1's benchmark → docs/08-tasklist.md § M3.4 (approved at plan; placed by PR #62)
+- Candidate decision: the backfill's design, rule C, the canceled-game and advanced-stats settle rules, the lake mirror, notebooks in marimo, and the benchmark's home. It amends D-026, D-114 and D-119; 03 › Lake layout, Data sources and Data quality checks, and 04 § 9.6 carry it (03 and 04 approved at plan, the settle rules by the owner in the session) → docs/decisions.md § D-121
+- CFBD's `consensus` book stops in late 2023 (2023: 29 of 792 games; 2024–2025: none), so from then on the closing line is the median across books. M3.4 should check that the closing-line baselines don't shift at that seam → docs/08-tasklist.md § M3.4
+- 103 team-games in 2014–2025 have no CFBD advanced stats (now a check note), and the canceled App State–Liberty 2024 game stays `scheduled`. The feature tables need a rule for them → docs/tasks/TASK-019-point-in-time-features.md § Context
+- Postponed games: an unscored game counts as done 7 days after its start (D-121), so a postponed game CFBD leaves under its old week would make that week final; the `results` job should list games treated as done while unscored → docs/tasks/TASK-022-scheduled-results-and-lines-jobs.md § Context
+- The 2 legacy `.json` raw files from before D-112's Parquet format (`raw/cfbd/games/season=2025/season_type=regular/...`) are now in R2 as well as `./data` (AC-5 compares every file) → not tracked: staging reads only the Parquet key pattern, so they're inert
+- TASK-018's renamed-school concern: the full rebuild leaves 4 names unmatched, all FCS schools in recruiting (Albany, Saint Francis (PA), Southeastern Louisiana, UTRGV), so no backtest team is hit → not tracked: D-119's revisit condition isn't met
 
 ## Plan
 
@@ -122,9 +128,25 @@ Provisional: depends on TASK-018 and TASK-020. The closing-line rule below follo
 
 **Size check:** 12 files, no schema, no UI: passes (limit 20).
 
+**Revisions after approval** (2026-10-20; 2 and 3 were approved by the owner in the session):
+1. `ingest/lake.py`: `open_lake(uri=None)`, so `engine lake sync --from URI --to URI` opens either side the way `LAKE_URI` does. `pull()` was split into `saved_final()` + `fetch()` so the backfill checks finality once.
+2. **Canceled games** (`endpoints.py`): the first run left 2024 week 5 unpulled and 2024's regular-season files never final, because CFBD lists App State–Liberty (canceled, Hurricane Helene) as uncompleted forever. A game is now done when completed, or unscored with its `/games` file saved 7+ days after its start; this applies to the week rule (D-114) and rule C. Test: `test_a_canceled_game_settles_after_seven_days`.
+3. **Advanced stats CFBD lacks** (`transform/quality.py`, `tests/test_transform_stats.py`): 103 team-games in 2014–2025 have no CFBD advanced stats (missing or partial play-by-play), and the failing check blocked the dev publish. A missing row is now a note when a pull fetched 7+ days after kickoff covers the week without it (amends D-119). Tests: `test_game_cfbd_never_filled_in_is_a_note`, plus `test_advanced_stats_check_names_missing_game`, whose pull is moved to 2 days after kickoff so it still fails.
+4. `pyproject.toml` also gets a ruff per-file ignore of B018 for `notebooks/*.py` (marimo displays a cell's last expression).
+
+From the schema review (approved by the owner in the session):
+5. **Rule C, settled:** every season-level file except `/games` itself is final only when saved 7+ days after its season type's last game, empty or not (a pull just after the games can be partial). Test: `test_season_file_saved_just_after_the_last_game_is_not_final`.
+6. **`run()` never pulls an estimated week** (the current season's postseason, when stage 1's calendar shows it started but no postseason `/games` file is saved). Test: `test_run_pulls_no_week_without_a_saved_games_file`.
+7. **Regression guard:** more than `quality.KNOWN_MISSING_ADVANCED` (103) settled missing team-games in 2014–2025 fails `advanced_stats`. Test: `test_more_games_cfbd_lacks_than_known_fails`.
+8. **`game_market` equivalence on the test DB:** `test_closing_lines_equal_game_market` (consensus, even-count median, last snapshot, TBA cutoff).
+
+Files: 16 with the revisions (adds `ingest/lake.py`, `transform/quality.py`, `tests/test_transform_stats.py`, `docs/02-architecture.md`).
+
 ## Review log
 
 _Filled by /implement-task. One line per round._
+
+Verify R1 PASS | Audit R1 PASS | Spec R1 CHANGES (D-119 marker, 03 › Lake layout "done" wording) → R2 APPROVE | Schema R1 CHANGES (MAJOR: non-empty season file final right after the last game; 4 MINOR) → owner-approved revisions 5–8, Verify R2 PASS → R2 APPROVE. Round-2 tests each failed before their fix, except `test_closing_lines_equal_game_market` (the existing code checked against the view; not re-audited by test-auditor)
 
 ## Blocked
 
@@ -132,7 +154,8 @@ _Only if status is Blocked: what failed, what was tried, best hypothesis, decisi
 
 ## Metrics
 
-- Verify rounds:
-- Review rounds:
-- First-pass AC FAILs:
-- Plan revisions after approval:
+- Verify rounds: 2 (both PASS; the second after the review fixes)
+- Review rounds: 2
+- First-pass AC FAILs: 0
+- Plan revisions after approval: 8 (2, 3 and 5–8 approved by the owner in the session)
+- CFBD calls: 803 (dry run 778); R2 ledger 11 → 814 of 5,000 for 2026-10

@@ -22,6 +22,10 @@ if TYPE_CHECKING:
 # The backtest seasons (docs/04-model.md § 9.1): each FBS-vs-FBS game in them needs a closing
 # line, or a mark saying none exists.
 BACKTEST_SEASONS = (2014, 2025)
+# Team-games in the backtest seasons that CFBD has no advanced stats for, per the 2026-10-20
+# backfill (D-121). More than this fails `advanced_stats`: a staging regression (e.g. names that
+# stopped matching) or new CFBD gaps. Check which, then raise it.
+KNOWN_MISSING_ADVANCED = 103
 
 
 class StagingMissingError(RuntimeError):
@@ -138,10 +142,11 @@ def closing_line(con: duckdb.DuckDBPyConnection) -> Finding:
 
 
 def advanced_stats(con: duckdb.DuckDBPyConnection) -> Finding:
-    """Each FBS side of a final game needs a `team_game_advanced` row. A missing one fails when
-    the game is in a backtest season, or when advanced stats fetched after its kickoff cover its
-    week (a pull that has the week but not this game). Otherwise the week hasn't been pulled
-    since kickoff (the live season before its stats job), so it's listed as a note (D-119)."""
+    """Each FBS side of a final game needs a `team_game_advanced` row. A missing one is a note
+    when advanced stats fetched 7+ days after its kickoff cover its week: CFBD has none for it
+    (D-121). Otherwise it fails when the game is in a backtest season, or when advanced stats
+    fetched after its kickoff cover its week (CFBD may still fill it in); else the week hasn't
+    been pulled since kickoff (the live season before its stats job), a note too (D-119)."""
     first, last = BACKTEST_SEASONS
     cte = f"""
     WITH g AS (
@@ -158,19 +163,39 @@ def advanced_stats(con: duckdb.DuckDBPyConnection) -> Finding:
         SELECT s.*, s.season BETWEEN {first} AND {last} OR EXISTS (
             SELECT 1 FROM team_game_advanced a
             WHERE a.season = s.season AND a.season_type = s.season_type AND a.week = s.week
-              AND a.fetched_at > s.cutoff) AS required
+              AND a.fetched_at > s.cutoff) AS required,
+            EXISTS (
+            SELECT 1 FROM team_game_advanced a
+            WHERE a.season = s.season AND a.season_type = s.season_type AND a.week = s.week
+              AND a.fetched_at >= s.cutoff + INTERVAL 7 DAY) AS settled
         FROM sides s
         WHERE NOT EXISTS (
             SELECT 1 FROM team_game_advanced a
             WHERE a.game_source_id = s.source_id AND a.team_source_id = s.team)
     )"""
     label = f"concat({_game()}, ': no advanced stats for team ', team"
+    known = _rows(
+        con,
+        f"{cte} SELECT CAST(count(*) AS VARCHAR) FROM missing "
+        f"WHERE settled AND season BETWEEN {first} AND {last}",
+    )
+    above = [
+        f"{n} team-games in {first}-{last} CFBD has no advanced stats for, above the "
+        f"{KNOWN_MISSING_ADVANCED} known (D-121): a staging regression or new CFBD gaps"
+        for n in map(int, known)
+        if n > KNOWN_MISSING_ADVANCED
+    ]
     return Finding(
-        failures=_rows(con, f"{cte} SELECT {label}) FROM missing WHERE required ORDER BY 1"),
+        failures=above
+        + _rows(
+            con, f"{cte} SELECT {label}) FROM missing WHERE required AND NOT settled ORDER BY 1"
+        ),
         notes=_rows(
             con,
-            f"{cte} SELECT {label}, ' (none pulled since kickoff)') FROM missing "
-            "WHERE NOT required ORDER BY 1",
+            f"{cte} SELECT {label}, CASE WHEN settled "
+            "THEN ' (CFBD has none: a pull 7+ days after kickoff covers the week without it)' "
+            "ELSE ' (none pulled since kickoff)' END) FROM missing "
+            "WHERE settled OR NOT required ORDER BY 1",
         ),
     )
 
@@ -193,7 +218,7 @@ CHECKS: list[Check] = [
         "advanced_stats",
         "every FBS team in a final game has advanced stats (in "
         f"{BACKTEST_SEASONS[0]}-{BACKTEST_SEASONS[1]}, or once a post-kickoff pull covers its "
-        "week)",
+        "week), unless a pull 7+ days after kickoff shows CFBD has none",
         advanced_stats,
     ),
     Check("raw_files", "raw files skipped because their params don't match their key", raw_files),

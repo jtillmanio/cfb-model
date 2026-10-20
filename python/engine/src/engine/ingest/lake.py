@@ -209,8 +209,9 @@ def r2_client() -> Any:
     )
 
 
-def open_lake() -> Lake:
-    uri = os.environ.get("LAKE_URI", "").strip()
+def open_lake(uri: str | None = None) -> Lake:
+    """The lake at `uri`, or at `LAKE_URI` when none is given."""
+    uri = (os.environ.get("LAKE_URI", "") if uri is None else uri).strip()
     if uri.startswith("s3://"):
         bucket, _, prefix = uri.removeprefix("s3://").partition("/")
         return S3Lake(r2_client(), bucket, prefix)

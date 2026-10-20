@@ -16,7 +16,7 @@ import pytest
 from lake_fixture import FIXTURE, engine, fixture_key, staged, write, write_fixture
 
 from engine.ingest.lake import LocalLake, fetched_at_of
-from engine.transform import rebuild, season_key
+from engine.transform import quality, rebuild, season_key
 
 KANSAS_GAME = "401756847"  # Kansas (2305, home) - Fresno State (278)
 UNLV_GAME = "401760371"  # UNLV (2439, home) - Idaho State (304, FCS)
@@ -231,13 +231,23 @@ def _without(game: str, team: str) -> dict[str, Any]:
     return fixture
 
 
+def _pulled_at(fixture: dict[str, Any], stamp: str) -> dict[str, Any]:
+    """The fixture with its advanced-stats pull fetched at `stamp` instead."""
+    key = fixture_key("stats_game_advanced")
+    fixture = dict(fixture)
+    fixture[key.split("fetched_at=")[0] + f"fetched_at={stamp}.parquet"] = fixture.pop(key)
+    return fixture
+
+
 @pytest.mark.parametrize("present", [True, False])
 def test_advanced_stats_check_names_missing_game(
     present: bool, empty_lake: LocalLake, capsys: pytest.CaptureFixture[str]
 ) -> None:
     """AC-3: a final FBS game in a backtest season with no advanced-stats row fails the check,
-    named by `source_id`; with the row present everything passes."""
-    write_fixture(empty_lake, FIXTURE if present else _without(KANSAS_GAME, "Kansas"))
+    named by `source_id`, while CFBD may still fill it in (the pull came within 7 days of
+    kickoff); with the row present everything passes."""
+    fixture = FIXTURE if present else _without(KANSAS_GAME, "Kansas")
+    write_fixture(empty_lake, _pulled_at(fixture, "2025-08-25T120000Z"))
     code = engine("transform", "--rebuild")
     out = capsys.readouterr().out
     if present:
@@ -249,6 +259,38 @@ def test_advanced_stats_check_names_missing_game(
     assert KANSAS_GAME in section
     assert "2305" in section
     assert engine("check") == 1
+
+
+def test_game_cfbd_never_filled_in_is_a_note(
+    empty_lake: LocalLake, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """TASK-021: a pull 7+ days after kickoff that covers the week but not the game means CFBD
+    has no advanced stats for it (some 2014-2016 games have no play-by-play), so it's a note."""
+    write_fixture(empty_lake, _without(KANSAS_GAME, "Kansas"))  # pulled 2026-10-20
+
+    assert engine("transform", "--rebuild") == 0
+
+    out = capsys.readouterr().out
+    notes = out.split("PASS advanced_stats")[1].split("PASS")[0]
+    assert (
+        f"{KANSAS_GAME} (2025 regular week 1, 278 at 2305): no advanced stats for team 2305"
+        in notes
+    )
+    assert "CFBD has none" in notes
+
+
+def test_more_games_cfbd_lacks_than_known_fails(
+    empty_lake: LocalLake, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """A rise above the backtest seasons' known gaps (103, D-121) is a staging regression or new
+    CFBD gaps, so it fails until someone checks it and raises the count."""
+    monkeypatch.setattr(quality, "KNOWN_MISSING_ADVANCED", 0)
+    write_fixture(empty_lake, _without(KANSAS_GAME, "Kansas"))
+
+    assert engine("transform", "--rebuild") == 1
+
+    failures = capsys.readouterr().out.split("FAIL advanced_stats")[1].split("PASS")[0]
+    assert "1 team-games in 2014-2025 CFBD has no advanced stats for, above the 0 known" in failures
 
 
 def test_live_season_game_without_a_stats_pull_is_a_note(

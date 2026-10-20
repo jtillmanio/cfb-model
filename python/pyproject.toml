@@ -21,6 +21,12 @@ dev = [
     # API from this lock with --no-dev, and these would push it to a failing runtime install (D-114).
     "cfb-engine[train]",
 ]
+# python/notebooks/ (marimo, D-121): `uv run --group notebooks marimo edit notebooks/01-explore.py`.
+# Never a default group, and never the API's.
+notebooks = [
+    "marimo>=0.25.2",
+    "matplotlib>=3.11.2",
+]
 
 [tool.uv]
 package = false
@@ -40,6 +46,10 @@ extend-exclude = [".claude"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM"]
+
+[tool.ruff.lint.per-file-ignores]
+# A marimo cell displays its last bare expression.
+"notebooks/*.py" = ["B018"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["db", "engine", "api"]

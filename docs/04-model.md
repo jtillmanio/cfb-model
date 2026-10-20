@@ -404,7 +404,7 @@ Why weeks: games in the same week share news, weather and line moves, so treatin
 | Phase | What's new | Must beat | Bar |
 |---|---|---|---|
 | 0 | Nothing modeled | — | — |
-| 1 | Data pipeline | — | Records the benchmark: closing-line MAE for 2014–2025, the number every later phase is compared with. Data-quality checks pass |
+| 1 | Data pipeline | — | Records the benchmark: closing-line MAE for 2014–2025, the number every later phase is compared with. Data-quality checks pass. **Recorded 2026-10-20 (TASK-021, commit `a78e0e3`): 12.38 points pooled over 9,085 final FBS-vs-FBS games**, by season from 11.81 (2025) to 13.05 (2016); notebook #1 (`python/notebooks/01-explore.py`) has the table. CFBD's `consensus` line stops in late 2023, so 2024–2025 use the median across books (§ 9.3) |
 | 2 | Rung 1 power ratings | Home-field only (home by the fitted home-field value), and last season's final ratings carried over | Lower MAE than both on pooled validation (§ 9.5). The closing line and SP+/FPI are reported alongside, but beating them isn't required yet |
 | 3 | Rung 2 (v1): efficiency ratings, priors, margin model, pick rules | Rung 1 | Lower MAE than Rung 1 (§ 9.5) **and** every gate in § 9.4. Market shrinkage stays only if validation ATS with it is at least as good as without it (k = 1) |
 | 4 | No model change (the web app) | — | The app shows exactly what the engine computed: API values equal engine output for the fixture and for each live week |
