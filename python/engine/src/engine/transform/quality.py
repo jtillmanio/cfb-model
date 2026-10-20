@@ -137,6 +137,44 @@ def closing_line(con: duckdb.DuckDBPyConnection) -> Finding:
     )
 
 
+def advanced_stats(con: duckdb.DuckDBPyConnection) -> Finding:
+    """Each FBS side of a final game needs a `team_game_advanced` row. A missing one fails when
+    the game is in a backtest season, or when advanced stats fetched after its kickoff cover its
+    week (a pull that has the week but not this game). Otherwise the week hasn't been pulled
+    since kickoff (the live season before its stats job), so it's listed as a note (D-119)."""
+    first, last = BACKTEST_SEASONS
+    cte = f"""
+    WITH g AS (
+        SELECT *, coalesce(kickoff_at, timezone('America/New_York',
+            CAST(game_date + 1 AS TIMESTAMP))) AS cutoff
+        FROM games WHERE status = 'final'
+    ),
+    sides AS (
+        SELECT *, home_source_id AS team FROM g WHERE home_classification = 'fbs'
+        UNION ALL
+        SELECT *, away_source_id AS team FROM g WHERE away_classification = 'fbs'
+    ),
+    missing AS (
+        SELECT s.*, s.season BETWEEN {first} AND {last} OR EXISTS (
+            SELECT 1 FROM team_game_advanced a
+            WHERE a.season = s.season AND a.season_type = s.season_type AND a.week = s.week
+              AND a.fetched_at > s.cutoff) AS required
+        FROM sides s
+        WHERE NOT EXISTS (
+            SELECT 1 FROM team_game_advanced a
+            WHERE a.game_source_id = s.source_id AND a.team_source_id = s.team)
+    )"""
+    label = f"concat({_game()}, ': no advanced stats for team ', team"
+    return Finding(
+        failures=_rows(con, f"{cte} SELECT {label}) FROM missing WHERE required ORDER BY 1"),
+        notes=_rows(
+            con,
+            f"{cte} SELECT {label}, ' (none pulled since kickoff)') FROM missing "
+            "WHERE NOT required ORDER BY 1",
+        ),
+    )
+
+
 def raw_files(con: duckdb.DuckDBPyConnection) -> Finding:
     sql = "SELECT concat(key, ': ', reason) FROM skipped_raw ORDER BY key"
     return Finding(notes=_rows(con, sql))
@@ -150,6 +188,13 @@ CHECKS: list[Check] = [
         f"every final FBS-vs-FBS game in {BACKTEST_SEASONS[0]}-{BACKTEST_SEASONS[1]} has a "
         "closing line or is marked as missing one",
         closing_line,
+    ),
+    Check(
+        "advanced_stats",
+        "every FBS team in a final game has advanced stats (in "
+        f"{BACKTEST_SEASONS[0]}-{BACKTEST_SEASONS[1]}, or once a post-kickoff pull covers its "
+        "week)",
+        advanced_stats,
     ),
     Check("raw_files", "raw files skipped because their params don't match their key", raw_files),
 ]

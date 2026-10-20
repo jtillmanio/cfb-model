@@ -1,7 +1,7 @@
 ---
 id: TASK-018
 title: Stage box scores, advanced stats, play-by-play, preseason inputs and benchmark ratings
-status: Ready
+status: In progress
 depends_on: [TASK-017]
 size: M
 model: opus
@@ -100,6 +100,11 @@ _Work noticed during this task and deliberately left out. Each bullet ends `→ 
 - Name matching: a school spelled differently in `/talent` or SP+ stays unmatched (NULL), and a note counts them.
 
 **Size check:** 12 files, no schema, no UI: passes (limit 20).
+
+**Plan revisions after approval** (each agreed with the owner during implementation)
+1. `team_game_advanced` drops rows for games not in staged `games` (FCS-only games: the endpoint takes no classification) and the rebuild prints the count, as `lines` does. Plays and drives also resolve `offense_source_id`/`defense_source_id` from the game's home/away names.
+2. The shared fixture helpers (`FIXTURE`, `write`, `engine`, `staged`) live in a new `tests/lake_fixture.py`; `tests/conftest.py` holds only the `empty_lake` and `lake` fixtures (pytest swaps the `conftest` module between directories, so helpers can't be imported from one). 13 files.
+3. `skipped_raw` is built after the season tables, so a skipped plays or drives file (the local lake's `team=Ohio State` pull) is listed; the season tables are written before the `TABLES` files.
 
 ## Review log
 

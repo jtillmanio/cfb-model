@@ -55,8 +55,13 @@ ENDPOINTS: dict[str, Endpoint] = {
     "venues": Endpoint("/venues", "season", ()),
     "games": Endpoint("/games", "season_or_week", ("year",), _FBS, season_type=True),
     "games_teams": Endpoint("/games/teams", "week", ("year", "week"), _FBS, season_type=True),
+    # Garbage time excluded, the only variant pulled; staging reads it back from `params` (D-119)
     "stats_game_advanced": Endpoint(
-        "/stats/game/advanced", "season_or_week", ("year",), season_type=True
+        "/stats/game/advanced",
+        "season_or_week",
+        ("year",),
+        {"excludeGarbageTime": "true"},
+        season_type=True,
     ),
     "plays": Endpoint("/plays", "week", ("year", "week"), _FBS, season_type=True),
     "drives": Endpoint("/drives", "week", ("year", "week"), _FBS, season_type=True),
