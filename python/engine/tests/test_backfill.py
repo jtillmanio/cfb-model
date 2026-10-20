@@ -181,6 +181,22 @@ def test_budget_stop_then_resume_matches_estimate(
     assert len(requests) == estimate  # a third run finds everything final
 
 
+def test_run_pulls_no_week_without_a_saved_games_file(
+    empty_lake: LocalLake, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Mid-December of the current season, the calendar pulled in stage 1 shows the postseason
+    started, but no postseason /games file was pulled: its weeks are only an estimate."""
+    monkeypatch.setenv("FIXTURE_NOW", "2015-12-20T12:00:00+00:00")
+    requests: list[str] = []
+    use_client(monkeypatch, fake_client(empty_lake, requests))
+
+    assert engine("backfill", "--from", "2015", "--to", "2015") == 0
+
+    weekly = [r for r in requests if r.split("?")[0] in ("/games/teams", "/plays", "/drives")]
+    assert len(weekly) == 15 * 3
+    assert not [r for r in weekly if "postseason" in r]
+
+
 # Rule C: when a season-level file is final
 
 
@@ -207,7 +223,7 @@ def calls_for(lake: LocalLake, name: str, season_type: str = "regular") -> int:
 
 def test_season_file_final_after_season_completes(tmp_path: Path) -> None:
     lake = LocalLake(tmp_path)
-    jan = datetime(2016, 1, 5, tzinfo=UTC)
+    jan = datetime(2016, 1, 10, tzinfo=UTC)  # 9 days after the bowl
     save(lake, "games", jan, season_games("regular"))
     save(lake, "lines", jan + timedelta(hours=1), [{"id": 1}])
     save(lake, "teams", jan + timedelta(hours=1), [{"id": 1}])
@@ -230,6 +246,23 @@ def test_season_file_saved_before_the_games_completed_is_fetched_again(tmp_path:
     save(lake, "games", jan, season_games("regular"))
 
     assert calls_for(lake, "lines") == 1  # the only complete /games file is newer than it
+
+
+def test_season_file_saved_just_after_the_last_game_is_not_final(tmp_path: Path) -> None:
+    # A pull the morning after the bowl may not hold every game yet, empty or not.
+    lake = LocalLake(tmp_path)
+    last_game = datetime(2016, 1, 1, 20, tzinfo=UTC)
+    games = save(
+        lake, "games", last_game + timedelta(hours=6), season_games("postseason"), "postseason"
+    )
+    save(lake, "ratings_sp", last_game + timedelta(days=1), [{"id": 1}])
+    save(lake, "stats_game_advanced", last_game + timedelta(days=1), [{"id": 1}], "postseason")
+    assert saved_final(lake, "ratings_sp", 2015) is None
+    assert saved_final(lake, "stats_game_advanced", 2015, None, "postseason") is None
+    assert saved_final(lake, "games", 2015, None, "postseason") == games  # /games itself
+
+    settled = save(lake, "ratings_sp", last_game + timedelta(days=7), [{"id": 1}])
+    assert saved_final(lake, "ratings_sp", 2015) == settled
 
 
 def test_empty_season_file_final_after_seven_days(tmp_path: Path) -> None:

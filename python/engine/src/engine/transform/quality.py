@@ -22,6 +22,10 @@ if TYPE_CHECKING:
 # The backtest seasons (docs/04-model.md § 9.1): each FBS-vs-FBS game in them needs a closing
 # line, or a mark saying none exists.
 BACKTEST_SEASONS = (2014, 2025)
+# Team-games in the backtest seasons that CFBD has no advanced stats for, per the 2026-10-20
+# backfill (D-121). More than this fails `advanced_stats`: a staging regression (e.g. names that
+# stopped matching) or new CFBD gaps. Check which, then raise it.
+KNOWN_MISSING_ADVANCED = 103
 
 
 class StagingMissingError(RuntimeError):
@@ -170,8 +174,20 @@ def advanced_stats(con: duckdb.DuckDBPyConnection) -> Finding:
             WHERE a.game_source_id = s.source_id AND a.team_source_id = s.team)
     )"""
     label = f"concat({_game()}, ': no advanced stats for team ', team"
+    known = _rows(
+        con,
+        f"{cte} SELECT CAST(count(*) AS VARCHAR) FROM missing "
+        f"WHERE settled AND season BETWEEN {first} AND {last}",
+    )
+    above = [
+        f"{n} team-games in {first}-{last} CFBD has no advanced stats for, above the "
+        f"{KNOWN_MISSING_ADVANCED} known (D-121): a staging regression or new CFBD gaps"
+        for n in map(int, known)
+        if n > KNOWN_MISSING_ADVANCED
+    ]
     return Finding(
-        failures=_rows(
+        failures=above
+        + _rows(
             con, f"{cte} SELECT {label}) FROM missing WHERE required AND NOT settled ORDER BY 1"
         ),
         notes=_rows(

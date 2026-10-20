@@ -189,14 +189,17 @@ def client_for(lake: Lake) -> CfbdClient:
 
 
 def run(lake: Lake, first: int, last: int, client: CfbdClient, max_calls: int | None = None) -> int:
-    """Pull everything `plan` lists, re-planning each stage from what's saved by then, and
-    return the calls made. The client's budget raises BudgetExceededError before a call that
-    would exceed the month's; `max_calls` raises Stopped before call `max_calls + 1`."""
+    """Pull everything `plan` lists except estimated weeks, re-planning each stage from what's
+    saved by then, and return the calls made. The client's budget raises BudgetExceededError
+    before a call that would exceed the month's; `max_calls` raises Stopped before call
+    `max_calls + 1`."""
     lake = _GamesCache(lake)
     calls = 0
     for season in range(first, last + 1):
         for stage in STAGES:
             for p in _missing(lake, stage(lake, season, season == last)):
+                if p.estimated:
+                    continue  # no saved /games file shows the week complete (the dry run counts it)
                 if max_calls is not None and calls >= max_calls:
                     raise Stopped(f"Stopped at --max-calls {max_calls}.")
                 fetch(lake, p.endpoint, p.season, p.week, p.season_type, client=client)

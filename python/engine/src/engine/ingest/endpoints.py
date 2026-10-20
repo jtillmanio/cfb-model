@@ -39,9 +39,10 @@ SEASON_TYPES = ("regular", "postseason")
 
 # Every game with an FBS team; a flag and a partition in D-098, fixed here (D-112).
 _FBS: Mapping[str, str] = {"classification": "fbs"}
-# An empty season-level file is final only this long after the season type's last game: CFBD can
-# answer empty just after the games (D-114).
-EMPTY_SETTLE = timedelta(days=7)
+# A season-level file is final only this long after the season type's last game, and an unscored
+# game is done (canceled) this long after its start: CFBD can answer empty or partial just after
+# the games (D-114, D-121).
+SETTLE = timedelta(days=7)
 
 
 @dataclass(frozen=True)
@@ -124,12 +125,12 @@ def query(
 
 
 def _done(game: Mapping[str, Any], saved_at: datetime) -> bool:
-    """Completed, or unscored and started `EMPTY_SETTLE` before its /games file was saved: CFBD
+    """Completed, or unscored and started `SETTLE` before its /games file was saved: CFBD
     lists a canceled game (App State-Liberty 2024) as uncompleted forever (D-121)."""
     if game.get("completed"):
         return True
     unscored = game.get("homePoints") is None and game.get("awayPoints") is None
-    return unscored and saved_at >= datetime.fromisoformat(game["startDate"]) + EMPTY_SETTLE
+    return unscored and saved_at >= datetime.fromisoformat(game["startDate"]) + SETTLE
 
 
 def week_complete(records: list[Any], week: int, season_type: str, saved_at: datetime) -> bool:
@@ -151,7 +152,8 @@ def _season_final(
 ) -> bool:
     """A season-level file is final when a saved season /games file, fetched no later than it,
     shows every game of its season type done (the postseason, for an endpoint with no
-    season type). An empty one must also have been saved `EMPTY_SETTLE` after the last game."""
+    season type), and it was saved `SETTLE` after that season type's last game, empty or not: a
+    pull just after the games may not hold all of them yet. A /games file needs only itself."""
     games_type = season_type if ENDPOINTS[name].season_type else "postseason"
     if name == "games":
         return _season_complete(records, games_type, fetched_at_of(key)) is not None
@@ -160,7 +162,7 @@ def _season_final(
         if not g.endswith(".parquet") or fetched_at_of(g) > saved_at:
             continue
         last = _season_complete(decode_raw(lake.read(g)), games_type, fetched_at_of(g))
-        if last is not None and (records or saved_at >= last + EMPTY_SETTLE):
+        if last is not None and saved_at >= last + SETTLE:
             return True
     return False
 

@@ -6,8 +6,11 @@ from typing import Any
 
 import pyarrow as pa
 from lake_fixture import staged
+from sqlalchemy import Connection, text
 
 from engine.ingest.lake import LocalLake
+from engine.publish.lines import map_lines, publish_lines
+from engine.publish.reference import upsert_games
 from engine.transform import rebuild
 from engine.transform.market import closing_lines
 
@@ -77,3 +80,110 @@ def test_no_closing_line_before_the_cutoff() -> None:
 
     assert closing_lines(tba, table, at=datetime(2025, 9, 7, 3, 59, tzinfo=UTC)).num_rows == 0
     assert closing_lines(tba, table, at=datetime(2025, 9, 7, 4, tzinfo=UTC)).num_rows == 1
+
+
+# closing_lines() against the game_market view itself, on the test DB (rolled back)
+
+
+def _team(conn: Connection, source_id: str) -> int:
+    return conn.execute(
+        text(
+            "INSERT INTO teams (sport_id, source, source_id, school)"
+            " VALUES ('cfb', 'pytest', :sid, :sid) RETURNING id"
+        ),
+        {"sid": source_id},
+    ).scalar_one()
+
+
+def _pull(game: str, at: datetime, *books: tuple[str, float, float | None]) -> list[dict]:
+    return [
+        {
+            "game_source_id": game,
+            "provider": provider,
+            "fetched_at": at,
+            "spread_home": spread,
+            "spread_home_open": None,
+            "total": total,
+            "total_open": None,
+            "ml_home": None,
+            "ml_away": None,
+        }
+        for provider, spread, total in books
+    ]
+
+
+def test_closing_lines_equal_game_market(db_conn: Connection) -> None:
+    """The benchmark grades against the line the app shows: consensus, an even-count median,
+    the last snapshot when there's no close, and a TBA kickoff's end-of-day cutoff."""
+    home, away = _team(db_conn, "eq-home"), _team(db_conn, "eq-away")
+    day = date(2025, 9, 6)
+    games = {"eq-consensus": KICKOFF, "eq-median": KICKOFF, "eq-snapshot": KICKOFF, "eq-tba": None}
+    before, after = KICKOFF - timedelta(hours=6), KICKOFF + timedelta(days=2)
+    tba_before = datetime(2025, 9, 7, 3, 30, tzinfo=UTC)  # 23:30 Eastern on game day
+    rows = [
+        *_pull("eq-consensus", before, ("consensus", -3.0, 50.0), ("Bovada", -4.0, 51.0)),
+        *_pull("eq-consensus", after, ("consensus", -3.5, 49.5), ("Bovada", -2.0, 48.0)),
+        *_pull(
+            "eq-median",
+            after,
+            ("A", -3.0, 40.0),
+            ("B", -4.0, 41.0),
+            ("C", -6.0, 44.0),
+            ("D", -10.0, 51.0),  # mean -5.75 and 44.0, median -5.0 and 42.5
+        ),
+        *_pull("eq-snapshot", before - timedelta(days=1), ("A", -9.0, None)),
+        *_pull("eq-snapshot", before, ("A", -6.0, 60.0), ("B", -5.0, 61.0)),
+        *_pull("eq-tba", tba_before, ("A", 2.5, 55.0)),
+        *_pull("eq-tba", tba_before + timedelta(days=1), ("A", 1.5, 54.0)),
+    ]
+    staged_games = [{"source_id": g, "kickoff_at": k, "game_date": day} for g, k in games.items()]
+    ids = upsert_games(
+        db_conn,
+        "cfb",
+        "pytest",
+        [
+            {
+                **g,
+                "season": 2025,
+                "week": 2,
+                "season_type": "regular",
+                "neutral_site": False,
+                "conference_game": False,
+                "venue_id": None,
+                "home_team_id": home,
+                "away_team_id": away,
+                "home_points": 21,
+                "away_points": 14,
+                "status": "final",
+            }
+            for g in staged_games
+        ],
+    )
+    publish_lines(db_conn, "manual", map_lines(rows, staged_games), ids)
+
+    expected = by_game(
+        closing_lines(
+            pa.Table.from_pylist(staged_games), pa.Table.from_pylist(rows), at=datetime.now(UTC)
+        )
+    )
+    view = db_conn.execute(
+        text(
+            "SELECT g.source_id, m.closing_spread_home, m.closing_total, m.closing_source,"
+            " m.closing_from FROM game_market m JOIN games g ON g.id = m.game_id"
+            " WHERE g.id = ANY(:ids)"
+        ),
+        {"ids": list(ids.values())},
+    ).all()
+
+    actual = {
+        sid: (float(spread), float(total), source, closing_from)
+        for sid, spread, total, source, closing_from in view
+    }
+    assert actual == {
+        g: (r["spread_home"], r["total"], r["source"], r["closing_from"])
+        for g, r in expected.items()
+    }
+    assert actual["eq-consensus"] == (-3.5, 49.5, "consensus", "cfbd_close")
+    assert actual["eq-median"] == (-5.0, 42.5, "median", "cfbd_close")
+    assert actual["eq-snapshot"] == (-5.5, 60.5, "median", "last_snapshot")
+    assert actual["eq-tba"] == (1.5, 54.0, "median", "cfbd_close")
