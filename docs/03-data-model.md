@@ -80,7 +80,7 @@ backups/    # nightly verified pg_dumps of the serving DB
 | `games` | CFBD game (`/games`) | `source_id`, `season`, `week`, `season_type`, `game_date` (Eastern), `kickoff_at` (NULL when TBA), `neutral_site`, `conference_game`, `venue_source_id`, `home_source_id`, `away_source_id`, `home_points`, `away_points`, `status` (`final`/`scheduled`), `home_classification`, `away_classification`, `fetched_at`, `closing_line_missing` |
 | `teams` | team (`/teams`, else `/games`) | `source_id`, `school`, `mascot`, `abbreviation`, `color`, `alt_color`, `logo_url`, `fetched_at` |
 | `team_seasons` | team and season | `team_source_id`, `season`, `conference`, `classification` (fbs/fcs: Postgres `team_seasons.division`), `cfbd_division` (CFBD's own, e.g. East/West), `fetched_at` |
-| `venues` | venue (`/venues`, else `/games`) | `source_id`, `name`, `city`, `state`, `lat`, `lon`, `elevation` (CFBD's value; unit unconfirmed), `dome`, `grass`, `timezone`, `capacity`, `fetched_at` |
+| `venues` | venue (`/venues`, else `/games`) | `source_id`, `name`, `city`, `state`, `lat`, `lon`, `elevation` (meters, e.g. Lawrence 274.9; published as `venues.elevation_m`), `dome`, `grass`, `timezone`, `capacity`, `fetched_at` |
 | `calendar` | season, season type and week (`/calendar`) | `season`, `season_type`, `week`, `start_at`, `end_at`, `first_game_start`, `last_game_start`, `fetched_at` |
 | `lines` | game, provider and pull (`/lines`; every pull is kept) | `game_source_id`, `provider`, `fetched_at`, `spread_home`, `spread_home_open`, `total`, `total_open`, `ml_home`, `ml_away` |
 | `team_games` | game and team (`/games/teams` box score) | `game_source_id`, `team_source_id`, `team`, `conference`, `home_away`, `points`, `stats` (CFBD's category → stat as JSON text, as sent, e.g. `"completionAttempts": "23-31"`), `fetched_at` |
@@ -136,7 +136,7 @@ erDiagram
 ### Reference
 **sports**: `id text PK ('cfb','nfl')`, `name`
 
-**seasons**: `sport_id`, `year`, `source`, `start_date`, `end_date`, `current_week NULL`, `weeks jsonb`, `updated_at` · PK `(sport_id, year)` · CHECK `weeks` is an array, `end_date >= start_date`. `weeks` is CFBD `/calendar` as `[{"week": 6, "season_type": "regular", "start": "<UTC ISO>", "end": "<UTC ISO>"}, …]` (TASK-016).
+**seasons**: `sport_id`, `year`, `source`, `start_date`, `end_date`, `current_week NULL`, `weeks jsonb`, `updated_at` · PK `(sport_id, year)` · CHECK `weeks` is an array, `end_date >= start_date`. `weeks` is CFBD `/calendar` as `[{"week": 6, "season_type": "regular", "start": "<UTC ISO>", "end": "<UTC ISO>"}, …]` (TASK-016). Each publish sets `current_week` to the regular-season week whose span contains the publish time, else NULL, so the daily `lines` job keeps it within a day (TASK-020).
 
 **teams**: `id PK`, `sport_id`, `source`, `source_id`, `school`, `mascot`, `abbreviation`, `color`, `alt_color`, `logo_url` · UQ `(sport_id, source, source_id)`
 
@@ -155,7 +155,7 @@ UQ `(sport_id, source, source_id)` · IDX `(sport_id, season, week)` · CHECK fi
 **line_snapshots**: append-only price history (D-037, D-115)
 `id PK`, `game_id`, `book_id`, `source` (`cfbd|oddsapi|manual|fixture`), `kind` (`opening|closing|snapshot`), `captured_at timestamptz NULL`, `spread_home numeric(4,1)`, `total numeric(4,1)`, `spread_home_price`, `spread_away_price`, `over_price`, `under_price`, `ml_home`, `ml_away` (prices are `int`; any of them NULL when not quoted)
 UQ `(game_id, book_id, source, kind, captured_at)` NULLS NOT DISTINCT · IDX `(game_id, captured_at)` · CHECK `kind = 'snapshot'` ⇒ `captured_at` not null · triggers refuse UPDATE, DELETE and TRUNCATE
-*CFBD's historical open and close are `opening` and `closing` rows with `captured_at` NULL, because CFBD doesn't say when either was quoted (D-031). A live pull writes its current spread as a `snapshot` at the raw file's `fetched_at`, and its open as one `opening` row, which the key keeps to one. Re-publishing a raw file inserts nothing (`ON CONFLICT DO NOTHING` on the key).*
+*CFBD's historical open and close are `opening` and `closing` rows with `captured_at` NULL, because CFBD doesn't say when either was quoted (D-031). `engine publish` maps each staged `/lines` pull by its time against the game's cutoff (`kickoff_at`, or the end of `game_date` in Eastern time when the kickoff is TBA): a pull before the cutoff is a `snapshot` at its `fetched_at`; the first pull at or after it is the untimed `closing` row; the first pull with an open (`spreadOpen` or `overUnderOpen`) writes the untimed `opening` row; a row with no spread, total or moneyline is skipped. The key keeps an untimed row's first value, so re-publishing inserts nothing (`ON CONFLICT DO NOTHING`) and a later, different open stays only in the lake (TASK-020, D-120).*
 
 ### Models & outputs
 **model_versions**: `id PK`, `sport_id`, `name` (`power-v1`, or your own name), `version`, `description`, `spec jsonb` (a validated `ModelSpec`: inputs, hyperparameters, fixed-or-fitted weights, pick rules), `spec_schema_version`, `parent_version_id NULL` (cloned from), `created_by` (`system|user`), `code_sha`, `status` (`dev|candidate|production|retired`), `created_at`, `deleted_at`
@@ -203,7 +203,7 @@ IDX `(game_id, model_version_id, created_at DESC)`
 ### Views (derived data lives here)
 | View | What it computes |
 |---|---|
-| `game_market` | Per game: opening, current, and closing line, each from the `consensus` book when it quoted one, else the median across books, with a column saying which. Closing is CFBD's untimed `closing` row when present, else the last snapshot before kickoff (or before the end of `game_date` in Eastern time when the kickoff time is unknown), and NULL until that cutoff has passed (planned: TASK-020) |
+| `game_market` | One row per game: opening, current and closing `*_spread_home`, `*_total`, `*_source` and `*_captured_at`. Each line is one pull (rows with the same kind and `captured_at`), priced from the `consensus` book when it quoted that price, else the median across the pull's books; `*_source` (`consensus`/`median`) says which for the spread. Opening is the untimed `opening` rows, else the earliest snapshot. Current is the newest snapshot, else the closing, else the opening. Closing is CFBD's untimed `closing` rows when present, else the last snapshot before kickoff (or before the end of `game_date` in Eastern time when the kickoff time is unknown), and NULL until that cutoff has passed; `closing_from` (`cfbd_close`/`last_snapshot`) says which (TASK-020, D-120) |
 | `team_rankings` | Rank and week-over-week rank change from `team_ratings` |
 | `team_schedule_strength` | Per team, season and week: SOS, the average rating entering that week of the opponents already played, adjusted for site, and its rank. The Rankings SOS column and the team page's "34th SOS rank" read it ([04 § 10.5](04-model.md); planned: M3.7) |
 | `current_picks` | Latest pick per (game, model version, market, line source) |

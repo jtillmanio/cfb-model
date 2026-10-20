@@ -5,4 +5,6 @@ re-applied in name order after every migration (`db:migrate`, the preview build 
 `release` workflow), and onto each nightly backup's restored copy, which then queries every view
 (the `backup` workflow). Write each one as `CREATE OR REPLACE VIEW …`, and give each one a test.
 
-Empty until the first view lands in Phase 1.
+| File | View | Test |
+|---|---|---|
+| `010_game_market.sql` | `game_market`: each game's opening, current and closing line (D-120) | `python/db/tests/test_game_market.py` |

@@ -6,7 +6,7 @@ import argparse
 import sys
 from typing import NoReturn
 
-from db.config import UnsafeDatabaseError, direct_url, load_env
+from db.config import MigrationTarget, UnsafeDatabaseError, direct_url, load_env
 from engine.ingest.endpoints import ENDPOINTS, SEASON_TYPES, query
 
 
@@ -38,6 +38,31 @@ def _quality() -> None:
     print(report.render())
     if not report.ok:
         sys.exit(1)
+
+
+def _publish(target: MigrationTarget) -> None:
+    """Check staging/, then publish it to the target in one transaction."""
+    from db.session import make_engine
+    from engine.ingest.lake import open_lake
+    from engine.publish.staging import publish_lake
+    from engine.transform import quality
+
+    lake = open_lake()
+    try:
+        report = quality.run(lake)
+    except quality.StagingMissingError as e:
+        _refuse(str(e))
+    if not report.ok:
+        print(report.render())
+        print("Nothing published: fix the failed checks first.")
+        sys.exit(1)
+    try:
+        url = direct_url(target)
+    except UnsafeDatabaseError as e:
+        _refuse(str(e))
+    with make_engine(url).begin() as conn:
+        new = publish_lake(lake, conn, report=report)
+    print(f"Published to {target}. New rows: " + ", ".join(f"{t} {n}" for t, n in new.items()))
 
 
 def main(argv: list[str] | None = None) -> None:
@@ -78,6 +103,15 @@ def main(argv: list[str] | None = None) -> None:
         description="Exits 1 if a check fails, 2 if staging/ hasn't been built.",
     )
 
+    publish = commands.add_parser(
+        "publish",
+        help="Publish staged teams, venues, seasons, games and lines to Postgres",
+        description="Runs the data-quality checks, then upserts every staged reference row and "
+        "inserts new line snapshots in one transaction on the target's direct URL. Exits 1 "
+        "before connecting if a check fails, 2 if staging/ hasn't been built.",
+    )
+    publish.add_argument("--target", required=True, choices=["dev", "test"])
+
     seed = commands.add_parser("seed", help="Load seed data into the test DB")
     seed.add_argument("what", choices=["fixture"])
 
@@ -114,11 +148,15 @@ def main(argv: list[str] | None = None) -> None:
     elif args.command == "check":
         load_env()
         _quality()
+    elif args.command == "publish":
+        load_env()
+        _publish(args.target)
     elif args.command == "seed":
         load_env()
         from engine.fixture import seed_fixture
 
         seed_fixture()
+
 
 if __name__ == "__main__":
     main()
