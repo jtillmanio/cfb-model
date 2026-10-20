@@ -69,7 +69,9 @@ Stats to rate (all from CFBD advanced stats, garbage time excluded):
 - Success rate
 - Explosiveness
 - Points per opportunity (finishing drives), field position, havoc
-- Special teams (later)
+- Special teams (Phase 5)
+
+The full list of units and metrics, and how the unit ratings add up to the overall rating, is in § 10.2. What ridge shrinks toward (the FBS average or the team's conference tier) is § 10.4.
 
 Then a **margin model** turns efficiency matchups into points:
 
@@ -157,7 +159,7 @@ EV         = model_prob × payout − (1 − model_prob)
 
 Pick rules (tuned in backtest, not guessed):
 - Recommend when `|edge_pts| ≥ threshold` (likely 2.5–4 points) **and** `model_prob ≥ min_prob`.
-- **Tiers:** A / B / C by edge bucket, where each tier's historical hit rate is shown in the UI.
+- **Tiers:** A / B / C by edge bucket, where each tier's historical hit rate is shown in the UI. Confidence plays, with levels taken from the calibrated cover probability, are § 10.7.
 - Skip early-season games where the prior still dominates, if the backtest says those picks don't perform.
 - Re-evaluate when the line moves. A pick is locked to the line it was made at (`line_snapshot_id`), and a new line creates a new pick that supersedes the old one.
 
@@ -238,7 +240,7 @@ picks:
   tiers: {A: 5.0, B: 3.5, C: 2.5}
 ```
 
-Each weight is either **`fit`** (learned from data by the backtest) or **fixed** at a number you choose. The spec's JSON Schema generates the model-builder form in the UI, so the form can never offer an option the engine doesn't support.
+Each weight is either **`fit`** (learned from data by the backtest) or **fixed** at a number you choose. The spec's JSON Schema generates the model-builder form in the UI, so the form can never offer an option the engine doesn't support. Each `stat` names an entry in the input registry (§ 10.6), which holds its label and plain-English definition.
 
 ### Two kinds of numbers: settings vs learned weights
 **Concept: hyperparameters vs parameters.** *Parameters* (weights) are what the model **learns** from data: "1.0 EPA/play is worth 28 points," "home field = 2.3." *Hyperparameters* are settings **you choose** that control how learning happens: the ridge `alpha`, the recency half-life, the margin cap. The backtest tunes hyperparameters by trying values and keeping the best on the validation seasons.
@@ -283,7 +285,7 @@ Built in Phase 6, after the betting model. Everything here reuses the rating mac
 - **Predictive:** "who wins on a neutral field next week?" These are the weekly power ratings from §2. They weight recent games more and use only data from before kickoff.
 - **Retrospective:** "who had the best season?" This has two versions:
   - **Best team (hindsight rating):** one rating fit on the whole season at once, every game weighted equally, no preseason prior blending. Because it looks back from the end, a September game is judged with the opponent's *final* strength, not the guess at the time.
-  - **Best résumé (strength of record):** given a team's schedule, how likely is it that a benchmark team (the 25th-best that season) would have done at least as well? A 15-0 run against a hard schedule might be a 0.3% feat; 11-2 against a soft one might be 21%. Rank by that probability, lowest first. This is roughly what the CFP committee rewards, so the CFP odds model (§3) reuses it.
+  - **Best résumé (strength of record):** given a team's schedule, how likely is it that a benchmark team (the 25th-best that season) would have done at least as well? A 15-0 run against a hard schedule might be a 0.3% feat; 11-2 against a soft one might be 21%. Rank by that probability, lowest first. This is roughly what the CFP committee rewards, so the CFP odds model (§3) reuses it. From Phase 5 it's also computed every week with the predictive ratings (§ 10.5); the season-final version here reuses that code with hindsight ratings.
 
 **Concept: retrodiction vs prediction.** Using the whole season to rate a team is fine when the question is about the past. It's leakage the moment a prediction uses it (§5). So hindsight ratings are their own *kind* of rating, stored separately, and the backtest harness and production predictions are tested to refuse them. The next season's preseason prior keeps using the predictive end-of-season rating, so the betting model's code path never touches hindsight ratings.
 
@@ -295,7 +297,7 @@ A rating means "points better than the average FBS team *that season*." Two thin
 - **Within-season z-score / percentile**: `(rating − season mean) / season SD`, for comparisons across eras. A +2.8 z-score is "about as dominant relative to its season" whatever the year.
 
 ### Programs over a period
-A program ranking summarizes its season-final hindsight ratings over a chosen span (e.g. 2014–2025, a decade, a conference era): average rating (the default sort), peak season, worst season, and top-10 finishes. These are aggregates of stored ratings, so they're views.
+A program ranking summarizes its season-final hindsight ratings over a chosen span: all time (back to the history start year), the last N seasons, or a custom range such as a conference era. It reports average rating (the default sort), peak season, worst season, and top-10 finishes. These are aggregates of stored ratings, so they're views.
 
 ### Coaches
 - **Raw ratings credit the coach for the program.** Alabama's baseline is not Vanderbilt's, so a coach's average team rating mostly measures where they work.
@@ -408,9 +410,79 @@ Why weeks: games in the same week share news, weather and line moves, so treatin
 | 4 | No model change (the web app) | — | The app shows exactly what the engine computed: API values equal engine output for the fixture and for each live week |
 | 5 | Season simulations | The same simulation with ratings frozen at the preseason prior | Lower Brier score (the mean squared error of a probability; lower is better) for final win totals and conference-title odds, measured at weeks 4, 8 and 12 of 2016–2023 |
 | 5 | CLV, weather flags, manual adjustments | — | Information only. Adjusted and pure-model results are tracked separately, with no gate |
+| 5 | Unit ratings, opponent-removed stats, SOS and SOR, for display (§ 10) | — | Correctness checks: unit contributions sum to the overall rating; our garbage-time-filtered EPA/play matches CFBD's on a fixture week; the opponent-removed views equal the lake's feature table on the fixture; exact SOR matches a 100,000-run simulation within 0.5 points |
+| 5 | New model inputs from § 10 (M19.1) and a game-specific σ (M19.2) | Production v1 | Each input on its own: lower MAE (§ 9.5), with ATS and calibration no worse. σ: lower Brier score on cover probability, with calibration no worse |
+| 5 | Confidence levels (§ 10.7) | — | On pooled validation, each higher level has a higher hit rate than the one below it |
 | 6 | Hindsight ratings, résumé, programs, coaches | No predictive baseline: these answer questions about the past | Correctness checks: exact strength of record matches a 100,000-run simulation within 0.5 points; the leakage test proves predictions can't read hindsight ratings; efficiency and scores-only hindsight ratings are reported side by side for 2014–2025 |
 | 7 | ML residual layer (Rung 3) | Production Rung 2 | Lower MAE (§ 9.5), with ATS and calibration no worse on validation |
 | 7 | Totals model | The closing total | The spread gates applied to totals: MAE within +0.5 of the closing total, O/U win % > 52.4%, the edge trend and calibration |
 | 7 | Drive-level simulator | The empirical margin distribution | Lower Brier score on cover probability for games whose line is within 1 point of 3, 7, 10 or 14, with overall calibration no worse |
 | 7 | CFP odds | "The 12 best by our rating, with the 5 highest-rated conference champions in" | Lower Brier score on past committee selections |
 | 8 | NFL model | NFL home-field only, and last season's ratings carried over | The Phase 2 and Phase 3 bars, against NFL closing lines. Until it passes, NFL contest games are ranked on the contest-vs-market gap only |
+
+## 10. Ratings depth: units, schedule strength, confidence (added 2026-10-20)
+
+From the owner's feature list of 2026-10-20 (F-46 to F-51 in [01 › Feature index](01-product.md#feature-index-ids-priorities-outcomes)). Most of this is computed for **display** first, and a piece enters **predictions** only when the backtest shows it helps (D-117). It's built in Phase 5 (M18–M19 in [08-tasklist.md](08-tasklist.md)), except the conference-tier test (§ 10.4, M4.1) and SOS (§ 10.5, M3.7), which v1 needs.
+
+### 10.1 Shown vs used
+Every stat below is computed for every team entering every week, with the same point-in-time rule as everything else (§ 9.2), so the Rankings time machine works on it too. Showing a stat never requires the model to use it. A `ModelSpec` lists the inputs that feed predictions, and each input stays only if the model beats the version without it (§ 9.5, § 9.6).
+
+**Concept: descriptive vs predictive stats.** Some stats describe a season well and predict the next game badly. Turnover margin is the classic case: it explains a lot of past results and very little of future ones, because fumble recoveries are close to a coin flip. Yards per game describes how much a team gained but mixes in pace (more plays, more yards); yards per play doesn't. So the app shows plenty of stats and labels the noisy ones, and the model uses the stable ones.
+
+### 10.2 Units and the metric catalog
+The model rates each unit separately, then combines the units into the overall rating (F-46):
+1. **Rate each metric** with the Rung 2 ridge fit (§ 2): every team gets an opponent-adjusted offense and defense number per metric.
+2. **Convert to points** with the margin model (§ 2), whose coefficients say how many points of margin each unit is worth.
+3. **Sum:** overall rating = offense + defense + special teams, each in points versus an average FBS team on a neutral field. The design fixture already works this way (Ohio State: +14.1 offense + 13.3 defense = +27.4), with special teams at 0 until it's rated. Because the parts add up exactly, the drivers waterfall (F-05) and the inputs explainer (F-50) can show where every point comes from.
+
+A unit the margin model doesn't use (say, line play) still gets an opponent-adjusted rating on its own scale and a percentile, shown as display only.
+
+| Unit | Offense metrics (defense rates the same ones, allowed) | Source | Use |
+|---|---|---|---|
+| Overall | EPA/play, success rate, explosiveness (EPA on successful plays), explosive-play rate, yards per play, points per drive, points per game | advanced stats, plays, drives, box score | EPA/play and success rate are v1 inputs; the rest are display, tested in M19.1 |
+| Rushing | rush EPA/play, rush success rate, yards per carry, explosive-run rate | advanced stats, plays | Rush EPA/play and success rate are v1 inputs |
+| Passing | dropback EPA/play, pass success rate, net yards per attempt (sacks counted), explosive-pass rate, sack rate, interception rate | advanced stats, plays | Pass EPA/play and success rate are v1 inputs |
+| Line play (offensive line, defensive line) | line yards, stuff rate, power success, sack rate; defense adds front-seven havoc | advanced stats, plays | Display; tested in M19.1 |
+| Down and distance | standard-downs and passing-downs success rate, third-down conversion rate | advanced stats, plays | Display |
+| Finishing drives | points per opportunity (drives that reach the opponent's 40), red-zone touchdown rate | drives | Tested in M19.1 |
+| Havoc (defense) | havoc rate (tackles for loss, forced fumbles, interceptions and passes defended per play), split front seven and defensive backs | plays | Tested in M19.1 |
+| Special teams | field-goal points over expected by distance, net punting, kick and punt return EPA, average starting field position | plays, drives | `team_ratings.st_rating`; tested in M19.1 |
+| Pace and style | plays per game, seconds per play, standard-downs run rate | plays | Display; the totals model (F-11) reads pace |
+| Turnovers | turnover margin, fumble-recovery rate | box score, plays | Display only, labeled "mostly luck" |
+
+- **Garbage time** is left out wherever it can be. CFBD's advanced stats come filtered (TASK-018 pulls only that variant). Metrics we compute from plays use the same score-by-quarter thresholds as CFBD (confirmed from CFBD's docs at M18.1), and a test checks that our filtered EPA/play matches CFBD's on a fixture week. Box-score stats (points and yards per game) can't be filtered, so they're display only and labeled as unfiltered.
+- **Thresholds that are definitions, not fits** (what counts as an explosive play, what counts as a scoring opportunity) are set at M18.1's plan gate and recorded in the input registry (§ 10.6).
+- The catalog will grow; the owner may add metrics. Each one is a registry entry plus a feature column.
+
+### 10.3 Opponent-removed stats
+**Concept: taking the team out of its opponents' numbers.** Ohio State's offense gains 480 yards a game. Is that good? Compare it with what its opponents' defenses allow everyone else: in their games *not* against Ohio State, they allowed 352. Ohio State's offense was 128 yards a game better than those defenses' typical opponent (F-47). Leaving Ohio State's games in would let its own 480 inflate "what these defenses allow" and make it look worse than it is.
+- Computed per metric, for offense and defense, entering each week: the team's average, its opponents' average with games against the team removed, and the difference (plus the ratio, for count stats).
+- It's opponent adjustment one level deep: it can't see that the opponents' other opponents were weak too. The ridge fit (§ 2) solves every level at once, so ridge ratings are what predict, and the opponent-removed numbers are the version you can check by hand. The team page shows both; the opponent-removed version is tested as a model input in M19.1.
+- They're aggregates of per-game facts, so in Postgres they're SQL views (hard rule 1), with a test that the views match the lake's feature table on the fixture.
+
+### 10.4 Shrinking toward the right average: conference tiers
+**Concept: what ridge shrinks toward.** Ridge (§ 2) pulls every team toward the FBS average until the data says otherwise. In September a G5 team that beat two weak opponents by 40 gets pulled toward "average," but the average G5 team is well below the average Power 4 team, so the anchor is wrong and early-season G5 ratings run high. Shrinking toward the team's tier (Power 4, G5, FCS) fixes the anchor. In the ridge fit that means adding unpenalized tier terms, which the non-conference games estimate.
+- `ModelSpec` option `shrink_toward: zero | tier | conference`. `conference` gives each conference its own level, but it needs enough non-conference games to estimate (about 4 per team, mostly in September), so it may be too noisy. The backtest decides.
+- The preseason prior (§ 2) can carry the same tier term.
+- The tier map is per season (the Pac-12 counts as a power conference through 2023; Notre Dame counts as Power 4) and lives in `sports/cfb` code, not a table.
+- M4.1 tests `tier` against `zero` for v1: the change is small, and early-season G5 ratings are a known weak spot of plain ridge. `conference` waits for M19.1.
+
+### 10.5 Schedule strength: SOS and SOR every week
+- **SOS (strength of schedule):** the average rating of the opponents a team has played, using ratings entering the current week, adjusted for where each game was played. Rankings and the team page show its rank (F-17, F-18). It's an aggregate of stored ratings, so it's a view (`team_schedule_strength`, M3.7). M18.4 adds remaining and full-season SOS (F-48).
+- **SOR (strength of record):** the § 7 résumé measure computed every week instead of only at season's end: the chance that a benchmark team (the 25th best by the current ratings) would have at least this team's record against this team's schedule so far (F-48). It needs Φ and the Poisson binomial (§ 7), so the engine computes it in each model run and stores it as a model output tied to that run, like `season_simulations` (schema proposal at M18.4). Ranking by it is a view. M12.6's season-final résumé reuses the same code with hindsight ratings.
+- **As model inputs:** tested in M19.1, with low expectations. Opponent-adjusted ratings already *are* a schedule adjustment, so SOS mostly counts it twice. SOR measures wins rather than strength, and the margin information is already in the ratings. Their real uses are the rankings, the résumé and the CFP committee model (§ 3).
+
+### 10.6 One input registry
+Every metric the engine can compute is registered once in `engine.core`: id, label, plain-English definition, unit, which direction is better, data source, garbage-time handling, first season available, and whether it's labeled noisy. `ModelSpec` inputs reference registry ids. The weights view (F-35), the model builder (F-38), the inputs explainer (F-50) and every unit display read their labels and definitions from it, so each metric is described in one place and the builder can't offer one the engine doesn't compute.
+
+**Inputs explainer (F-50).** Lab › Inputs shows one card per input: what it is and how it's computed, why it matters (what it predicts, and how stable it is from week to week), whether this version uses it or it's display only, its learned weight in plain English ("one standard deviation better pass EPA/play is worth 2.1 points of margin"), its share of the spread in overall ratings, and the league distribution with a chosen team marked. The builder (§ 6) shows the same card beside each input's toggle.
+
+### 10.7 Confidence plays
+A confidence play is a pick the model is most sure of (F-49). The tempting version is a confidence score built from the edge, but that's just the edge again. The honest version: **confidence is the calibrated cover probability**, and the work is making that probability reflect everything that should make the model more or less sure.
+- **Rating uncertainty:** in week 3, or after heavy roster turnover, ratings are rough, so the margin's spread should be wider and the cover probability closer to 50%. M19.2 makes σ game-specific (from each team's rating uncertainty, games played and prior weight) and keeps it only if calibration improves.
+- **Size of the disagreement with the market:** very large edges are often missed news. Market shrinkage (§ 4) already handles this.
+- **Agreement with other systems** (SP+, FPI): a candidate input, tested like any other, and only with values published before the game (§ 9.2).
+- **Confidence levels** are bins of that probability, and each shows its backtest hit rate ("High: plays like this covered 59% in validation"). Each play lists its reasons: edge, rating certainty, line movement since the pick, agreement with benchmarks. Levels come from the stored `model_prob` and cutoffs in the spec and are never stored (hard rule 1). Whether levels replace the A/B/C edge tiers or sit beside them is decided at M19.3's plan gate.
+
+### 10.8 Position-group ratings (Later, research)
+Rating quarterbacks, receivers, running backs and both lines from player-level data (CFBD's player PPA and usage endpoints) would let the model react to a missing starter without a manual adjustment (F-51). It's Phase 7 research (M16.5): the player endpoints' call cost is estimated first, and it ships only if it beats production out of sample (§ 9.6).

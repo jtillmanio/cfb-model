@@ -168,6 +168,27 @@ Outcomes use the 2026 Week 6 fixture (`design/sample-data.md`, seeded as describ
 | F-43 | ⌘K command palette: teams, this week's games, screens | MVP (added) | 4 | S-14 |
 | F-44 | Teams index (destination of the Teams nav item) | MVP (added) | 0 (skeleton) · 4 | S-17 |
 | F-45 | Settings › General: theme, default contest, time zone | MVP (added) | 4 | S-13 |
+| F-46 | Unit ratings: every unit rated and combined into the overall rating | Next (added) | 3 (v1 units) · 5 | S-04, S-06, S-03; not designed |
+| F-47 | Opponent-removed team stats | Next (added) | 5 | S-06; not designed |
+| F-48 | Strength of schedule and strength of record every week | Next (added) | 3 (SOS) · 5 | S-04, S-06; SOR not designed |
+| F-49 | Confidence plays (best bets with confidence levels) | Next (added) | 5 | S-07; not designed |
+| F-50 | Model inputs explainer | Next (added) | 5 · 7 (builder) | S-09, S-10; not designed |
+| F-51 | Position-group ratings | Later (research, added) | 7 | — |
+
+### Features added 2026-10-20
+
+From the owner's list of 2026-10-20. The model detail for all of them is [04-model.md § 10](04-model.md); where they're built is [08-tasklist.md](08-tasklist.md) M18–M19 (plus M3.7, M4.1 and M16.5). None changes the MVP's screens; the SOS that Rankings and the team page already show (F-17, F-18) gets its definition and its view (M3.7).
+
+| ID | What it is |
+|---|---|
+| F-46 | Every unit gets an opponent-adjusted, garbage-time-filtered rating: overall offense and defense, rushing and passing on each side, offensive and defensive line, down-and-distance success, finishing drives, havoc and special teams, from metrics such as points per game, yards per game and per play, EPA/play, success rate and explosive-play rate (the catalog is 04 § 10.2). Offense, defense and special teams add up to the overall rating in points. Shown on a Rankings units view, the team page's unit profile and Game Detail's unit matchup; the model uses a unit only when the backtest says it helps |
+| F-47 | Each team's stats next to what its opponents allowed (or gained) in their other games, with the team's own games taken out, and the difference. "Ohio State gains 480 yards a game against defenses that allow 352 to everyone else: +128." Entering any week. On the team page; tested as a model input |
+| F-48 | SOS (opponents' average rating, played, remaining and full season) and SOR (how likely the 25th-best team would be to match this record against this schedule) beside each team's offense, defense and overall ratings on Rankings, entering any week. Tested as model inputs, though opponent adjustment already accounts for schedule |
+| F-49 | The model's strongest plays, ranked by calibrated cover probability, each with a confidence level and that level's backtest hit rate, and the reasons behind it (edge, how settled the ratings are, line movement, agreement with SP+/FPI). Confidence is the probability itself, made uncertainty-aware (04 § 10.7) |
+| F-50 | In Model Lab, a page that shows every input: what it measures, how it's computed, why it matters, whether this version uses it, its learned weight in plain English, its share of the rating spread, and where teams sit on it. The builder (F-38) shows the same card beside each input |
+| F-51 | Ratings for quarterbacks, receivers, running backs and both lines from player-level data, so the model can react to a missing starter. Research: ships only if it beats production |
+
+Also from the same list: **conference-tier shrinkage** ("opponent adjusted but also Power 4 adjusted") is a model setting rather than a feature: v1 tests it (M4.1, 04 § 10.4). **Program rankings** (F-27) get span presets: all time back to the history start year, the last N seasons, or a custom range.
 
 ### Observable outcomes for MVP features
 

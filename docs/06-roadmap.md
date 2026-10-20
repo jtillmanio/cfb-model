@@ -89,12 +89,12 @@ Phase 8  Multi-sport (NFL)
 ## Phase 3 — Core model v1 + picks
 **Goal:** a model good enough to paper-trade.
 
-- [ ] Rung 2: ridge opponent-adjusted efficiency ratings (off/def, rush/pass splits)
+- [ ] Rung 2: ridge opponent-adjusted efficiency ratings (off/def, rush/pass splits); overall rating = sum of unit contributions in points; shrinking toward the conference tier (Power 4 / G5 / FCS) tested against shrinking toward zero ([04 § 10.4](04-model.md))
 - [ ] Preseason priors (returning production, talent, recruiting) + fitted decay blending
 - [ ] Margin model mapping efficiency to points; σ and empirical margin distribution
 - [ ] `drivers` output for explainability
 - [ ] Pick logic: thresholds, tiers, optional market shrinkage, tuned on validation seasons
-- [ ] `picks` table + views: `game_market`, `current_picks`, `pick_outcomes`, `model_record`, `team_rankings`
+- [ ] `picks` table + views: `game_market`, `current_picks`, `pick_outcomes`, `model_record`, `team_rankings`, `team_schedule_strength` (SOS, [04 § 10.5](04-model.md))
 - [ ] Holdout evaluation on 2024–2025, then go/no-go per [04-model.md §5](04-model.md)
 - [ ] Production weekly cycle live: rate → predict → pick (paper trading 2026)
 
@@ -127,6 +127,18 @@ Phase 8  Multi-sport (NFL)
 - [ ] Watchlist & alerts: star games; email/web-push alert when a starred game's edge crosses the pick threshold or its line moves (schema proposal reviewed before migration)
 - [ ] Weather flags: Open-Meteo forecast snapshots for outdoor venues; flag icon on slate rows and weather panel on Game Detail
 
+**Ratings depth** (added 2026-10-20; [04 § 10](04-model.md), D-117; M18–M19 in [08-tasklist](08-tasklist.md))
+- [ ] Design first: the ratings-depth pass (Prompt 13) is done
+- [ ] Input registry + the unit metric catalog in the feature tables, with our own garbage-time filter for PBP-derived metrics
+- [ ] Opponent-removed stats (each opponent's numbers with games against the team taken out), point-in-time
+- [ ] Every unit rated (offense, defense, special teams and sub-units), adding up to the overall rating
+- [ ] Weekly SOR and remaining/full-season SOS (schema proposal reviewed before migration)
+- [ ] Team stats in Postgres with views for season-to-date and opponent-removed stats (schema proposal reviewed before migration)
+- [ ] Rankings › Units, the SOR column, and the team page's Stats module
+- [ ] Model v1.1: the new units, special teams, opponent-removed stats, SOS/SOR and conference shrinkage tested as inputs, each kept only if it wins; game-specific σ kept only if calibration improves
+- [ ] Confidence plays: levels from the calibrated cover %, each with its backtest hit rate and reasons
+- [ ] Model Lab › Inputs: the inputs explainer
+
 ## Phase 6 — Rankings & history
 **Goal:** rank seasons, programs and coaches across history, not just this week's teams. Design: [04-model.md §7](04-model.md).
 
@@ -136,21 +148,22 @@ Phase 8  Multi-sport (NFL)
 - [ ] Schema proposal, reviewed before any migration: a rating kind (predictive vs hindsight), `coaches`, `coach_tenures` (game-level attribution for mid-season changes)
 - [ ] Hindsight ratings: one full-season fit per season, stored as their own kind. A test proves the backtest harness and production predictions refuse to read them
 - [ ] Scores-only ratings for seasons before advanced stats exist, labeled as such
-- [ ] Résumé ranking: strength of record (exact, no simulation needed)
+- [ ] Résumé ranking: strength of record (exact, no simulation needed), reusing Phase 5's weekly SOR code with hindsight ratings
 - [ ] Cross-era scale: within-season z-score/percentile next to the raw rating
-- [ ] Program rankings over any span of seasons (views)
+- [ ] Program rankings over any span of seasons: all time, last N seasons, or a custom range (views)
 - [ ] Coach rankings: value over expectation, shrunk for short tenures, with and without crediting recruiting; ATS and close-game records
 - [ ] Screens: Rankings → History tab (Season final, Programs, Coaches) and a coach page; ⌘K finds coaches
 
 **Acceptance:** for any season since the start year you can see the best team and the best résumé side by side; you can rank programs over any span; you can explain why each of the top 5 coaches is there; the leakage test proves no prediction can read a hindsight rating.
 
 ## Phase 7 — Model builder + extensions
-- [ ] **Model Lab, part 2:** builder form generated from the `ModelSpec` JSON Schema; run backtests from the UI (GitHub Actions dispatch); promote with the go/no-go checklist; variants-tried counter
+- [ ] **Model Lab, part 2:** builder form generated from the `ModelSpec` JSON Schema, with the inputs explainer's card beside each input; run backtests from the UI (GitHub Actions dispatch); promote with the go/no-go checklist; variants-tried counter
 - [ ] Totals model + picks (uses the Phase 5 weather snapshots)
 - [ ] CFP odds: committee-selection approximation (uses Phase 6's résumé ranking), 12-team bracket simulation
 - [ ] Hypothetical matchup tool (cross-season)
 - [ ] Research: drive-level game simulator (ships only if it improves calibration/totals)
 - [ ] Research: Rung 3 ML residual layer (ships only if it wins)
+- [ ] Research: position-group ratings from player-level data (estimate the player endpoints' call cost first; ships only if it wins)
 - [ ] Claude-generated pick write-ups from `drivers`
 - [ ] Optional: The Odds API multi-book lines
 
@@ -178,6 +191,10 @@ Playbook: [07-claude-design-playbook.md](07-claude-design-playbook.md). Design w
 - [x] Re-export the handoff; update the states columns in [05 › Screen inventory](05-ui-design-brief.md#screen-inventory-from-handoff)
 
 **Per-screen handoff:** each Phase 4 screen is handed off and implemented one at a time (see the Phase 4 checklist).
+
+**Ratings-depth pass (after Phase 4, before Phase 5's ratings-depth screens)**
+- [ ] Add the sample rows to `design/sample-data.md` (owner approves; protected path), then run **Prompt 13** ([07 § Prompt 13](07-claude-design-playbook.md)): Rankings › Units and SOR, team page Stats, Confidence plays, Lab › Inputs
+- [ ] Re-run Prompt 9's audit on the new frames; re-export; update "Design decisions"
 
 **History pass (after Phase 5, before Phase 6)**
 - [ ] Decide the Phase 6 open questions (history start year, default coach measure) and swap real rows into `design/sample-data.md` §9

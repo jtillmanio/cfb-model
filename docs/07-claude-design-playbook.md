@@ -258,7 +258,7 @@ Design the History tab inside Rankings (brief §11), using sample-data.md §9. 0
 Replace the disabled "History" tab with a live one, with three sub-tabs: Season final · Programs · Coaches (Coaches is designed in 10b; show it as a stub).
 
 1. Season final (2019): best team (hindsight rating) and best résumé side by side, sortable by either. Make the gap visible: Alabama is 4th by rating but 9th by résumé, with the caption from sample-data.md. Columns include the season z-score, with a tooltip explaining it's for comparing across eras. Season picker.
-2. Programs (2014–2025): a season-range control (two year pickers or a range slider), average/peak/worst rating, top-10 finishes, a sparkline of seasonal ratings per row. Changing the range re-ranks, so show the loading state for that re-rank.
+2. Programs (2014–2025): span presets (All time · Last 5 · Last 10 · Last 25) plus a custom season-range control (two year pickers or a range slider), average/peak/worst rating, top-10 finishes, a sparkline of seasonal ratings per row. Changing the range re-ranks, so show the loading state for that re-rank.
 3. Era badge component ("Efficiency" / "Scores only"), shown wherever seasons of both kinds could appear together (the Season picker, a Programs row spanning both eras). Show a Season final for 1995 using the "Scores only" variant, noting what is missing (no offense/defense split).
 
 Desktop + mobile. On mobile the tables collapse to cards as elsewhere; keep both ranks (rating and résumé) visible on the card.
@@ -375,6 +375,32 @@ When everything is drawn, run the consistency audit (sample-data agreement, sign
 ```
 
 **After it:** re-export the handoff and replace `design/handoff/` and `design/README.md` in their own commit. Then ask Claude Code to update the "States designed / States missing" columns in 05's screen inventory from the new bundle.
+
+### Prompt 13: Ratings depth and confidence (added 2026-10-20)
+
+**When:** after Phase 4, before M18's UI tasks (M18.7, M19.4, M19.5). It's a draft: finish it at the Phase 5 review gate.
+
+**Before it:** sample rows for the new views go into `design/sample-data.md` (a protected file, so the owner approves that edit): Ohio State's unit ratings and percentiles, its opponent-removed stats (480 vs 352 yards a game, +128), SOS played / remaining / full and SOR for the top 10, three confidence plays with levels, hit rates and reasons, and two Lab input cards (pass EPA/play, used; line yards, display only).
+
+**Attach:** `docs/05-ui-design-brief.md` (§3, §4, §5, §9, §13), `docs/04-model.md` § 10, the updated `design/sample-data.md`. Work in the screens project, since it edits existing frames.
+
+```
+Add the ratings-depth views from brief §13 to the existing frames, using the new sample-data.md rows.
+
+1. Rankings: a Units view beside Power (overall, offense, defense, special teams in points; sub-unit percentiles; sort by any unit; "display only" marker), and an SOR column beside SOS on Power with plain-English header tooltips. Desktop + mobile.
+2. Team page: a Stats module (per side: raw, opponents with this team removed, difference, adjusted rating, percentile; noisy and unfiltered stats labeled) and a schedule-strength card. Desktop + mobile.
+3. Picks: Confidence plays. Try it as its own view and as a column on Week and Best lines, and recommend one. Each play shows its level, the level's backtest hit rate, reasons, and the UNCALIBRATED label. Desktop + mobile.
+4. Model Lab: an Inputs page of input cards (definition, why it matters, used or display only, weight in plain English, share of rating spread, league distribution with a team marked), and the same card beside an input toggle in the builder wireframe. Desktop only.
+5. States: preseason (no in-season stats yet: ratings are all prior), week 1 (no opponent-removed numbers), a team with fewer than 3 games (wide uncertainty), an FCS team (schedule only).
+
+Ratings stay in ink. Reuse the percentile bars, tier badge and data-table densities; list any new component.
+```
+
+**Review:**
+- [ ] Offense + defense + special teams visibly add up to the overall rating wherever all four appear.
+- [ ] "Display only" units are clearly marked but don't look broken or disabled.
+- [ ] A confidence level never appears without its hit rate.
+- [ ] Every new frame passes the Prompt 9 audit.
 
 ### Reusable follow-up prompts
 - *"Tighter: increase information density by ~20% without shrinking body text below [13px]."*

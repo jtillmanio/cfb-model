@@ -190,6 +190,7 @@ IDX `(game_id, model_version_id, created_at DESC)`
 |---|---|
 | `game_market` | Per game: opening, current, and closing line, each from the `consensus` book when it quoted one, else the median across books, with a column saying which. Closing is CFBD's untimed `closing` row when present, else the last snapshot before kickoff (or before the end of `game_date` in Eastern time when the kickoff time is unknown), and NULL until that cutoff has passed (planned: TASK-020) |
 | `team_rankings` | Rank and week-over-week rank change from `team_ratings` |
+| `team_schedule_strength` | Per team, season and week: SOS, the average rating entering that week of the opponents already played, adjusted for site, and its rank. The Rankings SOS column and the team page's "34th SOS rank" read it ([04 § 10.5](04-model.md); planned: M3.7) |
 | `current_picks` | Latest pick per (game, model version, market, line source) |
 | `pick_outcomes` | Per pick: result (`won|lost|push|void|pending`) from final scores, closing line, CLV in points |
 | `model_record` | Rollups by model version / season / week / tier / edge bucket: W-L-P, win %, units, ROI, avg CLV |
@@ -225,6 +226,15 @@ The handoff shows data that no table above holds. Like the Phase 5 and Phase 6 p
 - Sign-in has no password or lockout data; GitHub OAuth only (D-078).
 
 **Fixture rows:** every `source` column must accept `'fixture'` for the test seed (D-089). The seed refuses non-test databases, so production never holds that value.
+
+### Proposed additions for ratings depth (2026-10-20, not approved)
+
+For F-46 to F-49 in Phase 5 ([04 § 10](04-model.md), [02 › Ratings depth](02-architecture.md#ratings-depth-units-schedule-strength-and-team-stats-added-2026-10-20)). A rough shape, reviewed at each schema task's plan gate before any migration.
+- **team_game_stats** (M18.5): one row per (game, team) with the catalog's per-game metrics for offense and defense: box score, CFBD advanced (garbage time excluded) and our PBP-derived ones, with a flag saying which are garbage-time filtered. Facts, so upserted by the game's source key and rebuilt from the lake like `games` (hard rule 3). Wide columns or one `jsonb` is decided at the plan gate.
+- **Views over it:** season-to-date stats per team entering each week, and opponent-removed stats (each opponent's numbers with its games against the team taken out). Records and ranks stay views too.
+- **Unit ratings** need no change: they go in `team_ratings.components` (keyed by input-registry id) and `st_rating`.
+- **Schedule strength outputs** (M18.4): per model run, team, season and week: `sor`, `sor_benchmark_rating` (the 25th-best rating it was measured against), `sos_remaining`, `sos_full`. Model outputs, insert-only and tied to `model_run_id` like `season_simulations`. Its own table or columns on `team_ratings` is decided at the plan gate.
+- **Not stored:** confidence levels (computed from `picks.model_prob` and the spec's cutoffs), the conference-tier map (code in `sports/cfb`), and the input registry (code in `engine.core`).
 
 ### Later: history & coaches (proposed, not approved)
 Phase 6 ([04-model.md §7](04-model.md)) will need a way to mark a rating as *predictive* or *hindsight* (so predictions can never read hindsight ratings), plus `coaches` and `coach_tenures` with game-level attribution for mid-season changes. Program and coach rankings themselves are views. The exact schema is proposed and reviewed at the start of Phase 6.
