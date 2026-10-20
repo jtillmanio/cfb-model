@@ -176,7 +176,8 @@ def test_median_without_consensus(db_conn: Connection):
 def test_consensus_wins_over_the_median(db_conn: Connection):
     game = _game(db_conn, "2025-10-11", _utc(2025, 10, 11, 23, 30))
     at = _utc(2025, 10, 9, 16)
-    for book, spread in (("consensus", -3.5), ("Bovada", -3), ("DraftKings", -6)):
+    # The median of the three is -3, so only the consensus rule gives -3.5.
+    for book, spread in (("consensus", -3.5), ("Bovada", -3), ("DraftKings", -2)):
         _line(db_conn, game, spread, at, book=book)
 
     m = _market(db_conn, game)
