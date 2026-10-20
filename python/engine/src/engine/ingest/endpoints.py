@@ -10,7 +10,8 @@ query params a call must send, and its granularity:
 - `static`: no season in the query (`/ppa/predicted`), filed under the season it was pulled for.
 
 A week's file is never fetched again once it was saved after every game in that week completed
-(CLAUDE.md: never re-fetch completed CFBD weeks). Season-level files have no such rule yet.
+(CLAUDE.md: never re-fetch completed CFBD weeks); a season's file, once it was saved after every
+game of its season type completed (TASK-021).
 """
 
 from __future__ import annotations
@@ -18,6 +19,7 @@ from __future__ import annotations
 import os
 from collections.abc import Mapping
 from dataclasses import dataclass, field
+from datetime import datetime, timedelta
 from typing import Any, Literal
 
 from engine.clock import now
@@ -37,6 +39,9 @@ SEASON_TYPES = ("regular", "postseason")
 
 # Every game with an FBS team; a flag and a partition in D-098, fixed here (D-112).
 _FBS: Mapping[str, str] = {"classification": "fbs"}
+# An empty season-level file is final only this long after the season type's last game: CFBD can
+# answer empty just after the games (D-114).
+EMPTY_SETTLE = timedelta(days=7)
 
 
 @dataclass(frozen=True)
@@ -118,22 +123,59 @@ def query(
     return params
 
 
-def _week_complete(records: list[Any], week: int, season_type: str) -> bool:
+def _done(game: Mapping[str, Any], saved_at: datetime) -> bool:
+    """Completed, or unscored and started `EMPTY_SETTLE` before its /games file was saved: CFBD
+    lists a canceled game (App State-Liberty 2024) as uncompleted forever (D-121)."""
+    if game.get("completed"):
+        return True
+    unscored = game.get("homePoints") is None and game.get("awayPoints") is None
+    return unscored and saved_at >= datetime.fromisoformat(game["startDate"]) + EMPTY_SETTLE
+
+
+def week_complete(records: list[Any], week: int, season_type: str, saved_at: datetime) -> bool:
+    """Every game of the week is done, by a /games file saved at `saved_at`."""
     games = [g for g in records if g.get("week") == week and g.get("seasonType") == season_type]
-    return bool(games) and all(g.get("completed") for g in games)
+    return bool(games) and all(_done(g, saved_at) for g in games)
+
+
+def _season_complete(records: list[Any], season_type: str, saved_at: datetime) -> datetime | None:
+    """When the season type's last game started, if every one of its games is done."""
+    games = [g for g in records if g.get("seasonType") == season_type]
+    if not games or not all(_done(g, saved_at) for g in games):
+        return None
+    return max(datetime.fromisoformat(g["startDate"]) for g in games)
+
+
+def _season_final(
+    lake: Lake, name: str, season: int, season_type: str, key: str, records: list[Any]
+) -> bool:
+    """A season-level file is final when a saved season /games file, fetched no later than it,
+    shows every game of its season type done (the postseason, for an endpoint with no
+    season type). An empty one must also have been saved `EMPTY_SETTLE` after the last game."""
+    games_type = season_type if ENDPOINTS[name].season_type else "postseason"
+    if name == "games":
+        return _season_complete(records, games_type, fetched_at_of(key)) is not None
+    saved_at = fetched_at_of(key)
+    for g in lake.list(raw_folder("games", season, None, games_type)):
+        if not g.endswith(".parquet") or fetched_at_of(g) > saved_at:
+            continue
+        last = _season_complete(decode_raw(lake.read(g)), games_type, fetched_at_of(g))
+        if last is not None and (records or saved_at >= last + EMPTY_SETTLE):
+            return True
+    return False
 
 
 def _is_final(
     lake: Lake, name: str, season: int, week: int | None, season_type: str, key: str
 ) -> bool:
     """A week-level file is final when it isn't empty, and a saved /games file covering that
-    week (the week's own or the season's) shows every game completed and was fetched no later
-    than it."""
-    if week is None:
-        return False
+    week (the week's own or the season's) shows every game done and was fetched no later
+    than it. A season-level file follows `_season_final`."""
     records = decode_raw(lake.read(key))
+    if week is None:
+        return _season_final(lake, name, season, season_type, key, records)
     if name == "games":
-        return _week_complete(records, week, season_type)
+        return week_complete(records, week, season_type, fetched_at_of(key))
     if not records:
         return False  # CFBD may not have filled the week in yet
     saved_at = fetched_at_of(key)
@@ -144,9 +186,19 @@ def _is_final(
     return any(
         g.endswith(".parquet")
         and fetched_at_of(g) <= saved_at
-        and _week_complete(decode_raw(lake.read(g)), week, season_type)
+        and week_complete(decode_raw(lake.read(g)), week, season_type, fetched_at_of(g))
         for g in games_files
     )
+
+
+def saved_final(
+    lake: Lake, name: str, season: int, week: int | None = None, season_type: str = "regular"
+) -> str | None:
+    """The saved raw file a pull would reuse with no API call, if there is one."""
+    saved = latest_raw(lake, raw_folder(name, season, week, season_type))
+    if saved and _is_final(lake, name, season, week, season_type, saved):
+        return saved
+    return None
 
 
 def pull(
@@ -161,16 +213,29 @@ def pull(
     """Pull one endpoint into the lake and return the raw file's key: the saved one if it's
     final, otherwise a new file from one counted CFBD call."""
     params = query(name, season, week, season_type, extra)
-    folder = raw_folder(name, season, week, season_type)
-    saved = latest_raw(lake, folder)
-    if saved and _is_final(lake, name, season, week, season_type, saved):
-        print(f"Using saved {saved} (week complete); no API call.")
+    saved = saved_final(lake, name, season, week, season_type)
+    if saved:
+        print(f"Using saved {saved} (complete); no API call.")
         return saved
+    return fetch(lake, name, season, week, season_type, extra, client, params)
 
+
+def fetch(
+    lake: Lake,
+    name: str,
+    season: int,
+    week: int | None = None,
+    season_type: str = "regular",
+    extra: Mapping[str, str] | None = None,
+    client: CfbdClient | None = None,
+    params: dict[str, Any] | None = None,
+) -> str:
+    """One counted CFBD call for the endpoint, saved as a new raw file, whatever is saved."""
+    params = params or query(name, season, week, season_type, extra)
     client = client or CfbdClient(os.environ.get("CFBD_API_KEY", ""), CallBudget(lake))
     payload = client.get(ENDPOINTS[name].path, params)
     fetched_at = now()
-    key = raw_key(folder, fetched_at)
+    key = raw_key(raw_folder(name, season, week, season_type), fetched_at)
     lake.write_new(key, encode_raw(payload, params, fetched_at))
     count = len(payload) if isinstance(payload, list) else 1
     print(

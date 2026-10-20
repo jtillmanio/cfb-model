@@ -1,7 +1,7 @@
 ---
 id: TASK-021
 title: Backfill 2014–2025 and 2026 to date, then explore it in notebook #1
-status: Ready
+status: In progress
 depends_on: [TASK-015, TASK-017, TASK-018, TASK-020]
 size: M
 model: opus
@@ -68,6 +68,10 @@ _Work noticed during this task and deliberately left out. Each bullet ends `→ 
 - 02 › Environments & databases lists the development lake as local `./data/`. From this task on, R2 is the lake every CFBD call writes to, and `./data` is a mirror made by `engine lake sync` → docs/02-architecture.md § Environments & databases (approved at plan)
 - The jobs read and write the same R2 lake and ledger as the backfill. The season-level final rule (gate C) also covers a `results` run's season files → not tracked: already in TASK-022's approved plan (gate B for the shared lake and ledger; its dependency line names the season-level final rule)
 - M3.4's closing-line baseline reuses `engine.transform.market.closing_lines()`, so it matches notebook #1's benchmark → docs/08-tasklist.md § M3.4 (approved at plan)
+- CFBD's `consensus` book stops in late 2023 (2023: 29 of 792 games; 2024–2025: none), so from then on the closing line is the median across books. M3.4 should check that the closing-line MAE and ATS baselines don't shift at that seam
+- 103 team-games in 2014–2025 have no CFBD advanced stats (now a check note); M3's feature tables need a rule for them (box-score fallback, or leaving them out)
+- The 2 legacy `.json` raw files from before D-112's Parquet format (`raw/cfbd/games/season=2025/season_type=regular/...`) are now in R2 as well as `./data`; staging ignores them
+- TASK-018's renamed-school concern: the full rebuild leaves 4 names unmatched, all FCS schools in recruiting (Albany, Saint Francis (PA), Southeastern Louisiana, UTRGV), so no backtest team is hit and D-119's revisit isn't triggered
 
 ## Plan
 
@@ -121,6 +125,14 @@ Provisional: depends on TASK-018 and TASK-020. The closing-line rule below follo
 - The full-lake `closing_line`/`advanced_stats` checks may fail for games CFBD lacks. AC-3 lists each failure with its cause.
 
 **Size check:** 12 files, no schema, no UI: passes (limit 20).
+
+**Revisions after approval** (2026-10-20; 2 and 3 were approved by the owner in the session):
+1. `ingest/lake.py`: `open_lake(uri=None)`, so `engine lake sync --from URI --to URI` opens either side the way `LAKE_URI` does. `pull()` was split into `saved_final()` + `fetch()` so the backfill checks finality once.
+2. **Canceled games** (`endpoints.py`): the first run left 2024 week 5 unpulled and 2024's regular-season files never final, because CFBD lists App State–Liberty (canceled, Hurricane Helene) as uncompleted forever. A game is now done when completed, or unscored with its `/games` file saved 7+ days after its start; this applies to the week rule (D-114) and rule C. Test: `test_a_canceled_game_settles_after_seven_days`.
+3. **Advanced stats CFBD lacks** (`transform/quality.py`, `tests/test_transform_stats.py`): 103 team-games in 2014–2025 have no CFBD advanced stats (missing or partial play-by-play), and the failing check blocked the dev publish. A missing row is now a note when a pull fetched 7+ days after kickoff covers the week without it (amends D-119). Tests: `test_game_cfbd_never_filled_in_is_a_note`, plus `test_advanced_stats_check_names_missing_game`, whose pull is moved to 2 days after kickoff so it still fails.
+4. `pyproject.toml` also gets a ruff per-file ignore of B018 for `notebooks/*.py` (marimo displays a cell's last expression).
+
+Files: 16 with the revisions (adds `ingest/lake.py`, `transform/quality.py`, `tests/test_transform_stats.py`, `docs/02-architecture.md`).
 
 ## Review log
 

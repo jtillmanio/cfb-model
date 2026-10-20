@@ -65,6 +65,35 @@ def _publish(target: MigrationTarget) -> None:
     print(f"Published to {target}. New rows: " + ", ".join(f"{t} {n}" for t, n in new.items()))
 
 
+def _backfill(first: int, last: int, dry_run: bool, max_calls: int | None) -> None:
+    """Print the dry run, or pull what it lists; exit 3 when the budget or --max-calls stops it."""
+    from engine.ingest import backfill
+    from engine.ingest.cfbd import BudgetExceededError, CallBudget
+    from engine.ingest.lake import open_lake
+
+    lake = open_lake()
+    if dry_run:
+        print(backfill.render(backfill.plan(lake, first, last), first, last, CallBudget(lake)))
+        return
+    try:
+        calls = backfill.run(lake, first, last, backfill.client_for(lake), max_calls)
+    except (BudgetExceededError, backfill.Stopped) as e:
+        by = "the CFBD budget" if isinstance(e, BudgetExceededError) else "--max-calls"
+        left = len(backfill.plan(lake, first, last))
+        print(e)
+        print(f"Stopped by {by}. Left: {left} calls (engine backfill --dry-run lists them).")
+        sys.exit(3)
+    print(f"Backfill {first}-{last} done: {calls} CFBD calls.")
+
+
+def _sync(src: str, dst: str) -> None:
+    from engine.ingest.backfill import sync_raw
+    from engine.ingest.lake import open_lake
+
+    copied = sync_raw(open_lake(src), open_lake(dst))
+    print(f"Copied {len(copied)} raw files from {src} to {dst}.")
+
+
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(prog="engine")
     commands = parser.add_subparsers(dest="command", required=True)
@@ -112,6 +141,32 @@ def main(argv: list[str] | None = None) -> None:
     )
     publish.add_argument("--target", required=True, choices=["dev", "test"])
 
+    backfill = commands.add_parser(
+        "backfill",
+        help="Pull every CFBD endpoint the model uses for a range of seasons into the raw lake",
+        description="Season by season: /games, the calendar, each completed week's box scores, "
+        "plays and drives, then the season-level lines, stats, teams, preseason inputs and "
+        "benchmark ratings. A pull whose saved file is final is skipped, so a stopped run "
+        "resumes where it left off. Exits 3 when the month's CFBD budget or --max-calls stops it.",
+    )
+    backfill.add_argument("--from", dest="first", type=int, required=True, metavar="SEASON")
+    backfill.add_argument("--to", dest="last", type=int, required=True, metavar="SEASON")
+    backfill.add_argument(
+        "--dry-run", action="store_true", help="Count the calls per endpoint; make none"
+    )
+    backfill.add_argument("--max-calls", type=int, help="Stop before call N + 1")
+
+    lake = commands.add_parser("lake", help="Copy raw files between lakes")
+    lake_commands = lake.add_subparsers(dest="lake_command", required=True)
+    sync = lake_commands.add_parser(
+        "sync",
+        help="Copy every raw/cfbd/ file the source has and the target lacks",
+        description="No CFBD calls, and no file in the target is overwritten. Each side is a "
+        "LAKE_URI: a folder, or s3://<bucket>[/<prefix>] for R2.",
+    )
+    sync.add_argument("--from", dest="src", required=True, metavar="URI")
+    sync.add_argument("--to", dest="dst", required=True, metavar="URI")
+
     seed = commands.add_parser("seed", help="Load seed data into the test DB")
     seed.add_argument("what", choices=["fixture"])
 
@@ -151,6 +206,14 @@ def main(argv: list[str] | None = None) -> None:
     elif args.command == "publish":
         load_env()
         _publish(args.target)
+    elif args.command == "backfill":
+        if args.first > args.last:
+            backfill.error("--from must not be after --to.")
+        load_env()
+        _backfill(args.first, args.last, args.dry_run, args.max_calls)
+    elif args.command == "lake":
+        load_env()
+        _sync(args.src, args.dst)
     elif args.command == "seed":
         load_env()
         from engine.fixture import seed_fixture
