@@ -1,7 +1,7 @@
 ---
 id: TASK-020
 title: Publish reference data, games and line snapshots to Postgres, with the game_market view
-status: Review
+status: Done
 depends_on: [TASK-016, TASK-017]
 size: M
 model: opus
