@@ -1,51 +1,32 @@
 """`engine transform --rebuild` and `engine check` on a lake fixture of recorded CFBD responses
-(TASK-017, D-116). No test opens a socket or a database.
-
-`fixtures/lake.json` maps raw keys to `{params, records}`, trimmed from real 2025 pulls: five
-week-1 games, their lines (plus Colgate-Monmouth, a game with no FBS team), /teams without Idaho
-State and /venues without UNLV's stadium (both filled in from /games), and four calendar weeks.
+(TASK-017, D-116). No test opens a socket or a database. The fixture is described in
+`lake_fixture.py`.
 """
 
 from __future__ import annotations
 
 import copy
 import io
-import json
 from datetime import datetime
-from pathlib import Path
 from typing import Any
 
 import httpx
-import pyarrow as pa
 import pyarrow.parquet as pq
 import pytest
+from lake_fixture import FIXTURE, by_id, engine, staged, write
 
-from engine import cli
 from engine.ingest import cfbd
-from engine.ingest.lake import LocalLake, encode_raw, fetched_at_of
+from engine.ingest.lake import LocalLake, fetched_at_of
 from engine.sports.cfb.games import map_games
-from engine.transform import TABLES, rebuild
+from engine.transform import SEASON_TABLES, TABLES, rebuild, season_key
 
-FIXTURE = json.loads((Path(__file__).parent / "fixtures" / "lake.json").read_text("utf-8"))
 GAMES_KEY = "raw/cfbd/games/season=2025/week=01/fetched_at=2025-09-02T120000Z.parquet"
 LINES_KEY = "raw/cfbd/lines/season=2025/week=01/fetched_at=2026-10-18T061546Z.parquet"
+STATS_KEY = (
+    "raw/cfbd/stats_game_advanced/season=2025/week=01/fetched_at=2026-10-20T060735Z.parquet"
+)
 NO_FBS_GAME = "401767256"  # Colgate-Monmouth: in /lines, not in /games
 BOTH_FBS = "401756847"  # Kansas-Fresno State, 2025-08-23T22:30Z
-
-
-def write(lake: LocalLake, key: str, records: list[Any], params: dict[str, Any]) -> None:
-    lake.write_new(key, encode_raw(records, params, fetched_at_of(key)))
-
-
-@pytest.fixture
-def lake(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> LocalLake:
-    monkeypatch.setenv("LAKE_URI", str(tmp_path))
-    monkeypatch.delenv("LIVE", raising=False)
-    monkeypatch.setattr(cli, "load_env", lambda: None)
-    lake = LocalLake(tmp_path)
-    for key, raw in FIXTURE.items():
-        write(lake, key, raw["records"], raw["params"])
-    return lake
 
 
 def fixture_game(source_id: str) -> dict[str, Any]:
@@ -61,20 +42,8 @@ def lines_params(week: int) -> dict[str, Any]:
     return {"seasonType": "regular", "week": week, "year": 2025}
 
 
-def staged(lake: LocalLake, name: str) -> pa.Table:
-    return pq.read_table(io.BytesIO(lake.read(f"staging/{name}.parquet")))
-
-
-def by_id(table: pa.Table, column: str = "source_id") -> dict[str, dict[str, Any]]:
-    return {row[column]: row for row in table.to_pylist()}
-
-
-def engine(*argv: str) -> int:
-    try:
-        cli.main(list(argv))
-    except SystemExit as e:
-        return int(e.code or 0)
-    return 0
+def stats_params(week: int) -> dict[str, Any]:
+    return {"excludeGarbageTime": "true", "seasonType": "regular", "week": week, "year": 2025}
 
 
 def test_rebuild_stages_every_table_with_no_api_calls(
@@ -95,14 +64,26 @@ def test_rebuild_stages_every_table_with_no_api_calls(
         "venues": 5,  # 4 from /venues, UNLV's from /games
         "calendar": 4,
         "lines": 14,  # the five games' 14 provider rows; Colgate-Monmouth's one is dropped
+        "team_games": 10,
+        "team_game_advanced": 10,
+        "talent": 10,
+        "returning_production": 9,
+        "recruiting": 10,
+        "benchmark_ratings": 27,  # 9 teams x SP+, FPI, Elo; SP+'s nationalAverages is dropped
         "skipped_raw": 0,
+        "plays": 334,
+        "drives": 48,
     }
-    assert set(counts) == set(TABLES)
-    first = {name: lake.read(f"staging/{name}.parquet") for name in TABLES}
+    assert set(counts) == set(TABLES) | set(SEASON_TABLES)
+    keys = [f"staging/{name}.parquet" for name in TABLES]
+    keys += [season_key(name, 2025) for name in SEASON_TABLES]
+    assert sorted(lake.walk("staging")) == sorted(keys)
+    first = {key: lake.read(key) for key in keys}
 
     assert engine("transform", "--rebuild") == 0
-    for name in TABLES:
-        assert staged(lake, name).equals(pq.read_table(io.BytesIO(first[name]))), name
+    for key in keys:
+        again = pq.read_table(io.BytesIO(lake.read(key)))
+        assert again.equals(pq.read_table(io.BytesIO(first[key]))), key
 
     lines = staged(lake, "lines")
     assert NO_FBS_GAME not in lines.column("game_source_id").to_pylist()
@@ -181,7 +162,7 @@ def test_check_passes_on_clean_fixture(
     capsys.readouterr()
     assert engine("check") == 0
     out = capsys.readouterr().out
-    assert "4 passed, 0 failed" in out
+    assert "5 passed, 0 failed" in out
     assert "FAIL" not in out
 
 
@@ -238,6 +219,14 @@ def test_marked_missing_line_passes(lake: LocalLake, capsys: pytest.CaptureFixtu
         "raw/cfbd/lines/season=2025/week=02/fetched_at=2025-09-08T120000Z.parquet",
         [{**FIXTURE[LINES_KEY]["records"][0], "id": 900000099}],
         lines_params(2),
+    )
+    # X is a final FBS game in a backtest season, so it needs its advanced stats too.
+    kansas = [r for r in FIXTURE[STATS_KEY]["records"] if str(r["gameId"]) == BOTH_FBS]
+    write(
+        lake,
+        "raw/cfbd/stats_game_advanced/season=2025/week=02/fetched_at=2025-09-08T120000Z.parquet",
+        [{**r, "gameId": 900000010, "week": 2} for r in kansas],
+        stats_params(2),
     )
     assert engine("transform", "--rebuild") == 0
     assert by_id(staged(lake, "games"))["900000010"]["closing_line_missing"] is True

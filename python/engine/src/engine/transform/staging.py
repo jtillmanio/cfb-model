@@ -70,6 +70,7 @@ def _file_schema() -> pa.Schema:
             ("week", pa.int32()),
             ("season_type", pa.string()),
             ("fetched_at", pa.timestamp("us", "UTC")),
+            ("params", pa.string()),
             ("records", pa.int32()),
         ]
     )
@@ -79,44 +80,53 @@ def _file_schema() -> pa.Schema:
 class RawEndpoint:
     """Every usable raw file of one endpoint: `records` has a row per record, `files` a row per
     file (an empty response included, with its record count), and `skipped` the files left out,
-    with the reason. An empty file has no `params` to check, so it's never skipped."""
+    with the reason. An empty file has no `params` to check, so it's never skipped (and its
+    `params` is NULL)."""
 
     records: pa.Table
     files: pa.Table
     skipped: list[tuple[str, str]] = field(default_factory=list)
 
 
-def load_raw(lake: Lake, endpoint: str) -> RawEndpoint:
+def raw_prefix(endpoint: str, season: int | None = None) -> str:
+    prefix = f"raw/cfbd/{endpoint}"
+    return prefix if season is None else f"{prefix}/season={season}"
+
+
+def load_raw(lake: Lake, endpoint: str, season: int | None = None) -> RawEndpoint:
+    """The endpoint's raw files, or only one season's."""
     import pyarrow as pa
     import pyarrow.parquet as pq
 
     files: list[dict[str, Any]] = []
     parts: list[pa.Table] = []
     skipped: list[tuple[str, str]] = []
-    for key in lake.walk(f"raw/cfbd/{endpoint}"):
+    for key in lake.walk(raw_prefix(endpoint, season)):
         if not key.endswith(".parquet") or "fetched_at=" not in key:
             continue  # D-098's JSON files stay unread (D-112)
         match = _KEY.fullmatch(key)
         if match is None or match["endpoint"] != endpoint:
             skipped.append((key, "the key doesn't follow the raw layout"))
             continue
-        season = int(match["season"])
+        file_season = int(match["season"])
         week = None if match["week"] is None else int(match["week"])
         season_type = match["season_type"] or "regular"
         table = pq.read_table(io.BytesIO(lake.read(key)), columns=["row", "record", "params"])
-        if table.num_rows:
+        params = table.column("params")[0].as_py() if table.num_rows else None
+        if params is not None:
             reason = _params_mismatch(
-                endpoint, season, week, season_type, json.loads(table.column("params")[0].as_py())
+                endpoint, file_season, week, season_type, json.loads(params)
             )
             if reason:
                 skipped.append((key, reason))
                 continue
         info = {
             "key": key,
-            "season": season,
+            "season": file_season,
             "week": week,
             "season_type": season_type,
             "fetched_at": fetched_at_of(key),
+            "params": params,
             "records": table.num_rows,
         }
         files.append(info)
@@ -152,25 +162,35 @@ def _j(path: str, cast: str | None = None, source: str = "record") -> str:
 
 class Staging:
     """One rebuild: the DuckDB connection, the raw endpoints loaded so far, and what was left
-    out (raw files skipped, line rows dropped)."""
+    out (raw files skipped, line and advanced-stats rows dropped)."""
 
     def __init__(self, lake: Lake) -> None:
         self.lake = lake
         self.con = connect()
         self.skipped: list[tuple[str, str]] = []
         self.dropped_lines = 0
+        self.dropped_advanced = 0
         self._loaded: set[str] = set()
 
-    def raw(self, endpoint: str) -> str:
-        """Register `raw_<endpoint>` (records) and `raw_<endpoint>_files`; returns the first."""
-        name = f"raw_{endpoint}"
-        if endpoint not in self._loaded:
-            raw = load_raw(self.lake, endpoint)
+    def raw(self, endpoint: str, season: int | None = None) -> str:
+        """Register `raw_<endpoint>` (records) and `raw_<endpoint>_files`, or with a season
+        `raw_<endpoint>_<season>` and its files; returns the first."""
+        name = f"raw_{endpoint}" if season is None else f"raw_{endpoint}_{season}"
+        if name not in self._loaded:
+            raw = load_raw(self.lake, endpoint, season)
             self.con.register(name, raw.records)
             self.con.register(f"{name}_files", raw.files)
             self.skipped += raw.skipped
-            self._loaded.add(endpoint)
+            self._loaded.add(name)
         return name
+
+    def release(self, endpoint: str, season: int) -> None:
+        """Unregister one season's raw records once its tables are written (plays are large)."""
+        name = f"raw_{endpoint}_{season}"
+        if name in self._loaded:
+            self.con.unregister(name)
+            self.con.unregister(f"{name}_files")
+            self._loaded.remove(name)
 
     def latest(self, endpoint: str, *id_paths: str) -> str:
         """Register `latest_<endpoint>`: each entity's record from the newest pull."""

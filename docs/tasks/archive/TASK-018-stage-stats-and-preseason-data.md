@@ -1,7 +1,7 @@
 ---
 id: TASK-018
 title: Stage box scores, advanced stats, play-by-play, preseason inputs and benchmark ratings
-status: Ready
+status: Done
 depends_on: [TASK-017]
 size: M
 model: opus
@@ -29,11 +29,11 @@ The same `engine transform --rebuild` also stages team box scores, advanced stat
 
 ## Acceptance criteria
 
-- [ ] AC-1: Given the lake fixture extended with one recorded response per endpoint, `engine transform --rebuild` writes staging tables for team box scores, team-game advanced stats, plays, drives, talent, returning production, recruiting and benchmark ratings. Each table's row count equals its raw fixture's record count after dedupe (one assertion per table).
-- [ ] AC-2: Staged advanced stats have exactly one row per (game, team) and record whether garbage time was excluded. A raw pull that repeats a (game, team) keeps the newest pull's values.
-- [ ] AC-3: Given a fixture FBS final game with no advanced-stats row, the data-quality run exits non-zero and names that game's `source_id`; with the row present it exits 0.
-- [ ] AC-4: Every staged benchmark-rating row says whether its value was published before a given week or is season-final. Given a season-final SP+ fixture, every row is marked season-final.
-- [ ] AC-5: The rebuild still makes zero API calls (TASK-017's no-network test covers the new tables).
+- [x] AC-1: Given the lake fixture extended with one recorded response per endpoint, `engine transform --rebuild` writes staging tables for team box scores, team-game advanced stats, plays, drives, talent, returning production, recruiting and benchmark ratings. Each table's row count equals its raw fixture's record count after dedupe (one assertion per table).
+- [x] AC-2: Staged advanced stats have exactly one row per (game, team) and record whether garbage time was excluded. A raw pull that repeats a (game, team) keeps the newest pull's values.
+- [x] AC-3: Given a fixture FBS final game with no advanced-stats row, the data-quality run exits non-zero and names that game's `source_id`; with the row present it exits 0.
+- [x] AC-4: Every staged benchmark-rating row says whether its value was published before a given week or is season-final. Given a season-final SP+ fixture, every row is marked season-final.
+- [x] AC-5: The rebuild still makes zero API calls (TASK-017's no-network test covers the new tables).
 
 ## Out of scope
 
@@ -51,16 +51,22 @@ The same `engine transform --rebuild` also stages team box scores, advanced stat
 
 ## Verification
 
-- Automated: `test_transform_stats.py` (AC-1, AC-2, AC-4), `test_quality.py` (AC-3), `test_transform.py` (AC-5).
+- Automated: `test_transform_stats.py` (AC-1, AC-2, AC-3, AC-4), `test_transform.py` (AC-5). The check's tests sit with the transform tests, as TASK-017's do (no `test_quality.py` exists).
 - Manual: record one week of each week-level endpoint into the local lake (calls shown by the ledger), run `engine transform --rebuild` → each staged table is non-empty and the DQ report exits 0.
 
 ## Follow-ups
 
 _Work noticed during this task and deliberately left out. Each bullet ends `→ <path> § <section>` (where it was placed) or `→ not tracked: <reason>`. See `.claude/skills/track-follow-ups/classify.md`; the PR's Follow-ups section is copied from here._
 
-- Staged advanced-stats column names (`off_*`/`def_*`, rush/pass splits), `garbage_time_excluded`, and plays/drives partitioned by season for TASK-019's features → docs/tasks/TASK-019-point-in-time-features.md § Context (approved at plan)
-- M3.4: benchmark rows carry `season_final`/`known_at`. Backfilled SP+/FPI are season-final (hindsight only). A weekly `/ratings/elo?week=` pull would give pre-game values, but the registry pulls Elo per season → docs/08-tasklist.md § M3.4 (approved at plan)
-- M4.2: CFBD's talent, returning production and recruiting carry no publication date, and backfilled pulls are fetched after the season, so "published before the season" has to be assumed per source → docs/08-tasklist.md § M4.2 (approved at plan)
+- Staged advanced-stats column names (`off_*`/`def_*`, rush/pass splits), `garbage_time_excluded`, and plays/drives partitioned by season for TASK-019's features → docs/tasks/TASK-019-point-in-time-features.md § Context (approved at plan; placed in PR #62)
+- M3.4: benchmark rows carry `season_final`/`known_at`. Backfilled SP+/FPI are season-final (hindsight only). A weekly `/ratings/elo?week=` pull would give pre-game values, but the registry pulls Elo per season → docs/08-tasklist.md § M3.4 (approved at plan; placed in PR #62)
+- M4.2: CFBD's talent, returning production and recruiting carry no publication date, and backfilled pulls are fetched after the season, so "published before the season" has to be assumed per source → docs/08-tasklist.md § M4.2 (approved at plan; placed in PR #62)
+- As built (plan revision 1 and schema review R1): plays and drives carry offense/defense team ids and take each game from its newest pull; `team_game_advanced` holds only staged games → docs/tasks/TASK-019-point-in-time-features.md § Context
+- Schema review R1: season endpoints match each team's newest `teams.school`, so a school renamed since stays NULL in older seasons; TASK-021's full-lake rebuild shows how many → docs/tasks/TASK-021-backfill-and-notebook-1.md § Context
+- The 10 fixture calls went to the R2 raw lake instead of `./data` (deviation from decision E); the owner accepts them or asks for their removal → docs/owner-checklist.md § Actions
+- Staging decisions A–F and the review fixes (newest pull per game, opponent-name fallback, amending D-116's all-or-nothing replace) → docs/decisions.md § D-119
+- Spec review R1 note: the `advanced_stats` check judges a week's coverage from staged rows, so a post-kickoff pull holding only FCS-only games doesn't count as coverage → not tracked: matches D-119's wording; harmless in practice
+- Manual run: two FCS schools in `/recruiting/teams` (Saint Francis (PA), Southeastern Louisiana) match no staged team → not tracked: FCS only, and every rebuild lists them
 
 ## Plan
 
@@ -101,9 +107,18 @@ _Work noticed during this task and deliberately left out. Each bullet ends `→ 
 
 **Size check:** 12 files, no schema, no UI: passes (limit 20).
 
+**Plan revisions after approval** (each agreed with the owner during implementation)
+1. `team_game_advanced` drops rows for games not in staged `games` (FCS-only games: the endpoint takes no classification) and the rebuild prints the count, as `lines` does. Plays and drives also resolve `offense_source_id`/`defense_source_id` from the game's home/away names.
+2. The shared fixture helpers (`FIXTURE`, `write`, `engine`, `staged`) live in a new `tests/lake_fixture.py`; `tests/conftest.py` holds only the `empty_lake` and `lake` fixtures (pytest swaps the `conftest` module between directories, so helpers can't be imported from one). 13 files.
+3. `skipped_raw` is built after the season tables, so a skipped plays or drives file (the local lake's `team=Ohio State` pull) is listed; the season tables are written before the `TABLES` files.
+
+**Review fixes** (schema review R1, inside plan step 3, recorded in D-119): plays and drives take each game's rows from the newest pull that has it; advanced stats fall back to the opponent's name and dedupe on the resolved id; unmatched play and drive names are listed; D-119 states it amends D-116's all-or-nothing replace.
+
+**Deviation from decision E (not agreed in advance; disclosed to the owner when it happened and in the PR):** the 10 fixture calls were made with `engine ingest` while `.env.local` set `LAKE_URI=s3://cfb-data-lake`, so they went to the R2 raw lake, not the local `./data` lake. They're valid, correctly keyed 2025 pulls (the stats file carries `excludeGarbageTime=true`), counted by R2's ledger (11/5000 for 2026-10), and the same files TASK-021's backfill would write. R2 raw is append-only, so they stay. Nothing else touched R2: the fixtures were trimmed from read-only copies, and the manual rebuild and DQ run used a scratch lake (those copies plus copies of `./data`'s raw files) with `LAKE_URI` pointed at it, so neither R2's nor `./data`'s `staging/` was overwritten.
+
 ## Review log
 
-_Filled by /implement-task. One line per round._
+Verify R1 PASS → R2 PASS (after review fixes) | Audit R1 CHANGES (Verification line named test_quality.py) → R2 PASS | Spec R1 CHANGES (PLAN GAP: R2 deviation unrecorded) → R2 APPROVE | Schema R1 CHANGES (1 MAJOR: plays merged across pulls; 3 MINOR) → R2 APPROVE
 
 ## Blocked
 
@@ -111,7 +126,7 @@ _Only if status is Blocked: what failed, what was tried, best hypothesis, decisi
 
 ## Metrics
 
-- Verify rounds:
-- Review rounds:
-- First-pass AC FAILs:
-- Plan revisions after approval:
+- Verify rounds: 2 (both PASS)
+- Review rounds: 2
+- First-pass AC FAILs: 0
+- Plan revisions after approval: 3 (plus 1 recorded deviation from decision E)
