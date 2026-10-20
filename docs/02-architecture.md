@@ -87,6 +87,23 @@ This distinction drives the backup and "live" rules below:
 
 Grading is not a job. Pick results, CLV and records are **SQL views** over picks, final scores and closing lines (see [03-data-model.md](03-data-model.md)), so they can never be stale or wrong in storage.
 
+#### Ratings depth: units, schedule strength and team stats (added 2026-10-20)
+The model detail is [04-model.md § 10](04-model.md); the decision is D-117.
+- **Shown vs used.** The weekly job computes every unit rating, opponent-removed stat, SOS and SOR for every team, entering every week and point-in-time, whether or not the production model uses it. The `ModelSpec` picks the inputs that feed predictions, and the backtest decides which earn a place. So a display feature never waits on a model change, and a model change never removes a display.
+- **The overall rating is the sum of its units** (offense + defense + special teams, in points), so the drivers, the unit profile and the inputs explainer all read the same numbers.
+- **One input registry** in `engine.core` describes every metric once (label, definition, unit, direction, source, garbage-time handling). `ModelSpec`, the Lab's weights view and builder form, the inputs explainer and the API's unit labels all read it. It's light-core code, so the API can serve it.
+- **Where each piece lives**, following hard rule 1:
+
+  | Piece | Kind | Lives in |
+  |---|---|---|
+  | Per-game team stats (box score, advanced, PBP-derived with our garbage-time filter) | fact | lake `staging/` and `features/`; Postgres table upserted by source key (proposed, [03 › Proposed additions for ratings depth](03-data-model.md#proposed-additions-for-ratings-depth-2026-10-20-not-approved)) |
+  | Season-to-date and opponent-removed stats | aggregate of facts | SQL views over that table |
+  | Unit ratings | model output | `team_ratings.components` and `st_rating` (existing columns) |
+  | SOS of games played | aggregate of stored ratings | view `team_schedule_strength` (MVP, M3.7) |
+  | SOR, remaining and full-season SOS | model output (needs Φ and the Poisson binomial) | engine, per model run, insert-only like `season_simulations` (proposed) |
+  | Confidence levels | function of stored `model_prob` and spec cutoffs | computed on read, never stored |
+- **Call budget.** The units need no new CFBD endpoints: they come from advanced stats, plays and drives, which the Phase 1 backfill already pulls. Position-group ratings (Phase 7 research) would need the player endpoints, so their call cost is estimated before any pull.
+
 ### 2. `python/api`: FastAPI service
 - **One endpoint per screen** (BFF-style): `/slate`, `/games/{id}`, `/rankings`, `/teams/{id}`, `/picks`, `/performance`, `/contests/...`, `/lab/...`. Each page makes one API call, and each endpoint runs its DB queries concurrently against a fixed query budget.
 - On-demand compute: hypothetical matchups, what-if adjustments (light numpy).
@@ -108,7 +125,7 @@ In-season cadence (all times ET; adjustable):
 | Job | When | What |
 |---|---|---|
 | `results` | Sun 6am, Mon 6am | Ingest final scores, box scores, advanced stats, PBP for the week |
-| `rate-and-predict` | Sun 9am | Update ratings, predict next week's games, run season sims |
+| `rate-and-predict` | Sun 9am | Update ratings, predict next week's games, run season sims; from Phase 5 also unit ratings, SOR and remaining SOS |
 | `lines` | Daily, plus Thu–Fri evenings (your pick window) | Snapshot CFBD lines; re-evaluate picks when lines move; send watchlist alerts (edge crossed the threshold, or line moved) that haven't been sent yet. From Phase 5, also snapshot Open-Meteo forecasts for this week's outdoor games |
 | `scores` | Every ~30 min during game windows (Thu–Sat evenings, Sat all day) | Refresh this week's scores and game status so the record strip grades picks as games finish. CFBD's scoreboard endpoint (confirm it's in tier 1 during Phase 1), about 25 calls a week; NFL contest games from nflverse. Near-live only: scheduled runs can start 10–30 min late |
 | `backtest` | On demand (CLI or model lab) | Walk-forward backtest for one model version |

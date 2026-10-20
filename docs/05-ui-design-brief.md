@@ -134,7 +134,7 @@ Purpose: look inside the model and, later, build variants.
 ### 11. History (Later, a tab inside Rankings)
 Purpose: browse football history through the model: who was best in a season, which programs and coaches have been best over time. Built after the betting model; the model behind it is in [04-model.md §7](04-model.md).
 - **Season final:** pick a season. Table: rank, team, record, **hindsight rating**, within-season z-score (for comparing across eras), **résumé rank** and strength of record ("an average top-25 team goes this well 0.3% of the time"). The point is the gap between the two: the best team and the best résumé aren't always the same. Sort by either.
-- **Programs:** pick a span of seasons (range control, default 2014–2025). Table: rank, program, average rating, peak season, worst season, top-10 finishes, sparkline of seasonal ratings.
+- **Programs:** pick a span of seasons: presets All time · Last 5 · Last 10 · Last 25, plus a custom range control (default 2014–2025 until the history start year is decided). Table: rank, program, average rating, peak season, worst season, top-10 finishes, sparkline of seasonal ratings.
 - **Coaches:** table: rank, coach, stops with years, seasons coached (partial seasons shown as decimals, interim stints marked), **value over expectation** (default), raw (unshrunk) value, and value crediting recruiting. A toggle switches the default between "controlling for recruiting" and "crediting recruiting". Every column gets a plain-English header tooltip.
 - **Coach page:** header (name, current job, career summary), a tenure timeline across schools, a season-by-season chart of prior vs actual rating with the gap shaded, value-added table, ATS and close-game records (with a note that close-game records are mostly luck).
 - **Era badge:** every season is rated either by efficiency stats or, before they exist, by scores only. Show a small badge wherever ratings from both kinds could appear together.
@@ -144,6 +144,15 @@ Purpose: browse football history through the model: who was best in a season, wh
 - Star any game from This Week, Game Detail or Contest. Starred games get a "Starred" filter on the slate.
 - **Alerts panel** (from the bell): newest first, e.g. "Colorado @ BYU: line moved BYU −7 → −6; edge now +3.1 BYU, tier C". Each links to the game.
 - **Alert settings** (in Settings): delivery (email or push), alert when a starred game's edge crosses the pick threshold, alert when its line moves by ≥ N points. Note in the UI that alerts follow the line-snapshot schedule, so they can lag a move by hours.
+
+### 13. Ratings depth and confidence (Next, added 2026-10-20)
+Purpose: show how the model sees each team, unit by unit, and how sure it is about each play. Not drawn yet; the ratings-depth pass (Prompt 13 in [07-claude-design-playbook.md](07-claude-design-playbook.md)) draws it. Features F-46 to F-50 ([01 › Features added 2026-10-20](01-product.md#features-added-2026-10-20)); the model behind it is [04-model.md § 10](04-model.md).
+- **Rankings › Units** (a view beside Power): a row per team with overall, offense, defense and special teams ratings in points, then sub-unit percentiles (rush and pass offense, offensive line, offensive success; rush and pass defense, defensive line, defensive success, havoc). Choosing a unit sorts by it. Units the model doesn't use carry a small "display only" marker. The time machine and conference chips work as on Power.
+- **Power gains SOR** beside SOS, and both get header tooltips in plain English. Ranks only; ratings stay in ink (D-064).
+- **Team page › Stats:** a table per side (offense, defense, special teams) with each metric's raw value, the opponents' value with this team's games removed, the difference, the opponent-adjusted rating and its percentile. Noisy stats (turnovers, fumble recoveries) and unfiltered box-score stats are labeled. A schedule-strength card: SOS played, remaining and full season, SOR, with ranks.
+- **Game Detail's unit matchup** extends to the new units, with no change to its layout.
+- **Picks › Confidence plays:** the strongest plays ranked by cover %, each with a confidence level, that level's backtest hit rate, and a short list of reasons (edge, rating certainty, line movement, agreement with SP+/FPI). Carries the UNCALIBRATED label like every cover %. Decide in the pass whether it's its own view or a column on Week and Best lines.
+- **Model Lab › Inputs:** one card per input: name, what it measures and how, why it matters (what it predicts, how stable it is), used by this version or display only, the learned weight in plain English, its share of the rating spread, and a league distribution with a chosen team marked. The builder (S-10) reuses the card beside each input's toggle. Desktop only, like the rest of the Lab.
 
 ## Components to define in the design system
 - Spread/odds display (handles −, +, PK, half points, prices like −110)
