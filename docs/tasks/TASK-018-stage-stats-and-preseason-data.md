@@ -51,7 +51,7 @@ The same `engine transform --rebuild` also stages team box scores, advanced stat
 
 ## Verification
 
-- Automated: `test_transform_stats.py` (AC-1, AC-2, AC-4), `test_quality.py` (AC-3), `test_transform.py` (AC-5).
+- Automated: `test_transform_stats.py` (AC-1, AC-2, AC-3, AC-4), `test_transform.py` (AC-5). The check's tests sit with the transform tests, as TASK-017's do (no `test_quality.py` exists).
 - Manual: record one week of each week-level endpoint into the local lake (calls shown by the ledger), run `engine transform --rebuild` → each staged table is non-empty and the DQ report exits 0.
 
 ## Follow-ups
