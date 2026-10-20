@@ -1,9 +1,10 @@
 """Publishing the staged lake to Postgres (TASK-020): idempotent upserts by (source, source_id),
 append-only line snapshots, and a refusal on a failed data-quality check.
 
-The publish tests write to the test DB through `db_conn` (rolled back); lines use
-`source='cfbd'` there because `line_snapshots.source` is CHECKed. The CLI test only refuses, so it
-commits nothing."""
+The publish tests write to the test DB through `db_conn` (rolled back) as `PUBLISH`, a source
+`line_snapshots.source` allows but no real publish uses, so rows a manual
+`engine publish --target test` left behind can't change their counts. The CLI test only refuses,
+so it commits nothing."""
 
 from __future__ import annotations
 
@@ -21,22 +22,23 @@ from engine.publish.reference import insert_line_snapshots, upsert_games
 from engine.publish.staging import DataQualityFailed, current_week, publish_lake
 from engine.transform import rebuild
 
-TABLES = ("teams", "venues", "games", "seasons", "sportsbooks", "line_snapshots")
+TABLES = ("teams", "team_seasons", "venues", "games", "seasons", "sportsbooks", "line_snapshots")
 GAMES_KEY = "raw/cfbd/games/season=2025/week=01/fetched_at=2025-09-02T120000Z.parquet"
 BOTH_FBS = "401756847"  # Kansas-Fresno State, 2025-08-23T22:30Z
 SOURCE = "pytest"  # reference rows the direct tests write; never 'cfbd' or 'fixture'
+PUBLISH = "manual"  # the source publish_lake writes under in these tests
 
 
 def _state(conn: Connection) -> dict[str, Any]:
-    """Row counts of the six tables, plus the IDs of the rows a publish from 'cfbd' owns."""
+    """Row counts of the six tables, plus the IDs of the rows a publish from PUBLISH owns."""
     state: dict[str, Any] = {
         t: conn.execute(text(f"SELECT count(*) FROM {t}")).scalar_one() for t in TABLES
     }
     for t in ("teams", "venues", "games", "sportsbooks"):
-        rows = conn.execute(text(f"SELECT source_id, id FROM {t} WHERE source = 'cfbd'"))
+        rows = conn.execute(text(f"SELECT source_id, id FROM {t} WHERE source = '{PUBLISH}'"))
         state[f"{t}_ids"] = dict(rows.all())
     state["line_snapshot_ids"] = (
-        conn.execute(text("SELECT id FROM line_snapshots WHERE source = 'cfbd' ORDER BY id"))
+        conn.execute(text(f"SELECT id FROM line_snapshots WHERE source = '{PUBLISH}' ORDER BY id"))
         .scalars()
         .all()
     )
@@ -51,9 +53,9 @@ def test_publish_twice_keeps_ids_and_counts(lake: LocalLake, db_conn: Connection
     rebuild(lake)
     before = _state(db_conn)
 
-    first_new = publish_lake(lake, db_conn)
+    first_new = publish_lake(lake, db_conn, PUBLISH)
     first = _state(db_conn)
-    second_new = publish_lake(lake, db_conn)
+    second_new = publish_lake(lake, db_conn, PUBLISH)
     second = _state(db_conn)
 
     assert second == first
@@ -80,17 +82,19 @@ def test_publish_twice_keeps_ids_and_counts(lake: LocalLake, db_conn: Connection
 def test_publish_maps_staged_columns_by_meaning(lake: LocalLake, db_conn: Connection) -> None:
     """Classification is Postgres's division; CFBD's elevation is meters."""
     rebuild(lake)
-    publish_lake(lake, db_conn)
+    publish_lake(lake, db_conn, PUBLISH)
 
     division = db_conn.execute(
         text(
             "SELECT ts.division FROM team_seasons ts JOIN teams t ON t.id = ts.team_id"
-            " WHERE t.source = 'cfbd' AND t.source_id = '2305' AND ts.season = 2025"
-        )
+            " WHERE t.source = :p AND t.source_id = '2305' AND ts.season = 2025"
+        ),
+        {"p": PUBLISH},
     ).scalar_one()
     assert division == "fbs"
     elevation = db_conn.execute(
-        text("SELECT elevation_m FROM venues WHERE source = 'cfbd' AND source_id = '3833'")
+        text("SELECT elevation_m FROM venues WHERE source = :p AND source_id = '3833'"),
+        {"p": PUBLISH},
     ).scalar_one()
     assert float(elevation) == 274.9
 
@@ -114,7 +118,7 @@ def test_publish_lake_refuses_a_failed_check(lake: LocalLake, db_conn: Connectio
     before = _state(db_conn)
 
     with pytest.raises(DataQualityFailed) as failed:
-        publish_lake(lake, db_conn)
+        publish_lake(lake, db_conn, PUBLISH)
 
     assert "final_has_score" in failed.value.report.failures
     assert _state(db_conn) == before
