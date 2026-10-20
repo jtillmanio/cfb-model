@@ -30,7 +30,7 @@ PUBLISH = "manual"  # the source publish_lake writes under in these tests
 
 
 def _state(conn: Connection) -> dict[str, Any]:
-    """Row counts of the six tables, plus the IDs of the rows a publish from PUBLISH owns."""
+    """Row counts of the tables a publish writes, plus the IDs of the rows PUBLISH owns."""
     state: dict[str, Any] = {
         t: conn.execute(text(f"SELECT count(*) FROM {t}")).scalar_one() for t in TABLES
     }

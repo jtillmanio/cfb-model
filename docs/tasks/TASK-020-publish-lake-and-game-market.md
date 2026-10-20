@@ -1,7 +1,7 @@
 ---
 id: TASK-020
 title: Publish reference data, games and line snapshots to Postgres, with the game_market view
-status: In progress
+status: Review
 depends_on: [TASK-016, TASK-017]
 size: M
 model: opus
@@ -36,12 +36,12 @@ The dev database receives every team, venue, game and line from the staged lake.
 
 ## Acceptance criteria
 
-- [ ] AC-1: Publishing the staged lake fixture into the test DB twice leaves the IDs and row counts of `teams`, `venues`, `games`, `seasons`, `sportsbooks` and `line_snapshots` unchanged.
-- [ ] AC-2: Given staged data that fails a data-quality check, `engine publish` exits non-zero before writing anything, and every table's row count is unchanged.
-- [ ] AC-3: Given a game with consensus snapshots on Sun, Tue, Thu and Sat before kickoff, plus one captured after kickoff, `game_market` returns opening = Sun's spread, closing = Sat's, and current = the newest snapshot.
-- [ ] AC-4: Given a game with `kickoff_at` NULL, its closing line is the last snapshot before the end of `game_date` in Eastern time. Given a game with no consensus line but three providers, the view returns their median and marks it as a median.
-- [ ] AC-5: On the seeded test DB, `game_market` for Texas @ Oklahoma returns opening `spread_home` +7 and current +6.5, and Furman @ Clemson returns NULL lines.
-- [ ] AC-6: `EXPLAIN` of `SELECT * FROM game_market WHERE game_id = :id` on the seeded test DB shows no sequential scan of `line_snapshots`.
+- [x] AC-1: Publishing the staged lake fixture into the test DB twice leaves the IDs and row counts of `teams`, `venues`, `games`, `seasons`, `sportsbooks` and `line_snapshots` unchanged.
+- [x] AC-2: Given staged data that fails a data-quality check, `engine publish` exits non-zero before writing anything, and every table's row count is unchanged.
+- [x] AC-3: Given a game with consensus snapshots on Sun, Tue, Thu and Sat before kickoff, plus one captured after kickoff, `game_market` returns opening = Sun's spread, closing = Sat's, and current = the newest snapshot.
+- [x] AC-4: Given a game with `kickoff_at` NULL, its closing line is the last snapshot before the end of `game_date` in Eastern time. Given a game with no consensus line but three providers, the view returns their median and marks it as a median.
+- [x] AC-5: On the seeded test DB, `game_market` for Texas @ Oklahoma returns opening `spread_home` +7 and current +6.5, and Furman @ Clemson returns NULL lines.
+- [x] AC-6: `EXPLAIN` of `SELECT * FROM game_market WHERE game_id = :id` on the seeded test DB shows no sequential scan of `line_snapshots`.
 
 ## Out of scope
 
@@ -73,6 +73,9 @@ _Work noticed during this task and deliberately left out. Each bullet ends `→ 
 - Backtest point-in-time: lines are targets and pick-time inputs, never features. Untimed `opening` rows count as before kickoff, and `closing` is a target only (gate F) → docs/08-tasklist.md § M3.2 (approved at plan)
 - `team_seasons.talent` and `returning_ppa_pct` stay NULL: TASK-018 stages them in the lake, and publishing them waits for the priors → docs/08-tasklist.md § M4.2 (approved at plan)
 - The jobs publish with `engine.publish.staging.publish_lake(lake, conn)`, which refuses on a failed check. `seasons.current_week` is set at each publish, so the daily `lines` run keeps it current → not tracked: already in TASK-022's approved plan (step 3: `publish_lake` after the check), and `current_week` is this task's gate E
+- Candidate decision: how the lake is published, which kind each pull becomes, what `game_market` returns, how `current_week` is set (gates A–G), with `games.updated_at` meaning "last published" → docs/decisions.md § D-120 (amends D-037)
+- Schema review R1: an untimed `opening`/`closing` row is the first pull's, even if a later pull has a spread it lacked; a game rescheduled after its close was stored keeps that close; `numeric(4,1)` would round a price finer than tenths. None occurs in the lake today (4 post-cutoff rows lack a spread, each one book among several, which the median skips) → docs/decisions.md § D-120 (Revisit if)
+- `*_source` names the spread's source only; a total can be a median while `*_source` says `consensus` → not tracked: documented in docs/03-data-model.md § Views and D-120; no screen reads totals until M5, which reads that row
 
 ## Plan
 
@@ -125,13 +128,16 @@ _Work noticed during this task and deliberately left out. Each bullet ends `→ 
 
 _Filled by /implement-task. One line per round._
 
+- Preflight: plan stale by file (03, decisions, conftest changed in #62–#64); owner confirmed carry on
+- Verify R1 PASS | Audit R1 PASS (1 non-discriminating extra test, strengthened) | Spec R1 CHANGES (04 § 9.3 stale) → R2 APPROVE | Schema R1 APPROVE (6 MINOR: 2 fixed, 3 recorded in D-120, 1 documented) | Verify R2 (after review fixes) PASS
+
 ## Blocked
 
 _Only if status is Blocked: what failed, what was tried, best hypothesis, decision needed._
 
 ## Metrics
 
-- Verify rounds:
-- Review rounds:
-- First-pass AC FAILs:
-- Plan revisions after approval:
+- Verify rounds: 1 (re-run once after review fixes)
+- Review rounds: 2
+- First-pass AC FAILs: 0
+- Plan revisions after approval: 0
