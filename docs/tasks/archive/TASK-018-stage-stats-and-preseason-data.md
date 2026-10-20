@@ -1,7 +1,7 @@
 ---
 id: TASK-018
 title: Stage box scores, advanced stats, play-by-play, preseason inputs and benchmark ratings
-status: Review
+status: Done
 depends_on: [TASK-017]
 size: M
 model: opus
