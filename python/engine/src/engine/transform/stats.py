@@ -5,7 +5,7 @@ Every builder returns one SELECT, as in `staging`; it may read the tables built 
 CFBD names teams rather than giving ids in most of these, so ids are resolved by name:
 advanced stats, plays and drives by the game's home and away names in its newest /games record,
 the season endpoints by staged `teams.school` (a school two teams share matches neither). A name
-that doesn't match stays NULL, and `unmatched_teams` lists it.
+that doesn't match stays NULL, and `unmatched_teams` and `unmatched_sides` list it.
 """
 
 from __future__ import annotations
@@ -111,34 +111,44 @@ def team_games(s: Staging) -> str:
 def team_game_advanced(s: Staging) -> str:
     """CFBD /stats/game/advanced: one row per game and team, from the newest pull that has it,
     for games in staged `games` (the endpoint takes no classification, so FCS-only games are
-    dropped and counted, as lines are). `garbage_time_excluded` is read from the pull's params
-    (D-119)."""
-    latest = s.latest("stats_game_advanced", "gameId", "team")
-    metrics = ",\n        ".join(
+    dropped and counted, as lines are). The team is matched by its own name, else by its
+    opponent's, and rows are deduped on that id, so a school renamed between pulls stays one
+    row. `garbage_time_excluded` is read from the pull's params (D-119)."""
+    raw = s.raw("stats_game_advanced")
+    metrics = ",\n            ".join(
         f"{_j(f'{side}.{path}', cast)} AS {prefix}_{suffix}"
         for side, prefix in (("offense", "off"), ("defense", "def"))
         for suffix, (path, cast) in ADVANCED.items()
     )
+    s.con.execute(
+        f"""CREATE OR REPLACE TEMP VIEW advanced_latest AS
+        WITH g AS ({_game_names(s)})
+        SELECT * FROM (
+            SELECT r.*, coalesce({_side_id(_j("team"))},
+                CASE {_j("opponent")} WHEN g.home THEN g.away_id WHEN g.away THEN g.home_id END)
+                AS team_source_id
+            FROM (SELECT *, {_j("gameId")} AS game_source_id FROM {raw}) r
+            LEFT JOIN g USING (game_source_id)
+        )
+        QUALIFY row_number() OVER (
+            PARTITION BY game_source_id, coalesce(team_source_id, {_j("team")})
+            ORDER BY fetched_at DESC, key DESC, row DESC) = 1"""
+    )
     row = s.con.execute(
-        f"SELECT count(*) FROM {latest} WHERE {_j('gameId')} NOT IN "
+        "SELECT count(*) FROM advanced_latest WHERE game_source_id NOT IN "
         "(SELECT source_id FROM games)"
     ).fetchone()
     s.dropped_advanced = row[0] if row else 0
     return f"""
-    WITH g AS ({_game_names(s)})
-    SELECT a.game_source_id, {_side_id("a.team")} AS team_source_id, a.* EXCLUDE (game_source_id)
-    FROM (
-        SELECT {_j("gameId")} AS game_source_id, {_j("team")} AS team,
-            {_j("opponent")} AS opponent, {_j("season", "INTEGER")} AS season,
-            {_j("week", "INTEGER")} AS week, {_j("seasonType")} AS season_type,
-            coalesce(json_extract_string(params, '$.excludeGarbageTime') = 'true', false)
-                AS garbage_time_excluded,
-            {metrics},
-            fetched_at
-        FROM {latest}
-        WHERE {_j("gameId")} IN (SELECT source_id FROM games)
-    ) a
-    LEFT JOIN g USING (game_source_id)
+    SELECT game_source_id, team_source_id, {_j("team")} AS team,
+        {_j("opponent")} AS opponent, {_j("season", "INTEGER")} AS season,
+        {_j("week", "INTEGER")} AS week, {_j("seasonType")} AS season_type,
+        coalesce(json_extract_string(params, '$.excludeGarbageTime') = 'true', false)
+            AS garbage_time_excluded,
+        {metrics},
+        fetched_at
+    FROM advanced_latest
+    WHERE game_source_id IN (SELECT source_id FROM games)
     ORDER BY game_source_id, team
     """
 
@@ -224,8 +234,20 @@ def benchmark_ratings(s: Staging) -> str:
     """
 
 
+def _newest_pull_per_game(raw: str) -> str:
+    """Each game's rows from the newest pull that has the game, one per id. A week is pulled
+    again until it's final, and a later pull can drop a play or renumber drives, so rows are
+    never merged across pulls (schema review R1)."""
+    return f"""SELECT * FROM (
+            SELECT *, {_j("gameId")} AS game_source_id FROM {raw}
+            QUALIFY dense_rank() OVER (
+                PARTITION BY {_j("gameId")} ORDER BY fetched_at DESC, key DESC) = 1
+        )
+        QUALIFY row_number() OVER (PARTITION BY {_j("id")} ORDER BY row DESC) = 1"""
+
+
 def plays(s: Staging, season: int) -> str:
-    """One season of CFBD /plays, the newest pull per play id. Season, week and season type
+    """One season of CFBD /plays, each game from its newest pull. Season, week and season type
     come from the raw file's key."""
     raw = s.raw("plays", season)
     return f"""
@@ -246,18 +268,14 @@ def plays(s: Staging, season: int) -> str:
         {_j("scoring", "BOOLEAN")} AS scoring, {_j("playType")} AS play_type,
         {_j("playText")} AS play_text, {_j("ppa", "DOUBLE")} AS ppa,
         {_j("wallclock", "TIMESTAMPTZ")} AS wallclock, fetched_at
-    FROM (
-        SELECT *, {_j("gameId")} AS game_source_id FROM {raw}
-        QUALIFY row_number() OVER (
-            PARTITION BY {_j("id")} ORDER BY fetched_at DESC, key DESC, row DESC) = 1
-    ) p
+    FROM ({_newest_pull_per_game(raw)}) p
     LEFT JOIN g USING (game_source_id)
     ORDER BY p.game_source_id, drive_number, play_number, play_id
     """
 
 
 def drives(s: Staging, season: int) -> str:
-    """One season of CFBD /drives, the newest pull per drive id."""
+    """One season of CFBD /drives, each game from its newest pull."""
     raw = s.raw("drives", season)
     return f"""
     WITH g AS ({_game_names(s)})
@@ -280,11 +298,7 @@ def drives(s: Staging, season: int) -> str:
         {_j("endOffenseScore", "INTEGER")} AS end_offense_score,
         {_j("endDefenseScore", "INTEGER")} AS end_defense_score,
         fetched_at
-    FROM (
-        SELECT *, {_j("gameId")} AS game_source_id FROM {raw}
-        QUALIFY row_number() OVER (
-            PARTITION BY {_j("id")} ORDER BY fetched_at DESC, key DESC, row DESC) = 1
-    ) d
+    FROM ({_newest_pull_per_game(raw)}) d
     LEFT JOIN g USING (game_source_id)
     ORDER BY d.game_source_id, drive_number, drive_id
     """
@@ -299,3 +313,14 @@ def unmatched_teams(con: duckdb.DuckDBPyConnection) -> list[str]:
             f"SELECT DISTINCT team FROM {table} WHERE team_source_id IS NULL ORDER BY team"
         ).fetchall()
     ]
+
+
+def unmatched_sides(con: duckdb.DuckDBPyConnection, relation: str, label: str) -> list[str]:
+    """`<label>: <name>` for each offense or defense name in a plays or drives relation that
+    didn't resolve to an id."""
+    sql = f"""SELECT DISTINCT name FROM (
+        SELECT offense AS name FROM {relation} WHERE offense_source_id IS NULL
+        UNION ALL
+        SELECT defense FROM {relation} WHERE defense_source_id IS NULL
+    ) WHERE name IS NOT NULL ORDER BY name"""
+    return [f"{label}: {name}" for (name,) in con.execute(sql).fetchall()]

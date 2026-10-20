@@ -106,6 +106,8 @@ _Work noticed during this task and deliberately left out. Each bullet ends `→ 
 2. The shared fixture helpers (`FIXTURE`, `write`, `engine`, `staged`) live in a new `tests/lake_fixture.py`; `tests/conftest.py` holds only the `empty_lake` and `lake` fixtures (pytest swaps the `conftest` module between directories, so helpers can't be imported from one). 13 files.
 3. `skipped_raw` is built after the season tables, so a skipped plays or drives file (the local lake's `team=Ohio State` pull) is listed; the season tables are written before the `TABLES` files.
 
+**Deviation from decision E (not agreed in advance; disclosed to the owner when it happened and in the PR):** the 10 fixture calls were made with `engine ingest` while `.env.local` set `LAKE_URI=s3://cfb-data-lake`, so they went to the R2 raw lake, not the local `./data` lake. They're valid, correctly keyed 2025 pulls (the stats file carries `excludeGarbageTime=true`), counted by R2's ledger (11/5000 for 2026-10), and the same files TASK-021's backfill would write. R2 raw is append-only, so they stay. Nothing else touched R2: the fixtures were trimmed from read-only copies, and the manual rebuild and DQ run used a scratch lake (those copies plus copies of `./data`'s raw files) with `LAKE_URI` pointed at it, so neither R2's nor `./data`'s `staging/` was overwritten.
+
 ## Review log
 
 _Filled by /implement-task. One line per round._

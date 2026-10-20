@@ -68,16 +68,21 @@ def _seasons(lake: Lake, endpoint: str) -> list[int]:
     return sorted(found)
 
 
-def _rebuild_seasons(s: Staging) -> dict[str, int]:
-    """Build and write each season table one season at a time; returns the total rows."""
+def _rebuild_seasons(s: Staging) -> tuple[dict[str, int], list[str]]:
+    """Build and write each season table one season at a time; returns the total rows and the
+    offense and defense names that didn't resolve to an id."""
     counts = dict.fromkeys(SEASON_TABLES, 0)
+    unmatched: list[str] = []
     for name, select in SEASON_TABLES.items():
         for season in _seasons(s.lake, name):
             table = s.con.sql(select(s, season)).to_arrow_table()
+            s.con.register("season_rows", table)
+            unmatched += stats.unmatched_sides(s.con, "season_rows", f"{name} {season}")
+            s.con.unregister("season_rows")
             _write(s.lake, season_key(name, season), table)
             counts[name] += table.num_rows
             s.release(name, season)
-    return counts
+    return counts, unmatched
 
 
 def rebuild(lake: Lake) -> dict[str, int]:
@@ -89,9 +94,10 @@ def rebuild(lake: Lake) -> dict[str, int]:
     s = Staging(lake)
     built = {}
     season_counts: dict[str, int] = {}
+    unmatched: list[str] = []
     for name, select in TABLES.items():
         if name == "skipped_raw":
-            season_counts = _rebuild_seasons(s)
+            season_counts, unmatched = _rebuild_seasons(s)
         s.con.execute(f"CREATE TABLE {name} AS {select(s)}")
         built[name] = s.con.table(name).to_arrow_table()
 
@@ -107,7 +113,7 @@ def rebuild(lake: Lake) -> dict[str, int]:
             f"Dropped {s.dropped_advanced} advanced-stats rows for games not in staged games "
             "(no FBS team)."
         )
-    unmatched = stats.unmatched_teams(s.con)
+    unmatched = stats.unmatched_teams(s.con) + unmatched
     if unmatched:
         print(f"{len(unmatched)} team names matched no staged team (team_source_id left NULL):")
         print("\n".join(f"  {item}" for item in unmatched))

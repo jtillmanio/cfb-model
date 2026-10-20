@@ -136,6 +136,60 @@ def test_advanced_stats_one_row_per_game_team_newest_wins(lake: LocalLake) -> No
     assert all(r["garbage_time_excluded"] is True for r in rows)
 
 
+def test_renamed_school_stays_one_row(lake: LocalLake) -> None:
+    """An older pull naming Kansas differently still resolves (by its opponent), so the newest
+    pull replaces it instead of adding a second row for the side (schema review R1)."""
+    kansas = next(
+        r
+        for r in records("stats_game_advanced")
+        if str(r["gameId"]) == KANSAS_GAME and r["team"] == "Kansas"
+    )
+    write(
+        lake,
+        "raw/cfbd/stats_game_advanced/season=2025/week=01/fetched_at=2025-08-25T120000Z.parquet",
+        [{**copy.deepcopy(kansas), "team": "Kansas Jayhawks"}],
+        stats_params(1),
+    )
+    rebuild(lake)
+    rows = [
+        r
+        for r in staged(lake, "team_game_advanced").to_pylist()
+        if r["game_source_id"] == KANSAS_GAME
+    ]
+    assert sorted((r["team_source_id"], r["team"]) for r in rows) == [
+        ("2305", "Kansas"),
+        ("278", "Fresno State"),
+    ]
+
+
+def test_plays_come_from_each_games_newest_pull(
+    lake: LocalLake, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """A week is pulled again until it's final; a play the newer pull dropped isn't staged,
+    and a game only the older pull has keeps its plays (schema review R1)."""
+    unlv_play = next(r for r in records("plays") if str(r["gameId"]) == UNLV_GAME)
+    extra = {**copy.deepcopy(unlv_play), "id": "401760371999999999"}
+    older_only = {
+        **copy.deepcopy(unlv_play),
+        "id": "900000090000000001",
+        "gameId": 900000090,
+        "offense": "Nowhere State",
+    }
+    write(  # older than the fixture's 2026-10-20 pull
+        lake,
+        "raw/cfbd/plays/season=2025/week=01/fetched_at=2025-08-24T120000Z.parquet",
+        [unlv_play, extra, older_only],
+        {"classification": "fbs", "seasonType": "regular", "week": 1, "year": 2025},
+    )
+    counts = rebuild(lake)
+    ids = staged_season(lake, "plays", 2025).column("play_id").to_pylist()
+    assert "401760371999999999" not in ids
+    assert "900000090000000001" in ids
+    assert counts["plays"] == len(records("plays")) + 1
+    # 900000090 isn't a staged game, so its offense has no id and is listed.
+    assert "plays 2025: Nowhere State" in capsys.readouterr().out
+
+
 def test_advanced_stats_for_games_not_staged_are_dropped(
     lake: LocalLake, capsys: pytest.CaptureFixture[str]
 ) -> None:
