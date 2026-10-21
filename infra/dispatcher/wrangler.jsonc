@@ -1,0 +1,15 @@
+// The dispatcher Worker (TASK-025, README › Dispatcher). The owner deploys it by hand with
+// `pnpm dlx wrangler@4.149.0 deploy` from this folder; Claude never deploys.
+{
+  "$schema": "https://unpkg.com/wrangler@4.149.0/config-schema.json",
+  "name": "cfb-dispatcher",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-10-07",
+  // Every 15 minutes (UTC). SCHEDULE in src/index.ts holds the ET times; due() picks the entries
+  // for each tick's quarter-hour slot.
+  "triggers": { "crons": ["*/15 * * * *"] },
+  // Not secrets. The token is the secret GITHUB_DISPATCH_TOKEN (`wrangler secret put`), never here.
+  "vars": { "GITHUB_REPO": "jtillmanio/cfb-model", "GITHUB_REF": "main" },
+  // Keeps the Worker's console output in Workers Logs (dashboard › Workers › cfb-dispatcher › Logs).
+  "observability": { "enabled": true }
+}

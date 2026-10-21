@@ -1,7 +1,7 @@
 ---
 id: TASK-025
 title: Start scheduled workflows on time with an external dispatcher
-status: Ready
+status: In progress
 depends_on: []
 size: M
 model: opus
@@ -115,6 +115,10 @@ Approved 2026-10-16 (/plan-batch): every gate decision as recommended.
 - Cloudflare's free-plan Cron and Workers limits are checked again at deploy. The token's expiry and how to rotate it go in README.
 
 **Size check:** 12 files, ops only, no schema or UI: passes at the limit.
+
+**Plan revisions after approval** (owner-approved 2026-10-21; 16 files, under the 20-file limit)
+1. `.claude/kit.json` gains a `testAudit.runners` entry for `infra/dispatcher/*.test.ts`, so the test auditor can run the Worker's tests. `CLAUDE.md` › Commands and `docs/COMMANDS.md` name the dispatcher in the Typecheck, Lint, Unit tests and Specific test files rows, keeping them in sync with the root scripts.
+2. `.gitignore` ignores `.dev.vars*` (Wrangler's local secrets file, where README's local-tick check puts the token) and `.wrangler/` (`wrangler dev` state).
 
 ## Review log
 

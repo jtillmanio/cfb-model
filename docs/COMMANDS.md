@@ -6,10 +6,10 @@ The full command list. `CLAUDE.md` › Commands keeps the ones used daily. Windo
 |---|---|
 | Install dependencies | `pnpm bootstrap` (worktrees: `pnpm install --frozen-lockfile`, `uv --directory python sync`) |
 | Dev server | `pnpm dev` (web :3000, API :8000) |
-| Typecheck | `pnpm typecheck` (`next typegen && tsc`, pyright) |
-| Lint | `pnpm lint` (ESLint on `web/` and `scripts/`, ruff) |
-| Unit / integration tests | `pnpm test` (Vitest, pytest; pytest reads only `TEST_DATABASE_URL`) |
-| Specific test files | `uv --directory python run pytest <paths>`, `pnpm --dir web exec vitest run <paths>`, `pnpm --dir web exec playwright test <paths>` (paths relative to `python/` or `web/`; `testAudit.runners` routes them the same way) |
+| Typecheck | `pnpm typecheck` (`next typegen && tsc`, the dispatcher's `tsc`, pyright) |
+| Lint | `pnpm lint` (ESLint on `web/`, `infra/dispatcher/` and `scripts/`, ruff) |
+| Unit / integration tests | `pnpm test` (Vitest in `web/` and `infra/dispatcher/`, pytest; pytest reads only `TEST_DATABASE_URL`) |
+| Specific test files | `uv --directory python run pytest <paths>`, `pnpm --dir web exec vitest run <paths>`, `pnpm --dir web exec playwright test <paths>`, `pnpm --dir infra/dispatcher exec vitest run <paths>` (paths relative to `python/`, `web/` or `infra/dispatcher/`; `testAudit.runners` routes them the same way) |
 | End to end | `pnpm test:e2e` (after `pnpm db:migrate:test` and `pnpm db:seed`) |
 | Production build | `pnpm build` |
 | Migrations | `pnpm db:migrate` (dev), `pnpm db:migrate:test`, `pnpm db:check` (one head, models match) |

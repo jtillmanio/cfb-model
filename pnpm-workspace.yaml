@@ -1,5 +1,6 @@
 packages:
   - web
+  - infra/dispatcher
 
 allowBuilds:
   sharp: false

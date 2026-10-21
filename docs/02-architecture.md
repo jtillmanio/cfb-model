@@ -120,16 +120,16 @@ The model detail is [04-model.md § 10](04-model.md); the decision is D-117.
 - A typed API client generated from FastAPI's OpenAPI schema (`openapi-typescript`), so frontend and backend types can't drift. The lab's model-builder form is generated from `ModelSpec`'s JSON Schema.
 
 ### 4. Jobs (GitHub Actions)
-In-season cadence (all times ET; adjustable):
+In-season cadence (all times ET; adjustable). Jobs run in GitHub Actions but are **started by the dispatcher**, not GitHub's `schedule` trigger (D-122): a Cloudflare Worker (`infra/dispatcher/`, README › Dispatcher) ticks every 15 minutes, converts the time to ET, and sends a `workflow_dispatch` for each job due in that quarter hour. GitHub's schedule is best effort, and the backup's scheduled runs started 5–8 hours late (2026-10-13 to 10-15), not the 10–30 minutes this doc first assumed. Doing the ET conversion in the Worker keeps each job at its ET time across daylight saving, so no job needs two crons per slot. Job times sit on quarter hours and never between 01:00 and 02:59 ET, which daylight saving repeats or skips. The table below is the plan; the dispatcher's `SCHEDULE` is what runs, and lists only the jobs built so far.
 
 | Job | When | What |
 |---|---|---|
 | `results` | Sun 6am, Mon 6am | Ingest final scores, box scores, advanced stats, PBP for the week |
 | `rate-and-predict` | Sun 9am | Update ratings, predict next week's games, run season sims; from Phase 5 also unit ratings, SOR and remaining SOS |
 | `lines` | Daily, plus Thu–Fri evenings (your pick window) | Snapshot CFBD lines; re-evaluate picks when lines move; send watchlist alerts (edge crossed the threshold, or line moved) that haven't been sent yet. From Phase 5, also snapshot Open-Meteo forecasts for this week's outdoor games |
-| `scores` | Every ~30 min during game windows (Thu–Sat evenings, Sat all day) | Refresh this week's scores and game status so the record strip grades picks as games finish. CFBD's scoreboard endpoint (confirm it's in tier 1 during Phase 1), about 25 calls a week; NFL contest games from nflverse. Near-live only: scheduled runs can start 10–30 min late |
+| `scores` | Every ~30 min during game windows (Thu–Sat evenings, Sat all day) | Refresh this week's scores and game status so the record strip grades picks as games finish. CFBD's scoreboard endpoint (confirm it's in tier 1 during Phase 1), about 25 calls a week; NFL contest games from nflverse. Near-live only: a dispatched run starts within minutes of its slot, plus the runner's queue time |
 | `backtest` | On demand (CLI or model lab) | Walk-forward backtest for one model version |
-| `backup` | Nightly | `pg_dump` the serving DB, restore it to verify, then store it in R2 |
+| `backup` | Nightly, 03:30 | `pg_dump` the serving DB, restore it to verify, then store it in R2 |
 | `preseason` | Manual, summer | Pull talent, returning production, recruiting; build priors |
 | `backfill` | Manual | Historical pulls for new seasons/endpoints |
 
@@ -142,7 +142,7 @@ GitHub Actions gives a private repo 2,000 free minutes a month. Our jobs should 
 | Web + API | **Vercel Hobby** | $0 | Personal, non-commercial use is fine on Hobby. Prefer one project serving Next.js and the FastAPI function (under `/api/py`), so a release promotes one build. Validate in Phase 0; fall back to two projects promoted together, or Cloud Run for the API |
 | Serving DB | **Neon Postgres free** | $0 | 0.5 GB storage, 100 compute-hours/month, scales to zero. Database branches give each PR preview its own DB |
 | Data lake + backups | **Cloudflare R2** | $0 | 10 GB free, no egress fees, S3-compatible (DuckDB reads it directly). Needs a card on file |
-| Jobs | **GitHub Actions** | $0 | Private repo |
+| Jobs | **GitHub Actions**, started by a **Cloudflare Worker** | $0 | Private repo. The Worker's Cron Trigger dispatches each job at its ET time (§ Components 4, D-122); Workers' free plan |
 | CFB data | **CFBD API** | $1/mo (current) | Patreon tier 1: 5,000 calls/month. The ~500-call backfill fits; move up to the $5 tier (30k) only if needed |
 | Live odds | The Odds API | $0 | Optional/Later. Free: 500 credits/mo |
 | Weather | Open-Meteo | $0 | Free forecast API, no key. Phase 5 |
@@ -225,6 +225,7 @@ cfb-model/
 │   ├── db/                    # SQLAlchemy models, Alembic migrations, views/*.sql
 │   └── notebooks/             # Exploration + learning notebooks (marimo or Jupyter)
 ├── web/                       # Next.js app
+├── infra/dispatcher/          # Cloudflare Worker that starts the scheduled jobs on time (D-122)
 └── .github/workflows/         # ci, release, backup, scheduled jobs
 ```
 
@@ -428,7 +429,7 @@ _Added 2026-10-07 (D-092). Numbers already fixed elsewhere in this doc are resta
 | Query budget | By default each endpoint runs ≤ 6 queries, all in one concurrent wave. A task that needs more records why | Rule in `.claude/rules/database.md`; number new |
 | On-demand compute | Hypothetical matchups and what-if adjustments respond in ≤ 2 s; no request runs longer than 10 s | New; Vercel Hobby limit is 300 s |
 | API bundle | ≤ 250 MB hard limit; investigate when it passes 200 MB | Vercel (§ Components 2) |
-| Data freshness | Next week's predictions are published by Sun 10:00 AM ET. Lines are refreshed at least daily, plus Thu–Fri evenings. Saturday scores are ≤ 60 min old (30-min cadence plus up to 30 min scheduler delay). Every data page shows its "Updated" time, and a stale-data banner appears when lines are more than 24 h old. No page data is kept as a saved copy, on the device or the server: when the API or database fails, the page shows its error state (D-096, [05 › New in the 2026-10-07 re-export](05-ui-design-brief.md#new-in-the-2026-10-07-re-export) #20) | Job table (§ Components 4); banner (design) |
+| Data freshness | Next week's predictions are published by Sun 10:00 AM ET. Lines are refreshed at least daily, plus Thu–Fri evenings. Saturday scores are ≤ 60 min old (30-min cadence plus a few minutes for the dispatcher to start the run, D-122). Every data page shows its "Updated" time, and a stale-data banner appears when lines are more than 24 h old. No page data is kept as a saved copy, on the device or the server: when the API or database fails, the page shows its error state (D-096, [05 › New in the 2026-10-07 re-export](05-ui-design-brief.md#new-in-the-2026-10-07-re-export) #20) | Job table (§ Components 4); banner (design) |
 | Alerts | Sent on the first `lines` run after the trigger, so they may lag a move by hours; the UI says so | § Components 4; design |
 | Job budget | Each scheduled run finishes in ≤ 10 min (backfill excepted). Monthly Actions use stays ≤ 1,500 of the 2,000 free minutes | New; free minutes (§ Components 4) |
 | CFBD calls | ≤ 5,000 per month; in-season steady state ≤ 40 per week; the ingest budget tracker warns at 80% of the month | Tier 1 (§ Hosting); weekly estimate (03) |

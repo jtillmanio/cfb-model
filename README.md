@@ -120,10 +120,76 @@ To migrate production by hand (rare), put `PRODUCTION_DATABASE_URL_UNPOOLED=…`
 uv --directory python run python -m db migrate --target live --env-file ..\.env.live
 ```
 
+## Dispatcher
+
+GitHub's `schedule` trigger is best effort: the backup's scheduled runs started 5–8 hours late. So
+scheduled workflows are started by the **dispatcher** (`infra/dispatcher/`, D-122), a Cloudflare
+Worker whose Cron Trigger ticks every 15 minutes. On each tick it converts the time to
+`America/New_York` and sends a `workflow_dispatch` on `main` for every job due in that quarter
+hour, so each job stays at the same ET time across daylight-saving changes.
+
+| Workflow | When (ET) |
+|---|---|
+| `backup.yml` | Daily 03:30 |
+
+The table is `SCHEDULE` in `infra/dispatcher/src/index.ts`; that file wins if they differ. Until
+TASK-026, `backup.yml` also keeps its own 07:30 UTC cron, so the backup can run twice a day (a
+same-day run replaces that day's dump; about 5 extra Actions minutes).
+
+### Add a job
+1. Make sure the workflow has an `on: workflow_dispatch:` trigger and is on `main` (GitHub
+   dispatches only workflow files on the default branch, D-108).
+2. Add a line to `SCHEDULE`, e.g. `{ workflow: "results.yml", days: ["Sun", "Mon"], time: "06:00" }`.
+   `days` is `"daily"` or a list of `Sun`…`Sat`. `time` is ET, `HH:MM`, on a quarter hour, and never
+   between 01:00 and 02:59 (daylight saving repeats or skips those times; a test fails on one).
+3. Merge, then deploy the Worker (below). A tick that runs late inside its quarter hour still fires;
+   a missed quarter hour isn't retried.
+
+### The token
+The Worker calls GitHub with a **fine-grained personal access token**: Resource owner your account,
+Repository access **only `cfb-model`**, Repository permissions **Actions: Read and write** and
+nothing else. It's stored only as the Worker secret `GITHUB_DISPATCH_TOKEN`, never in the repo or
+`wrangler.jsonc`. Pick the longest expiry GitHub allows and set a reminder a week before it: when
+it expires, every dispatch fails with `401`. To rotate, create a new token, run
+`pnpm dlx wrangler@4.149.0 secret put GITHUB_DISPATCH_TOKEN` from `infra/dispatcher/` (it takes
+effect immediately, no deploy), then delete the old token.
+
+### Deploy
+The owner deploys by hand; it rarely changes, and merging doesn't deploy it. Wrangler isn't a
+dependency, so run a pinned version with `pnpm dlx`, from `infra/dispatcher/`:
+
+```powershell
+pnpm dlx wrangler@4.149.0 login
+pnpm dlx wrangler@4.149.0 deploy
+pnpm dlx wrangler@4.149.0 secret put GITHUB_DISPATCH_TOKEN   # first deploy, or to rotate
+```
+
+The repo and branch are `vars` in `wrangler.jsonc`. Cloudflare's free plan allows a few Cron
+Triggers per account (this uses one) and 100,000 Worker requests a day (this makes 96 runs);
+check both on the Cloudflare plan page at deploy.
+
+**Try a tick locally** (it dispatches for real, so it starts a real `backup` run): put
+`GITHUB_DISPATCH_TOKEN=<token>` in `infra/dispatcher/.dev.vars` (git-ignored), run
+`pnpm dlx wrangler@4.149.0 dev --test-scheduled`, then open
+`http://localhost:8787/cdn-cgi/handler/scheduled?cron=*/15+*+*+*+*&time=<epoch>`, with `<epoch>`
+a time inside a due quarter hour (e.g. `1792222200`, 2026-10-17 03:30 EDT). Check with
+`gh run list --workflow backup.yml --event workflow_dispatch --limit 1`.
+
+### Logs
+Cloudflare dashboard › Workers & Pages › `cfb-dispatcher` › **Logs** (Workers Logs, kept by
+`observability` in `wrangler.jsonc`), or `pnpm dlx wrangler@4.149.0 tail` to watch live. Each
+dispatch logs `dispatched <file> on main`; a failure logs `dispatch <file> failed: <status> <body>`
+(`401` is an expired or wrong token, `404` a workflow file not on `main` or a token without access,
+`422` a workflow without `workflow_dispatch`), the remaining jobs are still sent, and the tick ends
+in an error so it shows as failed under the Worker's cron events. Nothing on the GitHub side reports a missed
+dispatch yet (TASK-026 adds a fallback for the backup); a run that didn't start shows as a gap in
+`gh run list --workflow <file>`.
+
 ## Backups
 
-The **Backup** workflow (`.github/workflows/backup.yml`) runs nightly at 07:30 UTC and stores a
-dump only after proving it restores:
+The **Backup** workflow (`.github/workflows/backup.yml`) runs nightly, started at 03:30 ET by the
+[dispatcher](#dispatcher) (and, until TASK-026, by its own 07:30 UTC cron), and stores a dump only
+after proving it restores:
 
 1. **dump**: `pg_dump` of production through `BACKUP_DATABASE_URL` (a read-only role), and an exact
    row count of every table taken in the same snapshot as the dump.
@@ -227,5 +293,6 @@ when nothing matches, the run lists the `preview/*` branches still in Neon. It u
 
 ## Layout
 `web/` Next.js app · `python/` uv workspace: `db` (models, migrations, views, fixture),
-`engine` (CLI: ingest, seed), `api` (FastAPI) · `vercel.json` deploys `web` and `api` as one
+`engine` (CLI: ingest, seed), `api` (FastAPI) · `infra/dispatcher/` Cloudflare Worker that starts
+the scheduled workflows ([Dispatcher](#dispatcher)) · `vercel.json` deploys `web` and `api` as one
 Vercel project (Services).
