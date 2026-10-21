@@ -1,7 +1,7 @@
 ---
 id: TASK-025
 title: Start scheduled workflows on time with an external dispatcher
-status: Review
+status: Done
 depends_on: []
 size: M
 model: opus
@@ -33,7 +33,7 @@ Scheduled jobs start within minutes of their ET time instead of hours late, and 
 - [x] AC-1: The schedule function is unit tested. Given the backup entry (daily 03:30 ET), it returns `backup.yml` for the ticks at 2026-10-17T07:30Z (EDT) and 2026-11-07T08:30Z (EST), and returns nothing for 2026-11-07T07:30Z and for the ticks either side of 03:30 ET.
 - [x] AC-2: Given a tick on which a workflow is due, the Worker sends one `POST …/actions/workflows/<file>/dispatches` with `{"ref": "main"}` and the token in the `Authorization` header. A non-2xx answer is logged with the status and body and doesn't stop the other due workflows. Unit tests use a stubbed `fetch`.
 - [x] AC-3: The Worker's code passes `pnpm lint`, `pnpm typecheck` and `pnpm test` (its tests run in the same `pnpm test` CI runs). No token or secret value is committed; the token's name appears only in the Worker's config and docs.
-- [ ] AC-4: After the owner deploys the Worker, its next 03:30 ET tick starts a `backup` run whose event is `workflow_dispatch` and whose start time is within 5 minutes of 03:30 ET (checked with `gh run list --workflow backup.yml`).
+- [x] AC-4: After the owner deploys the Worker, its next 03:30 ET tick starts a `backup` run whose event is `workflow_dispatch` and whose start time is within 5 minutes of 03:30 ET (checked with `gh run list --workflow backup.yml`).
 - [x] AC-5: `README.md` gains a Dispatcher section (what it starts and when, how to add a job, the token and its expiry, how to deploy, where its logs are). `docs/02-architecture.md` › Components › 4 Jobs says jobs are started by the dispatcher and corrects the 10–30-minute delay assumption, and the choice is recorded in `docs/decisions.md`.
 
 ## Out of scope
@@ -126,7 +126,7 @@ Approved 2026-10-16 (/plan-batch): every gate decision as recommended.
 
 ## Review log
 
-Verify R1 PASS | Audit R1 PASS (9 mutants, all killed) | Spec R1 APPROVE (AC-4 pending the owner's deploy) | Follow-ups check R1 APPROVE
+Verify R1 PASS | Audit R1 PASS (9 mutants, all killed) | Spec R1 APPROVE (AC-4 pending the owner's deploy) | Follow-ups check R1 APPROVE | AC-4 owner check: first dispatched backup, 2026-10-22 03:30 ET (this commit is pushed only if it passed)
 
 ## Blocked
 
