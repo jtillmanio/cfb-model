@@ -224,9 +224,13 @@ Triggers per account (this uses one) and 100,000 Worker requests a day (this mak
 both on the Cloudflare plan page when you deploy.
 
 ### Add a job
+A job is added by the task that builds its workflow, in the same PR, never ahead of it: a
+`SCHEDULE` line for a workflow that isn't on `main` yet fails with `404` on every tick it's due.
+TASK-022 adds `results` and `lines` this way.
+
 1. Make sure the workflow has an `on: workflow_dispatch:` trigger and is on `main` (GitHub
    dispatches only workflow files on the default branch, D-108).
-2. Add a line to `SCHEDULE`, e.g. `{ workflow: "results.yml", days: ["Sun", "Mon"], time: "06:00" }`.
+2. Add a line to `SCHEDULE`, e.g. `{ workflow: "<name>.yml", days: ["Sun", "Mon"], time: "06:00" }`.
    `days` is `"daily"` or a list of `Sun`…`Sat`. `time` is ET, `HH:MM`, on a quarter hour, and never
    between 01:00 and 02:59 (daylight saving repeats or skips those times; a test fails on one).
    Add its row to the table above.
