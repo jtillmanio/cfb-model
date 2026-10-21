@@ -1,7 +1,7 @@
 ---
 id: TASK-025
 title: Start scheduled workflows on time with an external dispatcher
-status: Ready
+status: Done
 depends_on: []
 size: M
 model: opus
@@ -30,11 +30,11 @@ Scheduled jobs start within minutes of their ET time instead of hours late, and 
 
 ## Acceptance criteria
 
-- [ ] AC-1: The schedule function is unit tested. Given the backup entry (daily 03:30 ET), it returns `backup.yml` for the ticks at 2026-10-17T07:30Z (EDT) and 2026-11-07T08:30Z (EST), and returns nothing for 2026-11-07T07:30Z and for the ticks either side of 03:30 ET.
-- [ ] AC-2: Given a tick on which a workflow is due, the Worker sends one `POST …/actions/workflows/<file>/dispatches` with `{"ref": "main"}` and the token in the `Authorization` header. A non-2xx answer is logged with the status and body and doesn't stop the other due workflows. Unit tests use a stubbed `fetch`.
-- [ ] AC-3: The Worker's code passes `pnpm lint`, `pnpm typecheck` and `pnpm test` (its tests run in the same `pnpm test` CI runs). No token or secret value is committed; the token's name appears only in the Worker's config and docs.
-- [ ] AC-4: After the owner deploys the Worker, its next 03:30 ET tick starts a `backup` run whose event is `workflow_dispatch` and whose start time is within 5 minutes of 03:30 ET (checked with `gh run list --workflow backup.yml`).
-- [ ] AC-5: `README.md` gains a Dispatcher section (what it starts and when, how to add a job, the token and its expiry, how to deploy, where its logs are). `docs/02-architecture.md` › Components › 4 Jobs says jobs are started by the dispatcher and corrects the 10–30-minute delay assumption, and the choice is recorded in `docs/decisions.md`.
+- [x] AC-1: The schedule function is unit tested. Given the backup entry (daily 03:30 ET), it returns `backup.yml` for the ticks at 2026-10-17T07:30Z (EDT) and 2026-11-07T08:30Z (EST), and returns nothing for 2026-11-07T07:30Z and for the ticks either side of 03:30 ET.
+- [x] AC-2: Given a tick on which a workflow is due, the Worker sends one `POST …/actions/workflows/<file>/dispatches` with `{"ref": "main"}` and the token in the `Authorization` header. A non-2xx answer is logged with the status and body and doesn't stop the other due workflows. Unit tests use a stubbed `fetch`.
+- [x] AC-3: The Worker's code passes `pnpm lint`, `pnpm typecheck` and `pnpm test` (its tests run in the same `pnpm test` CI runs). No token or secret value is committed; the token's name appears only in the Worker's config and docs.
+- [x] AC-4: After the owner deploys the Worker, its next 03:30 ET tick starts a `backup` run whose event is `workflow_dispatch` and whose start time is within 5 minutes of 03:30 ET (checked with `gh run list --workflow backup.yml`).
+- [x] AC-5: `README.md` gains a Dispatcher section (what it starts and when, how to add a job, the token and its expiry, how to deploy, where its logs are). `docs/02-architecture.md` › Components › 4 Jobs says jobs are started by the dispatcher and corrects the 10–30-minute delay assumption, and the choice is recorded in `docs/decisions.md`.
 
 ## Out of scope
 
@@ -60,9 +60,12 @@ Scheduled jobs start within minutes of their ET time instead of hours late, and 
 
 _Work noticed during this task and deliberately left out. Each bullet ends `→ <path> § <section>` (where it was placed) or `→ not tracked: <reason>`. See `.claude/skills/track-follow-ups/classify.md`; the PR's Follow-ups section is copied from here._
 
-- Owner: create the fine-grained token (this repository only, Actions: Read and write), store it with `wrangler secret put GITHUB_DISPATCH_TOKEN`, and deploy with `pnpm dlx wrangler@<pinned> deploy` from `infra/dispatcher/` (README › Dispatcher) → docs/owner-checklist.md § Actions
-- TASK-022 adds its jobs as lines in `SCHEDULE` in `infra/dispatcher/src/index.ts` (ET times on quarter hours, none between 01:00 and 02:59 ET), with no two-crons-per-slot DST workaround → docs/tasks/TASK-022-scheduled-results-and-lines-jobs.md § Context
-- `verify.fast` lints only `web/` and `scripts/` files; the Worker's `.ts` files are linted by `pnpm lint` → not tracked: verify.full and CI cover it
+- Owner: create the fine-grained token (this repository only, Actions: Read and write), then from `infra/dispatcher/` run `pnpm dlx wrangler@4.149.0 login`, `deploy` and `secret put GITHUB_DISPATCH_TOKEN` (README › Dispatcher › Deploy), and check AC-4 after the next 03:30 ET (approved at plan) → docs/owner-checklist.md § Actions
+- TASK-022 adds its jobs as lines in `SCHEDULE` in `infra/dispatcher/src/index.ts` (ET times on quarter hours, none between 01:00 and 02:59 ET), with no two-crons-per-slot DST workaround (approved at plan) → docs/tasks/TASK-022-scheduled-results-and-lines-jobs.md § Context
+- TASK-022 also adds a row per new job to README › Dispatcher's table, which mirrors `SCHEDULE` → docs/tasks/TASK-022-scheduled-results-and-lines-jobs.md § Context
+- TASK-026 rewrites the three "until TASK-026" mentions of the interim double backup run (README › Dispatcher, README › Backups, D-122) once the fallback lands → docs/tasks/TASK-026-backup-dispatch-with-fallback.md § Context
+- `verify.fast` lints only `web/` and `scripts/` files; the Worker's `.ts` files are linted by `pnpm lint` (approved at plan) → not tracked: verify.full and CI cover it
+- AC-3's "the token's name appears only in the Worker's config and docs" can't hold literally: the Worker's code reads the `GITHUB_DISPATCH_TOKEN` binding and the tests set it (spec-reviewer). The intent, no token value committed, is met and tested → not tracked: wording of this task's own AC, noted in the PR
 
 ## Plan
 
@@ -116,9 +119,14 @@ Approved 2026-10-16 (/plan-batch): every gate decision as recommended.
 
 **Size check:** 12 files, ops only, no schema or UI: passes at the limit.
 
+**Plan revisions after approval** (owner-approved 2026-10-21; 16 files, under the 20-file limit)
+1. `.claude/kit.json` gains a `testAudit.runners` entry for `infra/dispatcher/*.test.ts`, so the test auditor can run the Worker's tests. `CLAUDE.md` › Commands and `docs/COMMANDS.md` name the dispatcher in the Typecheck, Lint, Unit tests and Specific test files rows, keeping them in sync with the root scripts.
+2. `.gitignore` ignores `.dev.vars*` (Wrangler's local secrets file, where README's local-tick check puts the token) and `.wrangler/` (`wrangler dev` state).
+3. After review, at the owner's request (2026-10-21): README › Dispatcher explains what the dispatcher is for and how a tick works, adds a Names table (GitHub token `cfb-dispatcher`, workers.dev subdomain `jtillmanio`) and a first-time setup walkthrough covering pnpm's build-script prompt and Wrangler's access prompt; the Owner checklist item matches it.
+
 ## Review log
 
-_Filled by /implement-task. One line per round._
+Verify R1 PASS | Audit R1 PASS (9 mutants, all killed) | Spec R1 APPROVE (AC-4 pending the owner's deploy) | Follow-ups check R1 APPROVE | AC-4 owner check: first dispatched backup, 2026-10-22 03:30 ET (this commit is pushed only if it passed)
 
 ## Blocked
 
@@ -126,7 +134,7 @@ _Only if status is Blocked: what failed, what was tried, best hypothesis, decisi
 
 ## Metrics
 
-- Verify rounds:
-- Review rounds:
-- First-pass AC FAILs:
-- Plan revisions after approval:
+- Verify rounds: 1
+- Review rounds: 1
+- First-pass AC FAILs: 0
+- Plan revisions after approval: 3

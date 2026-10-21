@@ -2,6 +2,9 @@
 .env
 .env.*
 !.env.example
+# Wrangler's local secrets and dev state (infra/dispatcher)
+.dev.vars*
+.wrangler/
 
 # Python
 __pycache__/

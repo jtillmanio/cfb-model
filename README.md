@@ -120,10 +120,157 @@ To migrate production by hand (rare), put `PRODUCTION_DATABASE_URL_UNPOOLED=…`
 uv --directory python run python -m db migrate --target live --env-file ..\.env.live
 ```
 
+## Dispatcher
+
+The **dispatcher** is a small Cloudflare Worker (`infra/dispatcher/`, D-122) that starts this
+repo's scheduled GitHub Actions workflows on time. It is an alarm clock, not a job runner: it does
+none of the work itself. At each job's time it asks GitHub to start that workflow, exactly as if
+you had pressed **Run workflow** in the Actions tab, and the workflow then runs in Actions as usual.
+
+### Why it exists
+- **GitHub's own schedule runs late.** A workflow's `on: schedule` cron is best effort. GitHub
+  queues scheduled runs behind everyone else's and may delay or drop them under load. The backup's
+  cron said 07:30 UTC, but its runs started at 15:13, 13:00 and 12:47 UTC (2026-10-13 to 10-15),
+  5–8 hours late. A manually started run (`workflow_dispatch`) isn't queued that way and usually
+  starts within a minute or so.
+- **Lateness breaks the weekly rhythm.** The jobs depend on each other and on deadlines. Sunday's
+  `results` job (06:00 ET, TASK-022) has to finish before ratings and predictions run, so that
+  predictions are out by Sun 10 AM ET (D-092). The backup should run in the quiet hours before
+  those jobs write. Five hours late, both slip past those times.
+- **GitHub's cron only knows UTC.** 03:30 ET is 07:30 UTC in summer and 08:30 UTC in winter, so a
+  GitHub cron drifts an hour at every daylight-saving change unless every job has two crons and a
+  check. The dispatcher works in ET, so each job stays at the same ET time all year.
+- **It's free.** It runs on Cloudflare's free Workers plan, on the same account as the R2 lake.
+
+### What it does on each tick
+Cloudflare runs the Worker every 15 minutes, all day (the Cron Trigger `*/15 * * * *` in
+`wrangler.jsonc`: 96 ticks a day, at :00, :15, :30 and :45). On each tick it:
+
+1. Converts the tick's time to `America/New_York` and rounds it down to the quarter hour, so
+   07:30:04 UTC on 2026-10-17 becomes Saturday 03:30 ET.
+2. Looks that weekday and time up in `SCHEDULE` (`infra/dispatcher/src/index.ts`).
+3. For each job due at that time, sends `POST /repos/jtillmanio/cfb-model/actions/workflows/<file>/dispatches`
+   with `{"ref": "main"}`, using the GitHub token (below).
+4. Logs the result. On almost every tick nothing is due, and the Worker exits in a few
+   milliseconds without calling GitHub.
+
+GitHub then starts the workflow on `main`, and its run shows in the Actions tab with the event
+`workflow_dispatch`.
+
+### What it starts and when
+
+| Workflow | When (ET) | Why then |
+|---|---|---|
+| `backup.yml` | Daily 03:30 | Quiet hours, before the morning jobs write |
+
+This table mirrors `SCHEDULE` in `infra/dispatcher/src/index.ts`; that file wins if they differ.
+Until TASK-026, `backup.yml` also keeps its own 07:30 UTC cron, so the backup can run twice a day
+(a same-day run replaces that day's dump; about 5 extra Actions minutes).
+
+### What it doesn't do
+- **Retry.** A tick that runs late but inside its quarter hour still fires. A quarter hour Cloudflare
+  skips entirely isn't made up later.
+- **Tell GitHub when something fails.** A failed dispatch shows only in the Worker's logs and as a
+  failed cron event in Cloudflare. TASK-026 adds a GitHub-side fallback for the backup.
+- **Run anything itself, or change the workflows.** Each workflow keeps its `workflow_dispatch`
+  trigger and can still be run by hand (`gh workflow run <file>`).
+
+### Names
+
+| Thing | Name | Where it's set |
+|---|---|---|
+| Cloudflare Worker | `cfb-dispatcher` | `name` in `wrangler.jsonc` |
+| workers.dev subdomain | `jtillmanio` | Asked once per Cloudflare account, on the first deploy. It's shared by every Worker on the account, so name it after the account, not this project. The Worker's URL would be `cfb-dispatcher.jtillmanio.workers.dev`, but nothing uses it: the Worker only runs on its Cron Trigger |
+| GitHub token | `cfb-dispatcher` | Token name on GitHub › Settings › Developer settings › Fine-grained tokens. Description: `Starts cfb-model workflows on schedule from the Cloudflare Worker cfb-dispatcher` |
+| Worker secret holding that token | `GITHUB_DISPATCH_TOKEN` | `wrangler secret put` (never the repo or `wrangler.jsonc`) |
+| Cloudflare API token, only if you don't use `wrangler login` | `wrangler-cfb-dispatcher` | Cloudflare dashboard › My Profile › API Tokens |
+| Expiry reminder | `Rotate the cfb-dispatcher GitHub token` | Your calendar, a week before the token expires |
+
+### First-time setup
+Wrangler (Cloudflare's CLI) isn't a project dependency. Run a pinned version with `pnpm dlx`,
+from `infra/dispatcher/`. Merging doesn't deploy the Worker; you deploy it by hand when it changes.
+
+1. **Create the GitHub token.** GitHub › Settings › Developer settings › Personal access tokens ›
+   **Fine-grained tokens** › Generate new token:
+   - Token name `cfb-dispatcher`, with the description from the table above
+   - Resource owner: your account
+   - Expiration: the longest GitHub offers
+   - Repository access: **Only select repositories** › `cfb-model`
+   - Permissions › Repository permissions: **Actions: Read and write**, nothing else (GitHub adds
+     Metadata: Read-only itself)
+
+   Copy the token; GitHub shows it once. Add the expiry reminder to your calendar.
+2. **Sign in to Cloudflare:** `pnpm dlx wrangler@4.149.0 login`.
+   - pnpm first asks which packages may run their build scripts. Select **both** `esbuild` (which
+     bundles the Worker when you deploy) and `workerd` (Cloudflare's local runtime, used by
+     `wrangler dev`): space to select, Enter to confirm. pnpm asks again on later `dlx` runs.
+   - A browser opens asking you to let Wrangler access your Cloudflare account. Check the page is on
+     `dash.cloudflare.com`, then **Allow**. The list is Wrangler's default set, broader than this
+     Worker needs. The token is saved in your user profile, never the repo, and
+     `pnpm dlx wrangler@4.149.0 logout` revokes it. To keep access narrow instead, create a
+     Cloudflare API token from the **Edit Cloudflare Workers** template, name it
+     `wrangler-cfb-dispatcher`, and set `$env:CLOUDFLARE_API_TOKEN = "<token>"` in place of logging in.
+3. **Deploy:** `pnpm dlx wrangler@4.149.0 deploy`. If the account has no workers.dev subdomain yet,
+   Wrangler asks to register one: answer yes and enter `jtillmanio`.
+4. **Store the GitHub token:** `pnpm dlx wrangler@4.149.0 secret put GITHUB_DISPATCH_TOKEN`, and
+   paste the token when asked. It takes effect immediately.
+5. **Check it:** Cloudflare dashboard › Workers & Pages › `cfb-dispatcher` › Settings › Triggers
+   lists the cron `*/15 * * * *`. After the next 03:30 ET,
+   `gh run list --workflow backup.yml --event workflow_dispatch --limit 1` shows a run that started
+   within 5 minutes of it (TASK-025's AC-4).
+
+The repo and branch are `vars` in `wrangler.jsonc`. Cloudflare's free plan allows a few Cron
+Triggers per account (this uses one) and 100,000 Worker requests a day (this makes 96 runs); check
+both on the Cloudflare plan page when you deploy.
+
+### Add a job
+A job is added by the task that builds its workflow, in the same PR, never ahead of it: a
+`SCHEDULE` line for a workflow that isn't on `main` yet fails with `404` on every tick it's due.
+TASK-022 adds `results` and `lines` this way.
+
+1. Make sure the workflow has an `on: workflow_dispatch:` trigger and is on `main` (GitHub
+   dispatches only workflow files on the default branch, D-108).
+2. Add a line to `SCHEDULE`, e.g. `{ workflow: "<name>.yml", days: ["Sun", "Mon"], time: "06:00" }`.
+   `days` is `"daily"` or a list of `Sun`…`Sat`. `time` is ET, `HH:MM`, on a quarter hour, and never
+   between 01:00 and 02:59 (daylight saving repeats or skips those times; a test fails on one).
+   Add its row to the table above.
+3. Merge, then deploy again (`pnpm dlx wrangler@4.149.0 deploy` from `infra/dispatcher/`).
+
+### Rotate the GitHub token
+When the reminder comes up, or after any leak: create a new `cfb-dispatcher` token as in step 1,
+run `pnpm dlx wrangler@4.149.0 secret put GITHUB_DISPATCH_TOKEN` from `infra/dispatcher/` and paste
+it (it takes effect immediately, no deploy), then delete the old token on GitHub. An expired token
+makes every dispatch fail with `401`.
+
+### Try a tick locally
+This dispatches for real, so it starts a real `backup` run, which reads production. Put
+`GITHUB_DISPATCH_TOKEN=<token>` in `infra/dispatcher/.dev.vars` (git-ignored), run
+`pnpm dlx wrangler@4.149.0 dev --test-scheduled`, then open
+`http://localhost:8787/cdn-cgi/handler/scheduled?cron=*/15+*+*+*+*&time=<epoch>`, with `<epoch>` a
+time inside a due quarter hour (e.g. `1792222200`, 2026-10-17 03:30 EDT). Check with
+`gh run list --workflow backup.yml --event workflow_dispatch --limit 1`.
+
+### Logs and failures
+Cloudflare dashboard › Workers & Pages › `cfb-dispatcher` › **Logs** (Workers Logs, kept by
+`observability` in `wrangler.jsonc`), or `pnpm dlx wrangler@4.149.0 tail` to watch live. Each
+dispatch logs `dispatched <file> on main`. A failure logs `dispatch <file> failed: <status> <body>`,
+the remaining jobs are still sent, and the tick ends in an error, so it shows as failed under the
+Worker's cron events.
+
+| Status | Meaning | Fix |
+|---|---|---|
+| `401` | The token expired, was deleted, or the secret is wrong | Rotate the token (above) |
+| `403` or `404` | The token can't see the repo or lacks Actions: Read and write, or the workflow file isn't on `main` | Check the token's repository and permission; check the file name in `SCHEDULE` |
+| `422` | The workflow has no `workflow_dispatch` trigger, or the branch in `vars` doesn't exist | Add the trigger on `main`, or fix `GITHUB_REF` |
+
+Nothing on the GitHub side reports a missed dispatch yet (TASK-026 adds a fallback for the
+backup). A run that didn't start shows as a gap in `gh run list --workflow <file>`.
+
 ## Backups
 
-The **Backup** workflow (`.github/workflows/backup.yml`) runs nightly at 07:30 UTC and stores a
-dump only after proving it restores:
+The **Backup** workflow (`.github/workflows/backup.yml`) runs nightly, started at 03:30 ET by the
+[dispatcher](#dispatcher) (and, until TASK-026, by its own 07:30 UTC cron), and stores a dump only
+after proving it restores:
 
 1. **dump**: `pg_dump` of production through `BACKUP_DATABASE_URL` (a read-only role), and an exact
    row count of every table taken in the same snapshot as the dump.
@@ -227,5 +374,6 @@ when nothing matches, the run lists the `preview/*` branches still in Neon. It u
 
 ## Layout
 `web/` Next.js app · `python/` uv workspace: `db` (models, migrations, views, fixture),
-`engine` (CLI: ingest, seed), `api` (FastAPI) · `vercel.json` deploys `web` and `api` as one
+`engine` (CLI: ingest, seed), `api` (FastAPI) · `infra/dispatcher/` Cloudflare Worker that starts
+the scheduled workflows ([Dispatcher](#dispatcher)) · `vercel.json` deploys `web` and `api` as one
 Vercel project (Services).

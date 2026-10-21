@@ -96,7 +96,8 @@
     "runners": [
       { "pattern": "python/*/tests/test_*.py", "dir": "python", "run": "uv run pytest {tests}" },
       { "pattern": "web/e2e/*.spec.ts", "dir": "web", "run": "pnpm exec playwright test {tests}" },
-      { "pattern": "web/*.test.ts*", "dir": "web", "run": "pnpm exec vitest run {tests}" }
+      { "pattern": "web/*.test.ts*", "dir": "web", "run": "pnpm exec vitest run {tests}" },
+      { "pattern": "infra/dispatcher/*.test.ts", "dir": "infra/dispatcher", "run": "pnpm exec vitest run {tests}" }
     ],
     "setup": "",
     "implementationExtensions": [".ts", ".tsx", ".mts", ".py", ".sql"],
