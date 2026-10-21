@@ -122,6 +122,7 @@ Approved 2026-10-16 (/plan-batch): every gate decision as recommended.
 **Plan revisions after approval** (owner-approved 2026-10-21; 16 files, under the 20-file limit)
 1. `.claude/kit.json` gains a `testAudit.runners` entry for `infra/dispatcher/*.test.ts`, so the test auditor can run the Worker's tests. `CLAUDE.md` › Commands and `docs/COMMANDS.md` name the dispatcher in the Typecheck, Lint, Unit tests and Specific test files rows, keeping them in sync with the root scripts.
 2. `.gitignore` ignores `.dev.vars*` (Wrangler's local secrets file, where README's local-tick check puts the token) and `.wrangler/` (`wrangler dev` state).
+3. After review, at the owner's request (2026-10-21): README › Dispatcher explains what the dispatcher is for and how a tick works, adds a Names table (GitHub token `cfb-dispatcher`, workers.dev subdomain `jtillmanio`) and a first-time setup walkthrough covering pnpm's build-script prompt and Wrangler's access prompt; the Owner checklist item matches it.
 
 ## Review log
 
@@ -136,4 +137,4 @@ _Only if status is Blocked: what failed, what was tried, best hypothesis, decisi
 - Verify rounds: 1
 - Review rounds: 1
 - First-pass AC FAILs: 0
-- Plan revisions after approval: 2
+- Plan revisions after approval: 3
