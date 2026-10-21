@@ -27,7 +27,7 @@ The nightly backup runs at 03:30 ET from the dispatcher. If the dispatcher ever 
 - **Stop and ask:** the backup reads production. Running it on the branch needs the owner's go-ahead in the session.
 - *From TASK-024 (PR #52):* the day's dump is `backups/daily/<UTC date>.dump`, the first key `object_keys(date)` returns in `python/db/src/db/backup.py`. The `dump` step's `date` output is the run's UTC date (it replaces the `key` output).
 - *From TASK-022 (PR #62), open question for the plan:* TASK-022 adds `.github/actions/skip-if-dispatched`, which skips a `schedule` run when a `workflow_dispatch` run of the same workflow succeeded in the last 6 hours (`gh run list`, `actions: read`). Should the backup's fallback reuse it, or keep the check on the day's dump in R2?
-- *From TASK-025 (feat/task-025-on-time-workflow-dispatcher):* the dispatcher is live in code: `SCHEDULE` in `infra/dispatcher/src/index.ts` starts `backup.yml` daily at 03:30 ET (D-122). Three places name the interim double run (the dispatched run plus `backup.yml`'s own `30 7 * * *`) and say "until TASK-026": README › Dispatcher (the paragraph under the table), README › Backups (the opening sentence) and D-122. Update all three to describe the fallback.
+- *From TASK-025 (PR #68):* the dispatcher is live in code: `SCHEDULE` in `infra/dispatcher/src/index.ts` starts `backup.yml` daily at 03:30 ET (D-122). Three places name the interim double run (the dispatched run plus `backup.yml`'s own `30 7 * * *`) and say "until TASK-026": README › Dispatcher (the paragraph under the table), README › Backups (the opening sentence) and D-122. Update all three to describe the fallback.
 
 ## Acceptance criteria
 

@@ -33,7 +33,7 @@ With nobody running anything, Sunday and Monday mornings pick up the weekend's f
 - *From TASK-015 (PR #54), open question for the plan:* a week's raw file is reused forever once it's non-empty and saved after `/games` showed the week complete (D-114). A `results` run soon after the last game could save a week CFBD hasn't fully filled in (plays, drives, box scores). Should the job wait a settle time after the games complete before pulling, or should the engine gain a `--refetch` that appends a newer file through the budget?
 - *From TASK-015 (PR #54):* `engine ingest` needs pyarrow and boto3, which the workspace root installs only through its `dev` group (D-114). Install the job's Python with `uv sync` or `uv run` as they default, never `--no-dev`.
 - *From TASK-021 (PR #67):* D-121 counts an unscored game as done (canceled) once its `/games` file is saved 7+ days after its start, for the week and season final rules. A postponed game that CFBD leaves under its old week and start date would then make its week final, and a later pull of that week would never happen. The `results` job should list games treated as done while unscored and not completed, so one that is played later is caught (arrived after the plan was approved)
-- *From TASK-025 (feat/task-025-on-time-workflow-dispatcher):* README › Dispatcher has a table of what the dispatcher starts and when (ET), mirroring `SCHEDULE`. Add a row there for each job added to `SCHEDULE`.
+- *From TASK-025 (PR #68):* README › Dispatcher has a table of what the dispatcher starts and when (ET), mirroring `SCHEDULE`. Add a row there for each job added to `SCHEDULE`.
 
 ## Acceptance criteria
 
