@@ -61,11 +61,23 @@ jobs:
           node-version-file: .nvmrc
           cache: pnpm
 
+      # Decides whether the browser install, e2e and build below run. Every PR still runs this job
+      # and reports `verify`: skipping the job would leave the required check missing. Only the
+      # four steps gated on this output are skipped, and only when every changed file is under a
+      # path they can't read (scripts/lib/ci-scope.mjs). A push to main has no --base, so it
+      # always runs the full gate.
+      - name: Scope (do the browser and build steps run?)
+        id: scope
+        run: node scripts/ci-scope.mjs ${{ github.event_name == 'pull_request' && '--base origin/main' || '' }}
+
       - name: Install
         run: |
           pnpm install --frozen-lockfile
           uv --directory python sync
-          pnpm --dir web exec playwright install --with-deps chromium
+
+      - name: Install the e2e browser
+        if: steps.scope.outputs.full == 'true'
+        run: pnpm --dir web exec playwright install --with-deps chromium
 
       # Migrations are forward-only (D-020): fail if one already on main was edited, renamed or
       # deleted. A PR diffs from its merge base with the base branch; a push to main from the
@@ -85,11 +97,15 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm lint
       - run: pnpm test
-      - run: pnpm build
-      - run: pnpm test:e2e
+      - name: Build
+        if: steps.scope.outputs.full == 'true'
+        run: pnpm build
+      - name: End-to-end tests
+        if: steps.scope.outputs.full == 'true'
+        run: pnpm test:e2e
 
       - uses: actions/upload-artifact@v7
-        if: failure()
+        if: failure() && steps.scope.outputs.full == 'true'
         with:
           name: playwright-report
           path: web/playwright-report

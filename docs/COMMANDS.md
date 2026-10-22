@@ -15,6 +15,16 @@ The full command list. `CLAUDE.md` › Commands keeps the ones used daily. Windo
 | Migrations | `pnpm db:migrate` (dev), `pnpm db:migrate:test`, `pnpm db:check` (one head, models match) |
 | Seed | `pnpm db:seed` (fixture; test DB only) |
 
+## CI scope
+
+CI's `verify` job always runs. On a pull request that changes only `backups/`, `docs/`, `.claude/` or root-level markdown it skips the e2e browser install, `pnpm build`, `pnpm test:e2e` and the e2e artifact upload (`.github/workflows/ci.yml`, step `scope`). To see what CI would decide for your branch:
+
+```
+node scripts/ci-scope.mjs --base origin/main
+```
+
+It prints `full: <why>` or `skip: <why>`. With no `--base`, a base that isn't in the clone, or a failed diff, it says `full`. The rules are `scripts/lib/ci-scope.mjs`, tested by `web/lib/ci-scope.test.ts`. `verify.full` (and `/verify`) always run everything.
+
 ## The post-edit typecheck
 
 `verify.fast` runs `node scripts/typecheck/run.mjs`, not `pnpm typecheck` directly. It runs `pnpm typecheck` from the repo root and exits with its exit code, but on a failure prints only the first 10 errors (each with up to 4 detail lines) and a count of the rest, so one broken edit doesn't put the whole log in Claude's context. Output it can't parse falls back to the last 40 lines. Run `pnpm typecheck` yourself for the full log. The logic is `briefTypecheck` in `scripts/typecheck/brief.mjs`, tested by `web/lib/typecheck-brief.test.ts`.
