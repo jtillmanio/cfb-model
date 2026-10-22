@@ -410,6 +410,8 @@ _Added 2026-10-07 (D-079). The thinnest slice that crosses every layer once. `/s
   - runs `db:migrate` and `db:seed`;
   - then typecheck → lint → test → build → `test:e2e`.
 
+  On a pull request whose changed files are all under `backups/`, `docs/`, `.claude/` or root-level markdown, the browser install, build, `test:e2e` and the e2e artifact upload are skipped; every other step still runs. The `scope` step decides (`scripts/ci-scope.mjs`, rules in `scripts/lib/ci-scope.mjs`) and anything it can't establish, or any push to `main`, runs the full gate. The job itself is never skipped, so `verify` always reports. A path goes on the skip list only if neither `test:e2e` nor `next build` reads it, and `.github/` never does.
+
   It keeps the kit's task-file parse step and the job name `verify`.
 - **Deploy:** each PR gets a Vercel preview serving Next.js and the FastAPI function from one project. This settles D-013's open check; if one project can't do it, the fallback is recorded as a new decision.
 - **Exit criteria:**
