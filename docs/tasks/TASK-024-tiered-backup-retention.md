@@ -39,7 +39,7 @@ Backups stop piling up in R2 forever. Recent nights stay restorable day by day, 
 
 - [x] AC-1: A tested Python function returns the object keys for a run's UTC date. Unit tests show: 2026-10-16 (a Friday) → `backups/daily/2026-10-16.dump` only; 2026-10-18 (a Sunday) → the daily key plus `backups/weekly/2026-10-18.dump`; 2026-12-01 (a Tuesday) → the daily key plus `backups/monthly/2026-12-01.dump`; 2026-11-01 (a Sunday and the 1st) → all three.
 - [x] AC-2: `backup.yml` writes every key from AC-1 only after the restore check passes, as today. If any write fails, the run fails, and its summary names each key that was and wasn't written.
-- [ ] AC-3: An owner-approved branch run goes green, and the bucket shows the dump at the daily key for the run's UTC date (plus the weekly or monthly key when AC-1 says so). The job summary lists every key written.
+- [x] AC-3: An owner-approved branch run goes green, and the bucket shows the dump at the daily key for the run's UTC date (plus the weekly or monthly key when AC-1 says so). The job summary lists every key written.
 - [x] AC-4: `docs/runbooks/restore.md` › Steps › Find the newest dump points to `backups/daily/` first, and says when to reach into `weekly/` or `monthly/` (the damage is older than the daily window). `README.md` › Backups states the tiers and their expiry periods, and that the expiry rules live in the bucket's settings.
 - [x] AC-5: `docs/owner-checklist.md` › Actions has an item giving the exact lifecycle rule for each prefix (prefix, expiry days) from the plan, and `docs/decisions.md` records the key layout and tiers as a new decision that amends D-109.
 
@@ -120,6 +120,7 @@ Approved 2026-10-16 (/plan-batch): every gate decision as recommended.
 
 - Preflight: plan stale by rule (setup-uv bump and the dispatcher/D-123 docs touched planned files since 1bf71ef); owner confirmed 2026-10-23 they don't change the plan.
 - Verify R1 PASS | Audit R1 PASS (AC-1 and AC-2 PROVEN; new functions, so the base fails at import) | Spec R1 APPROVE (AC-3 pending the branch run; non-blocking: README › Read a failed run qualified for a partly failed upload, done in the close-out)
+- AC-3: owner-approved branch run 40008721062 (2026-10-23, a Friday) green; summary `Written: backups/daily/2026-10-23.dump`, `aws s3 cp` confirmed the upload to `s3://cfb-backups/backups/daily/2026-10-23.dump`.
 - Plan note: `upload` calls `subprocess.run` directly and the tests monkeypatch it, rather than taking an injectable runner; the plan's aim (AC-2 tested with a fake runner, no network) is met.
 
 ## Blocked
