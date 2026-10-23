@@ -85,6 +85,9 @@ def fake_postgres(monkeypatch: pytest.MonkeyPatch, published: Published) -> None
         def begin(self) -> Any:
             return begin()
 
+        def dispose(self) -> None:
+            pass
+
     def make_engine(url: str) -> Engine:
         published.opened.append(url)
         return Engine()
@@ -194,6 +197,50 @@ def test_job_finds_due_weeks_in_an_r2_lake(
         assert requests[-len(jobs.PULLS["results"]) :] == [
             f"{name} week=1" for name in jobs.PULLS["results"]
         ]
+
+
+def test_a_new_season_keeps_team_and_venue_attributes(
+    r2: LocalLake, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # 2026's first job: /teams and /venues are saved only under 2025 (the backfill files /venues
+    # once). A scratch lake without them would stage teams and venues from /games alone, and the
+    # upsert would write NULL mascots, colors and venue cities over production's rows.
+    monkeypatch.setenv("FIXTURE_NOW", "2026-08-23T10:00:00Z")  # the Sunday a year on
+    year = timedelta(days=364)
+
+    def next_season(games: list[Any]) -> list[Any]:
+        return [
+            {**g, "season": 2026, "startDate": (datetime.fromisoformat(g["startDate"]) + year)
+             .isoformat()}
+            for g in games
+        ]
+
+    requests = serve(r2, monkeypatch, next_season)
+    staged: dict[str, list[dict[str, Any]]] = {}
+
+    def capture(lake: LocalLake, conn: str, *, report: Any) -> dict[str, int]:
+        import io
+
+        import pyarrow.parquet as pq
+
+        for name in ("teams", "venues"):
+            data = io.BytesIO(lake.read(f"staging/{name}.parquet"))
+            staged[name] = pq.read_table(data).to_pylist()
+        return {}
+
+    fake_postgres(monkeypatch, Published())
+    monkeypatch.setattr(jobs, "publish_lake", capture)
+    live(monkeypatch)
+
+    engine("job", "results", "--target", "live")
+
+    assert "teams week=None" in requests  # the new season's /teams, pulled once
+    venues = {str(v["id"]): v for v in records("venues")}
+    cities = {str(v["source_id"]): v["city"] for v in staged["venues"]}
+    assert venues and all(cities[i] == v["city"] for i, v in venues.items())
+    teams = {str(t["id"]): t for t in records("teams")}
+    mascots = {str(t["source_id"]): t["mascot"] for t in staged["teams"]}
+    assert teams and all(mascots[i] == t["mascot"] for i, t in teams.items())
 
 
 def test_a_second_run_reuses_final_files(

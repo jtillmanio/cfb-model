@@ -5,9 +5,13 @@
    game not yet kicked off (`/games` and `/lines`). Weeks come from the newest record of each game
    across the season's saved `/games` files; the season `/games` and `/calendar` files are pulled
    only when missing. A pull whose saved file is final makes no call (`endpoints.pull`).
-2. **Stage** the season alone: its raw files are copied into a scratch lake on the runner, which
-   is rebuilt. R2 `staging/` is never touched, and upserts never delete, so publishing one season
-   leaves the others as they are.
+2. **Stage** the season alone: its raw files, plus every season's `/venues` and `/conferences`
+   (pulled once, filed under the backfill's last season), are copied into a scratch lake on the
+   runner, which is rebuilt. The season's `/teams` is pulled when missing too. Teams and venues
+   aren't per season, and the publish rewrites every column of a reference row (D-120): staged
+   from `/games` alone, they'd overwrite production's mascots, colors and venue details with NULL.
+   R2 `staging/` is never touched, and upserts never delete, so the other seasons' games and lines
+   stay as they are.
 3. **Check** the scratch staging; any failure raises `JobFailed` before a database is opened.
 4. **Publish** it to the target in one transaction (`publish_lake`).
 
@@ -28,7 +32,7 @@ from typing import Any, Literal
 from db.session import make_engine
 from engine import clock
 from engine.ingest import endpoints
-from engine.ingest.backfill import RAW, season_types, sync_raw
+from engine.ingest.backfill import ONCE, RAW, season_types, sync_raw
 from engine.ingest.cfbd import MONTHLY_LIMIT, CallBudget, CfbdClient
 from engine.ingest.lake import Lake, LocalLake, decode_raw, fetched_at_of, latest_raw, raw_folder
 from engine.publish.staging import TABLES as PUBLISHED
@@ -163,8 +167,9 @@ def canceled(games: Iterable[tuple[dict[str, Any], datetime]]) -> list[str]:
 
 def _pull_missing(lake: Lake, season: int, client: CfbdClient) -> None:
     """The season files the week choice and the publish need, when nothing is saved yet."""
-    if latest_raw(lake, raw_folder("calendar", season)) is None:
-        endpoints.fetch(lake, "calendar", season, client=client)
+    for name in ("calendar", "teams"):
+        if latest_raw(lake, raw_folder(name, season)) is None:
+            endpoints.fetch(lake, name, season, client=client)
     for season_type in season_types(lake, season):
         if latest_raw(lake, raw_folder("games", season, None, season_type)) is None:
             endpoints.fetch(lake, "games", season, None, season_type, client=client)
@@ -198,7 +203,7 @@ def run(
 
     with tempfile.TemporaryDirectory(prefix="cfb-job-") as tmp:
         scratch = LocalLake(Path(tmp))
-        sync_raw(lake, scratch, seasons={season})
+        sync_raw(lake, scratch, seasons={season}, every_season=ONCE)
         summary.canceled = canceled(_games(scratch, season).values())
         summary.staged = rebuild(scratch)
         report = quality.run(scratch)
@@ -206,6 +211,10 @@ def run(
         if not report.ok:
             summary.report = report
             raise JobFailed(report)
-        with make_engine(url).begin() as conn:
-            summary.new = publish_lake(scratch, conn, report=report)
+        db = make_engine(url)
+        try:
+            with db.begin() as conn:
+                summary.new = publish_lake(scratch, conn, report=report)
+        finally:
+            db.dispose()
     return summary

@@ -331,8 +331,11 @@ keep production's games, scores and lines current with nobody running anything. 
    with a game not yet kicked off (2 calls). A file that's already final costs no call, and a week
    becomes final 24 hours after its last kickoff, so Sunday's run is never final and Monday's
    settles it (03 › Lake layout).
-2. **stage** the season alone: its raw files are copied from R2 into a scratch lake on the runner,
-   which is rebuilt. R2's own `staging/` is never touched.
+2. **stage** the season alone: its raw files, plus `/venues` and `/conferences` from whichever
+   season they're filed under, are copied from R2 into a scratch lake on the runner, which is
+   rebuilt. The season's `/teams` is pulled once when missing, so teams and venues keep their
+   details (staged from `/games` alone, they'd publish NULLs). R2's own `staging/` is never
+   touched.
 3. **check** the scratch staging with the data-quality checks. A failure ends the run (exit 1)
    before production is opened.
 4. **publish** to production in one transaction (`PRODUCTION_DATABASE_URL_UNPOOLED`): teams, team

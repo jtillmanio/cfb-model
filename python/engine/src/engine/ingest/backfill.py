@@ -209,16 +209,25 @@ def run(lake: Lake, first: int, last: int, client: CfbdClient, max_calls: int | 
     return calls
 
 
-def _in(key: str, seasons: Collection[int] | None) -> bool:
-    return seasons is None or ((m := _SEASON.match(key)) is not None and int(m[1]) in seasons)
+def _in(key: str, seasons: Collection[int] | None, every_season: Collection[str]) -> bool:
+    if seasons is None or key.split("/")[2] in every_season:
+        return True
+    return (m := _SEASON.match(key)) is not None and int(m[1]) in seasons
 
 
-def sync_raw(src: Lake, dst: Lake, seasons: Collection[int] | None = None) -> list[str]:
+def sync_raw(
+    src: Lake,
+    dst: Lake,
+    seasons: Collection[int] | None = None,
+    every_season: Collection[str] = (),
+) -> list[str]:
     """Copy every raw CFBD file `src` has and `dst` lacks, only those filed under `seasons` when
-    it's given; return their keys. Nothing else (the ledger, staging/) is copied, and no file in
-    `dst` is overwritten."""
+    it's given (plus every season's files of the `every_season` endpoints); return their keys.
+    Nothing else (the ledger, staging/) is copied, and no file in `dst` is overwritten."""
     have = set(dst.walk(RAW))
-    missing = [key for key in src.walk(RAW) if key not in have and _in(key, seasons)]
+    missing = [
+        key for key in src.walk(RAW) if key not in have and _in(key, seasons, every_season)
+    ]
     for key in missing:
         dst.write_new(key, src.read(key))
     return missing
