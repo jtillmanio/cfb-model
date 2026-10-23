@@ -122,7 +122,7 @@ def _games(lake: Lake, season: int) -> dict[Any, tuple[dict[str, Any], datetime]
     """Each game's newest record across the season's saved /games files, with that file's
     save time."""
     newest: dict[Any, tuple[dict[str, Any], datetime]] = {}
-    for key in lake.walk(f"{RAW}/games/season={season}/"):
+    for key in lake.walk(f"{RAW}/games/season={season}"):  # no trailing "/": S3Lake adds it
         if not key.endswith(".parquet"):
             continue
         saved_at = fetched_at_of(key)

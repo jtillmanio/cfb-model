@@ -164,6 +164,38 @@ def test_job_publishes_scratch_staging_under_live(
     assert "| line_snapshots |" in text
 
 
+def test_job_finds_due_weeks_in_an_r2_lake(
+    r2: LocalLake, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # The scheduled runs read R2 through S3Lake, whose walk and list add their own "/".
+    from moto import mock_aws
+
+    from engine.ingest.lake import S3Lake, open_lake
+
+    monkeypatch.setenv("LAKE_URI", "s3://cfb-lake-test")
+    monkeypatch.setenv("R2_ACCOUNT_ID", "acct")
+    monkeypatch.setenv("R2_DATA_LAKE_ACCESS_KEY_ID", "testing")
+    monkeypatch.setenv("R2_DATA_LAKE_SECRET_ACCESS_KEY", "testing")
+    monkeypatch.setenv("MOTO_S3_CUSTOM_ENDPOINTS", "https://acct.r2.cloudflarestorage.com")
+    with mock_aws():
+        lake = open_lake()
+        assert isinstance(lake, S3Lake)
+        lake.client.create_bucket(
+            Bucket="cfb-lake-test", CreateBucketConfiguration={"LocationConstraint": "auto"}
+        )
+        for key in r2.walk("raw"):
+            lake.write_new(key, r2.read(key))
+        requests = serve(lake, monkeypatch, lambda games: games)  # type: ignore[arg-type]
+        fake_postgres(monkeypatch, Published())
+        live(monkeypatch)
+
+        assert engine("job", "results", "--target", "live") == 0
+
+        assert requests[-len(jobs.PULLS["results"]) :] == [
+            f"{name} week=1" for name in jobs.PULLS["results"]
+        ]
+
+
 def test_a_second_run_reuses_final_files(
     r2: LocalLake, monkeypatch: pytest.MonkeyPatch
 ) -> None:
