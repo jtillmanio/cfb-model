@@ -1,7 +1,8 @@
 """The backup workflow's logic (TASK-006, D-019, docs/02-architecture.md › Release & operations)."""
 
 import re
-from datetime import UTC, datetime
+import subprocess
+from datetime import date, datetime, timedelta, timezone
 
 import pytest
 from sqlalchemy import text
@@ -12,10 +13,11 @@ from db.backup import (
     check_dump,
     compare_counts,
     count_rows,
-    object_key,
+    object_keys,
     query_views,
     render_summary,
     require_local,
+    run_date,
     snapshot_transaction,
 )
 from db.config import repo_root
@@ -190,8 +192,113 @@ def test_zero_views_pass(db_conn):
     assert all(name.startswith("public.") for name in query_views(db_conn))
 
 
-def test_the_object_key_is_the_utc_date_under_backups():
-    assert object_key(datetime(2026, 10, 13, 7, 31, tzinfo=UTC)) == "backups/2026-10-13.dump"
+# ─── TASK-024: tiered keys and the upload ────────────────────────────────────────────────────
+
+
+@pytest.mark.parametrize(
+    ("day", "keys"),
+    [
+        (date(2026, 10, 16), ["backups/daily/2026-10-16.dump"]),  # a Friday
+        (
+            date(2026, 10, 18),  # a Sunday
+            ["backups/daily/2026-10-18.dump", "backups/weekly/2026-10-18.dump"],
+        ),
+        (
+            date(2026, 12, 1),  # a Tuesday, the 1st
+            ["backups/daily/2026-12-01.dump", "backups/monthly/2026-12-01.dump"],
+        ),
+        (
+            date(2026, 11, 1),  # a Sunday and the 1st
+            [
+                "backups/daily/2026-11-01.dump",
+                "backups/weekly/2026-11-01.dump",
+                "backups/monthly/2026-11-01.dump",
+            ],
+        ),
+    ],
+)
+def test_object_keys_for_a_run_date(day, keys):
+    assert object_keys(day) == keys
+
+
+def test_the_run_date_is_the_utc_date():
+    # 23:30 ET on the 17th is already the 18th in UTC.
+    assert run_date(datetime(2026, 10, 17, 23, 30, tzinfo=timezone(timedelta(hours=-4)))) == date(
+        2026, 10, 18
+    )
+
+
+class FakeAws:
+    """Records each `aws` call; fails the ones whose destination contains `fail`."""
+
+    def __init__(self, fail: str | None = None):
+        self.fail, self.calls = fail, []
+
+    def __call__(self, cmd, **kwargs):
+        self.calls.append(cmd)
+        dest = cmd[4]
+        return subprocess.CompletedProcess(cmd, 1 if self.fail and self.fail in dest else 0)
+
+
+def _upload(monkeypatch, tmp_path, fake, day="2026-10-18"):
+    summary = tmp_path / "summary.md"
+    monkeypatch.setenv("GITHUB_STEP_SUMMARY", str(summary))
+    monkeypatch.setenv("R2_BUCKET", "cfb-backups")
+    monkeypatch.setenv("R2_ACCOUNT_ID", "acct")
+    monkeypatch.setattr("db.backup.subprocess.run", fake)
+    dump = tmp_path / "backup.dump"
+    dump.write_bytes(b"x" * 10)
+    main(["backup", "upload", "--dump", str(dump), "--date", day])
+    return summary
+
+
+def test_upload_writes_every_key_to_r2(monkeypatch, tmp_path):
+    fake = FakeAws()
+    summary = _upload(monkeypatch, tmp_path, fake)
+    dests = [cmd[4] for cmd in fake.calls]
+    assert dests == [
+        "s3://cfb-backups/backups/daily/2026-10-18.dump",
+        "s3://cfb-backups/backups/weekly/2026-10-18.dump",
+    ]
+    for cmd in fake.calls:
+        assert cmd[:3] == ["aws", "s3", "cp"]
+        assert cmd[3] == str(tmp_path / "backup.dump")
+        assert "https://acct.r2.cloudflarestorage.com" in cmd
+    text_ = summary.read_text(encoding="utf-8")
+    assert "Written: `backups/daily/2026-10-18.dump`" in text_
+    assert "Written: `backups/weekly/2026-10-18.dump`" in text_
+
+
+def test_upload_writes_every_key_and_names_each_unwritten_one(monkeypatch, tmp_path):
+    fake = FakeAws(fail="weekly")
+    with pytest.raises(SystemExit) as exc:
+        _upload(monkeypatch, tmp_path, fake, day="2026-11-01")
+    # A failed key doesn't stop the ones after it.
+    assert len(fake.calls) == 3
+    assert "backups/weekly/2026-11-01.dump" in str(exc.value.code)
+    text_ = (tmp_path / "summary.md").read_text(encoding="utf-8")
+    assert "Written: `backups/daily/2026-11-01.dump`" in text_
+    assert "**Not written:** `backups/weekly/2026-11-01.dump`" in text_
+    assert "Written: `backups/monthly/2026-11-01.dump`" in text_
+
+
+def test_upload_refuses_without_the_bucket(monkeypatch, tmp_path):
+    monkeypatch.delenv("GITHUB_STEP_SUMMARY", raising=False)
+    monkeypatch.delenv("R2_BUCKET", raising=False)
+    monkeypatch.setenv("R2_ACCOUNT_ID", "acct")
+    dump = tmp_path / "backup.dump"
+    dump.write_bytes(b"x")
+    with pytest.raises(SystemExit) as exc:
+        main(["backup", "upload", "--dump", str(dump), "--date", "2026-10-16"])
+    assert "R2_BUCKET" in str(exc.value.code)
+
+
+def test_the_upload_step_passes_the_dump_steps_date():
+    code = re.sub(r"#.*", "", (WORKFLOWS / "backup.yml").read_text(encoding="utf-8"))
+    step = re.split(r"^      - ", code, flags=re.M)[-1]
+    assert "db backup upload" in step
+    assert '--date "${{ steps.dump.outputs.date }}"' in step
+    assert "steps.dump.outputs.key" not in code
 
 
 # ─── AC-5: the job summary ───────────────────────────────────────────────────────────────────
@@ -260,11 +367,11 @@ def test_the_backup_steps_run_in_order_and_the_upload_comes_last():
         code.index("db backup dump"),
         code.index("pg_restore --no-owner"),
         code.index("db backup verify"),
-        code.index("aws s3 cp"),
+        code.index("db backup upload"),
     ]
     assert order == sorted(order)
     steps = re.split(r"^      - ", code, flags=re.M)
-    assert "aws s3 cp" in steps[-1], "the upload is the job's last step"
+    assert "db backup upload" in steps[-1], "the upload is the job's last step"
     # A failed step must end the job before the upload: nothing may carry on past a failure.
     assert "continue-on-error" not in code
     assert not re.search(r"\b(always|failure|cancelled)\(\)", code)

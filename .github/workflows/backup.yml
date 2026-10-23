@@ -2,7 +2,8 @@
 # operations › Backups). Nothing is uploaded until the dump has been restored and checked:
 #
 #   pg_dump (read-only role) → restore into postgres:PG_MAJOR → re-apply views → query each view
-#   → compare row counts with production's (same snapshot as the dump) → upload to R2 backups/
+#   → compare row counts with production's (same snapshot as the dump) → upload to R2
+#   backups/daily/ (plus weekly/ on a Sunday, monthly/ on the 1st)
 #
 # Any failed step ends the job before the upload, so a bad dump is never stored. The logic lives in
 # `python -m db backup …` (python/db/src/db/backup.py). docs/runbooks/restore.md restores a dump;
@@ -105,7 +106,9 @@ jobs:
           --dump "$RUNNER_TEMP/backup.dump" --views "$GITHUB_WORKSPACE/target/python/db/views"
 
       # R2 is S3-compatible. Its region is "auto", and it rejects the CLI's default checksum
-      # headers, so checksums are sent only when an operation requires them.
+      # headers, so checksums are sent only when an operation requires them. The command writes
+      # the dump to each of the day's keys (daily, plus weekly on a Sunday and monthly on the 1st,
+      # D-124) and lists them in the summary; the bucket's lifecycle rules expire each prefix.
       - name: Upload to R2
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.R2_BACKUPS_ACCESS_KEY_ID }}
@@ -115,9 +118,7 @@ jobs:
           AWS_RESPONSE_CHECKSUM_VALIDATION: when_required
           R2_ACCOUNT_ID: ${{ vars.R2_ACCOUNT_ID }}
           R2_BUCKET: ${{ vars.R2_BUCKET }}
-          KEY: ${{ steps.dump.outputs.key }}
           PROD_COMMIT: ${{ steps.production.outputs.commit }}
-        run: |
-          aws s3 cp "$RUNNER_TEMP/backup.dump" "s3://${R2_BUCKET}/${KEY}" --no-progress \
-            --endpoint-url "https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com"
-          echo "Uploaded \`${KEY}\` to \`${R2_BUCKET}\` (production at \`${PROD_COMMIT}\`)." >> "$GITHUB_STEP_SUMMARY"
+        run: >-
+          uv --directory python run --no-dev python -m db backup upload
+          --dump "$RUNNER_TEMP/backup.dump" --date "${{ steps.dump.outputs.date }}"

@@ -1,6 +1,6 @@
 """The backup workflow's logic (TASK-006, D-019, docs/02-architecture.md › Release & operations).
 
-`.github/workflows/backup.yml` calls these as `python -m db backup dump|verify`. `dump` reads
+`.github/workflows/backup.yml` calls these as `python -m db backup dump|verify|upload`. `dump` reads
 production through `BACKUP_DATABASE_URL` (a read-only role) and counts its rows in the same
 snapshot `pg_dump` uses, so the counts match the dump exactly even if a job writes meanwhile.
 `verify` runs against the restored copy in the job's local container: it re-applies the views,
@@ -16,7 +16,7 @@ import os
 import subprocess
 from collections.abc import Callable, Iterator, Mapping, Sequence
 from contextlib import contextmanager
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlsplit
@@ -81,9 +81,22 @@ def require_local(url: str) -> str:
     return url
 
 
-def object_key(now: datetime) -> str:
-    """One dump per UTC day: a re-run that day replaces it with a newer verified one."""
-    return f"backups/{now.astimezone(UTC):%Y-%m-%d}.dump"
+def run_date(now: datetime) -> date:
+    """The run's UTC date, fixed once by `dump` so a run that crosses midnight writes one day."""
+    return now.astimezone(UTC).date()
+
+
+def object_keys(day: date) -> list[str]:
+    """The keys one run writes (D-124): daily always, weekly on a Sunday, monthly on the 1st.
+
+    Each prefix expires by the bucket's own lifecycle rule, never from here. A re-run that day
+    replaces its keys with a newer verified dump; a missed Sunday or 1st isn't made up later."""
+    keys = [f"backups/daily/{day:%Y-%m-%d}.dump"]
+    if day.weekday() == 6:
+        keys.append(f"backups/weekly/{day:%Y-%m-%d}.dump")
+    if day.day == 1:
+        keys.append(f"backups/monthly/{day:%Y-%m-%d}.dump")
+    return keys
 
 
 def render_summary(
@@ -191,7 +204,7 @@ def dump(args: argparse.Namespace) -> None:
         size = check_dump(result.returncode, out)
     args.counts.write_text(json.dumps(counts, indent=2, sort_keys=True), encoding="utf-8")
     print(f"Dumped {len(counts)} tables, {_size(size)}.")
-    _output(size=str(size), key=object_key(datetime.now(UTC)))
+    _output(size=str(size), date=run_date(datetime.now(UTC)).isoformat())
 
 
 @_failing
@@ -215,6 +228,32 @@ def verify(args: argparse.Namespace) -> None:
         raise BackupFailed("Row counts differ: " + "; ".join(failures))
 
 
+@_failing
+def upload(args: argparse.Namespace) -> None:
+    """`aws s3 cp` the verified dump to each of the day's keys (D-124). A failed key doesn't stop
+    the rest; the summary says which were written, and any failure fails the step."""
+    bucket = os.environ.get("R2_BUCKET", "").strip()
+    account = os.environ.get("R2_ACCOUNT_ID", "").strip()
+    if not bucket or not account:
+        raise BackupFailed("R2_BUCKET and R2_ACCOUNT_ID must both be set.")
+    endpoint = f"https://{account}.r2.cloudflarestorage.com"
+    written, failed = [], []
+    for key in object_keys(args.date):
+        result = subprocess.run(
+            ["aws", "s3", "cp", str(args.dump), f"s3://{bucket}/{key}", "--no-progress",
+             "--endpoint-url", endpoint],
+            check=False,
+        )
+        (written if result.returncode == 0 else failed).append(key)
+    commit = os.environ.get("PROD_COMMIT", "").strip()
+    lines = [f"Uploaded to `{bucket}`" + (f" (production at `{commit}`):" if commit else ":"), ""]
+    lines += [f"- Written: `{key}`" for key in written]
+    lines += [f"- **Not written:** `{key}`" for key in failed]
+    _summary("\n".join(lines))
+    if failed:
+        raise BackupFailed("Not written: " + ", ".join(failed))
+
+
 def add_commands(subparsers: Any) -> None:
     backup = subparsers.add_parser("backup", help="Steps of the backup workflow")
     steps = backup.add_subparsers(dest="step", required=True)
@@ -230,3 +269,9 @@ def add_commands(subparsers: Any) -> None:
     p.add_argument("--dump", type=Path, required=True, help="The dump file, for its size")
     p.add_argument("--views", type=Path, help="The views to apply (default: this checkout's)")
     p.set_defaults(func=verify)
+
+    p = steps.add_parser("upload", help="Write the verified dump to each of the day's R2 keys")
+    p.add_argument("--dump", type=Path, required=True, help="The verified dump file")
+    p.add_argument("--date", type=date.fromisoformat, required=True,
+                   help="The run's UTC date (dump's `date` output)")
+    p.set_defaults(func=upload)

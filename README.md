@@ -282,7 +282,19 @@ after proving it restores:
 2. **restore**: `pg_restore` into a `postgres:PG_MAJOR` container on the runner.
 3. **verify**: re-applies the views of the commit production serves (from `/api/py/health`),
    queries each view, and compares row counts with production's.
-4. **upload**: to R2 as `backups/<UTC date>.dump`. A re-run the same day replaces that day's dump.
+4. **upload**: to R2, at every key for the run's UTC date (D-124). A re-run the same day replaces
+   that day's dumps.
+
+| Prefix | Written when the run's UTC date is | Expires after |
+|---|---|---|
+| `backups/daily/<date>.dump` | every day | 14 days |
+| `backups/weekly/<date>.dump` | a Sunday | 90 days |
+| `backups/monthly/<date>.dump` | the 1st of the month | 365 days |
+
+The expiry periods are R2 lifecycle rules in the bucket's settings (Cloudflare › R2 ›
+`cfb-backups` › Settings › Object lifecycle rules), set by the owner. The workflow never sets or
+reads them: its token can write objects but not change the bucket. A failed Sunday or 1st isn't
+made up later; the daily dumps cover the gap.
 
 `PG_MAJOR` is set in one place, `.github/actions/start-postgres/action.yml`, which CI uses too.
 To restore a dump, follow [docs/runbooks/restore.md](docs/runbooks/restore.md).
@@ -293,11 +305,12 @@ gh workflow run backup.yml
 gh run watch
 ```
 The run's **Summary** lists each table's row count in production and in the restore, the views
-queried, the dump size and the object it uploaded.
+queried, the dump size and every key it uploaded.
 
 ### Read a failed run
-A failed step writes **Backup failed:** and the reason in the Summary. Nothing was uploaded, and
-the previous nights' dumps are untouched.
+A failed step writes **Backup failed:** and the reason in the Summary. Before the upload, that
+means nothing was uploaded and the previous nights' dumps are untouched; if the Upload step itself
+failed, its summary lists which of the day's keys were written.
 
 | Failed step | What it means | What to do |
 |---|---|---|
@@ -305,7 +318,7 @@ the previous nights' dumps are untouched.
 | Find the commit production serves | `/api/py/health` on `PRODUCTION_URL` didn't answer (no release has put a build live yet, or the site is down), answered with Vercel's login page, or named no commit | Check `PRODUCTION_URL` is the production domain (Vercel › Settings › Domains), not a generated `*.vercel.app` alias, and that a release has run; re-run |
 | Restore the dump | The dump has something a plain Postgres can't restore | Read the `pg_restore` error; production is unaffected |
 | Re-apply views… | A view fails on production's data, or a table's counts differ | The summary names the view or table; a mismatch means the dump isn't trustworthy |
-| Upload to R2 | The R2 token, bucket or account is wrong | Check `R2_BACKUPS_ACCESS_KEY_ID`, `R2_BACKUPS_SECRET_ACCESS_KEY`, `R2_ACCOUNT_ID`, `R2_BUCKET` |
+| Upload to R2 | A key wasn't written: the R2 token, bucket or account is wrong, or R2 refused one write | The summary lists each key as written or **Not written**. Check `R2_BACKUPS_ACCESS_KEY_ID`, `R2_BACKUPS_SECRET_ACCESS_KEY`, `R2_ACCOUNT_ID`, `R2_BUCKET`; re-run to write them all again |
 
 ### What it needs
 Repository **secrets**: `BACKUP_DATABASE_URL` (the read-only `backup_reader` role's direct URL on
