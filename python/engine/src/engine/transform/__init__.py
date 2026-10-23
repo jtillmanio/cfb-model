@@ -88,8 +88,10 @@ def _rebuild_seasons(s: Staging) -> tuple[dict[str, int], list[str]]:
 def rebuild(lake: Lake) -> dict[str, int]:
     """Build every `TABLES` table in memory, then replace the staged files; returns the row
     counts. The season tables are written while `skipped_raw` waits for them to finish loading.
-    Refuses under LIVE=true before reading anything."""
-    refuse_if_live("rebuild staging")
+    Under LIVE=true it refuses before reading anything, unless `staging/` is empty: then nothing
+    is overwritten (the jobs' scratch lake, TASK-022)."""
+    if lake.walk("staging"):
+        refuse_if_live("rebuild staging")
 
     s = Staging(lake)
     built = {}

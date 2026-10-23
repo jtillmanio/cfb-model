@@ -169,6 +169,28 @@ def test_a_completed_games_week_is_used_without_a_call(tmp_path: Path) -> None:
     assert requests == []
 
 
+def test_sunday_file_not_final_monday_file_final(tmp_path: Path) -> None:
+    # The week's last kickoff is 2025-08-31 00:00 UTC: a file saved 10 hours later may be missing
+    # plays or box scores CFBD fills in overnight, so only one saved 24 hours later is final.
+    lake = LocalLake(tmp_path)
+    save(lake, "games", 1, datetime(2025, 8, 31, 10, tzinfo=UTC), all_completed(GAMES))
+    save(lake, "plays", 1, datetime(2025, 8, 31, 10, 5, tzinfo=UTC), [{"id": 1}])
+    client, requests = fake_cfbd(lake, [{"id": 1}])
+
+    pull(lake, "plays", 2025, week=1, client=client)
+    pull(lake, "games", 2025, week=1, client=client)
+    assert len(requests) == 2
+
+    lake = LocalLake(tmp_path / "monday")
+    games = save(lake, "games", 1, datetime(2025, 9, 1, 10, tzinfo=UTC), all_completed(GAMES))
+    plays = save(lake, "plays", 1, datetime(2025, 9, 1, 10, 5, tzinfo=UTC), [{"id": 1}])
+    client, requests = fake_cfbd(lake)
+
+    assert pull(lake, "plays", 2025, week=1, client=client) == plays
+    assert pull(lake, "games", 2025, week=1, client=client) == games
+    assert requests == []
+
+
 # AC-5: the registry and the CLI
 
 
@@ -200,6 +222,7 @@ EXPECTED = {
     "ratings_elo": ("/ratings/elo", "season", ("year",)),
     "ppa_predicted": ("/ppa/predicted", "static", ("down", "distance")),
     "calendar": ("/calendar", "season", ("year",)),
+    "scoreboard": ("/scoreboard", "season", ()),
 }
 
 
@@ -211,7 +234,7 @@ def test_each_endpoint_names_its_path_params_and_granularity(name: str) -> None:
 
 def test_registry_covers_every_endpoint_in_03() -> None:
     paths = endpoints_in_03()
-    assert len(paths) == 18
+    assert len(paths) == 19
     assert {e.path for e in ENDPOINTS.values()} == paths
     for name, endpoint in ENDPOINTS.items():
         assert endpoint.path.startswith("/"), name

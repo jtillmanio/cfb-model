@@ -162,10 +162,15 @@ GitHub then starts the workflow on `main`, and its run shows in the Actions tab 
 | Workflow | When (ET) | Why then |
 |---|---|---|
 | `backup.yml` | Daily 03:30 | Quiet hours, before the morning jobs write |
+| `results.yml` | Sun and Mon 06:00 | The weekend's finals; Monday's run settles the week, and both finish before Sunday's ratings and the 10 AM predictions (D-092) |
+| `lines.yml` | Daily 08:00 | The daily line snapshot (02 › Non-functional requirements) |
+| `lines.yml` | Thu and Fri 19:00 | The pick window, when lines move most before the weekend |
 
 This table mirrors `SCHEDULE` in `infra/dispatcher/src/index.ts`; that file wins if they differ.
 Until TASK-026, `backup.yml` also keeps its own 07:30 UTC cron, so the backup can run twice a day
-(a same-day run replaces that day's dump; about 5 extra Actions minutes).
+(a same-day run replaces that day's dump; about 5 extra Actions minutes). `results.yml` and
+`lines.yml` keep UTC crons as late fallbacks, which do nothing when the dispatcher's run succeeded
+([Jobs](#jobs)).
 
 ### What it doesn't do
 - **Retry.** A tick that runs late but inside its quarter hour still fires. A quarter hour Cloudflare
@@ -312,6 +317,64 @@ release moves; Vercel's generated aliases follow every `main` build and sit behi
 Authentication. The health call also sends `x-vercel-protection-bypass` from the
 `VERCEL_AUTOMATION_BYPASS_SECRET` secret (shared with the Lighthouse job), in case Deployment
 Protection ever covers production (02 › Auth).
+
+## Jobs
+
+The **Results** and **Lines** workflows (`.github/workflows/results.yml`, `lines.yml`, TASK-022)
+keep production's games, scores and lines current with nobody running anything. The
+[dispatcher](#dispatcher) starts them at their ET times. Each run of `engine job results|lines`
+(`python/engine/src/engine/jobs.py`, with `LIVE=true`) does, in order:
+
+1. **pull** into the R2 lake (`LAKE_URI`), counted on its shared ledger. `results` pulls every week
+   with a game in the last 14 days: `/games`, `/games/teams`, advanced stats, plays, drives and the
+   post-kickoff `/lines` (6 calls a week). `lines` pulls `/games` and `/lines` for the earliest week
+   with a game not yet kicked off (2 calls). A file that's already final costs no call, and a week
+   becomes final 24 hours after its last kickoff, so Sunday's run is never final and Monday's
+   settles it (03 › Lake layout).
+2. **stage** the season alone: its raw files are copied from R2 into a scratch lake on the runner,
+   which is rebuilt. R2's own `staging/` is never touched.
+3. **check** the scratch staging with the data-quality checks. A failure ends the run (exit 1)
+   before production is opened.
+4. **publish** to production in one transaction (`PRODUCTION_DATABASE_URL_UNPOOLED`): teams, team
+   seasons, venues, the season, games, and new line snapshots. Reference rows are upserted, so a
+   second run adds no team or game rows.
+
+| Workflow | When (ET) | Fallback cron (UTC) | Calls a run |
+|---|---|---|---|
+| `results.yml` | Sun and Mon 06:00 | `0 12 * * 0,1` | ~6 |
+| `lines.yml` | Daily 08:00, Thu and Fri 19:00 | `0 14 * * *`, `0 1 * * 5,6` | 2 |
+
+GitHub's cron knows only UTC, so each fallback fires 1–2 hours after its ET slot (an hour later in
+EDT than in EST). It runs only when no dispatched run of that workflow succeeded in the last 6
+hours (`.github/actions/skip-if-dispatched`). Both workflows share the `lake-publish` concurrency
+group, so two runs never write the lake or publish at once; a queued one waits.
+
+### Run one by hand
+```powershell
+gh workflow run results.yml
+gh run watch
+```
+Every run writes production. The run's **Summary** lists the weeks pulled, the CFBD calls spent and
+the month's total, each table's staged and new rows, and any game counted as done only because it's
+unscored a week after its start (D-121): if CFBD postponed one under its old week, it needs a
+manual pull when it's played. Locally, `--target dev` runs the same steps against your dev
+database and `LAKE_URI`.
+
+### Read a failed run
+| Exit | What it means | What to do |
+|---|---|---|
+| 1 | A data-quality check failed; nothing was published | The Summary lists the failed check and the games. A late game missing advanced stats on Sunday clears on Monday's run |
+| 2 | Refused: `LIVE` is unset, or `PRODUCTION_DATABASE_URL_UNPOOLED` is missing or pooled | Check the workflow's `env:` and the secret |
+| 3 | The month's CFBD budget (5,000 calls) is spent | Wait for the next UTC month; nothing was published |
+
+Any other failure (R2 credentials, a CFBD error) shows as a Python traceback in the step's log. The
+lake keeps whatever was pulled before it, and the next run reuses it.
+
+### What it needs
+Repository **secrets**: `CFBD_API_KEY`, `R2_DATA_LAKE_ACCESS_KEY_ID` and
+`R2_DATA_LAKE_SECRET_ACCESS_KEY` (an R2 token with Object Read & Write on the lake bucket only), and
+`PRODUCTION_DATABASE_URL_UNPOOLED` (shared with the release workflow). Repository **variables**:
+`LAKE_URI` (`s3://<lake bucket>`) and `R2_ACCOUNT_ID`.
 
 ## Performance checks
 

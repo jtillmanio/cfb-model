@@ -1,0 +1,63 @@
+# The results job (TASK-022, docs/02-architecture.md › Components › 4 Jobs): Sunday and Monday
+# at 06:00 ET, the weekend's final scores, box scores, advanced stats, play-by-play and closing
+# lines, published to production:
+#
+#   pull each week with a game in the last 14 days into the R2 lake → stage the season in a
+#   scratch lake on the runner → data-quality checks → publish in one transaction
+#
+# A failed check ends the run before production is opened, so nothing partial is published. The
+# dispatcher (infra/dispatcher, D-122) starts it on time with workflow_dispatch; the cron below is
+# a late fallback that does nothing if a dispatched run succeeded in the last 6 hours. The logic
+# lives in `engine job results` (python/engine/src/engine/jobs.py); README › Jobs says how to read
+# a failed run. Secrets reach steps only through `env:`.
+name: Results
+
+on:
+  workflow_dispatch:
+  schedule:
+    # Fallback for the dispatcher's Sun and Mon 06:00 ET: 12:00 UTC is 08:00 ET in EDT, 07:00 ET in EST
+    - cron: "0 12 * * 0,1"
+
+# One publish to production at a time, shared with lines.yml; a queued run never cancels one
+# half done. It also keeps the lake to one writer (D-112).
+concurrency:
+  group: lake-publish
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  actions: read # the fallback's check for a dispatched run
+
+env:
+  UV_FROZEN: "1"
+
+jobs:
+  results:
+    name: results
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Skip the fallback if the dispatcher's run succeeded
+        id: guard
+        uses: ./.github/actions/skip-if-dispatched
+
+      - uses: astral-sh/setup-uv@v10.3.0
+        if: ${{ steps.guard.outputs.skip != 'true' }}
+        with:
+          enable-cache: true
+          cache-dependency-glob: python/uv.lock
+
+      # `uv run` installs the dev group, which holds the engine's pyarrow, boto3 and duckdb (D-114).
+      - name: Pull, stage, check and publish to production
+        if: ${{ steps.guard.outputs.skip != 'true' }}
+        env:
+          LIVE: "true"
+          LAKE_URI: ${{ vars.LAKE_URI }}
+          R2_ACCOUNT_ID: ${{ vars.R2_ACCOUNT_ID }}
+          R2_DATA_LAKE_ACCESS_KEY_ID: ${{ secrets.R2_DATA_LAKE_ACCESS_KEY_ID }}
+          R2_DATA_LAKE_SECRET_ACCESS_KEY: ${{ secrets.R2_DATA_LAKE_SECRET_ACCESS_KEY }}
+          CFBD_API_KEY: ${{ secrets.CFBD_API_KEY }}
+          PRODUCTION_DATABASE_URL_UNPOOLED: ${{ secrets.PRODUCTION_DATABASE_URL_UNPOOLED }}
+        run: uv --directory python run engine job results --target live --summary "$GITHUB_STEP_SUMMARY"

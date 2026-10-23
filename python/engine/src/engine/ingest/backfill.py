@@ -20,8 +20,9 @@ overwrites one: the backfill writes to R2, and the local `./data` mirror feeds t
 from __future__ import annotations
 
 import os
+import re
 from collections import Counter
-from collections.abc import Iterator
+from collections.abc import Collection, Iterator
 from dataclasses import dataclass
 from datetime import UTC, datetime
 
@@ -31,6 +32,7 @@ from engine.ingest.endpoints import ENDPOINTS, fetch, saved_final, week_complete
 from engine.ingest.lake import Lake, decode_raw, fetched_at_of, latest_raw, raw_folder
 
 RAW = "raw/cfbd"
+_SEASON = re.compile(rf"{RAW}/[^/]+/season=(\d+)/")
 WEEKLY = ("games_teams", "plays", "drives")
 BY_SEASON_TYPE = ("lines", "stats_game_advanced")
 SEASON = (
@@ -95,7 +97,7 @@ class _GamesCache:
         self.lake.replace(key, data)
 
 
-def _season_types(lake: Lake, season: int) -> tuple[str, ...]:
+def season_types(lake: Lake, season: int) -> tuple[str, ...]:
     """Both season types once the postseason has started: by the saved calendar for the
     current season, always for an earlier one."""
     if season < now().year:
@@ -118,13 +120,13 @@ def _estimated_weeks(season: int, season_type: str) -> list[int]:
 
 
 def _first(lake: Lake, season: int, last: bool) -> Iterator[Pull]:
-    for season_type in _season_types(lake, season):
+    for season_type in season_types(lake, season):
         yield Pull("games", season, None, season_type)
     yield Pull("calendar", season)
 
 
 def _weekly(lake: Lake, season: int, last: bool) -> Iterator[Pull]:
-    for season_type in _season_types(lake, season):
+    for season_type in season_types(lake, season):
         games = latest_raw(lake, raw_folder("games", season, None, season_type))
         if games is None:
             weeks, estimated = _estimated_weeks(season, season_type), True
@@ -141,7 +143,7 @@ def _weekly(lake: Lake, season: int, last: bool) -> Iterator[Pull]:
 
 def _last(lake: Lake, season: int, last: bool) -> Iterator[Pull]:
     for name in BY_SEASON_TYPE:
-        for season_type in _season_types(lake, season):
+        for season_type in season_types(lake, season):
             yield Pull(name, season, None, season_type)
     for name in SEASON:
         yield Pull(name, season)
@@ -207,11 +209,16 @@ def run(lake: Lake, first: int, last: int, client: CfbdClient, max_calls: int | 
     return calls
 
 
-def sync_raw(src: Lake, dst: Lake) -> list[str]:
-    """Copy every raw CFBD file `src` has and `dst` lacks; return their keys. Nothing else (the
-    ledger, staging/) is copied, and no file in `dst` is overwritten."""
+def _in(key: str, seasons: Collection[int] | None) -> bool:
+    return seasons is None or ((m := _SEASON.match(key)) is not None and int(m[1]) in seasons)
+
+
+def sync_raw(src: Lake, dst: Lake, seasons: Collection[int] | None = None) -> list[str]:
+    """Copy every raw CFBD file `src` has and `dst` lacks, only those filed under `seasons` when
+    it's given; return their keys. Nothing else (the ledger, staging/) is copied, and no file in
+    `dst` is overwritten."""
     have = set(dst.walk(RAW))
-    missing = [key for key in src.walk(RAW) if key not in have]
+    missing = [key for key in src.walk(RAW) if key not in have and _in(key, seasons)]
     for key in missing:
         dst.write_new(key, src.read(key))
     return missing

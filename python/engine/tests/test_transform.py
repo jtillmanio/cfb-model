@@ -155,6 +155,15 @@ def test_rebuild_refuses_under_live(
     assert lake.walk("staging") == ["staging/games.parquet"]
 
 
+def test_rebuild_into_empty_lake_allowed_under_live(
+    lake: LocalLake, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # The jobs' scratch lake (TASK-022): no staging/ yet, so nothing is overwritten.
+    monkeypatch.setenv("LIVE", "true")
+    assert engine("transform", "--rebuild") == 0
+    assert "staging/games.parquet" in lake.walk("staging")
+
+
 def test_check_passes_on_clean_fixture(
     lake: LocalLake, capsys: pytest.CaptureFixture[str]
 ) -> None:

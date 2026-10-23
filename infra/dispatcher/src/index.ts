@@ -14,7 +14,12 @@ export interface Entry {
 }
 
 /** Add a job by adding a line (README › Dispatcher). */
-export const SCHEDULE: readonly Entry[] = [{ workflow: "backup.yml", days: "daily", time: "03:30" }];
+export const SCHEDULE: readonly Entry[] = [
+  { workflow: "backup.yml", days: "daily", time: "03:30" },
+  { workflow: "results.yml", days: ["Sun", "Mon"], time: "06:00" },
+  { workflow: "lines.yml", days: "daily", time: "08:00" },
+  { workflow: "lines.yml", days: ["Thu", "Fri"], time: "19:00" },
+];
 
 export interface Env {
   GITHUB_DISPATCH_TOKEN: string;

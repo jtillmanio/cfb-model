@@ -338,6 +338,17 @@ def test_sync_copies_missing_both_ways_never_overwrites(tmp_path: Path) -> None:
     assert local.walk("staging") == []
 
 
+def test_sync_raw_season_filter(tmp_path: Path) -> None:
+    r2, scratch = LocalLake(tmp_path / "r2"), LocalLake(tmp_path / "scratch")
+    at = datetime(2016, 1, 5, tzinfo=UTC)
+    keep = save(r2, "teams", at, [{"id": 1}])  # season 2015
+    other = raw_key(raw_folder("teams", 2014), at)
+    r2.write_new(other, encode_raw([{"id": 1}], {"year": 2014}, at))
+
+    assert backfill.sync_raw(r2, scratch, seasons={2015}) == [keep]
+    assert scratch.walk("raw") == [keep]
+
+
 def test_lake_sync_cli_copies_one_way(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:

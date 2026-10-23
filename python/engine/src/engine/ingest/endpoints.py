@@ -10,8 +10,9 @@ query params a call must send, and its granularity:
 - `static`: no season in the query (`/ppa/predicted`), filed under the season it was pulled for.
 
 A week's file is never fetched again once it was saved after every game in that week completed
-(CLAUDE.md: never re-fetch completed CFBD weeks); a season's file, once it was saved after every
-game of its season type completed (TASK-021).
+and `WEEK_SETTLE` after its last kickoff (CLAUDE.md: never re-fetch completed CFBD weeks;
+TASK-022); a season's file, once it was saved after every game of its season type completed
+(TASK-021).
 """
 
 from __future__ import annotations
@@ -43,6 +44,10 @@ _FBS: Mapping[str, str] = {"classification": "fbs"}
 # game is done (canceled) this long after its start: CFBD can answer empty or partial just after
 # the games (D-114, D-121).
 SETTLE = timedelta(days=7)
+# A week is complete only this long after its last kickoff, so Sunday's `results` run never
+# freezes a week CFBD is still filling in (plays, drives, box scores) and Monday's settles it
+# (TASK-022).
+WEEK_SETTLE = timedelta(hours=24)
 
 
 @dataclass(frozen=True)
@@ -80,6 +85,8 @@ ENDPOINTS: dict[str, Endpoint] = {
     "ratings_elo": Endpoint("/ratings/elo", "season", ("year",)),
     "ppa_predicted": Endpoint("/ppa/predicted", "static", ("down", "distance")),
     "calendar": Endpoint("/calendar", "season", ("year",)),
+    # Pulled once to learn whether tier 1 answers it (03 › Data sources); the `scores` job is M6.8
+    "scoreboard": Endpoint("/scoreboard", "season", ()),
 }
 
 
@@ -124,7 +131,7 @@ def query(
     return params
 
 
-def _done(game: Mapping[str, Any], saved_at: datetime) -> bool:
+def done(game: Mapping[str, Any], saved_at: datetime) -> bool:
     """Completed, or unscored and started `SETTLE` before its /games file was saved: CFBD
     lists a canceled game (App State-Liberty 2024) as uncompleted forever (D-121)."""
     if game.get("completed"):
@@ -134,15 +141,18 @@ def _done(game: Mapping[str, Any], saved_at: datetime) -> bool:
 
 
 def week_complete(records: list[Any], week: int, season_type: str, saved_at: datetime) -> bool:
-    """Every game of the week is done, by a /games file saved at `saved_at`."""
+    """Every game of the week is done, by a /games file saved at `saved_at`, and it was saved
+    `WEEK_SETTLE` after the week's last kickoff."""
     games = [g for g in records if g.get("week") == week and g.get("seasonType") == season_type]
-    return bool(games) and all(_done(g, saved_at) for g in games)
+    if not games or not all(done(g, saved_at) for g in games):
+        return False
+    return saved_at >= max(datetime.fromisoformat(g["startDate"]) for g in games) + WEEK_SETTLE
 
 
 def _season_complete(records: list[Any], season_type: str, saved_at: datetime) -> datetime | None:
     """When the season type's last game started, if every one of its games is done."""
     games = [g for g in records if g.get("seasonType") == season_type]
-    if not games or not all(_done(g, saved_at) for g in games):
+    if not games or not all(done(g, saved_at) for g in games):
         return None
     return max(datetime.fromisoformat(g["startDate"]) for g in games)
 
