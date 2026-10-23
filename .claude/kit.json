@@ -100,8 +100,8 @@
       { "pattern": "infra/dispatcher/*.test.ts", "dir": "infra/dispatcher", "run": "pnpm exec vitest run {tests}" }
     ],
     "setup": "",
-    "implementationExtensions": [".ts", ".tsx", ".mts", ".py", ".sql"],
-    "implementationPaths": []
+    "implementationExtensions": [".ts", ".tsx", ".mts", ".mjs", ".py", ".sql"],
+    "implementationPaths": [".github/workflows/*"]
   },
 
   "ui": {
