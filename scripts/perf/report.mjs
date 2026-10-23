@@ -18,11 +18,12 @@ import {
   aggregateRoute,
   BASELINE_EVENT,
   baselineCandidates,
-  baselineRun,
   budgetFrom,
   budgetTable,
   checkRun,
   eventInputs,
+  exitCode,
+  findBaseline,
   findComment,
   guardMessage,
   headerSecrets,
@@ -167,17 +168,17 @@ async function baseline() {
   const current = await prsFor(env.GITHUB_EVENT_NAME ?? "", readEvent());
   const pulls = await github("pulls?state=closed&sort=updated&direction=desc&per_page=50");
   const candidates = baselineCandidates(pulls, current);
-  for (const pr of candidates) {
-    const query = `head_sha=${pr.head.sha}&event=${kind}&per_page=20`;
-    const { workflow_runs: runs } = await github(`actions/workflows/${WORKFLOW}/runs?${query}`);
-    const run = baselineRun(runs, kind);
-    if (!run) continue;
-    console.log(`baseline: PR #${pr.number}, ${kind} run ${run.id}`);
-    output("run_id", String(run.id));
-    output("pr", String(pr.number));
+  /** @param {string} sha @param {string} event */
+  const fetchRuns = async (sha, event) =>
+    (await github(`actions/workflows/${WORKFLOW}/runs?head_sha=${sha}&event=${event}&per_page=20`)).workflow_runs;
+  const found = await findBaseline(candidates, kind, fetchRuns);
+  if (!found) {
+    console.log(`baseline: none of the last ${candidates.length} merged PRs has a green ${kind} run`);
     return;
   }
-  console.log(`baseline: none of the last ${candidates.length} merged PRs has a green ${kind} run`);
+  console.log(`baseline: PR #${found.pr.number}, ${kind} run ${found.run.id}`);
+  output("run_id", String(found.run.id));
+  output("pr", String(found.pr.number));
 }
 
 /**
@@ -221,10 +222,8 @@ async function report() {
     else await github(`issues/${pr}/comments`, { ...init, method: "POST" });
     console.log(`report: ${mine ? "updated" : "posted"} the ${kind} comment on #${pr}`);
   }
-  if (problems.length) {
-    for (const p of problems) console.log(`::error::${p}`);
-    process.exit(1);
-  }
+  for (const p of problems) console.log(`::error::${p}`);
+  process.exitCode = exitCode({ problems });
 }
 
 /**

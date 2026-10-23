@@ -246,6 +246,16 @@ export function checkRun({ mode, routes, budget, expected = [] }) {
 }
 
 /**
+ * The report step's exit code: 1 on any problem checkRun found (only a fixture run ever has one),
+ * else 0. A preview run therefore always exits 0, whatever it measured.
+ * @param {{ problems: string[] }} check
+ * @returns {0 | 1}
+ */
+export function exitCode({ problems }) {
+  return problems.length ? 1 : 0;
+}
+
+/**
  * Routes missing a number budget.json should hold for them.
  * @param {Record<string, RouteResult>} routes
  * @param {Record<string, RouteBudget>} budget
@@ -685,6 +695,25 @@ export function baselineCandidates(pulls, currentPrs = [], limit = 10) {
     .filter((p) => p.merged_at && !currentPrs.includes(p.number))
     .sort((a, b) => (/** @type {string} */ (a.merged_at) < /** @type {string} */ (b.merged_at) ? 1 : -1))
     .slice(0, limit);
+}
+
+/**
+ * The baseline: walks the candidate PRs in order and returns the first with a green run of the
+ * event, or null. `fetchRuns` lists a commit's runs of this workflow (report.mjs asks the GitHub
+ * API); it is called once per PR, and not again once a run is found.
+ * @template {{ number: number, head: { sha: string } }} P
+ * @template {{ status: string, conclusion: string | null, created_at: string, event?: string }} R
+ * @param {P[]} candidates
+ * @param {string} event
+ * @param {(sha: string, event: string) => Promise<R[]>} fetchRuns
+ * @returns {Promise<{ pr: P, run: R } | null>}
+ */
+export async function findBaseline(candidates, event, fetchRuns) {
+  for (const pr of candidates) {
+    const run = baselineRun(await fetchRuns(pr.head.sha, event), event);
+    if (run) return { pr, run };
+  }
+  return null;
 }
 
 /**

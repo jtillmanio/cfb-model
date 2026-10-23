@@ -19,7 +19,9 @@ import {
   checkRun,
   chromeVersion,
   eventInputs,
+  exitCode,
   FIXTURE_URL,
+  findBaseline,
   findComment,
   forbiddenPath,
   gateProblems,
@@ -347,7 +349,7 @@ describe("TASK-027 AC-1: a pull request is measured on the fixture build (D-125)
     ]);
   });
 
-  it("says how to fix a session that didn't take without naming one run's secret", () => {
+  it("says how to fix a session that didn't take, naming both runs' secrets", () => {
     const [problem] = gate(lhr({ path: "/login" }));
     expect(problem).toContain("the session didn't take");
     expect(problem).toContain("web/e2e/test-env.ts");
@@ -363,6 +365,13 @@ describe("TASK-027 AC-3: a preview run reports, never gates", () => {
     expect(problems).toEqual([]);
     // Compared with no budget (budgets are the fixture's), but a shift or an API call is still worth a look.
     expect(noticed).toEqual(["teams: CLS 0.200 is 0.1 or more"]);
+  });
+
+  it("exits 0 for that preview, and 1 for the same metrics in a fixture run", () => {
+    const routes = { teams: heavy() };
+    expect(exitCode(checkRun({ mode: "preview", routes, budget: BUDGET }))).toBe(0);
+    expect(exitCode(checkRun({ mode: "fixture", routes, budget: BUDGET }))).toBe(1);
+    expect(exitCode(checkRun({ mode: "fixture", routes: { teams: runs(page()) }, budget: BUDGET }))).toBe(0);
   });
 
   it("notices a forbidden request or a route that didn't measure, and still gates nothing", () => {
@@ -431,6 +440,27 @@ describe("TASK-027 AC-4: one comment per kind of run, and a baseline of the same
     expect(order).toEqual([51, 50, 49, 48, 47, 46, 45, 44, 43, 42]);
     expect(baselineCandidates(pulls, [], 3).map((p) => p.number)).toEqual([52, 51, 50]);
     expect(baselinePr(pulls, [52])?.number).toBe(51);
+  });
+
+  it("takes the first candidate PR with a green run of the event, asking for each PR's runs in turn", async () => {
+    const candidates = [51, 50, 49, 48].map((n) => ({ number: n, head: { sha: `sha${n}` } }));
+    const green = (event: string) => ({ status: "completed", conclusion: "success", created_at: "2026-10-05T10:00:00Z", event });
+    // 51 is docs-only (no run at all), 50 has only a preview run, 49 has a fixture run.
+    const byCommit: Record<string, ReturnType<typeof green>[]> = {
+      sha50: [green("deployment_status")],
+      sha49: [green("pull_request")],
+      sha48: [green("pull_request")],
+    };
+    const asked: string[] = [];
+    const fetchRuns = async (sha: string, event: string) => {
+      asked.push(`${sha}:${event}`);
+      return byCommit[sha] ?? [];
+    };
+    const found = await findBaseline(candidates, "pull_request", fetchRuns);
+    expect(found?.pr.number).toBe(49);
+    expect(asked).toEqual(["sha51:pull_request", "sha50:pull_request", "sha49:pull_request"]);
+    expect((await findBaseline(candidates, "deployment_status", fetchRuns))?.pr.number).toBe(50);
+    expect(await findBaseline(candidates.slice(0, 1), "pull_request", fetchRuns)).toBeNull();
   });
 
   it("merges the one fixture artifact, which download-artifact puts straight in the folder", () => {
