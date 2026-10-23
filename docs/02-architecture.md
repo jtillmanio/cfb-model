@@ -276,7 +276,7 @@ _Added 2026-10-07 (D-089, D-090). The tools come from the Tooling section above.
 | Model / backtest | pytest on a tiny lake fixture (a two-season subset) | Determinism: same spec + same inputs → identical metrics, checked against golden numbers that change only in a commit that says why. Leakage: changing any game after week N leaves week-N predictions unchanged. The harness refuses hindsight ratings, and refuses holdout seasons without the holdout flag ([04 § 9](04-model.md#9-evaluation-protocol-fixed-2026-10-07)) | CI |
 | End to end | Playwright against `next start` + `uvicorn` on the seeded test DB, fixed clock, viewports 390×844 and 1440×900 | The journeys below | CI (e2e job); ui-verifier agent |
 | Visual reference | Playwright screenshots reviewed against `design/handoff/screenshots/` | Layout and component drift. No pixel-diff assertions (font rendering differs), but with the fixture the numbers on screen should match the reference shots exactly | ui-verifier, PR review |
-| Performance | Lighthouse on each PR preview (§ Performance checks below) | Bytes, requests, CLS and accessibility against `scripts/perf/budget.json` and forbidden requests (gated); timings reported only | `lighthouse` workflow on `deployment_status`; its pure logic in Vitest |
+| Performance | Lighthouse on each PR preview; gates move to an in-job build on the seeded fixture DB in TASK-027 (D-125, § Performance checks below) | Bytes, requests, CLS and accessibility against `scripts/perf/budget.json` and forbidden requests (gated); timings reported only | `lighthouse` workflow on `deployment_status`; its pure logic in Vitest |
 | Operations | GitHub Actions run on the branch (`gh workflow run <file> --ref <branch>`) | `release` dry run; `backup` restore verification | On demand |
 
 ### End-to-end journeys
@@ -323,7 +323,9 @@ Screen and feature IDs: [05 › Screen inventory](05-ui-design-brief.md#screen-i
 
 _Added 2026-10-08 (D-101). The pattern comes from the owner's `ledger` project (`.github/workflows/lighthouse.yml`, `scripts/perf/`, `test/perf.test.ts`); use it as a pattern, not a template, since its host, sign-in and routes differ._
 
-Every PR preview is measured with Lighthouse automatically. The job **fails the PR only on numbers that stay put between runs** and reports everything else in one PR comment.
+Every PR is measured with Lighthouse automatically. The job **fails the PR only on numbers that stay put between runs** and reports everything else in one PR comment.
+
+**Where it measures (D-125, which amends D-101):** the gates run on a build served inside the job on the seeded fixture DB, the way e2e runs (`next start` + uvicorn, `APP_ENV=test`), so every run sees the same data and bytes move only when the code does. Each PR's Vercel preview is still measured on its real data, but only reported (bytes and timings); it never fails a check. A data-heavy page's large instance is fixture data added by the task that owns the table (D-089), never whatever the preview database holds that week. _Not built yet: until TASK-027 ships, the workflow still gates on the preview as the rest of this section describes, and the sections below are rewritten in that task's PR._
 
 **Gates (fail the PR):**
 - a forbidden request during a page load or prefetch, named in the failure (e.g. a nav `<Link>` prefetch hitting an `/api/py/*` route; the browser never calls the API, per hard rule 5)
@@ -355,7 +357,7 @@ Every PR preview is measured with Lighthouse automatically. The job **fails the 
 
 **Budgets:** never invented. The first version ships with budgets set from its own preview's run: median + 20%, bytes rounded up to the next 1,000; accessibility is the measured score. Check that bytes move < 1% between runs. Record the measured numbers, Lighthouse version and Chrome version beside the table. Raising a budget later needs a written reason in the PR.
 
-**Open: what the pages show.** Previews start empty, so for now routes measure empty and static states, which hold steady. Once preview branches carry production data, page bytes follow the week's slate size and could fail a gate for reasons unrelated to the code. Before the first data-heavy screen gets a budget (Phase 4), decide whether byte gates stay on the preview or move to an in-job build on the seeded fixture DB (roadmap › Open questions).
+**What the pages show (settled 2026-10-23, D-125).** Preview databases now carry real data, so a preview's page bytes follow the week's slate: `/teams` grew from 5,861 to 12,444 bytes with no code change and failed a docs-only PR (#73, fixed by #74). Byte gates therefore move to the in-job fixture build above (TASK-027), and budgets are reset once from its first run, since a local `next start` won't serve exactly the bytes Vercel does.
 
 <!-- perf-budget:start -->
 | Route | Doc bytes | JS bytes | Requests | A11y |
