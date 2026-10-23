@@ -308,8 +308,9 @@ The run's **Summary** lists each table's row count in production and in the rest
 queried, the dump size and every key it uploaded.
 
 ### Read a failed run
-A failed step writes **Backup failed:** and the reason in the Summary. Nothing was uploaded, and
-the previous nights' dumps are untouched.
+A failed step writes **Backup failed:** and the reason in the Summary. Before the upload, that
+means nothing was uploaded and the previous nights' dumps are untouched; if the Upload step itself
+failed, its summary lists which of the day's keys were written.
 
 | Failed step | What it means | What to do |
 |---|---|---|

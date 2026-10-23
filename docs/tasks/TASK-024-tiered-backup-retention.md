@@ -1,7 +1,7 @@
 ---
 id: TASK-024
 title: Keep backups in daily, weekly and monthly tiers that expire
-status: In progress
+status: Review
 depends_on: []
 size: M
 model: opus
@@ -37,11 +37,11 @@ Backups stop piling up in R2 forever. Recent nights stay restorable day by day, 
 
 ## Acceptance criteria
 
-- [ ] AC-1: A tested Python function returns the object keys for a run's UTC date. Unit tests show: 2026-10-16 (a Friday) → `backups/daily/2026-10-16.dump` only; 2026-10-18 (a Sunday) → the daily key plus `backups/weekly/2026-10-18.dump`; 2026-12-01 (a Tuesday) → the daily key plus `backups/monthly/2026-12-01.dump`; 2026-11-01 (a Sunday and the 1st) → all three.
-- [ ] AC-2: `backup.yml` writes every key from AC-1 only after the restore check passes, as today. If any write fails, the run fails, and its summary names each key that was and wasn't written.
+- [x] AC-1: A tested Python function returns the object keys for a run's UTC date. Unit tests show: 2026-10-16 (a Friday) → `backups/daily/2026-10-16.dump` only; 2026-10-18 (a Sunday) → the daily key plus `backups/weekly/2026-10-18.dump`; 2026-12-01 (a Tuesday) → the daily key plus `backups/monthly/2026-12-01.dump`; 2026-11-01 (a Sunday and the 1st) → all three.
+- [x] AC-2: `backup.yml` writes every key from AC-1 only after the restore check passes, as today. If any write fails, the run fails, and its summary names each key that was and wasn't written.
 - [ ] AC-3: An owner-approved branch run goes green, and the bucket shows the dump at the daily key for the run's UTC date (plus the weekly or monthly key when AC-1 says so). The job summary lists every key written.
-- [ ] AC-4: `docs/runbooks/restore.md` › Steps › Find the newest dump points to `backups/daily/` first, and says when to reach into `weekly/` or `monthly/` (the damage is older than the daily window). `README.md` › Backups states the tiers and their expiry periods, and that the expiry rules live in the bucket's settings.
-- [ ] AC-5: `docs/owner-checklist.md` › Actions has an item giving the exact lifecycle rule for each prefix (prefix, expiry days) from the plan, and `docs/decisions.md` records the key layout and tiers as a new decision that amends D-109.
+- [x] AC-4: `docs/runbooks/restore.md` › Steps › Find the newest dump points to `backups/daily/` first, and says when to reach into `weekly/` or `monthly/` (the damage is older than the daily window). `README.md` › Backups states the tiers and their expiry periods, and that the expiry rules live in the bucket's settings.
+- [x] AC-5: `docs/owner-checklist.md` › Actions has an item giving the exact lifecycle rule for each prefix (prefix, expiry days) from the plan, and `docs/decisions.md` records the key layout and tiers as a new decision that amends D-109.
 
 ## Out of scope
 
@@ -70,7 +70,8 @@ Backups stop piling up in R2 forever. Recent nights stay restorable day by day, 
 
 _Work noticed during this task and deliberately left out. Each bullet ends `→ <path> § <section>` (where it was placed) or `→ not tracked: <reason>`. See `.claude/skills/track-follow-ups/classify.md`; the PR's Follow-ups section is copied from here._
 
-- The fallback's "today's dump exists" check reads `backups/daily/<UTC date>.dump`, which is `object_keys(date)[0]` in `python/db/src/db/backup.py`; the run's date is the `dump` step's `date` output (gate decision D) → docs/tasks/TASK-026-backup-dispatch-with-fallback.md § Context
+- The fallback's "today's dump exists" check reads `backups/daily/<UTC date>.dump`, which is `object_keys(date)[0]` in `python/db/src/db/backup.py`; the run's date is the `dump` step's `date` output (gate decision D) → docs/tasks/TASK-026-backup-dispatch-with-fallback.md § Context (placed in the plans PR #52)
+- The lifecycle rules for the three prefixes, and deleting the pre-tier flat objects once `backups/daily/` holds 14 days (AC-5, gate decision C) → docs/owner-checklist.md § Actions
 
 ## Plan
 
@@ -117,7 +118,9 @@ Approved 2026-10-16 (/plan-batch): every gate decision as recommended.
 
 ## Review log
 
-_Filled by /implement-task. One line per round._
+- Preflight: plan stale by rule (setup-uv bump and the dispatcher/D-123 docs touched planned files since 1bf71ef); owner confirmed 2026-10-23 they don't change the plan.
+- Verify R1 PASS | Audit R1 PASS (AC-1 and AC-2 PROVEN; new functions, so the base fails at import) | Spec R1 APPROVE (AC-3 pending the branch run; non-blocking: README › Read a failed run qualified for a partly failed upload, done in the close-out)
+- Plan note: `upload` calls `subprocess.run` directly and the tests monkeypatch it, rather than taking an injectable runner; the plan's aim (AC-2 tested with a fake runner, no network) is met.
 
 ## Blocked
 
@@ -125,7 +128,7 @@ _Only if status is Blocked: what failed, what was tried, best hypothesis, decisi
 
 ## Metrics
 
-- Verify rounds:
-- Review rounds:
-- First-pass AC FAILs:
-- Plan revisions after approval:
+- Verify rounds: 1
+- Review rounds: 1
+- First-pass AC FAILs: 0
+- Plan revisions after approval: 0
