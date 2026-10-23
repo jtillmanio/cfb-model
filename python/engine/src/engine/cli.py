@@ -3,11 +3,22 @@
 from __future__ import annotations
 
 import argparse
+import os
 import sys
-from typing import NoReturn
+from typing import TYPE_CHECKING, NoReturn
 
-from db.config import MigrationTarget, UnsafeDatabaseError, direct_url, load_env
+from db.config import (
+    MigrationTarget,
+    UnsafeDatabaseError,
+    direct_url,
+    live_url,
+    load_env,
+    refuse_if_live,
+)
 from engine.ingest.endpoints import ENDPOINTS, SEASON_TYPES, query
+
+if TYPE_CHECKING:
+    from engine.jobs import Kind
 
 
 def _extra_params(parser: argparse.ArgumentParser, pairs: list[str]) -> dict[str, str]:
@@ -94,6 +105,49 @@ def _sync(src: str, dst: str) -> None:
     print(f"Copied {len(copied)} raw files from {src} to {dst}.")
 
 
+def _job_url(target: str) -> str:
+    """Production only under LIVE=true, and dev only without it, so a job never mixes them."""
+    live = os.environ.get("LIVE", "").strip().lower() in {"1", "true", "yes"}
+    try:
+        if target == "dev":
+            refuse_if_live("publish a job to dev")
+            return direct_url("dev")
+        if not live:
+            _refuse("a job publishes to production only under LIVE=true.")
+        return live_url(None)
+    except UnsafeDatabaseError as e:
+        _refuse(str(e))
+
+
+def _job(kind: Kind, target: str, summary_path: str | None) -> None:
+    """Run one scheduled job; exit 1 if a check fails (nothing published), 2 on a refusal, 3 when
+    the CFBD budget stops it. The summary is appended to `summary_path` whatever happens."""
+    from engine import clock, jobs
+    from engine.ingest.backfill import client_for
+    from engine.ingest.cfbd import BudgetExceededError
+    from engine.ingest.lake import open_lake
+
+    url = _job_url(target)
+    lake = open_lake()
+    summary = jobs.Summary(kind, jobs.current_season(clock.now()), target)
+    code = 0
+    try:
+        jobs.run(kind, lake, url, target=target, client=client_for(lake), summary=summary)
+    except jobs.JobFailed:
+        code = 1
+    except BudgetExceededError as e:
+        print(e)
+        code = 3
+    finally:
+        text = summary.render()
+        print(text)
+        if summary_path:
+            with open(summary_path, "a", encoding="utf-8") as f:
+                f.write(text + "\n")
+    if code:
+        sys.exit(code)
+
+
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(prog="engine")
     commands = parser.add_subparsers(dest="command", required=True)
@@ -167,6 +221,28 @@ def main(argv: list[str] | None = None) -> None:
     sync.add_argument("--from", dest="src", required=True, metavar="URI")
     sync.add_argument("--to", dest="dst", required=True, metavar="URI")
 
+    job = commands.add_parser(
+        "job",
+        help="Run a scheduled job: pull the week, stage the season, check it, publish it",
+        description="results: every week with a game in the last 14 days (scores, box scores, "
+        "advanced stats, plays, drives, closing lines); lines: the next week's games and lines. "
+        "The season is staged in a scratch lake, checked, and published in one transaction. "
+        "Exits 1 if a check fails (nothing published), 2 on a refusal, 3 when the CFBD budget "
+        "stops it.",
+    )
+    job.add_argument("kind", choices=["results", "lines"])
+    job.add_argument(
+        "--target",
+        required=True,
+        choices=["dev", "live"],
+        help="live needs LIVE=true and PRODUCTION_DATABASE_URL_UNPOOLED (the workflows set both)",
+    )
+    job.add_argument(
+        "--summary",
+        metavar="PATH",
+        help="Append the run's summary as markdown ($GITHUB_STEP_SUMMARY)",
+    )
+
     seed = commands.add_parser("seed", help="Load seed data into the test DB")
     seed.add_argument("what", choices=["fixture"])
 
@@ -214,6 +290,9 @@ def main(argv: list[str] | None = None) -> None:
     elif args.command == "lake":
         load_env()
         _sync(args.src, args.dst)
+    elif args.command == "job":
+        load_env()
+        _job(args.kind, args.target, args.summary)
     elif args.command == "seed":
         load_env()
         from engine.fixture import seed_fixture

@@ -47,6 +47,21 @@ describe("due (AC-1)", () => {
     expect(due(new Date("2026-10-17T10:00:00Z"), schedule)).toEqual([]);
   });
 
+  it("fires results Sun and Mon 06:00 ET; lines daily 08:00 and Thu/Fri 19:00 ET", () => {
+    // EDT (UTC-4): Sunday 2026-10-25, Monday 10-26, Tuesday 10-27, Thursday 10-29, Saturday 10-31.
+    expect(due(new Date("2026-10-25T10:00:00Z"))).toEqual(["results.yml"]);
+    expect(due(new Date("2026-10-26T10:00:00Z"))).toEqual(["results.yml"]);
+    expect(due(new Date("2026-10-27T10:00:00Z"))).toEqual([]);
+    expect(due(new Date("2026-10-25T12:00:00Z"))).toEqual(["lines.yml"]);
+    expect(due(new Date("2026-10-29T23:00:00Z"))).toEqual(["lines.yml"]);
+    expect(due(new Date("2026-10-31T23:00:00Z"))).toEqual([]); // Saturday evening
+    // EST (UTC-5): Sunday 2026-11-08, Friday 11-13.
+    expect(due(new Date("2026-11-08T11:00:00Z"))).toEqual(["results.yml"]);
+    expect(due(new Date("2026-11-08T10:00:00Z"))).toEqual([]);
+    expect(due(new Date("2026-11-08T13:00:00Z"))).toEqual(["lines.yml"]);
+    expect(due(new Date("2026-11-14T00:00:00Z"))).toEqual(["lines.yml"]);
+  });
+
   it("has no entry between 01:00 and 02:59 ET, and every entry is on a quarter hour", () => {
     for (const entry of SCHEDULE) {
       const [hour, minute] = entry.time.split(":").map(Number);

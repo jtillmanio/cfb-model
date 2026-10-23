@@ -1,0 +1,43 @@
+# The dispatcher (infra/dispatcher, D-122) starts each scheduled workflow on time with a
+# workflow_dispatch; the workflow's own `schedule` cron is only a late fallback for when the
+# dispatcher didn't. This says whether a run is that fallback with nothing to do: a `schedule`
+# run when a dispatched run of the same workflow succeeded in the last 6 hours. Every other run
+# (dispatched, or a schedule run with no recent success) goes ahead. The job needs
+# `permissions: actions: read` for `gh run list`.
+name: Skip if dispatched
+description: Output skip=true for a schedule run when a workflow_dispatch run succeeded in the last 6 hours
+
+outputs:
+  skip:
+    description: '"true" when this run should do nothing'
+    value: ${{ steps.check.outputs.skip }}
+
+runs:
+  using: composite
+  steps:
+    - name: Did a dispatched run succeed in the last 6 hours?
+      id: check
+      shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+        EVENT: ${{ github.event_name }}
+        WORKFLOW_REF: ${{ github.workflow_ref }}
+      run: |
+        if [ "$EVENT" != "schedule" ]; then
+          echo "skip=false" >> "$GITHUB_OUTPUT"
+          exit 0
+        fi
+        # owner/repo/.github/workflows/<file>@<ref> -> <file>
+        workflow="${WORKFLOW_REF%@*}"
+        workflow="${workflow##*/}"
+        since="$(date -u -d '6 hours ago' +%Y-%m-%dT%H:%M:%SZ)"
+        found="$(gh run list --repo "$GITHUB_REPOSITORY" --workflow "$workflow" \
+          --event workflow_dispatch --status success --created ">=$since" \
+          --json databaseId --jq length)"
+        if [ "$found" -gt 0 ]; then
+          echo "skip=true" >> "$GITHUB_OUTPUT"
+          echo "Skipped: the dispatcher's run of \`$workflow\` succeeded since $since UTC." >> "$GITHUB_STEP_SUMMARY"
+        else
+          echo "skip=false" >> "$GITHUB_OUTPUT"
+          echo "No dispatched run of \`$workflow\` succeeded since $since UTC: running as the fallback." >> "$GITHUB_STEP_SUMMARY"
+        fi

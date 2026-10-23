@@ -1,14 +1,14 @@
 ---
 id: TASK-022
 title: Schedule the results and lines jobs
-status: Ready
+status: Done
 depends_on: [TASK-020, TASK-021, TASK-025]
 size: M
 model: opus
 autonomy: attended
 ui: false
 plan_status: approved
-planned_at_commit: 57badb4
+planned_at_commit: ba43e2b
 ---
 
 # TASK-022 — Schedule the results and lines jobs
@@ -37,11 +37,11 @@ With nobody running anything, Sunday and Monday mornings pick up the weekend's f
 
 ## Acceptance criteria
 
-- [ ] AC-1: `.github/workflows/results.yml` is scheduled for Sunday and Monday at 6:00 AM ET and `lines.yml` daily plus Thursday and Friday evenings (UTC crons, with the daylight-saving handling written beside them). Both also have `workflow_dispatch` and share a `concurrency` group, so two runs never publish at once.
-- [ ] AC-2: Each job runs ingest (the current week) → transform → data-quality checks → publish, with `LIVE=true`. A test on the job's Python entry point shows that, given staged data failing a check, publish is never called and the run exits non-zero.
-- [ ] AC-3: An owner-approved branch run of each workflow finishes green in ≤ 10 minutes, and its job summary lists the CFBD calls spent, the month's total and the rows upserted per table.
-- [ ] AC-4: After the first approved `results` run, production's `teams` has as many 2026 FBS teams as the staged 2026 data, and a second run inserts no new team or game rows.
-- [ ] AC-5: `docs/03-data-model.md` › Data sources records whether CFBD's scoreboard endpoint answers on tier 1, from one counted call whose response is saved to the lake.
+- [x] AC-1: `.github/workflows/results.yml` is scheduled for Sunday and Monday at 6:00 AM ET and `lines.yml` daily plus Thursday and Friday evenings (UTC crons, with the daylight-saving handling written beside them). Both also have `workflow_dispatch` and share a `concurrency` group, so two runs never publish at once.
+- [x] AC-2: Each job runs ingest (the current week) → transform → data-quality checks → publish, with `LIVE=true`. A test on the job's Python entry point shows that, given staged data failing a check, publish is never called and the run exits non-zero.
+- [x] AC-3: An owner-approved branch run of each workflow finishes green in ≤ 10 minutes, and its job summary lists the CFBD calls spent, the month's total and the rows upserted per table.
+- [x] AC-4: After the first approved `results` run, production's `teams` has as many 2026 FBS teams as the staged 2026 data, and a second run inserts no new team or game rows.
+- [x] AC-5: `docs/03-data-model.md` › Data sources records whether CFBD's scoreboard endpoint answers on tier 1, from one counted call whose response is saved to the lake.
 
 ## Out of scope
 
@@ -68,25 +68,35 @@ With nobody running anything, Sunday and Monday mornings pick up the weekend's f
 
 _Work noticed during this task and deliberately left out. Each bullet ends `→ <path> § <section>` (where it was placed) or `→ not tracked: <reason>`. See `.claude/skills/track-follow-ups/classify.md`; the PR's Follow-ups section is copied from here._
 
-- Add the repo variable `LAKE_URI` (`s3://<lake bucket>`). The production URL needs no new secret: the jobs reuse `PRODUCTION_DATABASE_URL_UNPOOLED` → docs/owner-checklist.md § Actions (approved at plan)
-- Open question for TASK-026: should the backup's fallback reuse `.github/actions/skip-if-dispatched` (skip a `schedule` run when a dispatched run succeeded in the last 6 h), or keep its check on the day's dump? → docs/tasks/TASK-026-backup-dispatch-with-fallback.md § Context (approved at plan)
-- The jobs stage one season in a scratch lake, so R2 `staging/` and the feature tables aren't refreshed by them. `rate-and-predict` needs its own rebuild of history → docs/08-tasklist.md § M4.8 (approved at plan)
+- Add the repo variable `LAKE_URI` (`s3://<lake bucket>`). The production URL needs no new secret: the jobs reuse `PRODUCTION_DATABASE_URL_UNPOOLED` → docs/owner-checklist.md § Actions (approved at plan; placed by PR #62, ticked by the owner)
+- Open question for TASK-026: should the backup's fallback reuse `.github/actions/skip-if-dispatched` (skip a `schedule` run when a dispatched run succeeded in the last 6 h), or keep its check on the day's dump? → docs/tasks/TASK-026-backup-dispatch-with-fallback.md § Context (approved at plan; placed by PR #62)
+- The jobs stage one season in a scratch lake, so R2 `staging/` and the feature tables aren't refreshed by them. `rate-and-predict` needs its own rebuild of history → docs/08-tasklist.md § M4.8 (approved at plan; placed by PR #62)
+- After this merges, redeploy the dispatcher Worker (`pnpm dlx wrangler@4.149.0 deploy` from `infra/dispatcher/`) so the three new `SCHEDULE` lines (four slots) take effect → docs/owner-checklist.md § Actions (approved at plan)
+- Candidate decision: how the scheduled jobs pull, stage, check and publish; the 24-hour week settle; and `rebuild`'s `LIVE` refusal only when `staging/` holds files → docs/decisions.md § D-123
+- Schema review R2 (MINOR, optional): a team in a season's `/games` but missing from that season's `/teams` would publish NULL details (none in 2014-2026), and the season's `/teams` isn't refreshed in-season → docs/decisions.md § D-123 (Revisit if)
+- Schema review R1 (MINOR): `rebuild`'s `LIVE` refusal rests on what `staging/` holds, not on the caller's intent → not tracked: kept on purpose as plan decision C (D-123); that path never overwrites a file
+- Next.js 16.4.0 failed `pnpm build` on its security gate (GHSA-673q-mjm6-r5xr, GHSA-2464-fhr4-w9xw, GHSA-p3m5-59mp-jv5r) → not tracked: fixed in PR #71, released by the owner on 2026-10-23
+- `workflow_dispatch` needs a workflow's file on `main` before a branch run → not tracked: done in PR #70
+- The guard hook's production-target and release patterns also match text inside heredocs and edit scripts (a PR body, README prose), not only commands → not tracked: the guard is deliberately broad, and the Edit and Write tools aren't affected
 
 ## Plan
 
-Provisional: depends on TASK-020 (`publish_lake`), TASK-021 (`sync_raw`, the R2 lake and its ledger, the season-level final rule) and TASK-025 (`SCHEDULE`).
+Re-planned at `ba43e2b` (2026-10-23), after TASK-020, TASK-021 and TASK-025 landed: E's week rule, `sync_raw`'s season filter, the stub workflows on `main`, and the two Context notes added after the first approval. A, C, D, F and G are unchanged; B and E were later revised as marked.
+
+**Prerequisite:** placeholder `results.yml` and `lines.yml` on `main` (PR #70), since `workflow_dispatch` runs a branch's file only when its name is on the default branch (D-108, D-109). AC-3's branch runs wait for that merge.
 
 **Gate decisions** (recommended)
 - A. **Times (ET):** `results` Sun and Mon 06:00; `lines` daily 08:00, plus Thu and Fri 19:00 (the pick window). They're added to TASK-025's `SCHEDULE`, which converts to ET, so the dispatcher's `workflow_dispatch` is the primary start.
   - Each workflow also has a UTC `schedule` fallback: `0 12 * * 0,1` for results; `0 14 * * *` and `0 1 * * 5,6` for lines. A comment beside each says it fires 1–2 h after the ET slot (EST or EDT) and runs only if the dispatcher didn't.
   - The guard, `.github/actions/skip-if-dispatched`, skips a `schedule` run when a `workflow_dispatch` run of the same file succeeded in the last 6 h (`gh run list`, `actions: read`). TASK-026 reuses it.
-- B. **Lake:** ingest writes the R2 lake (`LAKE_URI` s3, the shared ledger). The job then copies only `raw/cfbd/*/season=<current>/**` into a runner-local scratch lake (`sync_raw` with a season filter). It rebuilds, checks and publishes from that copy. R2 `staging/` is never touched, and a run reads one season, so it stays well under 10 min. Upserts never delete, so publishing one season is safe.
+- B. **Lake:** ingest writes the R2 lake (`LAKE_URI` s3, the shared ledger). The job then copies only `raw/cfbd/*/season=<current>/**` into a runner-local scratch lake (`sync_raw` with a season filter). It rebuilds, checks and publishes from that copy. *Revised after the schema review:* the copy also takes every season's `/venues` and `/conferences`, and the season's `/teams` is pulled when missing, since teams and venues aren't per season and a fill-in from `/games` would publish NULLs over production's details (`test_a_new_season_keeps_team_and_venue_attributes`). R2 `staging/` is never touched, and a run reads one season, so it stays well under 10 min. Upserts never delete, so publishing one season is safe.
 - C. **`LIVE`:** `rebuild` refuses under `LIVE=true` only when the lake already holds `staging/` files. An empty scratch lake overwrites nothing. This amends D-116; `test_rebuild_refuses_under_live` still holds.
 - D. **Settle time** (TASK-015's open question; amends D-114): a week file is final only if it was also saved ≥ 24 h after the week's last kickoff in the `/games` file. Sunday's run is then never final, and Monday's settles the week. That keeps "never re-fetch completed weeks", with "completed" meaning settled, and needs no `--refetch`.
-- E. **Pulls:**
-  - `results` pulls the latest week whose `last_game_start` has passed: `games`, `games_teams`, `stats_game_advanced`, `plays`, `drives`, `lines` (post-kickoff, so TASK-020 makes them `closing` rows). That's 6 calls.
-  - `lines` pulls the week containing now: `games` and `lines`, 2 calls.
-  - Weeks come from the R2 `/calendar` file (pulled if it's missing). That's about 12 + 18 = 30 calls a week, within the 40 budget.
+- E. **Pulls** (weeks from each game's newest record across the season's saved `/games` files, its `startDate`; the season `/games`, `/calendar` and `/teams` files are pulled only when missing; a final file costs no call). *Revised in implementation:* the plan first took weeks from `/calendar`, but CFBD's calendar weeks run Tuesday to Tuesday, so a Sunday `lines` run would snapshot a week already played (D-123):
+  - `results`: every week of the current season that started in the last 14 days and isn't final: `games`, `games_teams`, `stats_game_advanced`, `plays`, `drives`, `lines` (post-kickoff, so TASK-020 makes them `closing` rows). Usually one week, 6 calls. Covers a Monday game (Labor Day) and the month-long bowl week, which "the latest week whose last kickoff passed" missed.
+  - `lines`: the earliest week with a game not yet kicked off: `games` and `lines`, 2 calls.
+  - About 12 + 18 = 30 calls a week, within the 40 budget; the first run catches up about 6.
+  - The summary lists games counted as done only because they're unscored 7+ days after start (D-121), so a postponed game that's played later is noticed (TASK-021's note).
 - F. **Production URL:** reuse the repo secret `PRODUCTION_DATABASE_URL_UNPOOLED` through `db.config.live_url(None)` (the release's, unpooled per D-016). No new secret. The repo variable `LAKE_URI` is an owner action.
 - G. **Scoreboard:** the registry gains `scoreboard` (`/scoreboard`, season granularity, no params). One `engine ingest scoreboard --season 2026` call goes in 03 › Data sources with the result. A 401 or 403 response is recorded as "not in tier 1": there's no body to save, and the PR says so.
 
@@ -95,11 +105,11 @@ Provisional: depends on TASK-020 (`publish_lake`), TASK-021 (`sync_raw`, the R2 
 2. `transform/__init__.py`: C.
 3. `engine/jobs.py` (new): `run(kind, lake, *, target, client=None, now=None) -> Summary`, in order:
    1. pull (E);
-   2. scratch `LocalLake(tempdir)` + `sync_raw`;
+   2. scratch `LocalLake(tempdir)` + `sync_raw(..., seasons={season}, every_season=ONCE)` (both filters are new, in `ingest/backfill.py`), after pulling the season's `/teams` if missing;
    3. `rebuild`;
    4. `quality.run`; when not ok, print the report and raise `JobFailed` (exit 1) before any DB connection;
    5. `publish_lake` in one transaction;
-   6. `Summary`: the calls this run (the ledger difference), the month's total, and rows upserted per table.
+   6. `Summary`: the calls this run (the ledger difference), the month's total, rows upserted (sent) and new per table, and the unscored games counted as done.
 4. `cli.py`: `engine job results|lines --target dev|live [--summary PATH]`. `live` needs `LIVE=true`, and `--summary` appends markdown (`$GITHUB_STEP_SUMMARY`).
 5. `.github/workflows/results.yml` and `lines.yml`:
    - `workflow_dispatch` plus the fallback `schedule`, and `concurrency: {group: lake-publish, cancel-in-progress: false}`;
@@ -107,19 +117,20 @@ Provisional: depends on TASK-020 (`publish_lake`), TASK-021 (`sync_raw`, the R2 
    - the guard, `setup-uv`, then `uv --directory python run engine job …` (the dev group, D-114; never `--no-dev`);
    - secrets only through `env:` (`CFBD_API_KEY`, `R2_DATA_LAKE_*`, `PRODUCTION_DATABASE_URL_UNPOOLED`), with `vars.R2_ACCOUNT_ID`, `vars.LAKE_URI` and `LIVE: "true"`.
 6. `.github/actions/skip-if-dispatched/action.yml` (new).
-7. `infra/dispatcher/src/index.ts`: four `SCHEDULE` lines, plus a case in `index.test.ts`.
+7. `infra/dispatcher/src/index.ts`: three `SCHEDULE` entries covering four slots (results Sun and Mon in one), plus a case in `index.test.ts`.
 8. Docs:
    - `03-data-model.md` › Data sources (the `/scoreboard` row and its tier result) and › Lake layout (D);
-   - `README.md` › Jobs (schedule, secrets and variables, a run by hand: `gh workflow run results.yml`);
+   - `README.md` › Jobs (schedule, secrets and variables, a run by hand: `gh workflow run results.yml`), and three rows (one per entry) in › Dispatcher › What it starts and when (TASK-025's note);
    - `.env.example` › Lives elsewhere;
    - `decisions.md`: one D-### for A–G.
 
-**Files** (16): `results.yml`, `lines.yml`, `actions/skip-if-dispatched/action.yml` (all new), `engine/jobs.py` (new), `engine/cli.py`, `engine/tests/test_jobs.py` (new), `ingest/endpoints.py`, `tests/test_cfbd_client.py`, `transform/__init__.py`, `tests/test_transform.py`, `infra/dispatcher/src/index.ts`, `infra/dispatcher/src/index.test.ts`, `docs/03-data-model.md`, `README.md`, `.env.example`, `docs/decisions.md`.
+**Files** (18): `results.yml`, `lines.yml` (replacing PR #70's stubs), `actions/skip-if-dispatched/action.yml` (new), `engine/jobs.py` (new), `engine/cli.py`, `engine/tests/test_jobs.py` (new), `ingest/endpoints.py`, `ingest/backfill.py`, `tests/test_backfill.py`, `tests/test_cfbd_client.py`, `transform/__init__.py`, `tests/test_transform.py`, `infra/dispatcher/src/index.ts`, `infra/dispatcher/src/index.test.ts`, `docs/03-data-model.md`, `README.md`, `.env.example`, `docs/decisions.md`.
 
 **Test strategy**
 - AC-1, read as text like `test_ci_config.py`: `test_workflows_dispatch_schedule_and_share_concurrency`, `test_fallback_crons_have_dst_comment`. In Vitest, "results fires Sun and Mon 06:00 ET; lines daily 08:00 and Thu/Fri 19:00 ET", in EDT and EST.
 - AC-2 `test_failed_check_never_publishes` (fake client returns a final game with no score; `publish_lake` monkeypatched to fail if called; exit 1). Also `test_job_publishes_scratch_staging_under_live`.
 - C `test_rebuild_into_empty_lake_allowed_under_live`.
+- E `test_results_pulls_unsettled_weeks_in_last_14_days`, `test_lines_pulls_next_unplayed_week`; `test_sync_raw_season_filter`.
 - D `test_sunday_file_not_final_monday_file_final`. The finality tests in `test_cfbd_client.py` move their saved times past the settle time. The registry count goes from 18 to 19.
 - AC-3, AC-4: owner-approved branch runs (`gh workflow run … --ref <branch>`, then `gh run watch --exit-status`). The PR shows the job summaries, the run times, and the production 2026 FBS team count against the staged count. A second run inserts 0 teams and 0 games.
 - AC-5: the counted call, plus the 03 diff.
@@ -128,12 +139,14 @@ Provisional: depends on TASK-020 (`publish_lake`), TASK-021 (`sync_raw`, the R2 
 - **Stop and ask:** every branch run writes production; each one needs your go-ahead in the session.
 - The repo variable `LAKE_URI` must exist before the first run (Owner checklist).
 - A dispatcher outage leaves only the late fallback. A run that starts late still pulls the right week from the clock.
+- `advanced_stats` stays strict (owner, 2026-10-23): if CFBD hasn't filled in a late Saturday game by Sunday 06:00, the check fails and nothing publishes until Monday's run.
+- `SCHEDULE` changes take effect only when the owner redeploys the Worker (not deployed yet: Owner checklist).
 
-**Size check:** 16 files, ops + engine, no schema or UI: passes (limit 20).
+**Size check:** 18 files, ops + engine, no schema or UI: passes (limit 20).
 
 ## Review log
 
-_Filled by /implement-task. One line per round._
+Verify R1 FAIL(1: `pnpm build`, Next.js 16.4.0's security gate, on main too; fixed by PR #71) → R2 PASS → R3 PASS (after review fixes) | Branch runs (owner-approved): results 39972956474 green but pulled no weeks (S3 prefix bug, fixed in 453517c with an R2 test) → results 39973329525 PASS → lines 39973592750 PASS | Audit R1 PASS | Spec R1 CHANGES (Plan E and steps 7–8 wording; Owner checklist item missing) → R2 APPROVE | Schema R1 CHANGES (BLOCKER: a new season's publish would NULL team and venue details) → R2 APPROVE
 
 ## Blocked
 
@@ -141,7 +154,7 @@ _Only if status is Blocked: what failed, what was tried, best hypothesis, decisi
 
 ## Metrics
 
-- Verify rounds:
-- Review rounds:
-- First-pass AC FAILs:
-- Plan revisions after approval:
+- Verify rounds: 3
+- Review rounds: 2
+- First-pass AC FAILs: 0 (AC-3's first branch run was green but pulled no weeks; found from its summary, not by a reviewer)
+- Plan revisions after approval: 2 (E: weeks from `/games` start times, not `/calendar`; B: the scratch lake also takes `/venues`, `/conferences` and the season's `/teams`). The plan was also re-planned once before implementation, stale after TASK-020, 021 and 025
