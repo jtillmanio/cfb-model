@@ -365,11 +365,11 @@ Every PR is measured with Lighthouse automatically. The job **fails the PR only 
 <!-- perf-budget:start -->
 | Route | Doc bytes | JS bytes | Requests | A11y |
 |---|---|---|---|---|
-| `login` | 5,000 | 168,000 | 15 | 100 |
-| `teams` | 15,000 | 168,000 | 15 | 100 |
+| `login` | 10,000 | 166,000 | 15 | 100 |
+| `teams` | 14,000 | 166,000 | 15 | 100 |
 <!-- perf-budget:end -->
 
-_Reset 2026-10-23 for `teams` after the preview database started serving the full FBS team list: the 2026-10-13 budget (8,000 bytes) was set when previews were empty, and the page then measured 12,444 bytes with no code change ([run 39988913149](https://github.com/jtillmanio/cfb-model/actions/runs/39988913149), commit `332bb4a`), measured with Lighthouse 13.5.0 and Chrome 155.0.8059.39. Medians of three runs: `login` 4,043 doc bytes, 139,263 JS bytes, 12 requests, accessibility 100; `teams` 12,444, 139,217, 12, 100. First set 2026-10-13 from TASK-008's first preview run (`login` 4,041; `teams` 5,861). Written with `node scripts/perf/report.mjs budget <metrics.json>`, which writes `budget.json` and prints this table; `web/lib/perf.test.ts` checks the two match._
+_Reset 2026-10-23 when the gates moved to the fixture build (D-125, TASK-027), from its first run ([run 40016680767](https://github.com/jtillmanio/cfb-model/actions/runs/40016680767), commit `fdf0e96`), measured with Lighthouse 13.5.0 and Chrome 155.0.8059.39. Medians of three runs: `login` 7,887 doc bytes, 137,623 JS bytes, 12 requests, accessibility 100; `teams` 11,360, 137,623, 12, 100. A re-run on the same commit measured `login` 7,877–7,898 and `teams` 11,361–11,362 doc bytes with the same JS and requests, under 1% apart. `login`'s document is larger than on a preview (4,043), most likely because `next start` compresses differently from Vercel's edge (not checked; D-125 expects the local numbers to differ, which is why they were reset rather than carried over). Earlier preview budgets: first set 2026-10-13 from TASK-008's first preview run (`login` 4,041; `teams` 5,861), and `teams` raised to 15,000 the same day as this reset when the preview database filled (PR #74). Written with `node scripts/perf/report.mjs budget <metrics.json>`, which writes `budget.json` and prints this table; `web/lib/perf.test.ts` checks the two match._
 
 ## Walking skeleton
 

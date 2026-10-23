@@ -74,6 +74,7 @@ A PR fails the Lighthouse check only when its own code made a page heavier, neve
 _Work noticed during this task and deliberately left out. Each bullet ends `→ <path> § <section>` (where it was placed) or `→ not tracked: <reason>`. See `.claude/skills/track-follow-ups/classify.md`; the PR's Follow-ups section is copied from here._
 
 - TASK-014's tap runner should time taps on the fixture build, not the preview, now that gates run there (D-125) → docs/tasks/TASK-014-perf-tap-runner.md § Context (approved at plan)
+- `download-artifact` puts a lone matching artifact straight into the download folder, which broke `merge` on the first fixture run (run 40015971648) → not tracked: done in this PR (plan revision; `metricsParts` and its test)
 
 ## Plan
 
