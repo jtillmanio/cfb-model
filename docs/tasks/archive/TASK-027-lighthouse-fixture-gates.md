@@ -1,7 +1,7 @@
 ---
 id: TASK-027
 title: Gate Lighthouse on an in-job build on the seeded fixture DB
-status: Review
+status: Done
 depends_on: [TASK-008]
 size: M
 model: opus
