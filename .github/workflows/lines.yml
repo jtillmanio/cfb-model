@@ -1,0 +1,15 @@
+# Placeholder for the lines job (TASK-022). GitHub dispatches a workflow only when its file exists on
+# the default branch; with this stub on main, `gh workflow run lines.yml --ref <branch>` runs the
+# branch's real file. TASK-022 replaces this file. It reads and changes nothing.
+name: Lines
+
+on:
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  stub:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "Placeholder. The lines job lands with TASK-022; nothing was read or published."
