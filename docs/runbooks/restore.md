@@ -2,7 +2,8 @@
 
 Use this when production's database is lost or damaged. Each night the **Backup** workflow
 (`.github/workflows/backup.yml`) dumps production, restores the dump into a scratch Postgres,
-checks it, and only then stores it in R2 as `backups/<UTC date>.dump`. So every stored dump has
+checks it, and only then stores it in R2 as `backups/daily/<UTC date>.dump` (plus
+`backups/weekly/` on a Sunday and `backups/monthly/` on the 1st, D-124). So every stored dump has
 already been restored once.
 
 - **Target:** the app works again within **2 hours** of starting (recovery time, D-092). Write
@@ -21,7 +22,15 @@ client of the same major version as `PG_MAJOR` (`.github/actions/start-postgres/
 ## Steps
 
 1. **Find the newest dump.** Cloudflare › R2 › the backup bucket (the `R2_BUCKET` repository
-   variable, `cfb-backups`) › `backups/`. Names are UTC dates, so the last one listed is the newest.
+   variable, `cfb-backups`) › `backups/daily/`. Names are UTC dates, so the last one listed is the
+   newest; this folder keeps the last 14 days.
+   - **The damage is older than that** (or every daily dump already holds it): go to
+     `backups/weekly/` (Sundays, kept 90 days), then `backups/monthly/` (the 1st, kept 365 days),
+     and pick the newest dump from before the damage started. A missed Sunday or 1st has no copy;
+     take the one before it.
+   - Flat `backups/<date>.dump` objects directly under `backups/` are from before the tiers; treat
+     them like daily dumps until the owner deletes them.
+
    Open the matching night's **Backup** run in GitHub Actions: its summary lists every table's row
    count, which step 6 checks against.
 2. **Download it** from the dashboard (the object's **Download**) to `restore.dump`. With an R2
@@ -30,7 +39,7 @@ client of the same major version as `PG_MAJOR` (`.github/actions/start-postgres/
    $env:AWS_ACCESS_KEY_ID = "<R2 access key ID>"; $env:AWS_SECRET_ACCESS_KEY = "<R2 secret>"
    $env:AWS_DEFAULT_REGION = "auto"
    $env:AWS_REQUEST_CHECKSUM_CALCULATION = "when_required"; $env:AWS_RESPONSE_CHECKSUM_VALIDATION = "when_required"
-   aws s3 cp s3://cfb-backups/backups/<date>.dump .\restore.dump --endpoint-url https://<R2_ACCOUNT_ID>.r2.cloudflarestorage.com
+   aws s3 cp s3://cfb-backups/backups/<daily|weekly|monthly>/<date>.dump .\restore.dump --endpoint-url https://<R2_ACCOUNT_ID>.r2.cloudflarestorage.com
    ```
 3. **Make an empty database.** Neon › the project › Branches › **Create branch**, named
    `restore/<date>`, from `main` (or from any branch if `main` is gone). A branch copies its

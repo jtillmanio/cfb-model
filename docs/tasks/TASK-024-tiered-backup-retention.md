@@ -1,7 +1,7 @@
 ---
 id: TASK-024
 title: Keep backups in daily, weekly and monthly tiers that expire
-status: Ready
+status: In progress
 depends_on: []
 size: M
 model: opus
