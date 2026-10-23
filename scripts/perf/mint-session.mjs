@@ -1,8 +1,9 @@
-// Signs the lighthouse job in to one preview (02 › Performance checks (Lighthouse) › Signing in,
-// D-101). Sign-in is GitHub-only, which a script can't do, so this mints the session cookie
-// Auth.js would set after the allowlisted account signed in, with the preview's AUTH_SECRET. That
-// is safe only because previews and production have different AUTH_SECRETs (D-012): the cookie
-// can never open production. e2e mints its own in web/e2e/fixtures.ts; neither lives in web/.
+// Signs the lighthouse job in to what it measures (02 › Performance checks (Lighthouse) › Signing
+// in, D-101, D-125). Sign-in is GitHub-only, which a script can't do, so this mints the session
+// cookie Auth.js would set after the allowlisted account signed in, with the server's AUTH_SECRET:
+// the preview's (safe only because previews and production have different AUTH_SECRETs, D-012, so
+// the cookie can never open production), or e2e's test-only one for the fixture build the job
+// serves itself. e2e mints its own in web/e2e/fixtures.ts; neither lives in web/.
 //
 //   TARGET_URL=https://… HEADERS_DIR=… AUTH_SECRET=… AUTH_ALLOWED_GITHUB_ID=… \
 //     [VERCEL_AUTOMATION_BYPASS_SECRET=…] node scripts/perf/mint-session.mjs

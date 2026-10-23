@@ -1,22 +1,22 @@
 {
-  "_readme": "Per-route budgets the lighthouse workflow gates on (02 › Performance checks (Lighthouse) › Budgets, D-101). Never invented: written by `node scripts/perf/report.mjs budget <a run's lighthouse-metrics/metrics.json>` from a real preview run (median + 20%, bytes rounded up to the next 1,000; a11y is the measured score). One key per route id in routes.mjs; the perf-budget table in docs/02-architecture.md matches it (web/lib/perf.test.ts). Raising a budget later needs a written reason in the PR.",
+  "_readme": "Per-route budgets the lighthouse workflow's fixture run gates on (02 › Performance checks (Lighthouse) › Budgets, D-101, D-125). Never invented: written by `node scripts/perf/report.mjs budget <a run's lighthouse-metrics/metrics.json>` from a real fixture run, never a preview's (median + 20%, bytes rounded up to the next 1,000; a11y is the measured score). One key per route id in routes.mjs; the perf-budget table in docs/02-architecture.md matches it (web/lib/perf.test.ts). Raising a budget later needs a written reason in the PR.",
   "measured": {
-    "url": "https://cfb-model-avwvhwi6h-justin-tillman.vercel.app",
-    "sha": "332bb4a2db6b1cb9828bd09d246a80096414079c",
+    "url": "http://127.0.0.1:3100",
+    "sha": "fdf0e9631235c603f083d2ec20836e45dee18054",
     "lighthouse": "13.5.0",
     "chrome": "155.0.8059.39",
-    "at": "2026-10-23T16:42:08.171Z",
+    "at": "2026-10-23T20:07:55.291Z",
     "runs": 3,
     "medians": {
       "login": {
-        "docBytes": 4043,
-        "jsBytes": 139263,
+        "docBytes": 7887,
+        "jsBytes": 137623,
         "requests": 12,
         "a11y": 100
       },
       "teams": {
-        "docBytes": 12444,
-        "jsBytes": 139217,
+        "docBytes": 11360,
+        "jsBytes": 137623,
         "requests": 12,
         "a11y": 100
       }
@@ -24,14 +24,14 @@
   },
   "routes": {
     "login": {
-      "docBytes": 5000,
-      "jsBytes": 168000,
+      "docBytes": 10000,
+      "jsBytes": 166000,
       "requests": 15,
       "a11y": 100
     },
     "teams": {
-      "docBytes": 15000,
-      "jsBytes": 168000,
+      "docBytes": 14000,
+      "jsBytes": 166000,
       "requests": 15,
       "a11y": 100
     }

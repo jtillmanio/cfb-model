@@ -1,29 +1,45 @@
-# Measures every PR preview (D-101, docs/02-architecture.md › Performance checks (Lighthouse)).
-# When Vercel reports a preview ready, this signs in to it with a minted session, runs Lighthouse
-# (mobile, devtools throttling: Slow 4G, 4× CPU; three runs per route, median) on every route in
-# scripts/perf/routes.mjs, and answers the PR with one comment, edited in place on every run.
+# Measures every PR with Lighthouse (D-101, D-125, docs/02-architecture.md › Performance checks
+# (Lighthouse)): mobile, devtools throttling (Slow 4G, 4× CPU), three runs per route, median, on
+# every route in scripts/perf/routes.mjs. Two kinds of run, each with its own PR comment, edited in
+# place on every later run:
 #
-#   plan     the URL (previews only), the routes, and the PR this run belongs to
-#   measure  one job per route, side by side: a run takes as long as its slowest route
-#   report   merge, compare with the last merged PR's run, comment, gate
+#   fixture  on a pull request (or a hand run with no URL): builds the app, serves it with the API
+#            on the seeded test DB inside the job, as e2e does, and gates. Its data never changes,
+#            so its bytes move only when the code does.
+#   preview  when Vercel reports a preview ready (or a hand run with a URL): the same measurements
+#            on the preview's own data, reported only. It never fails a check.
 #
-# It fails only on numbers that hold still between runs: an /api/py/* request during a load or
-# prefetch, bytes or requests over scripts/perf/budget.json, CLS of 0.1 or more, accessibility
-# under its recorded score, or a route that didn't measure or landed elsewhere. Timings are
-# reported against the last merged PR's run, never gated.
+#   plan     which kind of run, the URL, the routes, and the PR this run belongs to
+#   measure  a preview, one job per route, side by side
+#   fixture  the fixture build, every route in one job: one build, not one per route
+#   report   merge, compare with the last merged PR's run of the same kind, comment, gate
+#
+# The fixture run fails only on numbers that hold still between runs: an /api/py/* request during a
+# load or prefetch, bytes or requests over scripts/perf/budget.json, CLS of 0.1 or more,
+# accessibility under its recorded score, or a route that didn't measure or landed elsewhere.
+# Timings are reported against the last merged PR's run, never gated.
 #
 # Never production on its own: a hand run there needs allow_production. Reports hold the rendered
 # pages, so they are this run's artifacts for 14 days and go nowhere else. Secrets reach scripts
-# only through env:. README › Performance checks says what it needs and how to read a failed run.
+# only through env:; the fixture job needs none. README › Performance checks says what it needs and
+# how to read a failed run.
 name: Lighthouse
 
+# paths-ignore: a PR that changes only these can't change a page. The same list CI's scope step
+# skips (scripts/lib/ci-scope.mjs); web/lib/perf.test.ts keeps them in step.
 on:
+  pull_request:
+    paths-ignore:
+      - "backups/**"
+      - "docs/**"
+      - ".claude/**"
+      - "*.md"
   deployment_status:
   workflow_dispatch:
     inputs:
       url:
-        description: "Preview to measure, e.g. https://cfb-model-<id>-<team>.vercel.app"
-        required: true
+        description: "Preview to measure, e.g. https://cfb-model-<id>-<team>.vercel.app; leave empty to build and measure the fixture on this ref"
+        required: false
         type: string
       allow_production:
         description: "The URL may be production (PRODUCTION_URL)"
@@ -34,10 +50,10 @@ permissions: {}
 
 jobs:
   plan:
-    # Vercel sends a status for every deployment and every state; only a finished preview, or a
-    # hand run, gets this far. report.mjs plan checks again and refuses production's URL.
+    # Vercel sends a status for every deployment and every state; only a finished preview, a pull
+    # request or a hand run gets this far. report.mjs plan checks again and refuses production's URL.
     if: >-
-      github.event_name == 'workflow_dispatch' ||
+      github.event_name != 'deployment_status' ||
       (github.event.deployment_status.state == 'success' && github.event.deployment.environment == 'Preview')
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -45,6 +61,7 @@ jobs:
       contents: read
       pull-requests: read # the PR whose older runs this one cancels
     outputs:
+      mode: ${{ steps.plan.outputs.mode }}
       url: ${{ steps.plan.outputs.url }}
       group: ${{ steps.plan.outputs.group }}
       routes: ${{ steps.plan.outputs.routes }}
@@ -64,7 +81,7 @@ jobs:
 
   measure:
     needs: plan
-    if: needs.plan.outputs.url
+    if: needs.plan.outputs.mode == 'preview'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
@@ -81,6 +98,7 @@ jobs:
       SHA: ${{ github.event.deployment.sha || github.sha }}
       TARGET_URL: ${{ needs.plan.outputs.url }}
       PERF_ROUTES: ${{ matrix.route }}
+      PERF_MODE: preview
     steps:
       # The session lives outside the reports folder, and only for this job.
       - name: Folders
@@ -141,11 +159,122 @@ jobs:
           retention-days: 14
           if-no-files-found: error
 
+  fixture:
+    needs: plan
+    if: needs.plan.outputs.mode == 'fixture'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    permissions:
+      contents: read
+    # A newer push to the same PR cancels this measuring: only the newest commit matters.
+    concurrency:
+      group: lighthouse-${{ needs.plan.outputs.group }}-fixture
+      cancel-in-progress: true
+    # The values e2e runs with (web/e2e/test-env.ts, .github/workflows/ci.yml): test-only and not
+    # secret, so this job needs no repository secret. web/lib/perf.test.ts keeps them equal.
+    env:
+      SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+      TARGET_URL: ${{ needs.plan.outputs.url }}
+      PERF_MODE: fixture
+      TEST_DATABASE_URL: postgresql://ci:ci@localhost:5432/cfb_test
+      # next.config bakes the /api/py rewrite in at build time, so the build needs it too.
+      API_URL: http://127.0.0.1:8001
+      API_JWT_SECRET: e2e-only-api-jwt-secret-never-used-outside-tests-0001
+      AUTH_SECRET: e2e-only-auth-secret-never-used-outside-playwright-0001
+      AUTH_ALLOWED_GITHUB_ID: "4242"
+      UV_FROZEN: "1"
+    steps:
+      # The session lives outside the reports folder, and only for this job.
+      - name: Folders
+        run: |
+          echo "HEADERS_DIR=$RUNNER_TEMP/lh-session" >> "$GITHUB_ENV"
+          echo "OUT_DIR=$RUNNER_TEMP/lighthouse" >> "$GITHUB_ENV"
+      - uses: actions/checkout@v7
+
+      - name: Start Postgres
+        uses: ./.github/actions/start-postgres
+        with:
+          database: cfb_test
+
+      - uses: astral-sh/setup-uv@v10.3.0
+        with:
+          enable-cache: true
+          cache-dependency-glob: python/uv.lock
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - name: Install
+        run: |
+          pnpm install --frozen-lockfile
+          uv --directory python sync
+          npm ci --prefix scripts/perf --no-audit --no-fund
+
+      # The fixture seed is fixed data (D-089): the same pages on every run.
+      - name: Migrate the test DB
+        run: pnpm db:migrate:test
+      - name: Seed the fixture
+        run: pnpm db:seed
+      - name: Build
+        run: pnpm build
+
+      # As e2e serves it (web/playwright.config.ts): the API with APP_ENV=test behind `next start`.
+      # A GitHub client GitHub would refuse, so /login draws its button; nothing presses it.
+      - name: Serve the app and the API
+        env:
+          AUTH_GITHUB_ID: lighthouse-github-client-id
+          AUTH_GITHUB_SECRET: lighthouse-github-client-secret
+          AUTH_TRUST_HOST: "true"
+        run: |
+          APP_ENV=test GIT_COMMIT_SHA="$SHA" nohup uv --directory python run uvicorn api.main:app --port 8001 > "$RUNNER_TEMP/api.log" 2>&1 &
+          nohup pnpm --dir web start --port 3100 > "$RUNNER_TEMP/web.log" 2>&1 &
+          for url in "$API_URL/api/py/health" "$TARGET_URL/login"; do
+            for _ in $(seq 1 60); do
+              if curl -fsS -o /dev/null "$url"; then continue 2; fi
+              sleep 1
+            done
+            echo "::error::$url never answered"
+            tail -n 40 "$RUNNER_TEMP/api.log" "$RUNNER_TEMP/web.log"
+            exit 1
+          done
+
+      - name: Sign in
+        run: node scripts/perf/mint-session.mjs
+
+      - name: Measure
+        env:
+          CHROME_PATH: /usr/bin/google-chrome
+        run: node scripts/perf/measure.mjs
+
+      - name: No secret in the reports
+        run: node scripts/perf/report.mjs guard "$OUT_DIR"
+
+      - name: Forget the session
+        if: always()
+        run: rm -rf "$HEADERS_DIR"
+
+      - name: Upload the reports
+        uses: actions/upload-artifact@v7
+        with:
+          name: lighthouse-reports-fixture
+          path: ${{ runner.temp }}/lighthouse/reports
+          retention-days: 14
+          if-no-files-found: error
+
+      - name: Upload the metrics
+        uses: actions/upload-artifact@v7
+        with:
+          name: lighthouse-metrics-fixture
+          path: ${{ runner.temp }}/lighthouse/metrics.json
+          retention-days: 14
+          if-no-files-found: error
+
   report:
-    needs: [plan, measure]
-    # Also when a route's job failed: that route is then reported as not measured. Not when a
+    needs: [plan, measure, fixture]
+    # Also when a measuring job failed: that route is then reported as not measured. Not when a
     # newer push cancelled the measuring.
-    if: ${{ !cancelled() && needs.plan.outputs.url && needs.measure.result != 'cancelled' }}
+    if: ${{ !cancelled() && needs.plan.outputs.url && needs.measure.result != 'cancelled' && needs.fixture.result != 'cancelled' }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     # The one job that writes anything: the PR comment.
@@ -153,11 +282,13 @@ jobs:
       contents: read
       actions: read # the baseline run's metrics artifact
       pull-requests: write
+    # Per kind of run, so a preview's report and the fixture's never cancel each other.
     concurrency:
-      group: lighthouse-${{ needs.plan.outputs.group }}-report
+      group: lighthouse-${{ needs.plan.outputs.group }}-${{ needs.plan.outputs.mode }}-report
       cancel-in-progress: true
     env:
       GH_TOKEN: ${{ github.token }}
+      MODE: ${{ needs.plan.outputs.mode }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -182,7 +313,7 @@ jobs:
           retention-days: 14
           if-no-files-found: error
 
-      - name: Find the last merged PR's run
+      - name: Find the last merged PR's run of this kind
         id: baseline
         run: node scripts/perf/report.mjs baseline
 

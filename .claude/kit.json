@@ -77,7 +77,7 @@
       "verify.full",
       "ci",
       { "name": "Vercel preview deployed", "check": "gh pr checks <n> shows the Vercel status as pass", "by": "claude", "failureLog": "the Vercel deployment log (the Vercel dashboard, not gh run view)" },
-      { "name": "Lighthouse within budget", "check": "gh pr checks <n> shows the Lighthouse workflow's report job as pass on the PR's newest preview, and the PR's one Lighthouse comment lists no problems", "by": "claude", "failureLog": "the Lighthouse run (gh run view <id> --log-failed) and its PR comment; README › Performance checks › Read a failed run" },
+      { "name": "Lighthouse within budget", "check": "gh pr checks <n> shows the Lighthouse workflow's fixture and report jobs as pass for the PR's newest pull_request run (the fixture build, D-125), and the PR's fixture-build Lighthouse comment lists no problems. The preview run is reported only and never blocks. A PR that changes only docs/, .claude/, backups/ or root *.md has no fixture run: the gate passes with nothing to check", "by": "claude", "failureLog": "the Lighthouse run (gh run view <id> --log-failed) and its PR comment; README › Performance checks › Read a failed run" },
       { "name": "Changed workflow run on the branch", "check": "gh workflow run <file> --ref <branch>, then gh run watch <id> --exit-status", "by": "claude", "when": [".github/workflows/*"] }
     ],
     "decisions": "append",
