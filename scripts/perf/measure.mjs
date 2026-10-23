@@ -1,12 +1,15 @@
-// Measures one preview (02 › Performance checks (Lighthouse), D-101): Lighthouse, three runs per
-// route, on the profile 02 fixes (mobile, devtools throttling: Slow 4G, 4× CPU; performance and
-// accessibility). Run after mint-session.mjs, which wrote the headers this hands Lighthouse.
+// Measures one deployment (02 › Performance checks (Lighthouse), D-101, D-125): Lighthouse, three
+// runs per route, on the profile 02 fixes (mobile, devtools throttling: Slow 4G, 4× CPU;
+// performance and accessibility). Run after mint-session.mjs, which wrote the headers this hands
+// Lighthouse.
 //
-//   TARGET_URL=https://… HEADERS_DIR=… OUT_DIR=… CHROME_PATH=… AUTH_SECRET=… \
+//   TARGET_URL=https://… HEADERS_DIR=… OUT_DIR=… CHROME_PATH=… AUTH_SECRET=… PERF_MODE=fixture|preview \
 //     [VERCEL_AUTOMATION_BYPASS_SECRET=…] [SHA=…] [RUNS=3] [PERF_ROUTES=login,teams] \
 //     node scripts/perf/measure.mjs
 //
-// The workflow runs one route per job (PERF_ROUTES = the matrix's route). Writes
+// A preview is measured one route per job (PERF_ROUTES = the matrix's route); the fixture build
+// the job serves itself, every route in one job. PERF_MODE goes into metrics.json, so a budget is
+// only ever set from a fixture run's numbers (budgetFrom). Writes
 // OUT_DIR/reports/<route>-<n>.json and .html (scrubbed of every header and secret; the HTML is
 // rebuilt from the scrubbed JSON) and OUT_DIR/metrics.json (numbers only: what report.mjs gates
 // and compares). Lighthouse's raw output carries the headers it was given, so it is written under
@@ -23,7 +26,7 @@ import { chromeVersion, headerSecrets, scrubLhr, scrubText, summariseLhr } from 
 import { ROUTES } from "./routes.mjs";
 
 const env = process.env;
-for (const k of ["TARGET_URL", "HEADERS_DIR", "OUT_DIR", "CHROME_PATH"]) {
+for (const k of ["TARGET_URL", "HEADERS_DIR", "OUT_DIR", "CHROME_PATH", "PERF_MODE"]) {
   if (!env[k]) {
     console.error(`measure: ${k} is required`);
     process.exit(1);
@@ -110,6 +113,7 @@ function lighthouse(route, n) {
 
 /** @type {import("./lib/perf.mjs").Metrics} */
 const metrics = {
+  mode: env.PERF_MODE === "fixture" ? "fixture" : "preview",
   url: base,
   sha: env.SHA ?? null,
   lighthouse: lighthouseVersion,

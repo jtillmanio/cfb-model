@@ -1,12 +1,14 @@
-// The lighthouse workflow's steps that need thinking (02 › Performance checks (Lighthouse), D-101).
-//   node scripts/perf/report.mjs plan       which URL to measure, or why not; the route list as JSON;
-//                                           the PR whose older runs this one cancels
+// The lighthouse workflow's steps that need thinking (02 › Performance checks (Lighthouse), D-101,
+// D-125). MODE (the plan job's `mode` output) is `fixture` for the gated run on the build served
+// inside the job, or `preview` for the reported-only run on a Vercel preview.
+//   node scripts/perf/report.mjs plan       which kind of run and URL, or why not; the route list as
+//                                           JSON; the PR whose older runs this one cancels
 //   node scripts/perf/report.mjs guard DIR  fail if any file under DIR holds a secret; names files, never values
-//   node scripts/perf/report.mjs merge DIR  the per-route jobs' metrics.json files under DIR, as one
-//   node scripts/perf/report.mjs baseline   the newest merged PR's newest green run
-//   node scripts/perf/report.mjs report     job summary, the one PR comment, then the gate
-//   node scripts/perf/report.mjs budget FILE  budget.json and 02's perf-budget table from a run's
-//                                           merged metrics.json (its lighthouse-metrics artifact)
+//   node scripts/perf/report.mjs merge DIR  the measuring jobs' metrics.json files under DIR, as one
+//   node scripts/perf/report.mjs baseline   the newest green run of the same kind on a recently merged PR
+//   node scripts/perf/report.mjs report     job summary, this kind of run's PR comment, then the gate
+//   node scripts/perf/report.mjs budget FILE  budget.json and 02's perf-budget table from a fixture
+//                                           run's merged metrics.json (its lighthouse-metrics artifact)
 //
 // Uses only Node and the GitHub REST API: nothing from scripts/perf/package.json.
 import { appendFileSync, existsSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
@@ -14,15 +16,17 @@ import { join } from "node:path";
 
 import {
   aggregateRoute,
-  baselinePr,
+  BASELINE_EVENT,
+  baselineCandidates,
   baselineRun,
   budgetFrom,
   budgetTable,
+  checkRun,
   eventInputs,
   findComment,
-  gateProblems,
   guardMessage,
   headerSecrets,
+  MARKERS,
   measurable,
   mergeMetrics,
   renderComment,
@@ -39,6 +43,18 @@ const output = (key, value) => env.GITHUB_OUTPUT && appendFileSync(env.GITHUB_OU
 
 /** @param {string} file */
 const readJson = (file) => JSON.parse(readFileSync(file, "utf8"));
+
+/** The event that started the job (the payload at GITHUB_EVENT_PATH), or {} for a local try. */
+const readEvent = () => (env.GITHUB_EVENT_PATH ? readJson(env.GITHUB_EVENT_PATH) : {});
+
+/**
+ * MODE, which the workflow passes on from the plan job.
+ * @returns {import("./lib/perf.mjs").Mode}
+ */
+function mode() {
+  if (env.MODE === "fixture" || env.MODE === "preview") return env.MODE;
+  throw new Error(`MODE must be fixture or preview, not ${env.MODE || "(unset)"}`);
+}
 
 /**
  * @param {string} path
@@ -67,22 +83,36 @@ async function pullsFor(sha) {
   return (await github(`commits/${sha}/pulls`)).filter((/** @type {{ state: string }} */ p) => p.state === "open");
 }
 
+/**
+ * The pull requests this run answers: the one a pull_request event names, or the open ones whose
+ * head is a deployment's commit. A hand run answers none; its job summary is the report.
+ * @param {string} eventName
+ * @param {any} event
+ * @returns {Promise<number[]>}
+ */
+async function prsFor(eventName, event) {
+  if (eventName === "pull_request") return event.pull_request?.number ? [event.pull_request.number] : [];
+  if (eventName === "deployment_status") return (await pullsFor(event.deployment?.sha)).map((p) => p.number);
+  return [];
+}
+
 async function plan() {
   const eventName = env.GITHUB_EVENT_NAME ?? "";
-  const event = env.GITHUB_EVENT_PATH ? readJson(env.GITHUB_EVENT_PATH) : {};
+  const event = readEvent();
   const result = measurable(eventInputs(eventName, event, env.PRODUCTION_URL));
   if ("problem" in result) throw new Error(result.problem);
   if ("skip" in result) {
     console.log(`Not measuring: ${result.skip}.`);
     return;
   }
-  // A newer push to the same PR cancels this run (the measuring jobs' concurrency group); a commit
-  // with no PR, or a hand run, is a group of its own. Without a token (a local try) there's no lookup.
-  const sha = event.deployment?.sha;
-  const [pr] = eventName === "deployment_status" && env.GH_TOKEN ? await pullsFor(sha) : [];
-  const group = pr ? `pr-${pr.number}` : `run-${env.GITHUB_RUN_ID ?? "local"}`;
+  // A newer push to the same PR cancels this run (the measuring jobs' concurrency groups); a commit
+  // with no PR, or a hand run, is a group of its own. Without a token (a local try) a deployment's
+  // PR isn't looked up.
+  const [pr] = eventName === "pull_request" || env.GH_TOKEN ? await prsFor(eventName, event) : [];
+  const group = pr ? `pr-${pr}` : `run-${env.GITHUB_RUN_ID ?? "local"}`;
   const routes = ROUTES.map((r) => r.id);
-  console.log(JSON.stringify({ url: result.url, group, routes }));
+  console.log(JSON.stringify({ mode: result.mode, url: result.url, group, routes }));
+  output("mode", result.mode);
   output("url", result.url);
   output("group", group);
   output("routes", JSON.stringify(routes));
@@ -102,7 +132,12 @@ function merge(dir) {
   const parts = walk(dir)
     .filter((f) => f.endsWith("metrics.json") && f !== out)
     .map(readJson);
-  const merged = mergeMetrics(parts, ROUTES.map((r) => r.id));
+  // A preview that measured nothing is reported as such, never a failure (D-125); a fixture run
+  // with nothing to merge fails here.
+  const merged =
+    parts.length || mode() === "fixture"
+      ? mergeMetrics(parts, ROUTES.map((r) => r.id))
+      : { mode: "preview", url: "", measuredAt: new Date().toISOString(), routes: {} };
   writeFileSync(out, JSON.stringify(merged, null, 2));
   console.log(`merge: ${Object.keys(merged.routes).join(", ")}`);
 }
@@ -124,18 +159,26 @@ function guard(dir) {
   console.log(`guard: ${files.length} files, no secret in any`);
 }
 
+/**
+ * The newest green run of the same kind (BASELINE_EVENT) on a recently merged PR. A docs-only PR
+ * has no fixture run, so this walks back through the last few merged PRs until one has.
+ */
 async function baseline() {
-  const event = env.GITHUB_EVENT_PATH ? readJson(env.GITHUB_EVENT_PATH) : {};
-  const current = (await pullsFor(event.deployment?.sha)).map((p) => p.number);
+  const kind = BASELINE_EVENT[mode()];
+  const current = await prsFor(env.GITHUB_EVENT_NAME ?? "", readEvent());
   const pulls = await github("pulls?state=closed&sort=updated&direction=desc&per_page=50");
-  const pr = baselinePr(pulls, current);
-  if (!pr) return console.log("baseline: no merged pull request");
-  const { workflow_runs: runs } = await github(`actions/workflows/${WORKFLOW}/runs?head_sha=${pr.head.sha}&per_page=20`);
-  const run = baselineRun(runs);
-  if (!run) return console.log(`baseline: PR #${pr.number} has no green Lighthouse run`);
-  console.log(`baseline: PR #${pr.number}, run ${run.id}`);
-  output("run_id", String(run.id));
-  output("pr", String(pr.number));
+  const candidates = baselineCandidates(pulls, current);
+  for (const pr of candidates) {
+    const query = `head_sha=${pr.head.sha}&event=${kind}&per_page=20`;
+    const { workflow_runs: runs } = await github(`actions/workflows/${WORKFLOW}/runs?${query}`);
+    const run = baselineRun(runs, kind);
+    if (!run) continue;
+    console.log(`baseline: PR #${pr.number}, ${kind} run ${run.id}`);
+    output("run_id", String(run.id));
+    output("pr", String(pr.number));
+    return;
+  }
+  console.log(`baseline: none of the last ${candidates.length} merged PRs has a green ${kind} run`);
 }
 
 /**
@@ -155,23 +198,29 @@ async function report() {
   const budget = existsSync(BUDGET_FILE) ? JSON.parse(readFileSync(BUDGET_FILE, "utf8")).routes : {};
   const before = env.BASELINE_METRICS && existsSync(env.BASELINE_METRICS) ? load(env.BASELINE_METRICS) : null;
   const baseline = before ? { ...before, pr: env.BASELINE_PR ?? "?", at: before.measuredAt } : null;
-  const problems = gateProblems(current.routes, budget, ROUTES.map((r) => r.id));
-  const body = renderComment({ current, baseline, budget, problems, missingBudget: unbudgeted(current.routes, budget) });
+  const kind = mode();
+  const { problems, noticed } = checkRun({ mode: kind, routes: current.routes, budget, expected: ROUTES.map((r) => r.id) });
+  const body = renderComment({
+    mode: kind,
+    current,
+    baseline,
+    budget,
+    problems,
+    noticed,
+    missingBudget: unbudgeted(current.routes, budget),
+  });
 
   if (env.GITHUB_STEP_SUMMARY) appendFileSync(env.GITHUB_STEP_SUMMARY, `${body}\n`);
   else console.log(body);
 
-  // A hand run has no pull request to answer; its summary is the report.
-  if (env.GITHUB_EVENT_NAME === "deployment_status") {
-    const event = env.GITHUB_EVENT_PATH ? readJson(env.GITHUB_EVENT_PATH) : {};
-    for (const pr of await pullsFor(event.deployment?.sha)) {
-      const comments = await github(`issues/${pr.number}/comments?per_page=100`);
-      const mine = findComment(comments);
-      const init = { body: JSON.stringify({ body }) };
-      if (mine) await github(`issues/comments/${mine.id}`, { ...init, method: "PATCH" });
-      else await github(`issues/${pr.number}/comments`, { ...init, method: "POST" });
-      console.log(`report: ${mine ? "updated" : "posted"} the comment on #${pr.number}`);
-    }
+  // Each kind of run edits its own comment (MARKERS). A hand run answers no pull request.
+  for (const pr of await prsFor(env.GITHUB_EVENT_NAME ?? "", readEvent())) {
+    const comments = await github(`issues/${pr}/comments?per_page=100`);
+    const mine = findComment(comments, MARKERS[kind]);
+    const init = { body: JSON.stringify({ body }) };
+    if (mine) await github(`issues/comments/${mine.id}`, { ...init, method: "PATCH" });
+    else await github(`issues/${pr}/comments`, { ...init, method: "POST" });
+    console.log(`report: ${mine ? "updated" : "posted"} the ${kind} comment on #${pr}`);
   }
   if (problems.length) {
     for (const p of problems) console.log(`::error::${p}`);

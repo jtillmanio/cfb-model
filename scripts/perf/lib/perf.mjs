@@ -1,10 +1,15 @@
 // The lighthouse workflow's decisions as pure functions (02 › Performance checks (Lighthouse),
-// D-101): what a Lighthouse result says about a route, what fails the job, what the PR comment
-// shows, which deployment may be measured, which earlier run it is compared with, and how the job
+// D-101, D-125): what a Lighthouse result says about a route, what fails the job, what the PR
+// comment shows, what each event measures, which earlier run it is compared with, and how the job
 // signs in and keeps secrets out of its reports. scripts/perf/*.mjs feed them the real inputs;
 // web/lib/perf.test.ts feeds them fixtures. No imports, so report.mjs runs on bare Node.
+//
+// Two kinds of run (D-125). A `fixture` run measures a build served inside the job on the seeded
+// test DB: the data never changes, so its numbers are gated. A `preview` run measures a Vercel
+// preview on whatever data that database holds this week: reported, never gated.
 
 /**
+ * @typedef {"fixture" | "preview"} Mode
  * @typedef {{
  *   landedOn: string | null,
  *   ttfb: number | null, fcp: number | null, lcp: number | null, tbt: number | null,
@@ -20,7 +25,7 @@
  * }} RouteResult
  * @typedef {{ docBytes?: number, jsBytes?: number, requests?: number, a11y?: number }} RouteBudget
  * @typedef {{
- *   url: string, sha?: string | null, lighthouse?: string, chrome?: string, measuredAt: string,
+ *   mode?: Mode, url: string, sha?: string | null, lighthouse?: string, chrome?: string, measuredAt: string,
  *   runs?: number, routes: Record<string, MeasuredRoute>,
  * }} Metrics
  * @typedef {{ name: string, value: string }} SessionCookie
@@ -29,8 +34,17 @@
 /** CLS at or over this fails the job. */
 export const CLS_LIMIT = 0.1;
 
-/** The job finds its own PR comment by this and edits it in place. */
+/** Where the fixture job serves the app (`next start`; the API sits behind it, as in e2e). */
+export const FIXTURE_URL = "http://127.0.0.1:3100";
+
+/** The fixture run finds its own PR comment by this and edits it in place. */
 export const MARKER = "<!-- cfb-model-lighthouse -->";
+
+/** Each kind of run keeps its own comment, so two runs finishing together never edit one. */
+export const MARKERS = /** @type {const} */ ({ fixture: MARKER, preview: "<!-- cfb-model-lighthouse-preview -->" });
+
+/** The event whose runs a kind of run is compared with: a hand run is never anyone's baseline. */
+export const BASELINE_EVENT = /** @type {const} */ ({ fixture: "pull_request", preview: "deployment_status" });
 
 /** What budget.json holds per route besides `a11y`, and how the comment names it. */
 export const BUDGETED = /** @type {const} */ ([
@@ -39,7 +53,7 @@ export const BUDGETED = /** @type {const} */ ([
   { key: "requests", label: "requests", unit: "count" },
 ]);
 
-/** Reported against the baseline, never gated: a preview is cold or warm by chance. */
+/** Reported against the baseline, never gated: a preview is cold or warm by chance, and a shared runner is no steadier. */
 export const TIMINGS = /** @type {const} */ ([
   { key: "ttfb", label: "TTFB" },
   { key: "fcp", label: "FCP" },
@@ -191,8 +205,9 @@ export function gateProblems(routes, budget, expected = []) {
       problems.push(
         `${id}: loaded ${r.path} and ended on ${wrong.map((p) => p ?? "(nowhere)").join(", ")}` +
           (wrong.includes("/login")
-            ? ": the session didn't take. PREVIEW_AUTH_SECRET must equal the preview's AUTH_SECRET, " +
-              "and AUTH_ALLOWED_GITHUB_ID its allowlisted GitHub ID"
+            ? ": the session didn't take. The minted session's AUTH_SECRET and AUTH_ALLOWED_GITHUB_ID must " +
+              "match the server's: web/e2e/test-env.ts's values for the fixture build, PREVIEW_AUTH_SECRET " +
+              "and the allowlisted GitHub ID for a preview"
             : ""),
       );
       continue;
@@ -216,6 +231,21 @@ export function gateProblems(routes, budget, expected = []) {
 }
 
 /**
+ * What a run fails on, and what it only points out. A fixture run is gated by gateProblems. A
+ * preview run fails on nothing: budgets are the fixture's, so its bytes are compared with none,
+ * and anything else gateProblems would say (a forbidden request, CLS, a route that didn't measure
+ * or landed elsewhere) is listed as noticed.
+ * @param {{
+ *   mode: Mode, routes: Record<string, RouteResult>, budget: Record<string, RouteBudget>, expected?: string[],
+ * }} args
+ * @returns {{ problems: string[], noticed: string[] }}
+ */
+export function checkRun({ mode, routes, budget, expected = [] }) {
+  if (mode === "fixture") return { problems: gateProblems(routes, budget, expected), noticed: [] };
+  return { problems: [], noticed: gateProblems(routes, {}, expected) };
+}
+
+/**
  * Routes missing a number budget.json should hold for them.
  * @param {Record<string, RouteResult>} routes
  * @param {Record<string, RouteBudget>} budget
@@ -236,8 +266,8 @@ const STEADY_SPREAD = 0.01;
 /**
  * The budgets a run sets, by 02's rule: the median + 20%, bytes rounded up to the next 1,000 and
  * requests to a whole one; accessibility is the measured score. Never invented: only a real
- * preview run's metrics.json goes in. Throws on a route that didn't measure or ended elsewhere,
- * since its numbers aren't that page's.
+ * fixture run's metrics.json goes in (D-125); a preview's, or one that doesn't say, is refused.
+ * Throws on a route that didn't measure or ended elsewhere, since its numbers aren't that page's.
  * @param {Metrics} metrics
  * @returns {{
  *   routes: Record<string, Required<RouteBudget>>,
@@ -246,6 +276,11 @@ const STEADY_SPREAD = 0.01;
  * }}
  */
 export function budgetFrom(metrics) {
+  if (metrics.mode !== "fixture") {
+    throw new Error(
+      `budgets come from a fixture run only (D-125); this metrics.json is ${metrics.mode ? `a ${metrics.mode} run's` : "from an older run that doesn't say"}`,
+    );
+  }
   /** @type {Record<string, Required<RouteBudget>>} */
   const routes = {};
   /** @type {Record<string, Required<RouteBudget>>} */
@@ -333,16 +368,20 @@ function fmt(v, unit) {
 }
 
 /**
- * The one PR comment (also the job summary).
+ * A run's PR comment (also the job summary): the fixture run's, gated against the budgets, or the
+ * preview's, reported only and compared with no budget. Each starts with its own marker.
  * @param {{
+ *   mode?: Mode,
  *   current: { url: string, sha?: string | null, lighthouse?: string, runs?: number, routes: Record<string, RouteResult> },
  *   baseline: { pr: number | string, at: string, routes: Record<string, { median?: Record<string, number | null> }> } | null,
  *   budget: Record<string, RouteBudget>,
  *   problems: string[],
+ *   noticed?: string[],
  *   missingBudget?: string[],
  * }} args
  */
-export function renderComment({ current, baseline, budget, problems, missingBudget = [] }) {
+export function renderComment({ mode = "fixture", current, baseline, budget, problems, noticed = [], missingBudget = [] }) {
+  const gated = mode === "fixture";
   /** @param {number | null | undefined} v */
   const ms = (v) => fmt(v, "ms");
   /** @param {string} id @param {string} key */
@@ -353,15 +392,19 @@ export function renderComment({ current, baseline, budget, problems, missingBudg
   };
   const n = problems.length;
   const lines = [
-    MARKER,
-    `### Lighthouse: ${n ? `❌ ${n} problem${n > 1 ? "s" : ""}` : "✅ within budget"}`,
+    MARKERS[mode],
+    gated
+      ? `### Lighthouse (fixture build): ${n ? `❌ ${n} problem${n > 1 ? "s" : ""}` : "✅ within budget"}`
+      : "### Lighthouse (preview): reported only, never gated",
     "",
-    `\`${current.url}\` at \`${(current.sha ?? "").slice(0, 7)}\` · Lighthouse ${current.lighthouse ?? "?"} mobile, ` +
+    (gated ? "This PR built and served inside the job on the seeded fixture DB" : "This PR's Vercel preview, on its own data") +
+      ` (D-125): \`${current.url}\` at \`${(current.sha ?? "").slice(0, 7)}\` · Lighthouse ${current.lighthouse ?? "?"} mobile, ` +
       `devtools throttling (Slow 4G, 4× CPU) · median of ${current.runs ?? 3} runs per route`,
     "",
   ];
   if (n) lines.push("**Fails the job:**", "", ...problems.map((p) => `- ${p}`), "");
-  if (missingBudget.length) {
+  if (noticed.length) lines.push("**Noticed** (worth a look; the preview never fails):", "", ...noticed.map((p) => `- ${p}`), "");
+  if (gated && missingBudget.length) {
     lines.push(
       `**No budget recorded** for ${missingBudget.map((id) => `\`${id}\``).join(", ")}: add it to ` +
         "scripts/perf/budget.json and the budget table in docs/02-architecture.md › Performance checks.",
@@ -369,19 +412,19 @@ export function renderComment({ current, baseline, budget, problems, missingBudg
     );
   }
   lines.push(
-    "**Gated** (median / budget)",
+    gated ? "**Gated** (median / budget)" : "**Measured** (median)",
     "",
     "| Route | Document + RSC | JS | Requests | CLS | Accessibility |",
     "|---|---|---|---|---|---|",
   );
   for (const [id, r] of Object.entries(current.routes)) {
     const b = budget[id] ?? {};
-    /** @param {"docBytes" | "jsBytes" | "requests"} key @param {"bytes" | "count"} unit */
-    const cell = (key, unit) => `${fmt(r.median[key], unit)} / ${fmt(b[key], unit)}`;
+    /** @param {"docBytes" | "jsBytes" | "requests" | "a11y"} key @param {"bytes" | "count"} unit */
+    const cell = (key, unit) => (gated ? `${fmt(r.median[key], unit)} / ${fmt(b[key], unit)}` : fmt(r.median[key], unit));
     const cls = r.median.cls;
     lines.push(
       `| \`${r.path}\` | ${cell("docBytes", "bytes")} | ${cell("jsBytes", "bytes")} | ${cell("requests", "count")} | ` +
-        `${cls == null ? "–" : cls.toFixed(3)} | ${fmt(r.median.a11y, "count")} / ${fmt(b.a11y, "count")} |`,
+        `${cls == null ? "–" : cls.toFixed(3)} | ${cell("a11y", "count")} |`,
     );
   }
   lines.push(
@@ -402,9 +445,11 @@ export function renderComment({ current, baseline, budget, problems, missingBudg
   lines.push(
     "",
     baseline
-      ? `Timings compared with the last merged PR's run: PR #${baseline.pr}'s preview, ${String(baseline.at).slice(0, 10)}.`
-      : "No baseline: no run of the last merged PR is still kept (artifacts last 14 days).",
-    "A preview's database and functions are cold or warm by chance, so timings are reported, never gated. " +
+      ? `Timings compared with the last merged PR's run: PR #${baseline.pr}'s ${gated ? "fixture run" : "preview"}, ${String(baseline.at).slice(0, 10)}.`
+      : "No baseline: no run of the kind from a recent merged PR is still kept (artifacts last 14 days).",
+    (gated
+      ? "Bytes, requests, CLS and accessibility hold still on the fixture's data, so they are gated; timings on a shared runner don't, so they are reported only. "
+      : "A preview's bytes follow its database's data and its timings a cold or warm start, so nothing here is gated; the fixture run is. ") +
       "Reports are this run's artifacts.",
   );
   return lines.join("\n");
@@ -429,26 +474,32 @@ export function mergeMetrics(parts, order) {
 }
 
 /**
- * The comment this job posted before, found by its marker.
+ * The comment a kind of run posted before, found by its marker (the fixture run's by default).
  * @template {{ body?: string }} T
  * @param {T[]} comments
+ * @param {string} [marker]
  * @returns {T | undefined}
  */
-export function findComment(comments) {
-  return comments.find((c) => typeof c.body === "string" && c.body.startsWith(MARKER));
+export function findComment(comments, marker = MARKER) {
+  return comments.find((c) => typeof c.body === "string" && c.body.startsWith(marker));
 }
 
 /**
- * What to measure, or why not. A deployment event is measured only when it succeeded on the
- * Preview environment. A hand run may name any https URL except production's, unless
- * allow_production is ticked. Production's host is refused either way without it.
+ * What to measure, or why not (D-125). A pull request, or a hand run naming no URL, is measured as
+ * the fixture build the job serves itself. A deployment event is a preview, measured only when it
+ * succeeded on the Preview environment. A hand run naming a URL is a preview too: any https URL
+ * except production's, unless allow_production is ticked. Production's host is refused either way
+ * without it.
  * @param {{
  *   eventName: string, environment?: string, state?: string, deploymentUrl?: string,
  *   inputUrl?: string, productionUrl?: string, allowProduction?: boolean,
  * }} args
- * @returns {{ url: string } | { skip: string } | { problem: string }}
+ * @returns {{ mode: Mode, url: string } | { skip: string } | { problem: string }}
  */
 export function measurable({ eventName, environment, state, deploymentUrl, inputUrl, productionUrl, allowProduction }) {
+  if (eventName === "pull_request" || (eventName === "workflow_dispatch" && !inputUrl)) {
+    return { mode: "fixture", url: FIXTURE_URL };
+  }
   if (eventName === "deployment_status") {
     if (state !== "success") return { skip: `deployment is ${state}, not success` };
     if (environment !== "Preview") return { skip: `${environment} is not a preview` };
@@ -472,7 +523,7 @@ export function measurable({ eventName, environment, state, deploymentUrl, input
   if (prodHost && parsed.host === prodHost && !allowProduction) {
     return { problem: `${url} is production (PRODUCTION_URL); tick allow_production to measure it` };
   }
-  return { url: parsed.origin };
+  return { mode: "preview", url: parsed.origin };
 }
 
 /**
@@ -522,8 +573,12 @@ export function sessionCookieName(url) {
  * @returns {Promise<SessionCookie>}
  */
 export async function mintSession({ url, secret, githubId, encode, maxAge = 60 * 60 }) {
-  if (!secret) throw new Error("AUTH_SECRET is not set: pass the preview's AUTH_SECRET (repository secret PREVIEW_AUTH_SECRET)");
-  if (!githubId) throw new Error("AUTH_ALLOWED_GITHUB_ID is not set: pass the GitHub ID the preview allows");
+  if (!secret) {
+    throw new Error(
+      "AUTH_SECRET is not set: pass the server's AUTH_SECRET (PREVIEW_AUTH_SECRET for a preview, web/e2e/test-env.ts's for the fixture build)",
+    );
+  }
+  if (!githubId) throw new Error("AUTH_ALLOWED_GITHUB_ID is not set: pass the GitHub ID the server allows");
   const name = sessionCookieName(url);
   const value = await encode({ token: { sub: String(githubId), name: "Lighthouse" }, secret, salt: name, maxAge });
   return { name, value };
@@ -603,31 +658,47 @@ export function guardMessage(files, secrets) {
 }
 
 /**
- * The baseline PR: the newest merged pull request other than this one. PRs are squash-merged and
- * main builds no preview, so the last merged PR's preview is the nearest thing to main measured.
+ * The PRs a baseline may come from, newest merge first: merged, other than this one, at most
+ * `limit`. PRs are squash-merged and main is never measured, so the last merged PR's run is the
+ * nearest thing to main. A docs-only PR has no fixture run (paths-ignore), so report.mjs walks
+ * this list until a PR has a run of the right kind.
+ * @template {{ number: number, merged_at: string | null }} T
+ * @param {T[]} pulls
+ * @param {number[]} [currentPrs]
+ * @param {number} [limit]
+ * @returns {T[]}
+ */
+export function baselineCandidates(pulls, currentPrs = [], limit = 10) {
+  return pulls
+    .filter((p) => p.merged_at && !currentPrs.includes(p.number))
+    .sort((a, b) => (/** @type {string} */ (a.merged_at) < /** @type {string} */ (b.merged_at) ? 1 : -1))
+    .slice(0, limit);
+}
+
+/**
+ * The newest merged pull request other than this one.
  * @template {{ number: number, merged_at: string | null }} T
  * @param {T[]} pulls
  * @param {number[]} [currentPrs]
  * @returns {T | null}
  */
 export function baselinePr(pulls, currentPrs = []) {
-  return (
-    pulls
-      .filter((p) => p.merged_at && !currentPrs.includes(p.number))
-      .sort((a, b) => (/** @type {string} */ (a.merged_at) < /** @type {string} */ (b.merged_at) ? 1 : -1))[0] ?? null
-  );
+  return baselineCandidates(pulls, currentPrs, 1)[0] ?? null;
 }
 
 /**
- * The newest green run of the workflow on that PR's head commit.
- * @template {{ status: string, conclusion: string | null, created_at: string }} T
+ * The newest green run of the workflow on that PR's head commit, of the given event when one is
+ * named (BASELINE_EVENT: a fixture run is compared with pull_request runs, a preview with
+ * deployment_status runs).
+ * @template {{ status: string, conclusion: string | null, created_at: string, event?: string }} T
  * @param {T[]} runs
+ * @param {string} [event]
  * @returns {T | null}
  */
-export function baselineRun(runs) {
+export function baselineRun(runs, event) {
   return (
     runs
-      .filter((r) => r.status === "completed" && r.conclusion === "success")
+      .filter((r) => r.status === "completed" && r.conclusion === "success" && (!event || r.event === event))
       .sort((a, b) => (a.created_at < b.created_at ? 1 : -1))[0] ?? null
   );
 }

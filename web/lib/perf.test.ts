@@ -6,21 +6,27 @@ import { fileURLToPath } from "node:url";
 import { decode, encode } from "next-auth/jwt";
 import { afterEach, describe, expect, it } from "vitest";
 
+import { SKIP_PREFIXES } from "../../scripts/lib/ci-scope.mjs";
 import {
   aggregateRoute,
+  BASELINE_EVENT,
   BUDGETED,
+  baselineCandidates,
   baselinePr,
   baselineRun,
   budgetFrom,
   budgetTable,
+  checkRun,
   chromeVersion,
   eventInputs,
+  FIXTURE_URL,
   findComment,
   forbiddenPath,
   gateProblems,
   guardMessage,
   headerSecrets,
   MARKER,
+  MARKERS,
   measurable,
   median,
   mergeMetrics,
@@ -34,6 +40,7 @@ import {
   unbudgeted,
 } from "../../scripts/perf/lib/perf.mjs";
 import { ROUTES } from "../../scripts/perf/routes.mjs";
+import { TEST_API_JWT_SECRET, TEST_AUTH_SECRET, TEST_GITHUB_ID } from "../e2e/test-env";
 
 // The Lighthouse job's decisions (02 › Performance checks (Lighthouse), D-101), fed fixture
 // Lighthouse results instead of a real run: no network, no Chrome, no database (TASK-007).
@@ -250,7 +257,7 @@ describe("AC-3: measurable", () => {
   const hand = { eventName: "workflow_dispatch", inputUrl: BASE, productionUrl: PRODUCTION };
 
   it("measures a preview that finished deploying", () => {
-    expect(measurable(preview)).toEqual({ url: BASE });
+    expect(measurable(preview)).toEqual({ mode: "preview", url: BASE });
   });
 
   it("refuses every deployment state other than success", () => {
@@ -266,7 +273,10 @@ describe("AC-3: measurable", () => {
   it("refuses the production URL on a hand run unless allow_production is set", () => {
     expect(measurable({ ...hand, inputUrl: `${PRODUCTION}/teams` })).toHaveProperty("problem");
     expect(measurable({ ...hand, inputUrl: PRODUCTION, allowProduction: false })).toHaveProperty("problem");
-    expect(measurable({ ...hand, inputUrl: PRODUCTION, allowProduction: true })).toEqual({ url: PRODUCTION });
+    expect(measurable({ ...hand, inputUrl: PRODUCTION, allowProduction: true })).toEqual({
+      mode: "preview",
+      url: PRODUCTION,
+    });
   });
 
   it("refuses a preview event that carries the production URL", () => {
@@ -274,7 +284,7 @@ describe("AC-3: measurable", () => {
   });
 
   it("takes a hand run's preview URL, and refuses anything that isn't an https URL", () => {
-    expect(measurable(hand)).toEqual({ url: BASE });
+    expect(measurable(hand)).toEqual({ mode: "preview", url: BASE });
     expect(measurable({ ...hand, inputUrl: "http://example.com" })).toHaveProperty("problem");
     expect(measurable({ ...hand, inputUrl: "nope" })).toHaveProperty("problem");
     expect(measurable({ eventName: "push" })).toHaveProperty("skip");
@@ -285,14 +295,152 @@ describe("AC-3: measurable", () => {
       deployment: { sha: "abc", environment: "Preview" },
       deployment_status: { state: "success", environment: "Preview", environment_url: `${BASE}/`, target_url: "https://vercel.com/x" },
     };
-    expect(measurable(eventInputs("deployment_status", deployment, PRODUCTION))).toEqual({ url: BASE });
+    expect(measurable(eventInputs("deployment_status", deployment, PRODUCTION))).toEqual({ mode: "preview", url: BASE });
     const failedDeploy = { ...deployment, deployment_status: { ...deployment.deployment_status, state: "failure" } };
     expect(measurable(eventInputs("deployment_status", failedDeploy, PRODUCTION))).toHaveProperty("skip");
 
     const dispatch = (allow: unknown) => ({ inputs: { url: PRODUCTION, allow_production: allow } });
+    const prod = { mode: "preview", url: PRODUCTION };
     expect(measurable(eventInputs("workflow_dispatch", dispatch("false"), PRODUCTION))).toHaveProperty("problem");
-    expect(measurable(eventInputs("workflow_dispatch", dispatch(true), PRODUCTION))).toEqual({ url: PRODUCTION });
-    expect(measurable(eventInputs("workflow_dispatch", dispatch("true"), PRODUCTION))).toEqual({ url: PRODUCTION });
+    expect(measurable(eventInputs("workflow_dispatch", dispatch(true), PRODUCTION))).toEqual(prod);
+    expect(measurable(eventInputs("workflow_dispatch", dispatch("true"), PRODUCTION))).toEqual(prod);
+  });
+});
+
+describe("TASK-027 AC-1: a pull request is measured on the fixture build (D-125)", () => {
+  it("measures a pull request on the build served inside the job, never a Vercel URL", () => {
+    expect(FIXTURE_URL).toBe("http://127.0.0.1:3100");
+    expect(measurable({ eventName: "pull_request", productionUrl: PRODUCTION })).toEqual({
+      mode: "fixture",
+      url: FIXTURE_URL,
+    });
+    expect(measurable(eventInputs("pull_request", { pull_request: { number: 7 } }, PRODUCTION))).toEqual({
+      mode: "fixture",
+      url: FIXTURE_URL,
+    });
+  });
+
+  it("builds the fixture on a hand run given no URL, and measures a preview when given one", () => {
+    for (const url of [undefined, ""]) {
+      expect(measurable(eventInputs("workflow_dispatch", { inputs: { url } }, PRODUCTION))).toEqual({
+        mode: "fixture",
+        url: FIXTURE_URL,
+      });
+    }
+    expect(measurable(eventInputs("workflow_dispatch", { inputs: { url: BASE } }, PRODUCTION))).toEqual({
+      mode: "preview",
+      url: BASE,
+    });
+  });
+
+  it("gates a fixture run on every problem D-101 lists", () => {
+    const heavy = runs(page({ docBytes: 99_000, cls: 0.2 }));
+    const { problems, noticed } = checkRun({ mode: "fixture", routes: { teams: heavy }, budget: BUDGET });
+    expect(problems).toEqual([
+      "teams: document + RSC 99,000 bytes is over the budget of 15,000 bytes",
+      "teams: CLS 0.200 is 0.1 or more",
+    ]);
+    expect(noticed).toEqual([]);
+    expect(checkRun({ mode: "fixture", routes: {}, budget: BUDGET, expected: ["teams"] }).problems).toEqual([
+      "teams: never finished measuring (its job wrote no metrics)",
+    ]);
+  });
+
+  it("says how to fix a session that didn't take without naming one run's secret", () => {
+    const [problem] = gate(lhr({ path: "/login" }));
+    expect(problem).toContain("the session didn't take");
+    expect(problem).toContain("web/e2e/test-env.ts");
+    expect(problem).toContain("PREVIEW_AUTH_SECRET");
+  });
+});
+
+describe("TASK-027 AC-3: a preview run reports, never gates", () => {
+  const heavy = () => runs(page({ docBytes: 99_000, cls: 0.2 }));
+
+  it("finds no gate problem in a preview over budget with a CLS of 0.2", () => {
+    const { problems, noticed } = checkRun({ mode: "preview", routes: { teams: heavy() }, budget: BUDGET });
+    expect(problems).toEqual([]);
+    // Compared with no budget (budgets are the fixture's), but a shift or an API call is still worth a look.
+    expect(noticed).toEqual(["teams: CLS 0.200 is 0.1 or more"]);
+  });
+
+  it("notices a forbidden request or a route that didn't measure, and still gates nothing", () => {
+    const api = runs(lhr({ requests: [{ url: "/api/py/teams", type: "Fetch", size: 10 }] }));
+    const { problems, noticed } = checkRun({
+      mode: "preview",
+      routes: { teams: api },
+      budget: BUDGET,
+      expected: ["login", "teams"],
+    });
+    expect(problems).toEqual([]);
+    expect(noticed).toHaveLength(2);
+    expect(noticed[0]).toMatch(/^login: never finished measuring/);
+    expect(noticed[1]).toMatch(/^teams: requested \/api\/py\/teams/);
+  });
+
+  it("labels the preview comment reported only, with no budgets and no failure", () => {
+    const md = renderComment({
+      mode: "preview",
+      current: { url: BASE, sha: "abcdef1234", lighthouse: "13.5.0", routes: { teams: heavy() } },
+      baseline: null,
+      budget: BUDGET,
+      problems: [],
+      noticed: ["teams: CLS 0.200 is 0.1 or more"],
+    });
+    expect(md.startsWith(`${MARKERS.preview}\n`)).toBe(true);
+    expect(md).toContain("reported only, never gated");
+    expect(md).toContain("- teams: CLS 0.200 is 0.1 or more");
+    expect(md).toContain("| `/teams` | 96.7 KB | 136.7 KB | 15 | 0.200 | 95 |");
+    expect(md).not.toMatch(/budget|Fails the job|within budget/i);
+  });
+});
+
+describe("TASK-027 AC-4: one comment per kind of run, and a baseline of the same kind", () => {
+  it("gives the fixture run and the preview run their own markers", () => {
+    expect(MARKERS.fixture).toBe(MARKER);
+    expect(MARKERS.preview).toMatch(/^<!-- .+ -->$/);
+    expect(MARKERS.preview.startsWith(MARKERS.fixture)).toBe(false);
+    const comments = [
+      { id: 1, body: `${MARKERS.preview}\n### Lighthouse` },
+      { id: 2, body: `${MARKERS.fixture}\n### Lighthouse` },
+    ];
+    expect(findComment(comments)?.id).toBe(2);
+    expect(findComment(comments, MARKERS.fixture)?.id).toBe(2);
+    expect(findComment(comments, MARKERS.preview)?.id).toBe(1);
+  });
+
+  it("compares a fixture run with pull_request runs and a preview with deployment runs", () => {
+    expect(BASELINE_EVENT).toEqual({ fixture: "pull_request", preview: "deployment_status" });
+    const list = [
+      { id: 1, event: "pull_request", status: "completed", conclusion: "success", created_at: "2026-10-05T10:00:00Z" },
+      { id: 2, event: "deployment_status", status: "completed", conclusion: "success", created_at: "2026-10-05T12:00:00Z" },
+      { id: 3, event: "workflow_dispatch", status: "completed", conclusion: "success", created_at: "2026-10-05T13:00:00Z" },
+    ];
+    expect(baselineRun(list, "pull_request")?.id).toBe(1);
+    expect(baselineRun(list, "deployment_status")?.id).toBe(2);
+    expect(baselineRun(list.slice(1), "pull_request")).toBeNull();
+  });
+
+  it("walks back through merged PRs, newest first, so a docs-only PR with no run is passed over", () => {
+    const pulls = Array.from({ length: 14 }, (_, i) => ({
+      number: 40 + i,
+      merged_at: i === 13 ? null : `2026-10-${String(i + 1).padStart(2, "0")}T10:00:00Z`,
+    }));
+    const order = baselineCandidates(pulls, [52]).map((p) => p.number);
+    expect(order).toEqual([51, 50, 49, 48, 47, 46, 45, 44, 43, 42]);
+    expect(baselineCandidates(pulls, [], 3).map((p) => p.number)).toEqual([52, 51, 50]);
+    expect(baselinePr(pulls, [52])?.number).toBe(51);
+  });
+
+  it("names the kind of run the timings are compared with", () => {
+    const current = { url: FIXTURE_URL, sha: "abcdef1234", lighthouse: "13.5.0", routes: { teams: runs(page()) } };
+    const baseline = { pr: 47, at: "2026-10-05T12:00:00Z", routes: {} };
+    expect(renderComment({ current, baseline, budget: BUDGET, problems: [] })).toContain(
+      "PR #47's fixture run, 2026-10-05",
+    );
+    expect(renderComment({ mode: "preview", current, baseline, budget: BUDGET, problems: [] })).toContain(
+      "PR #47's preview, 2026-10-05",
+    );
   });
 });
 
@@ -427,7 +575,7 @@ describe("AC-5: the PR comment and the baseline", () => {
     expect(md).toContain(
       "| `/teams` | 3.00 s / 140 ms (base 200 ms) | 2.50 s / 950 ms (base 1.00 s) | 4.00 s / 1.60 s (base 2.00 s) | 300 ms / 90 ms (base 100 ms) |",
     );
-    expect(md).toContain("PR #47's preview, 2026-10-05");
+    expect(md).toContain("PR #47's fixture run, 2026-10-05");
     expect(md).not.toContain("No baseline");
   });
 
@@ -581,16 +729,19 @@ describe("TASK-008 AC-1: .github/workflows/lighthouse.yml has 02's shape", () =>
   );
   const steps = (job: string) => (jobs[job] ?? "").split(/^ {6}- /m).slice(1);
 
-  it("runs on a deployment's status and by hand, with no permissions at the top", () => {
-    expect(code).toMatch(/^on:\n {2}deployment_status:\n {2}workflow_dispatch:\n/m);
-    expect(code).toMatch(/^ {6}url:\n[\s\S]*?^ {6}allow_production:\n[\s\S]*?type: boolean/m);
+  it("runs on a pull request, a deployment's status and by hand, with no permissions at the top", () => {
+    expect(code).toMatch(/^on:\n {2}pull_request:\n {4}paths-ignore:\n(?: {6}- .+\n)+ {2}deployment_status:\n {2}workflow_dispatch:\n/m);
+    expect(code).toMatch(/^ {6}url:\n[\s\S]*?required: false[\s\S]*?^ {6}allow_production:\n[\s\S]*?type: boolean/m);
     expect(code.slice(0, jobsAt)).toMatch(/^permissions: \{\}$/m);
   });
 
-  it("plans, measures one route per job, then reports", () => {
-    expect(Object.keys(jobs)).toEqual(["plan", "measure", "report"]);
+  it("plans, measures a preview one route per job or the fixture in one job, then reports", () => {
+    expect(Object.keys(jobs)).toEqual(["plan", "measure", "fixture", "report"]);
     expect(jobs.measure).toMatch(/^ {4}needs: plan$/m);
-    expect(jobs.report).toMatch(/^ {4}needs: \[plan, measure\]$/m);
+    expect(jobs.measure).toMatch(/^ {4}if: needs\.plan\.outputs\.mode == 'preview'$/m);
+    expect(jobs.fixture).toMatch(/^ {4}needs: plan$/m);
+    expect(jobs.fixture).toMatch(/^ {4}if: needs\.plan\.outputs\.mode == 'fixture'$/m);
+    expect(jobs.report).toMatch(/^ {4}needs: \[plan, measure, fixture\]$/m);
     expect(jobs.measure).toMatch(/^ {6}fail-fast: false$/m);
     expect(jobs.measure).toMatch(/^ {8}route: \$\{\{ fromJSON\(needs\.plan\.outputs\.routes\) \}\}$/m);
     // plan's group is `pr-<n>`, so the measuring jobs' group is lighthouse-pr-<n>-<route>.
@@ -599,11 +750,13 @@ describe("TASK-008 AC-1: .github/workflows/lighthouse.yml has 02's shape", () =>
     );
     // The report runs when a route's job failed, so that route is reported; not when cancelled.
     expect(jobs.report).toMatch(/if: \$\{\{ !cancelled\(\)/);
+    // A preview's report and the fixture's never cancel each other.
+    expect(jobs.report).toMatch(/group: lighthouse-\$\{\{ needs\.plan\.outputs\.group \}\}-\$\{\{ needs\.plan\.outputs\.mode \}\}-report/);
   });
 
   it("gives only the report job pull-requests: write, and no job anything else to write", () => {
     expect(jobs.report).toMatch(/^ {6}pull-requests: write$/m);
-    for (const job of ["plan", "measure"]) expect(jobs[job]).not.toMatch(/: write/);
+    for (const job of ["plan", "measure", "fixture"]) expect(jobs[job]).not.toMatch(/: write/);
     expect(jobs.report.match(/: write/g)).toHaveLength(1);
   });
 
@@ -635,21 +788,75 @@ describe("TASK-008 AC-1: .github/workflows/lighthouse.yml has 02's shape", () =>
 
   it("keeps its artifacts 14 days and never sends a report to LHCI's public storage", () => {
     const uploads = code.split(/^ {6}- /m).filter((s) => s.includes("upload-artifact"));
-    expect(uploads).toHaveLength(3);
+    expect(uploads).toHaveLength(5);
     for (const u of uploads) expect(u).toMatch(/retention-days: 14\n/);
     expect(WORKFLOW).not.toMatch(/lhci|temporary-public-storage/i);
   });
 
   it("installs Lighthouse only from scripts/perf, caching on its lockfile", () => {
-    expect(jobs.measure).toContain("npm ci --prefix scripts/perf");
+    for (const job of ["measure", "fixture"]) expect(jobs[job]).toContain("npm ci --prefix scripts/perf");
     expect(jobs.measure).toMatch(/cache-dependency-path: scripts\/perf\/package-lock\.json/);
-    expect(code).not.toMatch(/pnpm/);
+    expect(jobs.measure).not.toMatch(/pnpm/);
+    expect(code).not.toMatch(/pnpm (add|dlx)|npx\b/);
+  });
+});
+
+describe("TASK-027 AC-1: the fixture job serves the seeded test DB the way e2e does", () => {
+  const code = repoText(".github/workflows/lighthouse.yml")
+    .split("\n")
+    .map((l) => l.replace(/(^|\s)#.*$/, ""))
+    .join("\n");
+  const fixture = code.match(/^ {2}fixture:\n([\s\S]*?)(?=^ {2}[a-z]+:\n|(?![\s\S]))/m)?.[1] ?? "";
+  const steps = fixture.split(/^ {6}- /m).slice(1);
+
+  it("migrates and seeds the test DB, builds once, serves it, signs in, measures, guards, forgets, uploads", () => {
+    const at = (text: string) => steps.findIndex((s) => s.includes(text));
+    const order = [
+      "./.github/actions/start-postgres",
+      "pnpm db:migrate:test",
+      "pnpm db:seed",
+      "pnpm build",
+      "uvicorn api.main:app",
+      "pnpm --dir web start --port 3100",
+      "mint-session.mjs",
+      "measure.mjs",
+      "report.mjs guard",
+      'rm -rf "$HEADERS_DIR"',
+      "upload-artifact",
+    ];
+    expect(order.map(at)).not.toContain(-1);
+    expect(order.map(at)).toEqual([...order.map(at)].sort((a, b) => a - b));
+    // One build for every route: no matrix, and no build anywhere else in the workflow.
+    expect(code.match(/pnpm build/g)).toHaveLength(1);
+    expect(fixture).not.toMatch(/matrix|PERF_ROUTES/);
+    expect(steps[at('rm -rf "$HEADERS_DIR"')]).toMatch(/^ {8}if: always\(\)$/m);
+  });
+
+  it("uses no repository secret, only e2e's test values, and the local URL", () => {
+    expect(fixture).not.toMatch(/secrets\.|vars\.|VERCEL/);
+    expect(fixture).toContain(`AUTH_SECRET: ${TEST_AUTH_SECRET}\n`);
+    expect(fixture).toContain(`AUTH_ALLOWED_GITHUB_ID: "${TEST_GITHUB_ID}"\n`);
+    expect(fixture).toContain(`API_JWT_SECRET: ${TEST_API_JWT_SECRET}\n`);
+    expect(fixture).toContain("TEST_DATABASE_URL: postgresql://ci:ci@localhost:5432/cfb_test\n");
+    expect(fixture).toMatch(/APP_ENV=test\b/);
+    expect(fixture).toContain("TARGET_URL: ${{ needs.plan.outputs.url }}");
+    expect(fixture).toContain("PERF_MODE: fixture");
+  });
+
+  it("skips the same docs-only changes CI's scope step skips", () => {
+    const block = code.match(/^ {2}pull_request:\n {4}paths-ignore:\n((?: {6}- .+\n)+)/m)?.[1] ?? "";
+    const ignored = block
+      .trim()
+      .split("\n")
+      .map((l) => l.trim().replace(/^- /, "").replace(/^"(.*)"$/, "$1"));
+    expect(ignored).toEqual([...SKIP_PREFIXES.map((p) => `${p}**`), "*.md"]);
   });
 });
 
 describe("TASK-008 AC-3: budgets from a run, by 02's rule", () => {
   const load = (o: Parameters<typeof page>[0] = {}) => summariseLhr(page(o));
-  const metrics = (loads: ReturnType<typeof load>[]) => ({
+  const metrics = (loads: ReturnType<typeof load>[], mode: "fixture" | "preview" | undefined = "fixture") => ({
+    mode,
     url: BASE,
     sha: "abc1234",
     lighthouse: "13.5.0",
@@ -694,6 +901,12 @@ describe("TASK-008 AC-3: budgets from a run, by 02's rule", () => {
     expect(budgetFrom(metrics(loads)).unsteady).toEqual(["teams: JS moves 1.1% between runs (100,000–101,100 bytes)"]);
     const close = [load({ jsBytes: 100_000 }), load({ jsBytes: 100_500 }), load({ jsBytes: 100_900 })];
     expect(budgetFrom(metrics(close)).unsteady).toEqual([]);
+  });
+
+  it("TASK-027: sets budgets only from a fixture run, never a preview's (D-125)", () => {
+    const steady = load();
+    expect(() => budgetFrom(metrics([steady, steady, steady], "preview"))).toThrow(/fixture run/);
+    expect(() => budgetFrom({ ...metrics([steady, steady, steady]), mode: undefined })).toThrow(/fixture run/);
   });
 
   it("refuses a route that didn't measure, or that ended somewhere else", () => {

@@ -1,14 +1,14 @@
 ---
 id: TASK-027
 title: Gate Lighthouse on an in-job build on the seeded fixture DB
-status: Draft
+status: In progress
 depends_on: [TASK-008]
 size: M
 model: opus
 autonomy: attended
 ui: false
-plan_status: none
-planned_at_commit:
+plan_status: approved
+planned_at_commit: c6d9ea8
 ---
 
 # TASK-027 — Gate Lighthouse on an in-job build on the seeded fixture DB
@@ -73,9 +73,26 @@ A PR fails the Lighthouse check only when its own code made a page heavier, neve
 
 _Work noticed during this task and deliberately left out. Each bullet ends `→ <path> § <section>` (where it was placed) or `→ not tracked: <reason>`. See `.claude/skills/track-follow-ups/classify.md`; the PR's Follow-ups section is copied from here._
 
+- TASK-014's tap runner should time taps on the fixture build, not the preview, now that gates run there (D-125) → docs/tasks/TASK-014-perf-tap-runner.md § Context (approved at plan)
+
 ## Plan
 
-_Written by /plan-batch or /implement-task Phase 1. Approved by the user (plan_status: approved) before any code is written._
+_Approved 2026-10-23._
+
+**Shape:** one workflow, `lighthouse.yml`, three triggers: `pull_request` → the gated **fixture** run; `deployment_status` → the **preview** run, reported only; `workflow_dispatch` → preview with a `url`, fixture on the chosen ref without one.
+
+1. Tests first in `web/lib/perf.test.ts`, failing on the old code: plan modes (`pull_request` → fixture; dispatch without a URL → fixture); a preview run never gates (over budget + CLS 0.2 → no problems, exit 0) while the same metrics gate in a fixture run; a comment marker per mode; the baseline takes only runs of the same event; the new workflow shape; `paths-ignore` matches `scripts/lib/ci-scope.mjs`'s skip list.
+2. `scripts/perf/lib/perf.mjs`: `measurable`/`eventInputs` return `{ mode, url }` (fixture URL `http://127.0.0.1:3100`); gate problems only in fixture mode (a preview lists forbidden requests and wrong landings as noticed, not gated, and compares nothing with a budget); `renderComment` and the marker per mode, so two comments per PR and no race between runs; `baselineRun` filters by `event`; the `/login` hint stops naming `PREVIEW_AUTH_SECRET`.
+3. `scripts/perf/report.mjs`: `plan` outputs the mode; `baseline` walks merged PRs newest first (up to 10) to the first with a green run of the same event (docs-only PRs have no fixture run); `report` takes the PR from `pull_request` events and exits 0 in preview mode.
+4. `.github/workflows/lighthouse.yml`: a single `fixture` job (start Postgres via the existing action, migrate and seed the test DB, `pnpm build` once, start uvicorn and `next start` in the background with `web/e2e/test-env.ts`'s test-only values as e2e does, mint with the test `AUTH_SECRET`, measure every route serially, guard, upload). The per-route `measure` matrix stays for previews. `pull_request` has `paths-ignore` for `docs/**`, `.claude/**`, `backups/**`, `*.md` (CI's scope skip list; a test keeps them in step).
+5. Budgets: push, let the first fixture run go green, `report.mjs budget` on its metrics, re-run once for the < 1% check, commit `budget.json` and 02's table.
+6. Docs: 02 › Performance checks (Triggers, Signing in, Workflow shape, Baseline, Budgets, Testing row; "Not built yet" removed), README › Performance checks, `.claude/kit.json`'s "Lighthouse within budget" gate (names the fixture run; docs-only PRs have none).
+
+**Files:** `.github/workflows/lighthouse.yml`, `scripts/perf/lib/perf.mjs`, `scripts/perf/report.mjs`, `scripts/perf/budget.json`, `web/lib/perf.test.ts`, `docs/02-architecture.md`, `README.md`, `.claude/kit.json`, this task file; possibly comment-only edits to `scripts/perf/measure.mjs` and `scripts/perf/mint-session.mjs`.
+
+**Test strategy:** AC-1 Vitest (modes, workflow shape) + this PR's green fixture run · AC-2 re-run on the same commit; the budget table test · AC-3 and AC-4 Vitest · AC-5 `gh run view` duration · AC-6 doc review and the table test.
+
+**Risks:** a local `next start` gzips where Vercel serves brotli (expected; budgets are reset). The first fixture run has no baseline. The branch is stacked on PR #76; if #76 squash-merges first, merge `main` in.
 
 ## Review log
 
