@@ -1,7 +1,7 @@
 ---
 id: TASK-027
 title: Gate Lighthouse on an in-job build on the seeded fixture DB
-status: In progress
+status: Review
 depends_on: [TASK-008]
 size: M
 model: opus
@@ -36,12 +36,12 @@ A PR fails the Lighthouse check only when its own code made a page heavier, neve
 
 ## Acceptance criteria
 
-- [ ] AC-1: Given a PR, the gated Lighthouse run builds the app once, serves it with the API on a freshly migrated and seeded test DB inside the job, and measures every route in `scripts/perf/routes.mjs`: `/login` signed out, and `/teams` signed in with a session minted from the test-only `AUTH_SECRET`. It uses no Vercel URL and no repository secret. The run fails on exactly the problems D-101 lists (an `/api/py/*` request, bytes or requests over budget, CLS ≥ 0.1, accessibility below the recorded score, or a route that didn't measure or ended on an unexpected URL).
-- [ ] AC-2: Two gated runs on the same commit give each route's doc bytes and JS bytes within 1% of each other, and the same request count. `scripts/perf/budget.json` and the `perf-budget` table in `docs/02-architecture.md` are regenerated from a gated run by `report.mjs budget`, and the note beside the table records that run and the reason for the reset (D-125).
-- [ ] AC-3: Given a preview deployment of the PR, the preview run still measures every route and its numbers appear on the PR, labelled as reported only. A Vitest case in `web/lib/perf.test.ts` shows a preview-run result with a route over budget and a CLS of 0.2 producing no gate problem (the run exits 0). A second case shows the same metrics producing both problems in a gated run.
-- [ ] AC-4: The PR's Lighthouse comment(s) are edited in place on later runs, never added again. The gated run compares itself with the last merged PR's gated run, not a preview run. Vitest cases cover how the baseline run is chosen.
-- [ ] AC-5: With the current two routes, the gated run's whole workflow finishes in 15 minutes or less on this PR, as shown by the run's duration in `gh run view`.
-- [ ] AC-6: These docs describe the in-job gate, the preview's reported-only run and how to run each by hand: `docs/02-architecture.md` › Performance checks (Triggers, Signing in, Workflow shape, Baseline, Budgets; the "Not built yet" note removed) and its Testing strategy row; `README.md` › Performance checks (Run one by hand, Read a failed run, Set a route's budget, What it needs). The "Lighthouse within budget" gate in `.claude/kit.json` names the gated run.
+- [x] AC-1: Given a PR, the gated Lighthouse run builds the app once, serves it with the API on a freshly migrated and seeded test DB inside the job, and measures every route in `scripts/perf/routes.mjs`: `/login` signed out, and `/teams` signed in with a session minted from the test-only `AUTH_SECRET`. It uses no Vercel URL and no repository secret. The run fails on exactly the problems D-101 lists (an `/api/py/*` request, bytes or requests over budget, CLS ≥ 0.1, accessibility below the recorded score, or a route that didn't measure or ended on an unexpected URL).
+- [x] AC-2: Two gated runs on the same commit give each route's doc bytes and JS bytes within 1% of each other, and the same request count. `scripts/perf/budget.json` and the `perf-budget` table in `docs/02-architecture.md` are regenerated from a gated run by `report.mjs budget`, and the note beside the table records that run and the reason for the reset (D-125).
+- [x] AC-3: Given a preview deployment of the PR, the preview run still measures every route and its numbers appear on the PR, labelled as reported only. A Vitest case in `web/lib/perf.test.ts` shows a preview-run result with a route over budget and a CLS of 0.2 producing no gate problem (the run exits 0). A second case shows the same metrics producing both problems in a gated run.
+- [x] AC-4: The PR's Lighthouse comment(s) are edited in place on later runs, never added again. The gated run compares itself with the last merged PR's gated run, not a preview run. Vitest cases cover how the baseline run is chosen.
+- [x] AC-5: With the current two routes, the gated run's whole workflow finishes in 15 minutes or less on this PR, as shown by the run's duration in `gh run view`.
+- [x] AC-6: These docs describe the in-job gate, the preview's reported-only run and how to run each by hand: `docs/02-architecture.md` › Performance checks (Triggers, Signing in, Workflow shape, Baseline, Budgets; the "Not built yet" note removed) and its Testing strategy row; `README.md` › Performance checks (Run one by hand, Read a failed run, Set a route's budget, What it needs). The "Lighthouse within budget" gate in `.claude/kit.json` names the gated run.
 
 ## Out of scope
 
@@ -75,6 +75,7 @@ _Work noticed during this task and deliberately left out. Each bullet ends `→ 
 
 - TASK-014's tap runner should time taps on the fixture build, not the preview, now that gates run there (D-125) → docs/tasks/TASK-014-perf-tap-runner.md § Context (approved at plan)
 - `download-artifact` puts a lone matching artifact straight into the download folder, which broke `merge` on the first fixture run (run 40015971648) → not tracked: done in this PR (plan revision; `metricsParts` and its test)
+- The test auditor had to revert `scripts/perf/*.mjs` and `.github/workflows/lighthouse.yml` by hand: `testAudit.implementationExtensions` in `.claude/kit.json` lacks `.mjs` and workflows → not tracked: the owner asked for it as a separate chore PR once this one is approved
 
 ## Plan
 
@@ -99,13 +100,15 @@ _Approved 2026-10-23._
 
 _Filled by /implement-task. One line per round._
 
+Verify R1 PASS → (fixture run 40015971648 FAIL: lone artifact not merged; fixed) → R2 PASS | Audit R1 CHANGES (exit code and baseline walk untested; a test title) → R2 PASS | Spec R1 APPROVE
+
 ## Blocked
 
 _Only if status is Blocked: what failed, what was tried, best hypothesis, decision needed._
 
 ## Metrics
 
-- Verify rounds:
-- Review rounds:
-- First-pass AC FAILs:
-- Plan revisions after approval:
+- Verify rounds: 2
+- Review rounds: 1
+- First-pass AC FAILs: 0
+- Plan revisions after approval: 2 (`metricsParts` after run 40015971648; `exitCode`/`findBaseline` extracted for the test audit)

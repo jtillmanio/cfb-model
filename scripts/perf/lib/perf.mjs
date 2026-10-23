@@ -585,8 +585,9 @@ export function sessionCookieName(url) {
 
 /**
  * The session cookie Auth.js would set after the allowlisted account signed in with GitHub, minted
- * with the preview's AUTH_SECRET (which differs from production's, D-012). `encode` is Auth.js's
- * own (`@auth/core/jwt`), passed in so this file needs no dependency.
+ * with the server's AUTH_SECRET: the preview's (which differs from production's, D-012), or e2e's
+ * test-only one for the fixture build (D-125). `encode` is Auth.js's own (`@auth/core/jwt`), passed
+ * in so this file needs no dependency.
  * @param {{
  *   url: string, secret: string | undefined, githubId: string | undefined,
  *   encode: (params: { token: { sub: string, name: string }, secret: string, salt: string, maxAge: number }) => Promise<string>,
