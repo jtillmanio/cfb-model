@@ -30,6 +30,7 @@ import {
   measurable,
   median,
   mergeMetrics,
+  metricsParts,
   mintSession,
   renderComment,
   scrubLhr,
@@ -430,6 +431,19 @@ describe("TASK-027 AC-4: one comment per kind of run, and a baseline of the same
     expect(order).toEqual([51, 50, 49, 48, 47, 46, 45, 44, 43, 42]);
     expect(baselineCandidates(pulls, [], 3).map((p) => p.number)).toEqual([52, 51, 50]);
     expect(baselinePr(pulls, [52])?.number).toBe(51);
+  });
+
+  it("merges the one fixture artifact, which download-artifact puts straight in the folder", () => {
+    // Run 40015971648: one artifact matched, so parts/metrics.json was the part, and merge skipped it.
+    expect(metricsParts(["/tmp/parts/metrics.json"])).toEqual(["/tmp/parts/metrics.json"]);
+    expect(
+      metricsParts([
+        "/tmp/parts/lighthouse-metrics-login/metrics.json",
+        "C:\\tmp\\parts\\lighthouse-metrics-teams\\metrics.json",
+        "/tmp/parts/lighthouse-metrics-teams/notes.txt",
+        "/tmp/parts/old-metrics.json",
+      ]),
+    ).toEqual(["/tmp/parts/lighthouse-metrics-login/metrics.json", "C:\\tmp\\parts\\lighthouse-metrics-teams\\metrics.json"]);
   });
 
   it("names the kind of run the timings are compared with", () => {

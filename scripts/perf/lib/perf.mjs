@@ -474,6 +474,18 @@ export function mergeMetrics(parts, order) {
 }
 
 /**
+ * The measuring jobs' metrics.json files among a download folder's files. download-artifact puts
+ * each artifact in its own folder, except when the pattern matches only one (the fixture job's):
+ * then its metrics.json lands straight in the folder, where merge writes its result. merge runs
+ * once, so that file is always a part, never an earlier merge.
+ * @param {string[]} files
+ * @returns {string[]}
+ */
+export function metricsParts(files) {
+  return files.filter((f) => /(^|[\\/])metrics\.json$/.test(f));
+}
+
+/**
  * The comment a kind of run posted before, found by its marker (the fixture run's by default).
  * @template {{ body?: string }} T
  * @param {T[]} comments

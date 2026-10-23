@@ -29,6 +29,7 @@ import {
   MARKERS,
   measurable,
   mergeMetrics,
+  metricsParts,
   renderComment,
   unbudgeted,
 } from "./lib/perf.mjs";
@@ -129,9 +130,7 @@ function walk(dir) {
 /** @param {string} dir */
 function merge(dir) {
   const out = join(dir, "metrics.json");
-  const parts = walk(dir)
-    .filter((f) => f.endsWith("metrics.json") && f !== out)
-    .map(readJson);
+  const parts = metricsParts(walk(dir)).map(readJson);
   // A preview that measured nothing is reported as such, never a failure (D-125); a fixture run
   // with nothing to merge fails here.
   const merged =
