@@ -6,7 +6,7 @@ _Written by `/milestones` on 2026-10-08 from [06-roadmap.md](06-roadmap.md). Eac
 
 | Milestones | Scope | Roadmap phases | Stubs |
 |---|---|---|---|
-| M1–M8 | **MVP** (all 19 MVP features in [01 › Feature index](01-product.md#feature-index-ids-priorities-outcomes)) | 0–4 | 61 |
+| M1–M8 | **MVP** (all 19 MVP features in [01 › Feature index](01-product.md#feature-index-ids-priorities-outcomes)) | 0–4 | 67 |
 | M9–M19 | **Future** (Next and Later features) | 5–8 | 64 |
 
 - **M6 is the roadmap's Phase 4 acceptance:** paste the Splash page on Thursday, see the CFB + NFL slate ranked against the contest's lines with the top 4 marked, add your picks, follow results on your phone Saturday. M7–M8 finish the rest of the MVP feature list (D-081).
@@ -29,7 +29,7 @@ _Written by `/milestones` on 2026-10-08 from [06-roadmap.md](06-roadmap.md). Eac
 
 **Applies to every UI stub**
 - Cites its S-ID, design file and reference screenshot; `Pass … .dc.html` boards win over older boards (D-094).
-- Adds its Lighthouse route(s) and budget in the same PR (D-101); Game Detail and Team add a small and a large instance.
+- Adds its Lighthouse route(s) and budget in the same PR (D-101), measured on the in-job fixture build (D-125); Game Detail and Team add a small and a large instance, and the large one is fixture data.
 - Has a `loading.tsx` drawn at the loaded size, an error state without saved copies (D-096), and e2e at 390 and 1440.
 - Extends the fixture seed (`python/db/seeds/fixture/`) only through the schema task that owns the table (D-089).
 
@@ -162,17 +162,18 @@ _Written by `/milestones` on 2026-10-08 from [06-roadmap.md](06-roadmap.md). Eac
 **Goal:** the app's home screen on real data, on desktop and phone.
 **Demo at exit:** signed in on production, This Week shows the real current week: Market (opener + sparkline), Model, Edge pill, cover %, tier, row states (final, live, no line, neutral), the record strip, and phone cards with no horizontal scroll.
 **Features:** F-01, F-02, F-06, F-10, F-32
-**Depends on:** M1 for M5.1–M5.4; M4.6 and M2.5 for M5.5–M5.7; M1.5 and M5.6 for M5.8
+**Depends on:** M1 for M5.1–M5.4; M4.6 and M2.5 for M5.5–M5.7; M1.5 for M5.0; M1.5 and M5.6 for M5.8
 **Riskiest:** getting the app shell's data (sidebar track-record card) into each page's single API call.
 
 | # | Task | Layer | Size | Depends on | Autonomy | Notes |
 |---|------|-------|------|------------|----------|-------|
+| M5.0 → TASK-027 | Gate Lighthouse on an in-job build on the seeded fixture DB | ops | M | M1.5 | attended | D-125 (settles roadmap open question 5): build and serve the app and API in the job on the seeded test DB as e2e does; gates and budgets move there; the PR preview is measured and reported, never gated. Must land before M5.6 sets the first data-heavy budget |
 | M5.1 | Implement `format.ts` against the number-format card | ui | S | — | attended | D-068: every example in 02 › Testing strategy (Unit: web) as a Vitest case; true minus, padded whole spreads, model lines one decimal; zone-aware kickoff times |
 | M5.2 | Set up shadcn/ui and build the core components | ui | M | M5.1 | attended | The design track's design-system PR and review gate. Edge pill (filled ≥ 2.5, D-061), tier badge (D-063), team chip (D-075), result marker, market cell with sparkline, filter chips, data table densities (D-084). Hard rule 7: tokens only. Design: `Components.dc.html`, `Foundations.dc.html`, `Market Extras.dc.html`, `design/README.md` |
 | M5.3 | Build the app shell and global states | ui | M | M5.2, M1.1 | attended | S-16. Desktop sidebar with track-record card, top bar, mobile tabs + More, tablet nav at 768, API unreachable with Retry (no saved copy, D-096), wake-up note after 1.5 s and 10 s timeout (D-097); reuse `raceWakeNote` from `web/lib/login.ts` (from #15), stale-lines banner. Sport switcher shows CFB only. Decide at the plan gate how shell data rides in each page's one API call. Design: `App States Desktop.dc.html` / `App States Mobile.dc.html`, `This Week Tablet.dc.html`, `Pass B - New Screens.dc.html` B8a, `Pass C3 - Alerts Settings Shell.dc.html` C16a–c; shots `01-this-week-desktop.png`, `27-more-mobile.png`, `28-this-week-tablet.png` |
 | M5.4 | Generate the TypeScript API client from OpenAPI | web | S | — | attended | D-011: `openapi-typescript`; CI fails on drift; `/teams` moves onto it |
 | M5.5 | Build the `/slate` endpoint | api | M | M4.6, M2.5, M5.4 | attended | First screen endpoint (BFF pattern, D-010): games for a week with `game_market` opener/current/snapshots, latest prediction, current pick, pick outcomes for the record strip; ≤ 6 queries in one wave; fixture values from F-01. *From TASK-016 (PR #52):* the fixture still lacks the other 43 Week 6 games behind "54 games" (Tulane @ Memphis final 27-24, Iowa State @ Cincinnati, Arizona State @ Baylor, and filler with edges under 1.0; 02 › Seed data); this task adds them |
-| M5.6 | Build the This Week slate | ui | M | M5.3, M5.5 | attended | S-01, F-01/F-02/F-06/F-10. Compact desktop table (D-084), 768 layout, 390 cards; row states (upcoming pick, line moved since pick, live, final, no line, neutral); day/time windows. Spread/Total/Both and the star are hidden until F-11/F-14. Decide roadmap open question 5 before setting this route's budget. Design: `This Week Desktop.dc.html`, `This Week Mobile.dc.html`, `This Week Tablet.dc.html`, `Pass C1 - Slate Contest Game.dc.html` C1a–e; shots `01-this-week-desktop.png`, `02-this-week-mobile.png`, `28-this-week-tablet.png`. TASK-014 (M5.8) waits on this task: add its ID to TASK-014's `depends_on` when the file is created. *From TASK-016 (PR #59):* the fixture has each game's opener (Sun 6:00 AM ET) and current line (Thu 9:02 PM ET) only, plus Texas vs Oklahoma's four and BYU's three snapshots; if a sparkline AC cites `this-week-data.js`'s illustrative in-between points (e.g. LSU −2.5, −2.5, −3, −3.5), this task adds them |
+| M5.6 | Build the This Week slate | ui | M | M5.3, M5.5 | attended | S-01, F-01/F-02/F-06/F-10. Compact desktop table (D-084), 768 layout, 390 cards; row states (upcoming pick, line moved since pick, live, final, no line, neutral); day/time windows. Spread/Total/Both and the star are hidden until F-11/F-14. Set this route's budget on the fixture build (D-125, M5.0 → TASK-027); the fixture's full Week 6 slate from M5.5 is the large case. Design: `This Week Desktop.dc.html`, `This Week Mobile.dc.html`, `This Week Tablet.dc.html`, `Pass C1 - Slate Contest Game.dc.html` C1a–e; shots `01-this-week-desktop.png`, `02-this-week-mobile.png`, `28-this-week-tablet.png`. TASK-014 (M5.8) waits on this task: add its ID to TASK-014's `depends_on` when the file is created. *From TASK-016 (PR #59):* the fixture has each game's opener (Sun 6:00 AM ET) and current line (Thu 9:02 PM ET) only, plus Texas vs Oklahoma's four and BYU's three snapshots; if a sparkline AC cites `this-week-data.js`'s illustrative in-between points (e.g. LSU −2.5, −2.5, −3, −3.5), this task adds them |
 | M5.7 | Add the record strip, filters and empty states to This Week | ui | M | M5.6 | unattended | S-01, F-32: "This week 1-0 · 2 live …", live picks never shown as lost; All / Picks only; lines not posted, off-season, stale banner; loading skeleton. Design: `This Week.dc.html`, `App States Desktop.dc.html` (off-season), `Loading States.dc.html`; shots `20-offseason-empty-desktop.png`, `21-offseason-empty-mobile.png` |
 | M5.8 → TASK-014 | Time screen-to-screen taps in the lighthouse workflow | ops | M | M1.5, M5.6 | attended | Draft, from #29 (TASK-008); moved from M1.11. `ledger`'s tap → next-paint runner; This Week → Teams is the first tap to time. Needs an approved change to 02 › Performance checks and D-101 |
 

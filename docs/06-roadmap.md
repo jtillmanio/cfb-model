@@ -109,7 +109,8 @@ Phase 8  Multi-sport (NFL)
 - [ ] **Contest mode (generic, Splash preset):** `ContestRules`, `contests`, `contest_lines` (snapshots), `contest_entries` with kickoff-lock enforcement; Splash paste parser + alias matching; top-N ranking against contest lines; you-vs-model results (`contest_results` view)
 - [ ] NFL schedule/scores/closing lines from nflverse (no NFL model yet) so mixed CFB + NFL slates can be shown and graded
 - [ ] `loading.tsx` skeleton on every data route; one API call per page
-- [ ] Each screen's PR adds its Lighthouse route(s) and budget (a small and a large instance for Game Detail and Team); open question 5 is decided before the first data-heavy budget
+- [ ] Lighthouse gates measure a build served inside the job on the seeded fixture DB; PR previews are measured and reported, never gated (D-125, open question 5)
+- [ ] Each screen's PR adds its Lighthouse route(s) and budget (a small and a large instance for Game Detail and Team), measured on the fixture build; the large instance is fixture data (D-125)
 - [ ] Mobile layouts for This Week, Contest, Game Detail and Picks
 - [ ] Line movement: opening → current + sparkline in the slate's Market cell, full history on Game Detail
 - [ ] Best lines board (in Picks): upcoming games ranked by cover % against the better of market/contest line, with an *uncalibrated* label until calibration passes
@@ -219,4 +220,4 @@ Playbook: [07-claude-design-playbook.md](07-claude-design-playbook.md). Design w
 2. **NFL timing:** your slate includes NFL games, but the NFL model is Phase 8. Until then, NFL picks get only the contest-vs-market comparison. If you find yourself picking NFL games often, we could pull a basic NFL rating model forward to right after Phase 5. It reuses the same engine, so it's much cheaper than a from-scratch build. Decide after Phase 4.
 3. **How far back should history go?** Scores exist back to the 1800s, but efficiency stats only from about the mid-2000s. The 1970s (~50–100 extra calls) covers every modern coach's career. Decide at the start of Phase 6.
 4. **Default coach measure:** value over expectation *controlling for* recruiting (credits coaching only) or *crediting* recruiting (credits roster-building too)? Both will be shown; this only picks the default sort. Decide at the start of Phase 6.
-5. **Where Lighthouse byte gates measure data pages:** previews will carry production data once Phase 1 publishes, so page bytes follow the week's slate and could fail a gate for reasons unrelated to the code. Keep gating on the preview (with looser budgets on data pages), or build and serve inside the job on the seeded fixture DB, as e2e does? Decide before the first data-heavy screen gets a budget in Phase 4.
+5. **Where Lighthouse byte gates measure data pages (decided 2026-10-23, D-125):** gates run on a build served inside the job on the seeded fixture DB, as e2e does; each PR preview is still measured on real data but only reported. Previews had started carrying real data, and `/teams` grew from 5,861 to 12,444 bytes with no code change (PR #74). Built by TASK-027, before the first data-heavy budget (This Week).
