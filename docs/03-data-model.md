@@ -21,7 +21,7 @@ REST API v2, base `https://api.collegefootballdata.com`, bearer API key. Officia
 | `/ratings/sp`, `/ratings/fpi`, `/ratings/elo` | External ratings to **benchmark against** (not model inputs at first) | 1/season |
 | `/ppa/predicted` | Expected-points curve, if we build our own EPA | once |
 | `/calendar` | Week date boundaries | 1/season |
-| `/scoreboard` | Live scores for the `scores` job (M6.8). **Tier 1:** _not checked yet; TASK-022's one counted call records it here_ | once (tier check) |
+| `/scoreboard` | Live scores for the `scores` job (M6.8). **Tier 1: answers.** One counted call on 2026-10-23 (no params) returned 56 games, saved as `raw/cfbd/scoreboard/season=2026/fetched_at=2026-10-23T144734Z.parquet` (TASK-022) | once (tier check) |
 
 **Backfill (2014–2026 to date, `engine backfill`, D-121):** each season is 14 season-level calls (`/games`, `/lines` and advanced stats per season type; `/calendar`, `/teams`, talent, returning production, recruiting, SP+, FPI, Elo) plus 3 a week (`/games/teams`, plays, drives) for 16–17 weeks, about 62–65; `/venues` and `/conferences` once. The dry run estimated 778 calls; the run on 2026-10-20 took **803** (16 regular weeks in some seasons, and 2024 week 5 after D-121's canceled-game rule), about 16% of the monthly allowance at tier 1. In-season steady state is about 30 calls/week from the scheduled jobs (TASK-022): `results` Sunday and Monday, 6 calls each for the week just played (`/games`, `/games/teams`, advanced stats, plays, drives, `/lines`), and `lines` daily plus Thursday and Friday evenings, 2 calls each (`/games` and `/lines` for the next week).
 
