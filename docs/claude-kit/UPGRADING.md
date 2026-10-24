@@ -4,10 +4,79 @@ For the owner of a project on an earlier kit 2.x, and for the Claude session tha
 
 | Project is on | Do |
 |---|---|
-| 2.6.x | [From 2.6 to 2.7](#from-26-to-27) |
-| 2.5.x | One branch, one installer run (it puts 2.7 in place directly): step 1 of [From 2.6 to 2.7](#from-26-to-27), then steps 2–4 of [From 2.5 to 2.6](#from-25-to-26), then steps 2–5 of [From 2.6 to 2.7](#from-26-to-27), and step 6 of [From 2.5 to 2.6](#from-25-to-26) after merging |
-| 2.4.x | One branch, one installer run (it puts 2.7 in place directly): step 1 of [From 2.6 to 2.7](#from-26-to-27), then steps 2–4 of [From 2.4 to 2.5](#from-24-to-25), steps 2–4 of [From 2.5 to 2.6](#from-25-to-26), and steps 2–5 of [From 2.6 to 2.7](#from-26-to-27), and step 6 of [From 2.5 to 2.6](#from-25-to-26) after merging |
-| 2.3.x | [From 2.3 to 2.4](#from-23-to-24) on one branch (the installer puts 2.7 in place directly; the branch name doesn't matter), then steps 3–5 of [From 2.4 to 2.5](#from-24-to-25), steps 2–5 of [From 2.5 to 2.6](#from-25-to-26), and steps 2–5 of [From 2.6 to 2.7](#from-26-to-27) on the same branch, and step 6 of [From 2.5 to 2.6](#from-25-to-26) after merging |
+| 2.7.x | [From 2.7 to 2.8](#from-27-to-28) |
+| 2.6.x | One branch, one installer run (it puts 2.8 in place directly): step 1 of [From 2.7 to 2.8](#from-27-to-28), then steps 2–4 of [From 2.6 to 2.7](#from-26-to-27), then steps 2–6 of [From 2.7 to 2.8](#from-27-to-28) |
+| 2.5.x | One branch, one installer run (it puts 2.8 in place directly): step 1 of [From 2.7 to 2.8](#from-27-to-28), then steps 2–4 of [From 2.5 to 2.6](#from-25-to-26), steps 2–4 of [From 2.6 to 2.7](#from-26-to-27), and steps 2–6 of [From 2.7 to 2.8](#from-27-to-28), and step 6 of [From 2.5 to 2.6](#from-25-to-26) after merging |
+| 2.4.x | One branch, one installer run (it puts 2.8 in place directly): step 1 of [From 2.7 to 2.8](#from-27-to-28), then steps 2–4 of [From 2.4 to 2.5](#from-24-to-25), steps 2–4 of [From 2.5 to 2.6](#from-25-to-26), steps 2–4 of [From 2.6 to 2.7](#from-26-to-27), and steps 2–6 of [From 2.7 to 2.8](#from-27-to-28), and step 6 of [From 2.5 to 2.6](#from-25-to-26) after merging |
+| 2.3.x | [From 2.3 to 2.4](#from-23-to-24) on one branch (the installer puts 2.8 in place directly; the branch name doesn't matter), then steps 3–4 of [From 2.4 to 2.5](#from-24-to-25), steps 2–4 of [From 2.5 to 2.6](#from-25-to-26), steps 2–4 of [From 2.6 to 2.7](#from-26-to-27), and steps 2–6 of [From 2.7 to 2.8](#from-27-to-28) on the same branch, and step 6 of [From 2.5 to 2.6](#from-25-to-26) after merging |
+
+## From 2.7 to 2.8
+
+2.8 has one change: the roadmap's checkboxes are kept in step with the task files, in every project whose roadmap (or task list) has them, not only in roadmap mode. A task's close-out ticks the items it finishes; close-out and accept also tick items other Done tasks finished and nobody ticked. The upgrade is one branch and one PR, and that PR also ticks the items finished before the upgrade.
+
+### Behaviour changes
+
+These apply as soon as `-Upgrade` replaces the skills, before you merge anything.
+
+| Change | What you'll see | Opt out |
+|---|---|---|
+| **Tick doc** | Claude ticks the roadmap in roadmap mode (`workflow.roadmap.path`, as before), otherwise the **Roadmap** role's doc, or the **Task list** if there is no roadmap. Only a doc that already has done marks (`[ ]`/`[x]`, `☐`/`☑`, `⬜`/`✅`) is ticked; marks are never added | A doc with no marks is never touched |
+| **Close-out ticks, without roadmap mode too** | `/implement-task` close-out ticks the items the task finishes, in the close-out commit. Without roadmap mode Claude matches items to the task's Goal and ACs and ticks only what it delivers in full. A partly delivered item stays open and the PR's **What** says what remains | A line in `.claude/project/implement-task.md`, e.g. "Never tick the roadmap; the owner does" |
+| **The sweep** | Close-out and "accepted" also tick open items that Done tasks finished, so a task you marked Done by hand is caught by the next one. The ticks are listed in the PR's **What** (or the accept report) | As above |
+| **Accept commit** | Can carry roadmap ticks besides the status change and archive renames | As above |
+| **Never untick** | A ticked item whose task isn't Done is reported, never unticked. An item's text and **Check:** line are never edited | — |
+| **spec-reviewer** | The full review flags `ROADMAP OVERTICK` (a tick for work not delivered in full, or an untick). The close-out check flags `ROADMAP UNTICKED`, and now runs whenever close-out changed a file besides the task file, except roadmap mode's own tick. Roadmap mode's "must be ticked in this diff" moved from the full review to the close-out check, which runs after the tick | — |
+| **`/sync-roadmap [--dry-run]`** | New skill: the sweep across every Done task, after you approve the list, on a `docs/` branch with one PR (or the branch you're on, if it's `chore/` or `docs/`) | — |
+
+### Steps
+
+1. **Run the installer** on a new branch, from the project root:
+   ```powershell
+   git switch main; git pull --ff-only; git switch -c chore/kit-2.8
+   powershell -NoProfile -ExecutionPolicy Bypass -File C:\Development\tools\claude-code-starter-kit\install-kit.ps1 -Upgrade -WhatIf
+   powershell -NoProfile -ExecutionPolicy Bypass -File C:\Development\tools\claude-code-starter-kit\install-kit.ps1 -Upgrade
+   ```
+   Expect: **Added** for `.claude/skills/sync-roadmap/` (`SKILL.md`, `ticks.md`) and `.claude/scripts/list-roadmap-ticks.ps1`; **Updated** for the `implement-task` and `customize-kit` skills, `track-follow-ups/classify.md`, and four guides under `docs/claude-kit/` (`README.md`, `USER-GUIDE.md`, `UPGRADING.md`, `CHANGELOG.md`); **To merge** for `spec-reviewer.md`, `.claude/rules/git.md`, and the PR template, plus `kit.json` and `CLAUDE.md`, which list because yours are customized (the kit's copies didn't change; nothing to merge in them). The same with or without roadmap mode. Restart Claude Code.
+2. **Merge `.kit-incoming/`**, or run `/customize-kit`, which detects a 2.7 configuration (`git.md` doesn't mention roadmap ticks) and proposes these as rows:
+   - `.claude/rules/git.md`: the **Roadmap ticks** bullet, first of the allowed changes to other files on a task branch ("Two kinds" becomes "Three kinds").
+   - `spec-reviewer.md`: step 3 (Roadmap, with the ticks check), the scope sentence in step 6, the close-out check sentence under Inputs, the OVERREACH wording in step 11, and the two output blocks. Keep your `model:` and `effort:` lines.
+   - PR template: the roadmap-ticks comment under **What**, and "the roadmap ticks and" in the diff checklist line.
+3. **Check the tick doc**:
+   ```powershell
+   powershell -NoProfile -ExecutionPolicy Bypass -File .claude/scripts/list-roadmap-ticks.ps1
+   ```
+   Its first line names the doc and why it was picked (`workflow.roadmap.path`, or the Project docs **Roadmap** or **Task list** row). If that's the wrong doc, fix the Project docs table in `CLAUDE.md`. "No done marks" means nothing will be ticked, which is correct for a task list without checkboxes.
+4. **Tick what's already finished, in this PR**:
+   ```text
+   /sync-roadmap --dry-run
+   /sync-roadmap
+   ```
+   On the `chore/kit-2.8` branch it commits there instead of opening its own PR. Approve, strike, or add to its table: an item done before the task files existed is yours to tick. In roadmap mode the list is exact (the item with each Done task's ID); otherwise each tick cites the Done tasks that deliver it. Partial items are listed and left open.
+5. **Find project text that says who ticks the roadmap.** `git grep -n -i -e "tick" -e "checkbox" -- CLAUDE.md .claude/project .claude/rules`. A line like "Tick the task's checkbox in the roadmap in the same PR" now says what the kit does: delete it, or keep it if it adds a project rule. A `.claude/project/*.md` line wins over the kit.
+6. **Commit by path**, push, and open the PR, e.g. `chore: upgrade claude kit to 2.8`. Its **What** lists the backfilled ticks.
+
+### Verification
+
+On the upgrade branch:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .claude/scripts/list-roadmap-ticks.ps1; $LASTEXITCODE   # expect 0; roadmap mode: "To tick (0)" after step 4
+powershell -NoProfile -ExecutionPolicy Bypass -File .claude/scripts/build-index.ps1; $LASTEXITCODE          # expect 0
+git diff main -- <tick doc>                                                                                  # expect only marks changed
+```
+
+The next task after merging: its close-out commit ticks the items it finishes, its PR's **What** has a `Roadmap:` line (or none when nothing was ticked), and after "accepted" the accept commit carries any item that became finished.
+
+### Projects with and without roadmap mode
+
+- **Roadmap mode** (e.g. ledger: `docs/05-roadmap.md`, `☐`/`☑` in headings): close-out still ticks the task's own item, exactly as before. New are the sweep (an item whose task was accepted by hand gets ticked by the next close-out) and spec-reviewer checking the tick in the close-out check. If your roadmap was already in step, `/sync-roadmap` finds nothing to do.
+- **No roadmap mode, roadmap with checkboxes** (e.g. cfb-model: `docs/06-roadmap.md` as the **Roadmap** role, `- [ ]` items): new behaviour. Items have no IDs, so Claude matches them to tasks by evidence: the item names the task, or the task's Context cites the item or its **Task list** row, and the task's Goal and ACs cover everything the item lists. The backfill is where you'll see the most change; review its table.
+- **No roadmap, task list without checkboxes** (the kit's `docs/templates/tasklist.md`): nothing changes.
+
+### Rolling back
+
+- To stop ticking without rolling back: `.claude/project/implement-task.md` with "Never tick the roadmap; the owner does." Ticks already made stay; they're true.
+- To return to 2.7, reinstall it with its `install-kit.ps1 -Upgrade` and revert `spec-reviewer.md`, `git.md`, and the PR template from git. Delete `.claude/skills/sync-roadmap/` and `.claude/scripts/list-roadmap-ticks.ps1`; the installer doesn't remove files.
 
 ## From 2.6 to 2.7
 

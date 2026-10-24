@@ -4,7 +4,8 @@
 
 ## What
 
-<!-- The change in a few bullets. Task work: "TASK-014: Show run progress (docs/tasks/TASK-014-run-progress.md)". -->
+<!-- The change in a few bullets. Task work: "TASK-014: Show run progress (docs/tasks/TASK-014-run-progress.md)".
+     Roadmap ticks, one line each (.claude/skills/sync-roadmap/ticks.md): "Roadmap: ticked 1.3c (this task); ticked 1.2 (TASK-001, accepted by hand)". -->
 -
 
 ## Why
@@ -54,7 +55,7 @@
 
 - [ ] Ran the manual steps above and got the expected results
 - [ ] Every owner gate in the table above has passed
-- [ ] Diff contains only what the task asked for (no surprise files), plus the follow-up placements listed above
+- [ ] Diff contains only what the task asked for (no surprise files), plus the roadmap ticks and follow-up placements listed above
 - [ ] Each follow-up went where the work that will do it will read it (move or drop any you disagree with)
 - [ ] No secrets, env files, protected files or production config touched
 - [ ] Task file set to `status: Done` (reply "accepted" to the session, or edit it in this PR) before merging. Accepting also moves it to `docs/tasks/archive/`; a hand edit leaves that to the next task's close-out
