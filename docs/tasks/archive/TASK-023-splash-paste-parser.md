@@ -1,7 +1,7 @@
 ---
 id: TASK-023
 title: Parse Splash pastes against ContestRules
-status: Ready
+status: Done
 depends_on: []
 size: M
 model: opus
@@ -33,11 +33,11 @@ Text copied from a Splash contest page becomes one row per game with both teams,
 
 ## Acceptance criteria
 
-- [ ] AC-1: Given `design/sample-splash-10062026.txt`, the parser returns one row per game block, as many rows as the file has `Over ` lines. Each row has the away and home names as written and `spread_home` equal to the home side's line, with the away line equal to −`spread_home`. Rank lines, records, scores, statuses and totals never appear in a team name.
-- [ ] AC-2: Given the Week 6 paste fixture and an alias lookup holding every name in it except "Hou Texans" and "Jax", the parser returns 10 rows: 9 matched to team IDs and 1 unmatched row carrying the raw names "Hou Texans" and "Jax". Texas @ Oklahoma has `spread_home` +7, and UNLV @ Boise State has −10.
-- [ ] AC-3: Given a game block whose two side lines don't sum to zero, or that has no line, the parser returns that row with a problem reason (`lines disagree`, `no line`) and no spread, and still returns every other row.
-- [ ] AC-4: `ContestRules` accepts the Splash preset (period `week`, sports `[cfb, nfl]`, slate `curated`, exactly 4 picks, lock `per_game_kickoff`, scoring `point_per_win`, push `zero`). Given `picks_per_period` 0 or an unknown scoring value, it raises a validation error naming the field.
-- [ ] AC-5: Given `design/sample-splash-10152026.txt`, the parser returns 73 rows (one per `Over ` line), with none lost or duplicated; the `Picks made` / `/4` counter and tied records (`3-1-1`) never appear in a team name.
+- [x] AC-1: Given `design/sample-splash-10062026.txt`, the parser returns one row per game block, as many rows as the file has `Over ` lines. Each row has the away and home names as written and `spread_home` equal to the home side's line, with the away line equal to −`spread_home`. Rank lines, records, scores, statuses and totals never appear in a team name.
+- [x] AC-2: Given the Week 6 paste fixture and an alias lookup holding every name in it except "Hou Texans" and "Jax", the parser returns 10 rows: 9 matched to team IDs and 1 unmatched row carrying the raw names "Hou Texans" and "Jax". Texas @ Oklahoma has `spread_home` +7, and UNLV @ Boise State has −10.
+- [x] AC-3: Given a game block whose two side lines don't sum to zero, or that has no line, the parser returns that row with a problem reason (`lines disagree`, `no line`) and no spread, and still returns every other row.
+- [x] AC-4: `ContestRules` accepts the Splash preset (period `week`, sports `[cfb, nfl]`, slate `curated`, exactly 4 picks, lock `per_game_kickoff`, scoring `point_per_win`, push `zero`). Given `picks_per_period` 0 or an unknown scoring value, it raises a validation error naming the field.
+- [x] AC-5: Given `design/sample-splash-10152026.txt`, the parser returns 73 rows (one per `Over ` line), with none lost or duplicated; the `Picks made` / `/4` counter and tied records (`3-1-1`) never appear in a team name.
 
 ## Out of scope
 
@@ -65,10 +65,11 @@ Text copied from a Splash contest page becomes one row per game with both teams,
 
 _Work noticed during this task and deliberately left out. Each bullet ends `→ <path> § <section>` (where it was placed) or `→ not tracked: <reason>`. See `.claude/skills/track-follow-ups/classify.md`; the PR's Follow-ups section is copied from here._
 
-- 02 › Risks & mitigations still says "Spike the parser on a fresh paste at the start of Phase 4"; the spike is now M2.8 (TASK-023), run on `design/sample-splash-10152026.txt` → docs/02-architecture.md § Risks & mitigations (approved at plan)
-- The contest import builds the parser's alias lookup from `team_aliases WHERE source = 'splash'` and passes the user's time zone (gate decisions C and E) → docs/08-tasklist.md § M6.4
-- `engine/core/` is first created here (for `ContestRules`), not in M3.1, which adds the rest of the light core to it → docs/08-tasklist.md § M3.1
+- 02 › Risks & mitigations still says "Spike the parser on a fresh paste at the start of Phase 4"; the spike is now M2.8 (TASK-023), run on `design/sample-splash-10152026.txt` (written by plans PR #52; this PR drops its "planned:" marker now that the parser is built) → docs/02-architecture.md § Risks & mitigations (approved at plan)
+- The contest import builds the parser's alias lookup from `team_aliases WHERE source = 'splash'` and passes the user's time zone (gate decisions C and E; written by PR #52) → docs/08-tasklist.md § M6.4
+- `engine/core/` is first created here (for `ContestRules`), not in M3.1, which adds the rest of the light core to it (written by PR #52) → docs/08-tasklist.md § M3.1
 - Candidate decision: gate decisions A–F (where `ContestRules` and the parser live, kickoffs read as ET, away listed first, `PK` = 0, the alias lookup's shape) → docs/decisions.md § D-113 (recorded with the approved plan)
+- The plan's Risks said neither real copy has a live game; the Oct 6 copy has 8 `LIVE` blocks. They parse as the plan intended for any other status (raw text such as `LIVE Q3 14:07`, no kickoff), and the AC-1 test asserts one → not tracked: noted in this task's Review log, no work left
 
 ## Plan
 
@@ -117,13 +118,17 @@ Approved 2026-10-16 (/plan-batch): every gate decision as recommended; the owner
 
 _Filled by /implement-task. One line per round._
 
+- Preflight: the plan was stale on paper (engine `pyproject.toml` and `uv.lock` changed in #67 and #79), but pydantic was already locked through FastAPI and the engine stays out of the API install. The owner said carry on (2026-10-23).
+- Verify R1 PASS (typecheck, lint, db:check, test with 317 pytest, build, e2e with 40) | Audit R1 PASS (every AC PROVEN; the tests fail to load without the new modules) | Spec R1 APPROVE (no required changes)
+- Notes from the spec review: `ContestRules.sports` is `tuple[SportId, ...]` (at least one) where the plan wrote `list[str]`, so the frozen preset can't be mutated; list input still validates. Not a plan gap. The plan's "neither real copy has a live game" was wrong: the Oct 6 copy has 8 `LIVE` blocks, read as status text.
+
 ## Blocked
 
 _Only if status is Blocked: what failed, what was tried, best hypothesis, decision needed._
 
 ## Metrics
 
-- Verify rounds:
-- Review rounds:
-- First-pass AC FAILs:
-- Plan revisions after approval:
+- Verify rounds: 1
+- Review rounds: 1
+- First-pass AC FAILs: 0
+- Plan revisions after approval: 0
