@@ -1,7 +1,7 @@
 ---
 id: TASK-023
 title: Parse Splash pastes against ContestRules
-status: Ready
+status: In progress
 depends_on: []
 size: M
 model: opus
