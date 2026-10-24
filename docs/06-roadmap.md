@@ -63,13 +63,13 @@ Phase 8  Multi-sport (NFL)
 ## Phase 1 — Data pipeline
 **Goal:** all the history we need, clean and reproducible, plus weekly refresh.
 
-- [ ] CFBD ingest client with call budget tracking + raw Parquet writer (local + R2)
-- [ ] Backfill 2014–2025 + 2026 to date: games, team box scores, advanced stats, lines, talent, returning production, recruiting, SP+/FPI/Elo, venues, conferences, PBP + drives
+- [x] CFBD ingest client with call budget tracking + raw Parquet writer (local + R2)
+- [x] Backfill 2014–2025 + 2026 to date: games, team box scores, advanced stats, lines, talent, returning production, recruiting, SP+/FPI/Elo, venues, conferences, PBP + drives
 - [ ] DuckDB staging models + `team_week_features` (point-in-time safe)
-- [ ] Publish reference + games + line snapshots to Postgres (upsert by source key, never truncate)
-- [ ] Data quality checks (see [03-data-model.md](03-data-model.md))
-- [ ] Scheduled `results` and `lines` jobs
-- [ ] Notebook #1: explore the data (HFA over time, margin distribution, closing-line MAE)
+- [x] Publish reference + games + line snapshots to Postgres (upsert by source key, never truncate)
+- [x] Data quality checks (see [03-data-model.md](03-data-model.md))
+- [x] Scheduled `results` and `lines` jobs
+- [x] Notebook #1: explore the data (HFA over time, margin distribution, closing-line MAE)
 
 **Acceptance:** `engine transform --rebuild` recreates every staged table from raw with zero API calls; data quality checks pass; the scheduled job picks up this Saturday's results on its own.
 
@@ -109,7 +109,7 @@ Phase 8  Multi-sport (NFL)
 - [ ] **Contest mode (generic, Splash preset):** `ContestRules`, `contests`, `contest_lines` (snapshots), `contest_entries` with kickoff-lock enforcement; Splash paste parser + alias matching; top-N ranking against contest lines; you-vs-model results (`contest_results` view)
 - [ ] NFL schedule/scores/closing lines from nflverse (no NFL model yet) so mixed CFB + NFL slates can be shown and graded
 - [ ] `loading.tsx` skeleton on every data route; one API call per page
-- [ ] Lighthouse gates measure a build served inside the job on the seeded fixture DB; PR previews are measured and reported, never gated (D-125, open question 5)
+- [x] Lighthouse gates measure a build served inside the job on the seeded fixture DB; PR previews are measured and reported, never gated (D-125, open question 5)
 - [ ] Each screen's PR adds its Lighthouse route(s) and budget (a small and a large instance for Game Detail and Team), measured on the fixture build; the large instance is fixture data (D-125)
 - [ ] Mobile layouts for This Week, Contest, Game Detail and Picks
 - [ ] Line movement: opening → current + sparkline in the slate's Market cell, full history on Game Detail

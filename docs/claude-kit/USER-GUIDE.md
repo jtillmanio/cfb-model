@@ -221,6 +221,14 @@ Add a single task any time with `/new-task <short description>`.
 
 Three status records, one owner each: the roadmap checkbox is ticked in the task's own PR (Claude); the task file goes to `Review` (Claude) and to `Done` only when you say "accepted"; an optional status page (`workflow.statusDoc`) is regenerated from the roadmap, never from task files, by you or by Claude on request.
 
+**Roadmap ticks, with or without roadmap mode.** If the roadmap (or, without one, the task list) marks items done with checkboxes or `☐`/`☑`, Claude keeps those marks in step with the task files (`.claude/skills/sync-roadmap/ticks.md`):
+
+- **Close-out** ticks the items the task finishes, in its own PR. In roadmap mode that's the item with the task's ID. Otherwise Claude matches items to the task's Goal and ACs, and ticks only items the task delivers in full. Partly delivered items stay open and are listed in the PR.
+- **Close-out and accept also sweep.** Any open item that Done tasks have finished gets ticked, so a task you accepted by editing `status: Done` yourself is caught by the next one.
+- **`/sync-roadmap`** does the sweep across every Done task on its own `docs/` branch: the backfill after upgrading to 2.8, and a check whenever the roadmap looks behind.
+
+Claude never unticks, never edits an item's text or check line, and never adds marks to a doc that has none.
+
 **What makes a task `unattended`:** small or medium within one layer, Sonnet-implementable, follows an existing pattern, every AC automatable, and no schema, auth, ETL, or deletion. Everything else stays `attended`.
 
 ## 7. Level 1: attended, one task at a time
@@ -241,7 +249,7 @@ What happens, and where you're needed:
 | Verify | test-runner, then a checkpoint commit | — |
 | Test audit | test-auditor proves the tests fail without the change | — |
 | Review | spec-reviewer, plus schema-reviewer and ui-verifier as relevant | Answer spec gaps |
-| Close out | Fills the task file; places follow-ups (`workflow.followUps`); asks "Push and open a draft PR?", together with any follow-ups that need your approval | Approve or skip each; say yes |
+| Close out | Fills the task file; ticks the roadmap items it finished; places follow-ups (`workflow.followUps`); asks "Push and open a draft PR?", together with any follow-ups that need your approval | Approve or skip each; say yes |
 | Ready gates | Checks each gate in `workflow.readyGates` it can (default: `verify.full`, then CI), fixes failures (max 2 rounds), marks the PR ready | Do the gates marked `owner` |
 | Report | PR link, owner gates, manual steps with expected results, your next steps | Manual check → reply "accepted" → merge → deploy, if your project has that step |
 
@@ -301,7 +309,7 @@ Each background session uses your subscription quota independently, so two in pa
 ### 8.4 Accept and continue
 
 1. Review the PR and do the manual check (section 10).
-2. In agent view, peek at the session and reply `accepted`. It sets `status: Done`, moves the task file to `docs/tasks/archive/`, commits, and pushes.
+2. In agent view, peek at the session and reply `accepted`. It sets `status: Done`, moves the task file to `docs/tasks/archive/`, ticks any roadmap item that is now finished, commits, and pushes.
 3. Merge the PR on GitHub (squash recommended). If your project deploys separately (the **Deploy** role), run that step; merged is not live.
 4. Locally: `git switch main; git pull`, then re-run the dispatcher. Claims for Done tasks clear automatically, and newly unblocked tasks dispatch.
 5. Delete the finished session in agent view (`Ctrl+X` twice). This removes its worktree.
@@ -329,7 +337,7 @@ The PR body is pre-filled from `.github/pull_request_template.md`. Spend your 5�
 3. **Claude's review comments**, if `claude-pr-review.yml` is installed. Resolve or dismiss each one.
 4. **Manual verification steps.** Run them on the branch: `git fetch; git switch task/...`, start the app, follow the steps, compare against the expected results.
 5. **Follow-ups.** Each bullet ends with where it went (`→ <path> § <section>`) or why it wasn't tracked. Check the placements in the Files changed tab: another task's Context, a roadmap item, a new `Draft` task, the decisions log, a planning doc you approved, the Owner checklist. Move or drop any you disagree with on the branch. Approvals still waiting are in the Owner checklist.
-6. **Reply `accepted`** to the session, or edit `status: Done` in the PR yourself. Accepting also moves the task file to `docs/tasks/archive/`. A file you mark Done by hand is moved by the next task's close-out, which archives every Done task it finds.
+6. **Reply `accepted`** to the session, or edit `status: Done` in the PR yourself. Accepting also moves the task file to `docs/tasks/archive/` and ticks any roadmap item that is now finished. For a file you mark Done by hand, the next task's close-out does both: it archives every Done task it finds and ticks the items they finished.
 7. **Merge.** Branch protection blocks the merge until the CI job is green. Then run your deploy step, if the project has one.
 
 ## 11. Handling problems mid-task
@@ -356,13 +364,14 @@ The PR body is pre-filled from `.github/pull_request_template.md`. Spend your 5�
 | `/skeleton` | Build the walking skeleton: scaffold, scripts, one end-to-end slice, tests, CI |
 | `/milestones [MVP or Next]` | Break scope into demoable milestones and task stubs with a coverage check |
 | `/milestones --coverage [roadmap]` | Check an existing roadmap's coverage of features, screens, and entities; add the gaps to it as numbered items with a check line. Writes no new file |
-| `/customize-kit` | Tailor the kit to a project. Run once, and again after upgrades (it detects a 2.3.x, 2.4.x, 2.5.x, or 2.6.x setup) |
+| `/customize-kit` | Tailor the kit to a project. Run once, and again after upgrades (it detects a 2.3.x through 2.7.x setup) |
 | `/new-task <description or path [M#] or roadmap IDs>` | Create task files with checkable ACs; bulk-convert a task list one milestone at a time, or a roadmap one sitting at a time |
 | `/verify` | Generated per project by `/customize-kit`: run `verify.full` before a push and report the actual output |
 | `/next-task [--dry-run]` | Pick the best Ready task (respecting WIP and dependencies) and implement it attended |
 | `/implement-task <ID> [--unattended]` | Run the full loop for one task |
 | `/plan-batch [N \| IDs]` | Plan several tasks for approval in one sitting |
 | `/track-follow-ups [--since <PR#\|date>] [--dry-run]` | Find follow-ups merged PRs listed but nothing tracks, and place them on a `docs/` branch with one PR; also apply Owner checklist approvals you've ticked. Run once after upgrading to 2.6 |
+| `/sync-roadmap [--dry-run]` | Tick the roadmap items Done tasks finished but nobody ticked, after you approve the list, on a `docs/` branch with one PR (or on the kit upgrade branch); reports partly delivered items. Part of the 2.8 upgrade |
 
 ### Agents
 
@@ -386,6 +395,7 @@ Each agent reads `.claude/project/<agent-name>.md` first, if it exists, as its p
 | `archive-done.ps1 [-DryRun]` | `git mv` every Done task file into `docs/tasks/archive/` (staged, not committed). Refuses on the base branch. `/implement-task` runs it at close-out and accept |
 | `next-id.ps1 -Path <file> [-Prefix D-] [-List -Pattern <regex>]` | The next free ID (e.g. a decision) across the working tree, `origin/<base>`, and every open PR's branch; `-List` lists IDs in use (e.g. roadmap IDs) |
 | `list-follow-ups.ps1 [-Since <PR#\|date>] [-FromJson <file>] [-AsJson]` | The Follow-ups bullets of merged PRs, with any destination each names. Read by `/track-follow-ups` |
+| `list-roadmap-ticks.ps1 [-Include <IDs>] [-Path <doc>] [-AsJson]` | Finds the tick doc and its done marks. Roadmap mode: the open items whose task is Done. Otherwise: the Done tasks (with the Context lines and task-list rows that cite them) beside the open items, for Claude to match. Read-only. `/implement-task` runs it at close-out and accept |
 | `dispatch-approved.ps1 [-DryRun] [-Max N] [-PermissionMode m] [-Release IDs]` | Start background sessions for eligible tasks |
 
 ### Hooks (`.claude/hooks/`)

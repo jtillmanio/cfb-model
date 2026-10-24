@@ -1,6 +1,6 @@
 ---
 name: customize-kit
-description: One-time setup (or re-run after an upgrade) that tailors the Claude Code starter kit v2 to this project — kit.json, CLAUDE.md, rules, agent project files, permissions, ignore files, the /verify skill, and the GitHub workflow templates — from the real codebase. Detects a 2.3.x, 2.4.x, 2.5.x, or 2.6.x configuration and proposes the upgrade to the installed version. Use only when the user runs /customize-kit or explicitly asks to customize, re-customize, or upgrade the kit.
+description: One-time setup (or re-run after an upgrade) that tailors the Claude Code starter kit v2 to this project — kit.json, CLAUDE.md, rules, agent project files, permissions, ignore files, the /verify skill, and the GitHub workflow templates — from the real codebase. Detects a 2.3.x through 2.7.x configuration and proposes the upgrade to the installed version. Use only when the user runs /customize-kit or explicitly asks to customize, re-customize, or upgrade the kit.
 ---
 
 # Customize the starter kit (v2)
@@ -20,10 +20,11 @@ Goal: every `{{...}}` placeholder and every empty `kit.json` value that applies 
 - Never put project text into a kit-owned file (`.claude/skills/<kit skill>/`, `.claude/hooks/`, `.claude/scripts/`, `docs/templates/`): `install-kit.ps1 -Upgrade` overwrites them. Project instructions for a kit skill or agent go in `.claude/project/<name>.md`. A project script goes in the project's own folder (e.g. `scripts/`), not in `.claude/scripts/`: the installer wouldn't overwrite it there, but it reads as a kit file and an uninstall removes it.
 - Never open an env file whole. To learn which variables exist, read `.env.example` or the code.
 
-## Phase 0: Upgrade from 2.3.x, 2.4.x, 2.5.x, or 2.6.x (only when it applies)
+## Phase 0: Upgrade from 2.3.x through 2.7.x (only when it applies)
 
 Run this phase when `.claude/kit-version` is 2.4 or later and any of these hold; otherwise skip to Phase 1.
 
+- 2.8: `.claude/rules/git.md` doesn't mention roadmap ticks, or `list-roadmap-ticks.ps1` finds roadmap items finished by Done tasks that are still open.
 - 2.7: `.claude/settings.json` doesn't register `guard-destructive.ps1`, or registers a kit hook in shell form (`"command": "powershell -NoProfile ... $CLAUDE_PROJECT_DIR ..."` instead of `"command": "powershell"` with `args`).
 - 2.6: `.claude/kit.json` has no `workflow.followUps` key.
 - 2.5: `.claude/kit.json` has no `workflow.archiveDone` key, or it isn't `false` and task files with `status: Done` sit in `docs/tasks/` outside `archive/`.
@@ -39,8 +40,15 @@ Run this phase when `.claude/kit-version` is 2.4 or later and any of these hold;
 Then, reading `docs/claude-kit/UPGRADING.md` for the mapping:
 
 1. Merge `.kit-incoming/` first: keep the user's content, add the kit's new sections, keys, and rules. For agents, take the kit's body and keep the user's `model:` and `effort:` frontmatter. `.kit-incoming/.github/workflows/ci.yml` is the kit's unfilled template: never merge it into a filled-in `ci.yml`; only check that the project's CI keeps the parse step, `timeout-minutes`, `concurrency`, the job name, and test-database isolation. One-line summary per file.
-2. Build an upgrade table, one row per proposed change: what changes, why (the 2.4 item, or the 2.5, 2.6, or 2.7 change), the exact edit, and what text it lets you delete.
-   - From 2.6, only the 2.7 rows apply (UPGRADING.md § From 2.6 to 2.7):
+2. Build an upgrade table, one row per proposed change: what changes, why (the 2.4 item, or the 2.5 through 2.8 change), the exact edit, and what text it lets you delete.
+   - From 2.7, only the 2.8 rows apply (UPGRADING.md § From 2.7 to 2.8):
+     - `.claude/rules/git.md`: the **Roadmap ticks** bullet, first of the three allowed changes to other files on a task branch ("Two kinds" becomes "Three kinds").
+     - `spec-reviewer.md`: step 3 (Roadmap, with the ticks check), the scope sentence in step 6, the close-out check sentence under Inputs, the OVERREACH wording in step 11, and the two output blocks. Keep `model:` and `effort:`.
+     - PR template: the roadmap-ticks comment under What, and "the roadmap ticks and" in the diff checklist line.
+     - The tick doc: run `list-roadmap-ticks.ps1` and say which doc it found and why (roadmap mode, or the **Roadmap** / **Task list** role), and whether it has done marks. If it picked the wrong doc, fix the Project docs table. If it has no marks, nothing is ticked: say so, and don't add any.
+     - **Backfill**: tick the items Done tasks already finished, on this branch, by following `.claude/skills/sync-roadmap/SKILL.md` Phases 1–3. Its decision table is part of this upgrade table, and the owner approves it with the rest. Report partial items and ticked items whose task isn't Done; never untick.
+     - `.claude/project/*.md` and `CLAUDE.md` lines that say who ticks the roadmap or when (e.g. "Tick the task's checkbox in the roadmap in the same PR"): delete them if `ticks.md` now says the same, keep them if they are the project's rule; they win.
+   - From 2.6, the 2.7 rows as well (UPGRADING.md § From 2.6 to 2.7):
      - `settings.json`: register `guard-destructive.ps1` (PreToolUse, matcher `Bash|PowerShell`, timeout 30, `"onFailure": "block"`); rewrite every kit hook in exec form (`"command": "powershell"`, `"args": ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "${CLAUDE_PROJECT_DIR}/.claude/hooks/<hook>.ps1"]`), keeping each hook's timeout; `"onFailure": "block"` on `guard-protected-paths.ps1`; deny `Bash(gh repo delete*)` and `PowerShell(gh repo delete*)`. Keep project hooks the user added, and leave their form alone unless they share the shell-form problem (then propose the same rewrite).
      - `kit.json`: `destructiveGuard` with `allowPaths: [".kit-incoming"]`, plus any folder outside the project that Claude legitimately empties (a sibling build cache, a shared scratch drive); and `commands` for the project's destructive commands whose wording varies too much for a deny rule (database resets such as `prisma migrate reset`, `supabase db reset`, `dropdb`; seed scripts that truncate). Offer candidates from the manifests and scripts; `deny` for anything that touches a non-test database, `ask` for the rest.
      - `CLAUDE.md`: the two new stop-and-ask lines and the bullet on `guard-destructive.ps1`; the visibility line gains "or deleting or archiving one".
@@ -198,6 +206,7 @@ Run these and report each exit code:
 '{"tool_name":"PowerShell","tool_input":{"command":"git reset --hard"}}' | powershell -NoProfile -ExecutionPolicy Bypass -File .claude/hooks/guard-destructive.ps1   # expect JSON with "permissionDecision":"ask"
 '{"tool_name":"Bash","tool_input":{"command":"git status"}}' | powershell -NoProfile -ExecutionPolicy Bypass -File .claude/hooks/guard-destructive.ps1; $LASTEXITCODE         # expect 0, no output
 powershell -NoProfile -ExecutionPolicy Bypass -File .claude/scripts/build-index.ps1; $LASTEXITCODE                                                           # expect 0
+powershell -NoProfile -ExecutionPolicy Bypass -File .claude/scripts/list-roadmap-ticks.ps1; $LASTEXITCODE                                                    # expect 0 and the tick doc (or "No tick doc")
 powershell -NoProfile -ExecutionPolicy Bypass -File .claude/scripts/dispatch-approved.ps1 -DryRun                                                           # expect a summary, no dispatch
 ```
 

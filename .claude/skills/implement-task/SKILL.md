@@ -40,6 +40,7 @@ Each phase ends in a gate; never start a phase before the previous gate passes.
 - **Staging** follows `workflow.staging` (default `by-path`). By path: run `git status --porcelain`, stage only the files this task changed with `git add <file> …`, then read `git diff --staged` before committing. Leave every other change alone; it is the owner's. `all` restores `git add -A`.
 - **Archiving** follows `workflow.archiveDone` (default `true`): Done task files live in `docs/tasks/archive/`. `.claude/scripts/archive-done.ps1` moves every Done task file still in `docs/tasks/` there with `git mv`, which stages the renames. Those renames, and follow-up placements, are the only changes to other tasks' files a task branch carries.
 - **Follow-ups** follow `workflow.followUps` (default `apply`) and `.claude/skills/track-follow-ups/classify.md`, which says where each one goes and which need the owner's approval. Read it before the plan gate and again at close-out.
+- **Roadmap ticks** follow `.claude/skills/sync-roadmap/ticks.md`: which doc is ticked (the roadmap in roadmap mode, otherwise the **Roadmap** or **Task list** role, and only if it already has done marks), which items count as finished, and the sweep that catches items other Done tasks finished. Read it at close-out.
 
 ## Phase 0: Preflight
 
@@ -119,16 +120,16 @@ Then:
    - `## Metrics`
    - Tick the AC checkboxes that passed
    - `status: Review`
-2. Roadmap mode: tick the task's checkbox in the roadmap file in this same PR. Never edit `workflow.statusDoc`; it is regenerated from the roadmap, not from task files.
+2. **Roadmap ticks** (`ticks.md`): run `powershell -NoProfile -ExecutionPolicy Bypass -File .claude/scripts/list-roadmap-ticks.ps1 -Include <task ID>`. Tick the items this task finishes, then sweep: tick the open items other Done tasks finished. Partly delivered items stay open and are listed in the PR. Never edit `workflow.statusDoc`; it is regenerated from the roadmap, not from task files.
 3. **Follow-ups**, by `workflow.followUps` (default `apply`) and `classify.md`:
    - Collect: the task file's `## Follow-ups` (from the plan gate and from Phase 2), anything a reviewer reported that was deliberately left out, and every lasting decision this task made (new dependency, pattern, schema convention, rejected approach) as a candidate decision.
    - Classify each one: exactly one destination. A destination-1 item found now (small, in scope): attended, ask; on yes go back to Phase 2 for it and re-run Phases 3–5 (a plan revision). Unattended never widens the plan.
    - Approvals (planning-doc updates; decisions when the decisions mode is `propose`): attended, ask in one message: the numbered list, then (if `workflow.openPullRequests`) "Push and open a draft PR?". Write the ones approved. With `review`, show every placement there, not only these, and write only what is approved. Unattended: queue them in the **Owner checklist**.
    - Write the placements (none outside this task with `propose`). Task-file notes are headed with the branch name until the PR exists. Decision IDs come from `.claude/scripts/next-id.ps1`.
    - Rewrite `## Follow-ups` in the task file as the final list: every bullet ends `→ <path> § <section>` or `→ not tracked: <reason>`.
-4. **Follow-ups check**: if step 3 changed any file besides this task file and its roadmap checkbox, delegate **spec-reviewer** with "Follow-ups check only: task file <path>; the changes are the uncommitted close-out (`git diff`, `git diff --staged`, `git status --porcelain`)." Fix what it flags (or drop that placement and mark the bullet `not tracked`, saying why), and re-check once.
+4. **Close-out check**: if steps 2–3 changed any file besides this task file (in roadmap mode, its own roadmap tick doesn't count), delegate **spec-reviewer** with "Follow-ups check only: task file <path>; the changes are the uncommitted close-out (`git diff`, `git diff --staged`, `git status --porcelain`)." It checks the placements and the roadmap ticks. Fix what it flags (or drop that placement and mark the bullet `not tracked`, saying why), and re-check once.
 5. Archive other finished tasks (unless `workflow.archiveDone` is `false`): run `powershell -NoProfile -ExecutionPolicy Bypass -File .claude/scripts/archive-done.ps1`. It moves every Done task file still in `docs/tasks/` (tasks accepted by hand, or before archiving existed) and stages the renames. This task is in `Review`, so it stays put.
-6. Commit the close-out (see Names), including the follow-up placements and those renames. List each archived ID under **What** in the PR body: "Archived TASK-009, TASK-011 (Done; moved to `docs/tasks/archive/`)".
+6. Commit the close-out (see Names), including the roadmap ticks, the follow-up placements, and those renames. Under **What** in the PR body, list each archived ID, "Archived TASK-009, TASK-011 (Done; moved to `docs/tasks/archive/`)", and the roadmap lines from `ticks.md` § Reporting.
 7. If `workflow.openPullRequests` is true:
    - Attended: ask once, "Push and open a draft PR?" (already asked with step 3's approvals, if it had any).
    - Unattended: proceed.
@@ -177,7 +178,8 @@ If the user later replies "accepted" (in the session or via agent view):
 
 1. Set `status: Done` in the task file.
 2. Unless `workflow.archiveDone` is `false`, run `archive-done.ps1`. It moves this task file (and any other Done one) to `docs/tasks/archive/` and stages the rename; then `git add docs/tasks/archive/<this task's file>` to stage the status change too.
-3. Commit (Accept subject; stage the task file only, plus the archive renames), and push.
+3. **Roadmap sweep** (`ticks.md`): run `list-roadmap-ticks.ps1` (no `-Include`: this task is Done now) and tick what it shows finished: items tasks accepted by hand left open, and an item this task shares with a task accepted since its close-out.
+4. Commit (Accept subject; stage the task file, the archive renames, and the tick doc), and push. Report the roadmap lines from `ticks.md` § Reporting.
 
 Never merge. Done means merged and accepted, not deployed.
 

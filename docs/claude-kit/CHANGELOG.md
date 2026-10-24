@@ -1,5 +1,34 @@
 # Changelog
 
+## v2.8: Roadmap ticks
+
+Up to 2.7 the roadmap was ticked only in roadmap mode, and only by the close-out of the task with that item's ID. A project whose roadmap is a plain doc role with checkboxes, the "status source of truth", got no ticks at all. In one such project, six Phase 1 items that Done tasks had finished were still unticked. Roadmap mode had a smaller gap: a task accepted by editing `status: Done` by hand got no tick until someone noticed. In 2.8 every task's close-out ticks the items it finishes, close-out and accept also catch items other Done tasks finished, and `/sync-roadmap` backfills the rest. Upgrading a 2.7.x project: `UPGRADING.md` § From 2.7 to 2.8.
+
+### Added
+
+- **`.claude/skills/sync-roadmap/ticks.md`**: the one home for roadmap ticks.
+  - **The tick doc**: `workflow.roadmap.path` in roadmap mode, otherwise the **Roadmap** role, otherwise the **Task list**. Only a doc that already has done marks (checkboxes, or `☐`/`☑`-style glyphs) is ticked; marks are never added.
+  - **What counts as finished**: in roadmap mode, the item with the task's ID. Otherwise an item counts only if Done tasks deliver everything it lists, matched by evidence (the item names the task, or the task's Context or **Task list** row cites the item), never by similar words alone. Partly delivered items stay open and are reported.
+  - **Limits**: only the mark changes, and nothing is ever unticked.
+- **`/sync-roadmap [--dry-run]`**: the sweep across every Done task, as a table the owner approves, committed on a `docs/sync-roadmap-<date>` branch with one PR, or on the `chore/`/`docs/` branch it's run on (the kit upgrade branch).
+- **`.claude/scripts/list-roadmap-ticks.ps1`** (read-only): finds the tick doc and its marks.
+  - Roadmap mode: lists the open items whose tasks are all Done (`-Include` counts this task at close-out), ticked items whose task isn't finished, and Done tasks with no item.
+  - Otherwise: lists the Done tasks, with their Context lines and **Task list** rows, beside the open items under their headings.
+
+### Changed
+
+- **`/implement-task`**: close-out ticks this task's items and sweeps, with or without roadmap mode (it was roadmap mode only, own item only). "Accepted" sweeps again before the accept commit. The PR's **What** and the accept report list each tick and each partial item.
+- **spec-reviewer**: step 3 checks ticks. The full review flags `ROADMAP OVERTICK`. The close-out check (the "Follow-ups check only" run with a task file) flags `ROADMAP UNTICKED`. Roadmap mode's "must be ticked in this diff" moved to the close-out check, because the full review runs before close-out ticks anything.
+- **`.claude/rules/git.md`**: roadmap ticks join follow-up placements and archive renames as the allowed changes to other files on a task branch.
+- **PR template**: a roadmap-ticks line under **What**; the diff checklist line names the ticks.
+- **`/customize-kit`**: detects a 2.7 configuration, checks which doc the script picks, and runs the `/sync-roadmap` backfill on the upgrade branch as part of the upgrade table. The smoke test runs `list-roadmap-ticks.ps1`.
+- **`classify.md`**: ticks are never follow-ups.
+
+### Upgrade notes
+
+- The default changes behaviour with no config edit: after `-Upgrade`, a project without roadmap mode whose **Roadmap** (or **Task list**) doc has checkboxes gets them ticked at close-out and accept. To keep ticking yours by hand, add "Never tick the roadmap; the owner does" to `.claude/project/implement-task.md`.
+- Run `/sync-roadmap` on the upgrade branch (step 4) so the first task PR after the upgrade doesn't carry a pile of old ticks.
+
 ## v2.7: Destructive-command guard
 
 Coding agents have deleted whole repositories, home folders, and drives with one bad shell command: `rm -rf $DIR/` with `DIR` unset, `rm -rf ~` where `~/project` was meant, a cleanup run from the wrong folder, `git clean -fdx` over someone's uncommitted work. Up to 2.6 the kit's only defence was a handful of deny rules, which match the start of a command, so `rm -fr /`, `Remove-Item -Recurse C:\`, or anything inside `bash -c` got past them. In 2.7 a hook reads every shell command, works out what it would delete, and stops it when the answer is outside the project, the project itself, or work git can't give back. Upgrading a 2.6.x project: `UPGRADING.md` § From 2.6 to 2.7.

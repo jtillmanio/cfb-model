@@ -29,8 +29,9 @@ Lowercase and hyphenated, one purpose per branch, with a prefix from `workflow.b
 
 A dependency bot's own branches (e.g. `dependabot/...`) are the one exception. Its PRs pass the same CI.
 
-One task per branch, one branch per PR. A problem that belongs to another task isn't fixed in this diff: it goes in the PR's Follow-ups, and is also tracked where the work that will do it will read it, per `workflow.followUps` (`.claude/skills/track-follow-ups/classify.md`). Two kinds of change to other files are allowed on a task branch:
+One task per branch, one branch per PR. A problem that belongs to another task isn't fixed in this diff: it goes in the PR's Follow-ups, and is also tracked where the work that will do it will read it, per `workflow.followUps` (`.claude/skills/track-follow-ups/classify.md`). Three kinds of change to other files are allowed on a task branch:
 
+- **Roadmap ticks**, in the close-out or accept commit: this task's items, and items other Done tasks finished that are still open (`.claude/skills/sync-roadmap/ticks.md`). Only the mark changes; never an item's text or **Check:** line, never an untick.
 - **Follow-up placements**, in the close-out commit (or a plans PR): a note in another task's Context, a roadmap item, a decisions-log row, an approved planning-doc edit, an Owner checklist item. Each traces to a Follow-ups bullet; none changes another task's acceptance criteria or a roadmap **Check:** line.
 - **Archiving**, when `workflow.archiveDone` is on (the default): a task's close-out or accept commit, or a plans PR, also carries `git mv` renames of other Done task files into `docs/tasks/archive/` (`.claude/scripts/archive-done.ps1`). Never move them on the base branch.
 
