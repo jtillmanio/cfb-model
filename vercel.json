@@ -5,14 +5,12 @@
       "root": "web/",
       "framework": "nextjs",
       "buildCommand": "uv --directory ../python run --frozen --no-dev python -m db migrate --target preview && next build",
-      "ignoreCommand": "node \"$(git rev-parse --show-toplevel)/scripts/vercel-ignore-build.mjs\"",
       "bindings": [{ "type": "service", "service": "api", "format": "url", "env": "API_URL" }]
     },
     "api": {
       "root": "python/api/",
       "framework": "fastapi",
-      "entrypoint": "src.api.main:app",
-      "ignoreCommand": "node \"$(git rev-parse --show-toplevel)/scripts/vercel-ignore-build.mjs\""
+      "entrypoint": "src.api.main:app"
     }
   },
   "rewrites": [
