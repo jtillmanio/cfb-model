@@ -124,7 +124,7 @@ uv --directory python run python -m db migrate --target live --env-file ..\.env.
 Every Vercel deployment keeps its own copy of the functions, and the Hobby plan's Function Storage
 is 10 GB (D-126). Three things keep it down:
 
-- **Docs-only commits don't build.** `vercel.json`'s `ignoreCommand` runs
+- **Docs-only commits don't build.** Each service's `ignoreCommand` in `vercel.json` runs
   `scripts/vercel-ignore-build.mjs`, which skips a build when everything since the branch's last
   deployment (on a first build, since `main`) is docs/config, by CI's own rule
   (`scripts/lib/ci-scope.mjs`). The deployment log's ignore step prints `skip:` or `build:` and why.

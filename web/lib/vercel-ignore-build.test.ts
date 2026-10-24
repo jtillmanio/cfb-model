@@ -156,10 +156,17 @@ describe("scripts/vercel-ignore-build.mjs", () => {
 });
 
 describe("vercel.json", () => {
-  it("runs the script as the Ignored Build Step, from the repository root", () => {
+  it("runs the script as every service's Ignored Build Step, from the repository root", () => {
     const config = JSON.parse(readFileSync(join(ROOT, "vercel.json"), "utf8"));
-    expect(config.ignoreCommand).toBe(
-      'node "$(git rev-parse --show-toplevel)/scripts/vercel-ignore-build.mjs"',
-    );
+    // With `services`, a top-level ignoreCommand fails the deployment: it must sit on each service.
+    // The same command on both, so the services always build or skip together.
+    expect(config.ignoreCommand).toBeUndefined();
+    const services = Object.keys(config.services);
+    expect(services).toEqual(["web", "api"]);
+    for (const name of services) {
+      expect(config.services[name].ignoreCommand, name).toBe(
+        'node "$(git rev-parse --show-toplevel)/scripts/vercel-ignore-build.mjs"',
+      );
+    }
   });
 });

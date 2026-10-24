@@ -1,6 +1,7 @@
-// Vercel's Ignored Build Step (vercel.json `ignoreCommand`, D-126): skips a build whose changes
-// are all docs/config, by the same rule CI uses to skip its build (scripts/lib/ci-scope.mjs). Each
-// deployment stores its own copy of the functions, which count against Function Storage.
+// Vercel's Ignored Build Step (each service's `ignoreCommand` in vercel.json, D-126): skips a build
+// whose changes are all docs/config, by the same rule CI uses to skip its build
+// (scripts/lib/ci-scope.mjs). Each deployment stores its own copy of the functions, which count
+// against Function Storage.
 //
 // Vercel reads the exit code: 0 skips the build, 1 builds. The diff starts at the branch's last
 // successful deployment (VERCEL_GIT_PREVIOUS_SHA); on a branch's first build there is none, so it
