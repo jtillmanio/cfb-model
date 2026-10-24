@@ -120,6 +120,29 @@ To migrate production by hand (rare), put `PRODUCTION_DATABASE_URL_UNPOOLED=…`
 uv --directory python run python -m db migrate --target live --env-file ..\.env.live
 ```
 
+### Deployments and storage
+Every Vercel deployment keeps its own copy of the functions, and the Hobby plan's Function Storage
+is 10 GB (D-126). Three things keep it down:
+
+- **Docs-only commits don't build.** `vercel.json`'s `ignoreCommand` runs
+  `scripts/vercel-ignore-build.mjs`, which skips a build when everything since the branch's last
+  deployment (on a first build, since `main`) is docs/config, by CI's own rule
+  (`scripts/lib/ci-scope.mjs`). The deployment log's ignore step prints `skip:` or `build:` and why.
+- **The API installs only what it needs.** `python/api/tests/test_bundle.py` lists the packages a
+  `--no-dev` install may hold; a new one fails CI until it's added there on purpose.
+- **Old deployments are deleted** by the **Vercel cleanup** workflow (`vercel-cleanup.yml`): a closed
+  PR's previews when it closes, and a weekly sweep (Mondays, from the [dispatcher](#dispatcher)) of
+  previews with no open PR and `main` builds past the newest five. It never deletes the deployment
+  serving production, the newest five ready `main` builds, anything building, or an open PR's
+  previews.
+
+```powershell
+gh workflow run vercel-cleanup.yml                                # sweep, dry run: lists, deletes nothing
+gh workflow run vercel-cleanup.yml -f dry_run=false               # sweep
+gh workflow run vercel-cleanup.yml -f dry_run=false -f branch=<b> # one closed PR's previews
+```
+It uses the release's `VERCEL_TOKEN`, `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID` and `PRODUCTION_URL`.
+
 ## Dispatcher
 
 The **dispatcher** is a small Cloudflare Worker (`infra/dispatcher/`, D-122) that starts this
@@ -150,7 +173,7 @@ Cloudflare runs the Worker every 15 minutes, all day (the Cron Trigger `*/15 * *
    07:30:04 UTC on 2026-10-17 becomes Saturday 03:30 ET.
 2. Looks that weekday and time up in `SCHEDULE` (`infra/dispatcher/src/index.ts`).
 3. For each job due at that time, sends `POST /repos/jtillmanio/cfb-model/actions/workflows/<file>/dispatches`
-   with `{"ref": "main"}`, using the GitHub token (below).
+   with `{"ref": "main"}` (plus the entry's `inputs`, if it has any), using the GitHub token (below).
 4. Logs the result. On almost every tick nothing is due, and the Worker exits in a few
    milliseconds without calling GitHub.
 
@@ -163,6 +186,7 @@ GitHub then starts the workflow on `main`, and its run shows in the Actions tab 
 |---|---|---|
 | `backup.yml` | Daily 03:30 | Quiet hours, before the morning jobs write |
 | `results.yml` | Sun and Mon 06:00 | The weekend's finals; Monday's run settles the week, and both finish before Sunday's ratings and the 10 AM predictions (D-092) |
+| `vercel-cleanup.yml` | Mon 06:15, with `dry_run=false` | Weekly sweep of old deployments ([Deployments and storage](#deployments-and-storage)); a hand run is a dry run |
 | `lines.yml` | Daily 08:00 | The daily line snapshot (02 › Non-functional requirements) |
 | `lines.yml` | Thu and Fri 19:00 | The pick window, when lines move most before the weekend |
 

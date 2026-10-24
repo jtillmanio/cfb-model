@@ -37,6 +37,14 @@ class ReleaseRefused(RuntimeError):
     """The release can't go ahead. The message names the commit or check that stopped it."""
 
 
+class ApiRefused(ReleaseRefused):
+    """An API answered with an error status, kept for callers that treat some as expected."""
+
+    def __init__(self, message: str, status: int) -> None:
+        super().__init__(message)
+        self.status = status
+
+
 @dataclass(frozen=True)
 class Deployment:
     id: str
@@ -234,7 +242,7 @@ def _call(
             raw = response.read()
     except HTTPError as e:
         detail = e.read().decode(errors="replace")[:300]
-        raise ReleaseRefused(f"{method} {url} answered {e.code}: {detail}") from None
+        raise ApiRefused(f"{method} {url} answered {e.code}: {detail}", e.code) from None
     return json.loads(raw) if raw else None
 
 

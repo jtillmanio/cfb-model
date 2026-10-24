@@ -1,5 +1,6 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
+  "ignoreCommand": "node \"$(git rev-parse --show-toplevel)/scripts/vercel-ignore-build.mjs\"",
   "services": {
     "web": {
       "root": "web/",
