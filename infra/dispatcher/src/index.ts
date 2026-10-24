@@ -11,12 +11,15 @@ export interface Entry {
   days: "daily" | readonly Weekday[];
   /** ET wall-clock time, "HH:MM" on a quarter hour. Never 01:00–02:59: DST repeats or skips it. */
   time: string;
+  /** workflow_dispatch inputs, when the run must differ from a hand run's defaults. */
+  inputs?: Readonly<Record<string, string>>;
 }
 
 /** Add a job by adding a line (README › Dispatcher). */
 export const SCHEDULE: readonly Entry[] = [
   { workflow: "backup.yml", days: "daily", time: "03:30" },
   { workflow: "results.yml", days: ["Sun", "Mon"], time: "06:00" },
+  { workflow: "vercel-cleanup.yml", days: ["Mon"], time: "06:15", inputs: { dry_run: "false" } },
   { workflow: "lines.yml", days: "daily", time: "08:00" },
   { workflow: "lines.yml", days: ["Thu", "Fri"], time: "19:00" },
 ];
@@ -38,30 +41,30 @@ const easternTime = new Intl.DateTimeFormat("en-US", {
 });
 
 /**
- * The workflows due in the ET quarter-hour slot holding `now`. A tick that runs late but inside
+ * The entries due in the ET quarter-hour slot holding `now`. A tick that runs late but inside
  * its slot still fires; a slot with no tick is not retried.
  */
-export function due(now: Date, schedule: readonly Entry[] = SCHEDULE): string[] {
+export function due(now: Date, schedule: readonly Entry[] = SCHEDULE): Entry[] {
   const parts = Object.fromEntries(easternTime.formatToParts(now).map((p) => [p.type, p.value]));
   const slot = String(Math.floor(Number(parts.minute) / 15) * 15).padStart(2, "0");
   const time = `${parts.hour}:${slot}`;
   const weekday = parts.weekday as Weekday;
-  return schedule
-    .filter((e) => e.time === time && (e.days === "daily" || e.days.includes(weekday)))
-    .map((e) => e.workflow);
+  return schedule.filter(
+    (e) => e.time === time && (e.days === "daily" || e.days.includes(weekday)),
+  );
 }
 
 /**
- * POSTs one workflow_dispatch per workflow. A failure is logged and the rest are still sent.
- * Returns the workflows that failed.
+ * POSTs one workflow_dispatch per entry, with its inputs. A failure is logged and the rest are
+ * still sent. Returns the workflows that failed.
  */
 export async function dispatch(
   env: Env,
-  workflows: readonly string[],
+  entries: readonly Pick<Entry, "workflow" | "inputs">[],
   fetchFn: typeof fetch = fetch,
 ): Promise<string[]> {
   const failed: string[] = [];
-  for (const workflow of workflows) {
+  for (const { workflow, inputs } of entries) {
     const url = `https://api.github.com/repos/${env.GITHUB_REPO}/actions/workflows/${workflow}/dispatches`;
     try {
       const response = await fetchFn(url, {
@@ -73,7 +76,7 @@ export async function dispatch(
           // GitHub refuses API requests without a User-Agent.
           "User-Agent": "cfb-dispatcher",
         },
-        body: JSON.stringify({ ref: env.GITHUB_REF }),
+        body: JSON.stringify(inputs ? { ref: env.GITHUB_REF, inputs } : { ref: env.GITHUB_REF }),
       });
       if (response.ok) {
         console.log(`dispatched ${workflow} on ${env.GITHUB_REF}`);
@@ -91,9 +94,9 @@ export async function dispatch(
 
 export default {
   async scheduled(controller, env) {
-    const workflows = due(new Date(controller.scheduledTime));
-    if (workflows.length === 0) return;
-    const failed = await dispatch(env, workflows);
+    const entries = due(new Date(controller.scheduledTime));
+    if (entries.length === 0) return;
+    const failed = await dispatch(env, entries);
     // Throwing marks the Cron event as failed in the Cloudflare dashboard.
     if (failed.length > 0) throw new Error(`dispatch failed for ${failed.join(", ")}`);
   },

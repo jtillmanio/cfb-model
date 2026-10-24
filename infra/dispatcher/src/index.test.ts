@@ -3,7 +3,12 @@ import { join } from "node:path";
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import worker, { dispatch, due, SCHEDULE, type Env } from "./index";
+import worker, { dispatch, due as dueEntries, SCHEDULE, type Entry, type Env } from "./index";
+
+/** The workflow files due at `now`. */
+const due = (now: Date, schedule?: readonly Entry[]) =>
+  dueEntries(now, schedule).map((e) => e.workflow);
+const entries = (...workflows: string[]) => workflows.map((workflow) => ({ workflow }));
 
 const env: Env = {
   GITHUB_DISPATCH_TOKEN: "test-token",
@@ -62,6 +67,15 @@ describe("due (AC-1)", () => {
     expect(due(new Date("2026-11-14T00:00:00Z"))).toEqual(["lines.yml"]);
   });
 
+  it("fires the Vercel cleanup Mondays 06:15 ET, for real rather than a dry run (D-126)", () => {
+    // Monday 2026-10-26 06:15 EDT; Monday 2026-11-09 06:15 EST; Sunday 2026-10-25 06:15 EDT.
+    expect(dueEntries(new Date("2026-10-26T10:15:00Z"))).toEqual([
+      { workflow: "vercel-cleanup.yml", days: ["Mon"], time: "06:15", inputs: { dry_run: "false" } },
+    ]);
+    expect(due(new Date("2026-11-09T11:15:00Z"))).toEqual(["vercel-cleanup.yml"]);
+    expect(due(new Date("2026-10-25T10:15:00Z"))).toEqual([]);
+  });
+
   it("has no entry between 01:00 and 02:59 ET, and every entry is on a quarter hour", () => {
     for (const entry of SCHEDULE) {
       const [hour, minute] = entry.time.split(":").map(Number);
@@ -75,7 +89,7 @@ describe("dispatch (AC-2)", () => {
   it("sends one POST per due workflow with ref main and the bearer token", async () => {
     const fetchFn = vi.fn(async () => new Response(null, { status: 204 }));
 
-    const failed = await dispatch(env, ["backup.yml"], fetchFn);
+    const failed = await dispatch(env, entries("backup.yml"), fetchFn);
 
     expect(failed).toEqual([]);
     expect(fetchFn).toHaveBeenCalledTimes(1);
@@ -88,6 +102,16 @@ describe("dispatch (AC-2)", () => {
     expect(headers.get("User-Agent")).toBeTruthy();
   });
 
+  it("sends an entry's inputs with the ref", async () => {
+    vi.spyOn(console, "log").mockImplementation(() => {});
+    const fetchFn = vi.fn(async () => new Response(null, { status: 204 }));
+
+    await dispatch(env, [{ workflow: "vercel-cleanup.yml", inputs: { dry_run: "false" } }], fetchFn);
+
+    const [, init] = fetchFn.mock.calls[0] as unknown as [string, RequestInit];
+    expect(JSON.parse(init.body as string)).toEqual({ ref: "main", inputs: { dry_run: "false" } });
+  });
+
   it("logs a non-2xx with its status and body and still sends the rest", async () => {
     const error = vi.spyOn(console, "error").mockImplementation(() => {});
     vi.spyOn(console, "log").mockImplementation(() => {});
@@ -96,7 +120,7 @@ describe("dispatch (AC-2)", () => {
       .mockResolvedValueOnce(new Response('{"message":"No ref found for: main"}', { status: 422 }))
       .mockResolvedValueOnce(new Response(null, { status: 204 }));
 
-    const failed = await dispatch(env, ["first.yml", "second.yml"], fetchFn);
+    const failed = await dispatch(env, entries("first.yml", "second.yml"), fetchFn);
 
     expect(fetchFn).toHaveBeenCalledTimes(2);
     expect(String(fetchFn.mock.calls[1][0])).toContain("/workflows/second.yml/dispatches");
@@ -115,7 +139,7 @@ describe("dispatch (AC-2)", () => {
       .mockRejectedValueOnce(new TypeError("network down"))
       .mockResolvedValueOnce(new Response(null, { status: 204 }));
 
-    expect(await dispatch(env, ["first.yml", "second.yml"], fetchFn)).toEqual(["first.yml"]);
+    expect(await dispatch(env, entries("first.yml", "second.yml"), fetchFn)).toEqual(["first.yml"]);
     expect(fetchFn).toHaveBeenCalledTimes(2);
   });
 });

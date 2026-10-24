@@ -1,0 +1,79 @@
+# Deletes Vercel deployments nothing needs any more (D-126). Each deployment keeps its own copy of
+# the functions, and they count against the Hobby plan's 10 GB of Function Storage.
+#
+#   PR closed   that branch's previews
+#   sweep       previews with no open PR (a day old or more) and main builds past the newest five;
+#               weekly from the dispatcher (Mon 06:15 ET, dry_run=false) or by hand
+#
+# Never deleted: the deployment serving production, the newest five ready main builds (release and
+# rollback candidates), anything still building, an open PR's previews. The logic and its tests are
+# `python -m db vercel-cleanup` (python/db/src/db/deployments.py). A hand run is a dry run unless
+# you say otherwise:
+#   gh workflow run vercel-cleanup.yml                                # sweep, dry run
+#   gh workflow run vercel-cleanup.yml -f dry_run=false               # sweep
+#   gh workflow run vercel-cleanup.yml -f dry_run=false -f branch=<b> # one closed PR's previews
+# Secrets reach steps only through `env:`, and the branch name never goes into the script text.
+name: Vercel cleanup
+
+on:
+  pull_request:
+    types: [closed]
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: Only this closed PR's previews (leave empty to sweep the project)
+        type: string
+        required: false
+      dry_run:
+        description: List what would be deleted; delete nothing
+        type: boolean
+        default: true
+
+# One at a time, and a queued run never cancels one half done.
+concurrency:
+  group: vercel-cleanup
+  cancel-in-progress: false
+
+permissions: {}
+
+env:
+  UV_FROZEN: "1"
+
+jobs:
+  delete:
+    name: delete deployments
+    # A fork's PR gets no secrets, and its preview isn't built from this project anyway.
+    if: >-
+      ${{ github.event_name == 'workflow_dispatch'
+      || github.event.pull_request.head.repo.full_name == github.repository }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20 # a first sweep deletes a few hundred, half a second apart
+    permissions:
+      contents: read
+      pull-requests: read # open PRs keep their previews
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10.3.0
+        with:
+          enable-cache: true
+          cache-dependency-glob: python/uv.lock
+      - name: Delete deployments nothing needs
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID }}
+          PRODUCTION_URL: ${{ vars.PRODUCTION_URL }}
+          GITHUB_TOKEN: ${{ github.token }}
+          BRANCH: ${{ github.event_name == 'pull_request' && github.head_ref || inputs.branch }}
+          DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run || 'false' }}
+        run: |
+          set -euo pipefail
+          # Dependabot closing its own PR runs without Actions secrets.
+          if [ -z "$VERCEL_TOKEN" ]; then
+            echo "::warning::VERCEL_TOKEN is unavailable to this run; nothing deleted"
+            exit 0
+          fi
+          args=()
+          if [ -n "$BRANCH" ]; then args+=(--branch "$BRANCH"); fi
+          if [ "$DRY_RUN" = "true" ]; then args+=(--dry-run); fi
+          uv --directory python run --no-dev python -m db vercel-cleanup "${args[@]}"

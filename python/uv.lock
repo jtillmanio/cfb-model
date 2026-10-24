@@ -99,7 +99,6 @@ source = { virtual = "." }
 dependencies = [
     { name = "cfb-api" },
     { name = "cfb-db" },
-    { name = "cfb-engine" },
 ]
 
 [package.dev-dependencies]
@@ -121,7 +120,6 @@ notebooks = [
 requires-dist = [
     { name = "cfb-api", editable = "api" },
     { name = "cfb-db", editable = "db" },
-    { name = "cfb-engine", editable = "engine" },
 ]
 
 [package.metadata.requires-dev]

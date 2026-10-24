@@ -1,4 +1,6 @@
 # uv workspace root. `uv run` from here syncs every member plus the dev tools.
+# [project] lists only what the API needs: Vercel installs the API from this lock with --no-dev,
+# and every deployment stores its own copy (D-126). api/tests/test_bundle.py pins the result.
 [project]
 name = "cfb"
 version = "0.0.0"
@@ -6,7 +8,6 @@ requires-python = ">=3.13,<3.14"
 dependencies = [
     "cfb-db",
     "cfb-api",
-    "cfb-engine",
 ]
 
 [dependency-groups]
@@ -17,8 +18,9 @@ dev = [
     "uvicorn>=0.37",
     "httpx2>=2.13",
     "moto[s3]>=5.2.4",
-    # The engine's ingest stack (pyarrow, boto3). Here, not in [project]: Vercel installs the
-    # API from this lock with --no-dev, and these would push it to a failing runtime install (D-114).
+    # The engine and its ingest stack (pyarrow, boto3). Here, not in [project]: Vercel installs the
+    # API from this lock with --no-dev, and these would push it to a failing runtime install (D-114)
+    # or grow every deployment's copy (D-126). The jobs run the engine with the dev group.
     "cfb-engine[train]",
 ]
 # python/notebooks/ (marimo, D-121): `uv run --group notebooks marimo edit notebooks/01-explore.py`.
