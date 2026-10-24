@@ -1,14 +1,14 @@
 ---
 id: TASK-019
 title: Build point-in-time team_week_features and game_features
-status: Ready
+status: In progress
 depends_on: [TASK-018]
 size: M
 model: opus
 autonomy: attended
 ui: false
-plan_status: none
-planned_at_commit:
+plan_status: approved
+planned_at_commit: 945fd7d
 ---
 
 # TASK-019 — Build point-in-time team_week_features and game_features
@@ -65,7 +65,34 @@ _Work noticed during this task and deliberately left out. Each bullet ends `→ 
 
 ## Plan
 
-_Written by /plan-batch or /implement-task Phase 1. Approved by the user (plan_status: approved) before any code is written._
+Approved 2026-10-24 (attended), with both open questions settled as recommended.
+
+**Decisions (recorded as a D-### row at close-out):**
+- `as_of` for a (season, season_type, week) is the earliest kickoff among that week's staged games; a TBA kickoff counts as the start of its Eastern `game_date` here, so `as_of` is never late.
+- A row includes the team's `final` games that season whose kickoff is before `as_of` (a TBA game counts as the end of its Eastern date, the existing cutoff convention). The cutoff is a time, not a week label, so postseason orders after the regular season and a rescheduled game can't leak. On the 2014–2026 lake no game kicks off after a later week's first kickoff (Army–Navy 2025 is 5 h before the first bowl).
+- Rows: every team in the season's staged games × every week with a staged game. Week-1 rows exist with `games_played` 0, sums 0, averages NULL. A future live week's row holds the games final so far.
+- `team_week_features` columns: `team_source_id, season, season_type, week, as_of, last_game_kickoff`; `games_played, points_for, points_against` (sums), `points_for_per_game, points_against_per_game, margin_per_game`; `advanced_games, off_plays, def_plays` (sums); season-to-date means of `{off,def}_{,rush_,pass_}{ppa,success_rate,explosiveness}` (side_split_metric, as `team_game_advanced` names them, so M18 extends without renames).
+- Rates are **means of per-game values** (one game = one observation, as Rung 2 treats a game); staging has no rush/pass play counts, so play-weighting would need a staging column.
+- Team-games with no advanced stats (D-121's 103) count in `games_played` and points but not in the efficiency means; `advanced_games` is their denominator. No box-score fallback (box scores aren't garbage-time filtered).
+- `game_features`: one row per staged game: `game_source_id, season, season_type, week, as_of, kickoff_at, neutral_site, home_source_id, away_source_id`, `home_*`/`away_*` copies of every feature column, and `margin` (NULL unless final).
+- AC-2 reading: every `team_week_features` row for weeks ≤ 7 is identical, and every week-≤7 `game_features` column except the changed game's own target `margin`.
+
+**Steps:**
+1. Season fixture helper in `lake_fixture.py`: clone the 5 week-1 games, their advanced stats and lines into weeks 2–8 (7 days apart, points varied, one bye); write the failing tests.
+2. `transform/features.py`: the SQL for both tables, the inclusion rule as a module constant, and `check_point_in_time()` raising `PointInTimeError` naming team, season, season type and week.
+3. `transform/__init__.py`: a `FEATURE_TABLES` registry built after staging, asserted, then written to `features/<name>.parquet` with the staged files; counts returned.
+4. `cli.py`: `transform --rebuild` prints a `PointInTimeError` and exits 1.
+5. `docs/03-data-model.md` › Lake layout (feature tables and columns) and › Data quality checks; a decisions row.
+
+**Files:** `python/engine/src/engine/transform/features.py` (new), `transform/__init__.py`, `cli.py` (not listed), `tests/lake_fixture.py` (not listed: the fixture is generated in code, so existing counts don't move), `tests/test_features.py` (new), `tests/test_leakage.py` (new), `tests/test_transform.py` (not listed), `docs/03-data-model.md` (not listed), `docs/decisions.md` (not listed).
+
+**Tests:**
+- AC-1: `test_features.py::test_every_row_has_as_of_after_its_sources`, `::test_leaky_inclusion_fails_the_build_naming_the_row` (the rule monkeypatched from `<` to `<=`; rebuild exits 1 naming team, season and week)
+- AC-2: `test_leakage.py::test_changing_a_week7_game_leaves_weeks_through_7_unchanged`
+- AC-3: `test_features.py::test_week4_counts_three_games_and_week1_is_empty`
+- AC-4: `test_features.py::test_one_game_row_per_staged_game_with_target`
+- AC-5: `test_transform.py::test_rebuild_stages_every_table_with_no_api_calls` extended
+- Manual: one local team's weeks 1–8.
 
 ## Review log
 

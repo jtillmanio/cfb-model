@@ -172,9 +172,11 @@ def main(argv: list[str] | None = None) -> None:
 
     transform = commands.add_parser(
         "transform",
-        help="Rebuild staging/ from raw/ with no API calls, then run the data-quality checks",
-        description="Recreates every staged table in LAKE_URI from its raw files alone, then runs "
-        "the checks. Exits 1 if a check fails, 2 if it refuses (LIVE=true).",
+        help="Rebuild staging/ and features/ from raw/ with no API calls, then run the "
+        "data-quality checks",
+        description="Recreates every staged table in LAKE_URI from its raw files alone, then the "
+        "point-in-time feature tables from those, then runs the checks. Exits 1 if a check fails "
+        "(a feature row that reads a later game included), 2 if it refuses (LIVE=true).",
     )
     transform.add_argument(
         "--rebuild", action="store_true", required=True, help="Rebuild every staged table"
@@ -270,11 +272,15 @@ def main(argv: list[str] | None = None) -> None:
         load_env()  # before the LIVE check, so a LIVE in .env.local counts
         from engine.ingest.lake import open_lake
         from engine.transform import rebuild
+        from engine.transform.features import PointInTimeError
 
         try:
             rebuild(open_lake())
         except UnsafeDatabaseError as e:
             _refuse(str(e))
+        except PointInTimeError as e:  # a failed check: no staged or feature file replaced
+            print(f"FAIL {e}")
+            sys.exit(1)
         _quality()
     elif args.command == "check":
         load_env()

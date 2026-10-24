@@ -1,10 +1,11 @@
 """`engine transform --rebuild`: every staged table rebuilt from the raw lake alone, with zero API
 calls (D-027, D-116). Staging is derived, so it's overwritten; raw is never touched.
 
-`TABLES` is the registry, built in order (a builder may read the tables before it). TASK-019
-appends to it. `SEASON_TABLES` (plays, drives) are too big to hold every season at once, so each
-is built and written one season at a time, to `staging/<name>/season=YYYY/data.parquet`, before
-`skipped_raw` (D-119).
+`TABLES` is the registry, built in order (a builder may read the tables before it). `SEASON_TABLES`
+(plays, drives) are too big to hold every season at once, so each is built and written one season
+at a time, to `staging/<name>/season=YYYY/data.parquet`, before `skipped_raw` (D-119).
+`FEATURE_TABLES` are built from the staged tables, checked against the point-in-time rule, and
+written to `features/<name>.parquet` with them (TASK-019).
 """
 
 from __future__ import annotations
@@ -16,7 +17,7 @@ from typing import TYPE_CHECKING
 
 from db.config import refuse_if_live
 from engine.ingest.lake import Lake
-from engine.transform import staging, stats
+from engine.transform import features, staging, stats
 from engine.transform.staging import Staging, raw_prefix
 
 if TYPE_CHECKING:
@@ -44,11 +45,21 @@ SEASON_TABLES: dict[str, Callable[[Staging, int], str]] = {
     "drives": stats.drives,
 }
 
+# Built in order after `TABLES`, from the staged tables in the connection.
+FEATURE_TABLES: dict[str, Callable[[], str]] = {
+    "team_week_features": features.team_week_features,
+    "game_features": features.game_features,
+}
+
 _SEASON = re.compile(r"raw/cfbd/[^/]+/season=(\d+)/")
 
 
 def staging_key(name: str) -> str:
     return f"staging/{name}.parquet"
+
+
+def feature_key(name: str) -> str:
+    return f"features/{name}.parquet"
 
 
 def season_key(name: str, season: int) -> str:
@@ -86,11 +97,14 @@ def _rebuild_seasons(s: Staging) -> tuple[dict[str, int], list[str]]:
 
 
 def rebuild(lake: Lake) -> dict[str, int]:
-    """Build every `TABLES` table in memory, then replace the staged files; returns the row
-    counts. The season tables are written while `skipped_raw` waits for them to finish loading.
-    Under LIVE=true it refuses before reading anything, unless `staging/` is empty: then nothing
-    is overwritten (the jobs' scratch lake, TASK-022)."""
-    if lake.walk("staging"):
+    """Build every `TABLES` and `FEATURE_TABLES` table in memory, check the features against
+    the point-in-time rule, then replace the staged and feature files; returns the row counts.
+    The season tables are written while `skipped_raw` waits for them to finish loading. A
+    `features.PointInTimeError` replaces no other staged file and no feature file (the season
+    files are already written, as with any failure part-way, D-119). Under LIVE=true it refuses
+    before reading anything, unless `staging/` and `features/` are empty: then nothing is
+    overwritten (the jobs' scratch lake, TASK-022)."""
+    if lake.walk("staging") or lake.walk("features"):
         refuse_if_live("rebuild staging")
 
     s = Staging(lake)
@@ -103,10 +117,17 @@ def rebuild(lake: Lake) -> dict[str, int]:
         s.con.execute(f"CREATE TABLE {name} AS {select(s)}")
         built[name] = s.con.table(name).to_arrow_table()
 
+    for name, select in FEATURE_TABLES.items():
+        s.con.execute(f"CREATE TABLE {name} AS {select()}")
+    features.check_point_in_time(s.con)
+    featured = {name: s.con.table(name).to_arrow_table() for name in FEATURE_TABLES}
+
     for name, table in built.items():
         _write(lake, staging_key(name), table)
+    for name, table in featured.items():
+        _write(lake, feature_key(name), table)
 
-    counts = {name: table.num_rows for name, table in built.items()} | season_counts
+    counts = {name: table.num_rows for name, table in (built | featured).items()} | season_counts
     print("Staged " + ", ".join(f"{n} {name}" for name, n in counts.items()) + ".")
     if s.dropped_lines:
         print(f"Dropped {s.dropped_lines} line rows for games not in staged games (no FBS team).")
