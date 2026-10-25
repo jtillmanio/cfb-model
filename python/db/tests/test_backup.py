@@ -2,7 +2,7 @@
 
 import re
 import subprocess
-from datetime import date, datetime, timedelta, timezone
+from datetime import UTC, date, datetime, timedelta, timezone
 
 import pytest
 from sqlalchemy import text
@@ -399,3 +399,158 @@ def test_the_backup_workflow_runs_nightly_and_on_demand_with_read_only_permissio
     assert re.search(r"^  workflow_dispatch:", code, re.M)
     assert re.search(r"^permissions:\s*\n\s+contents: read\s*$", code, re.M)
     assert "write" not in code
+
+
+# ─── TASK-026: the GitHub-schedule fallback skips when the day's dump exists ─────────────────
+
+
+class FakeHead:
+    """Stands in for `aws s3api head-object`: records the call and answers with a fixed result."""
+
+    def __init__(self, returncode: int = 0, stderr: str = ""):
+        self.returncode, self.stderr, self.calls = returncode, stderr, []
+
+    def __call__(self, cmd, **kwargs):
+        self.calls.append(cmd)
+        return subprocess.CompletedProcess(cmd, self.returncode, "", self.stderr)
+
+
+NOT_FOUND = "An error occurred (404) when calling the HeadObject operation: Not Found"
+
+
+def _fallback(monkeypatch, tmp_path, fake, *args, bucket="cfb-backups"):
+    """Runs `backup fallback`; returns (job summary, step outputs)."""
+    summary, output = tmp_path / "summary.md", tmp_path / "output.txt"
+    monkeypatch.setenv("GITHUB_STEP_SUMMARY", str(summary))
+    monkeypatch.setenv("GITHUB_OUTPUT", str(output))
+    if bucket:
+        monkeypatch.setenv("R2_BUCKET", bucket)
+    else:
+        monkeypatch.delenv("R2_BUCKET", raising=False)
+    monkeypatch.setenv("R2_ACCOUNT_ID", "acct")
+    monkeypatch.setattr("db.backup.subprocess.run", fake)
+    main(["backup", "fallback", *args])
+    return summary.read_text(encoding="utf-8"), output.read_text(encoding="utf-8")
+
+
+def test_a_dispatched_run_always_backs_up_without_asking_r2(monkeypatch, tmp_path):
+    fake = FakeHead(0)  # a dump exists; a dispatch must not care
+    summary, output = _fallback(monkeypatch, tmp_path, fake, "--event", "workflow_dispatch")
+    assert "skip=false" in output
+    assert fake.calls == []
+    assert "dispatched" in summary.lower()
+
+
+def test_a_scheduled_run_skips_when_the_days_dump_exists(monkeypatch, tmp_path):
+    fake = FakeHead(0)
+    summary, output = _fallback(
+        monkeypatch, tmp_path, fake, "--event", "schedule", "--date", "2026-10-25"
+    )
+    assert "skip=true" in output
+    (cmd,) = fake.calls
+    assert cmd[:3] == ["aws", "s3api", "head-object"]
+    assert cmd[cmd.index("--bucket") + 1] == "cfb-backups"
+    assert cmd[cmd.index("--key") + 1] == "backups/daily/2026-10-25.dump"
+    assert cmd[cmd.index("--endpoint-url") + 1] == "https://acct.r2.cloudflarestorage.com"
+    assert (
+        "Already backed up today (2026-10-25) by `backups/daily/2026-10-25.dump`; skipped."
+        in summary
+    )
+
+
+def test_a_scheduled_run_backs_up_when_the_dump_is_missing(monkeypatch, tmp_path):
+    fake = FakeHead(254, NOT_FOUND)
+    summary, output = _fallback(
+        monkeypatch, tmp_path, fake, "--event", "schedule", "--date", "2026-10-25"
+    )
+    assert "skip=false" in output
+    assert "taking the backup" in summary
+    assert "2026-10-25" in summary
+
+
+def test_an_r2_error_other_than_not_found_still_backs_up_with_a_warning(monkeypatch, tmp_path):
+    fake = FakeHead(255, "An error occurred (403) when calling the HeadObject operation: Forbidden")
+    summary, output = _fallback(
+        monkeypatch, tmp_path, fake, "--event", "schedule", "--date", "2026-10-25"
+    )
+    assert "skip=false" in output
+    assert "Forbidden" in summary
+    assert "taking the backup" in summary
+
+
+def test_missing_r2_settings_still_back_up_with_a_warning(monkeypatch, tmp_path):
+    fake = FakeHead(0)
+    summary, output = _fallback(
+        monkeypatch, tmp_path, fake, "--event", "schedule", "--date", "2026-10-25", bucket=""
+    )
+    assert "skip=false" in output
+    assert fake.calls == []
+    assert "R2_BUCKET" in summary
+
+
+def test_a_date_makes_a_dispatched_run_take_the_fallback_path(monkeypatch, tmp_path):
+    fake = FakeHead(0)
+    summary, output = _fallback(
+        monkeypatch, tmp_path, fake, "--event", "workflow_dispatch", "--date", "2026-10-25"
+    )
+    assert "skip=true" in output
+    assert len(fake.calls) == 1
+    assert "2026-10-25" in summary
+
+
+def test_an_empty_date_is_no_date(monkeypatch, tmp_path):
+    # The workflow passes the dispatch input as-is, and it is empty unless the owner set it.
+    fake = FakeHead(0)
+    _, output = _fallback(monkeypatch, tmp_path, fake, "--event", "workflow_dispatch", "--date", "")
+    assert "skip=false" in output
+    assert fake.calls == []
+
+
+def test_the_fallback_checks_todays_utc_date_by_default(monkeypatch, tmp_path):
+    fake = FakeHead(254, NOT_FOUND)
+    before = run_date(datetime.now(UTC))
+    _fallback(monkeypatch, tmp_path, fake, "--event", "schedule")
+    after = run_date(datetime.now(UTC))
+    key = fake.calls[0][fake.calls[0].index("--key") + 1]
+    assert key in {f"backups/daily/{before}.dump", f"backups/daily/{after}.dump"}
+
+
+def _jobs(name="backup.yml"):
+    code = re.sub(r"#.*", "", (WORKFLOWS / name).read_text(encoding="utf-8"))
+    head, _, jobs = code.partition("\njobs:\n")
+    parts = re.split(r"^  (?=[a-z-]+:\s*$)", jobs, flags=re.M)
+    return head, {p.split(":", 1)[0]: p for p in parts if p.strip()}
+
+
+def test_the_workflow_checks_for_the_days_dump_before_the_backup_job():
+    _, jobs = _jobs()
+    assert list(jobs) == ["fallback", "backup"]
+    assert "db backup fallback" in jobs["fallback"]
+    assert "skip: ${{ steps.check.outputs.skip }}" in jobs["fallback"]
+    assert "needs: fallback" in jobs["backup"]
+    assert "if: needs.fallback.outputs.skip != 'true'" in jobs["backup"]
+    assert "db backup dump" not in jobs["fallback"]
+    # The backup job never carries on past a failed check.
+    assert not re.search(r"\b(always|failure|cancelled)\(\)", jobs["backup"])
+
+
+def test_the_fallback_cron_is_noon_utc_and_dispatch_can_name_a_date_to_check():
+    head, jobs = _jobs()
+    assert re.search(r'^  schedule:\s*\n\s*- cron: "0 12 \* \* \*"', head, re.M)
+    assert re.search(r"^    inputs:\s*\n\s+check_date:", head, re.M)
+    step = jobs["fallback"]
+    assert "EVENT: ${{ github.event_name }}" in step
+    assert "CHECK_DATE: ${{ inputs.check_date }}" in step
+    assert '--event "$EVENT"' in step
+    assert '--date "$CHECK_DATE"' in step
+
+
+def test_the_fallback_check_gets_r2_settings_only_through_env():
+    _, jobs = _jobs()
+    step = jobs["fallback"]
+    for var in ("R2_BACKUPS_ACCESS_KEY_ID", "R2_BACKUPS_SECRET_ACCESS_KEY"):
+        assert re.search(rf"^\s+AWS_\w+: \$\{{\{{ secrets\.{var} \}}\}}$", step, re.M)
+    assert "AWS_REQUEST_CHECKSUM_CALCULATION: when_required" in step
+    assert "R2_BUCKET: ${{ vars.R2_BUCKET }}" in step
+    assert "R2_ACCOUNT_ID: ${{ vars.R2_ACCOUNT_ID }}" in step
+    assert "BACKUP_DATABASE_URL" not in step

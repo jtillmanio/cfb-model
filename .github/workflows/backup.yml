@@ -8,14 +8,25 @@
 # Any failed step ends the job before the upload, so a bad dump is never stored. The logic lives in
 # `python -m db backup …` (python/db/src/db/backup.py). docs/runbooks/restore.md restores a dump;
 # README › Backups says how to read a failed run. Secrets reach steps only through `env:`.
+#
+# The dispatcher starts this workflow at 03:30 ET (D-122), after Saturday's late games, before
+# Sunday's results job, and within the 24-hour recovery point (D-092). The `schedule` entry is only
+# a fallback (D-128), for a dispatcher that has stopped and so started nothing: the `fallback` job
+# skips the backup when the day's dump is already in R2, and takes it otherwise. A dispatched run
+# always backs up (a manual re-run replaces the day's dump).
 name: Backup
 
 on:
   schedule:
-    # 07:30 UTC = 03:30 ET (02:30 in winter): after Saturday's late games, before Sunday's results
-    # job, and within the 24-hour recovery point (D-092). Scheduled runs can start late.
-    - cron: "30 7 * * *"
+    # 12:00 UTC = 08:00 EDT (07:00 EST), about 4.5 hours after the dispatcher. GitHub can start a
+    # scheduled run hours late, and even 8 hours late it is still the dispatched run's UTC date.
+    - cron: "0 12 * * *"
   workflow_dispatch:
+    inputs:
+      check_date:
+        description: "Try the fallback: skip if backups/daily/<this UTC date>.dump exists (YYYY-MM-DD). Empty: always back up"
+        required: false
+        default: ""
 
 # One backup at a time; a second one waits rather than cancelling a dump half done.
 concurrency:
@@ -31,8 +42,42 @@ env:
   RESTORE_URL: postgresql://ci:ci@localhost:5432/restore
 
 jobs:
+  fallback:
+    name: fallback
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      skip: ${{ steps.check.outputs.skip }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: astral-sh/setup-uv@v10.3.0
+        with:
+          enable-cache: true
+          cache-dependency-glob: python/uv.lock
+
+      # Reads R2 only (HeadObject), never production. R2 rejects the CLI's default checksum headers,
+      # so they are sent only when required, as in the upload below. Any doubt means back up.
+      - name: Is the day already backed up?
+        id: check
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_BACKUPS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_BACKUPS_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+          AWS_REQUEST_CHECKSUM_CALCULATION: when_required
+          AWS_RESPONSE_CHECKSUM_VALIDATION: when_required
+          R2_ACCOUNT_ID: ${{ vars.R2_ACCOUNT_ID }}
+          R2_BUCKET: ${{ vars.R2_BUCKET }}
+          EVENT: ${{ github.event_name }}
+          CHECK_DATE: ${{ inputs.check_date }}
+        run: >-
+          uv --directory python run --no-dev python -m db backup fallback
+          --event "$EVENT" --date "$CHECK_DATE"
+
   backup:
     name: backup
+    needs: fallback
+    if: needs.fallback.outputs.skip != 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
