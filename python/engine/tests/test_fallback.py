@@ -199,3 +199,16 @@ def test_the_job_step_is_gated_on_the_guard_output(name: str) -> None:
     job = [s for s in steps if "engine job" in s]
     assert len(job) == 1
     assert "if: ${{ steps.guard.outputs.skip != 'true' }}" in job[0]
+
+
+def test_the_engine_cli_forwards_to_the_guard(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from engine import cli
+
+    out = tmp_path / "out"
+    monkeypatch.setenv("GITHUB_OUTPUT", str(out))
+    with pytest.raises(SystemExit) as e:
+        cli.main(["fallback", "--event", "workflow_dispatch", "--workflow", "results.yml"])
+    assert e.value.code == 0
+    assert out.read_text() == "skip=false\n"

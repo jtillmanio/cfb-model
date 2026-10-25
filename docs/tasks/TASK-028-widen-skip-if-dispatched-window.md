@@ -1,7 +1,7 @@
 ---
 id: TASK-028
 title: Stop a late fallback run of results and lines repeating the dispatched run
-status: In progress
+status: Review
 depends_on: [TASK-022]
 size: S
 model: sonnet
@@ -27,8 +27,8 @@ A GitHub `schedule` fallback of `results.yml` or `lines.yml` that starts hours l
 
 Each item names an observable result and an expected value or state.
 
-- [ ] AC-1: Given a `schedule` run of `results.yml` or `lines.yml` that starts 8 hours after a successful dispatched run of the same workflow, when the guard runs, then the job's later steps are skipped and the summary says why (expected: skipped).
-- [ ] AC-2: Given a `schedule` run when no dispatched run of that workflow succeeded in the guard's window, when the guard runs, then the job runs as before (expected: runs).
+- [x] AC-1: Given a `schedule` run of `results.yml` or `lines.yml` that starts 8 hours after a successful dispatched run of the same workflow, when the guard runs, then the job's later steps are skipped and the summary says why (expected: skipped).
+- [x] AC-2: Given a `schedule` run when no dispatched run of that workflow succeeded in the guard's window, when the guard runs, then the job runs as before (expected: runs).
 
 ## Out of scope
 
@@ -74,7 +74,7 @@ Approved by the owner in the session on 2026-10-25, at 74883d9.
 
 ## Review log
 
-_Filled by /implement-task. One line per round._
+Verify R1 PASS | Audit R1 CHANGES (job step gating untested) → R2 PASS | Spec R1 CHANGES (D-123 edited inline; CLI forwarding untested) → fixed, no re-run (docs and one added test) | UI n/a | Schema n/a
 
 ## Blocked
 
@@ -82,7 +82,7 @@ _Only if status is Blocked: what failed, what was tried, best hypothesis, decisi
 
 ## Metrics
 
-- Verify rounds:
-- Review rounds:
-- First-pass AC FAILs:
-- Plan revisions after approval:
+- Verify rounds: 1 (plus a final run on the fixes)
+- Review rounds: 1 (audit 2)
+- First-pass AC FAILs: 0
+- Plan revisions after approval: 0
