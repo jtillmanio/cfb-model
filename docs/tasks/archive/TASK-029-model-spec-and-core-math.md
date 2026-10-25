@@ -1,7 +1,7 @@
 ---
 id: TASK-029
 title: Define ModelSpec v1, the model interfaces and the probability math in engine.core
-status: Review
+status: Done
 depends_on: []
 size: M
 model: opus
