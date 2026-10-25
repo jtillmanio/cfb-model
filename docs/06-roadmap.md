@@ -65,7 +65,7 @@ Phase 8  Multi-sport (NFL)
 
 - [x] CFBD ingest client with call budget tracking + raw Parquet writer (local + R2)
 - [x] Backfill 2014–2025 + 2026 to date: games, team box scores, advanced stats, lines, talent, returning production, recruiting, SP+/FPI/Elo, venues, conferences, PBP + drives
-- [ ] DuckDB staging models + `team_week_features` (point-in-time safe)
+- [x] DuckDB staging models + `team_week_features` (point-in-time safe)
 - [x] Publish reference + games + line snapshots to Postgres (upsert by source key, never truncate)
 - [x] Data quality checks (see [03-data-model.md](03-data-model.md))
 - [x] Scheduled `results` and `lines` jobs
