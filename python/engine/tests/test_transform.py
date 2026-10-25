@@ -18,7 +18,14 @@ from lake_fixture import FIXTURE, by_id, engine, staged, write
 from engine.ingest import cfbd
 from engine.ingest.lake import LocalLake, fetched_at_of
 from engine.sports.cfb.games import map_games
-from engine.transform import SEASON_TABLES, TABLES, rebuild, season_key
+from engine.transform import (
+    FEATURE_TABLES,
+    SEASON_TABLES,
+    TABLES,
+    feature_key,
+    rebuild,
+    season_key,
+)
 
 GAMES_KEY = "raw/cfbd/games/season=2025/week=01/fetched_at=2025-09-02T120000Z.parquet"
 LINES_KEY = "raw/cfbd/lines/season=2025/week=01/fetched_at=2026-10-18T061546Z.parquet"
@@ -73,11 +80,15 @@ def test_rebuild_stages_every_table_with_no_api_calls(
         "skipped_raw": 0,
         "plays": 334,
         "drives": 48,
+        "team_week_features": 10,  # 10 teams entering week 1
+        "game_features": 5,
     }
-    assert set(counts) == set(TABLES) | set(SEASON_TABLES)
+    assert set(counts) == set(TABLES) | set(SEASON_TABLES) | set(FEATURE_TABLES)
     keys = [f"staging/{name}.parquet" for name in TABLES]
     keys += [season_key(name, 2025) for name in SEASON_TABLES]
     assert sorted(lake.walk("staging")) == sorted(keys)
+    assert sorted(lake.walk("features")) == sorted(feature_key(n) for n in FEATURE_TABLES)
+    keys += [feature_key(name) for name in FEATURE_TABLES]
     first = {key: lake.read(key) for key in keys}
 
     assert engine("transform", "--rebuild") == 0
@@ -142,6 +153,17 @@ def test_newest_pull_wins(lake: LocalLake) -> None:
     )
     rebuild(lake)
     assert by_id(staged(lake, "games"))[BOTH_FBS]["home_points"] == 30
+
+
+def test_rebuild_refuses_under_live_with_only_features(
+    lake: LocalLake, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    lake.replace("features/game_features.parquet", b"sentinel")
+    monkeypatch.setenv("LIVE", "true")
+    assert engine("transform", "--rebuild") == 2
+    assert "LIVE" in capsys.readouterr().err
+    assert lake.read("features/game_features.parquet") == b"sentinel"
+    assert lake.walk("staging") == []
 
 
 def test_rebuild_refuses_under_live(
