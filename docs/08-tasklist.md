@@ -119,6 +119,7 @@ _Written by `/milestones` on 2026-10-08 from [06-roadmap.md](06-roadmap.md). Eac
 | M2.6 → TASK-021 | Backfill 2014–2025 and 2026 to date, then explore it in notebook #1 | etl | M | M2.1, M2.3, M2.5, M1.3 | attended | Estimate calls first (~500, D-026) and get the owner's OK before spending them. Endpoints per 03 › Data sources (incl. talent, returning production, recruiting, SP+/FPI/Elo, PBP and drives). Notebook #1: HFA over time, margin distribution, closing-line MAE 2014–2025 (the Phase 1 benchmark, 04 § 9.6) |
 | M2.7 → TASK-022 | Schedule the `results` and `lines` jobs | ops | M | M2.5, M1.3 | attended | 02 › Jobs: `results` Sun/Mon 6am, `lines` daily + Thu–Fri evenings; ≤ 10 min each. Confirm CFBD's scoreboard endpoint is in tier 1 (needed by M6.8) |
 | M2.8 → TASK-023 | Parse Splash pastes against `ContestRules` (risk spike) | engine | S | — | attended | F-03; 02 › Risks: tested on `design/sample-splash-10062026.txt`, the Week 6 paste and a fresh paste from the owner. `ContestRules` pydantic model with the Splash preset (03 › Your data). Team matching takes an alias lookup as input, so no DB yet; unmatched rows are returned, not guessed |
+| M2.9 → TASK-028 | Stop a late fallback run of `results` and `lines` repeating the dispatched run | ops | S | M2.7 | attended | Follow-up from TASK-026. D-122: GitHub starts scheduled runs 5–8 h late, past `skip-if-dispatched`'s 6 h window, so the fallback reruns the job (harmless upserts, a few CFBD calls). Widen the window or check what the job produced |
 
 ## M3: Measuring stick (Phase 2) — MVP
 

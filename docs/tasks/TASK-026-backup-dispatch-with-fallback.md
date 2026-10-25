@@ -1,7 +1,7 @@
 ---
 id: TASK-026
 title: Run the backup from the dispatcher with a GitHub-schedule fallback
-status: In progress
+status: Review
 depends_on: [TASK-024, TASK-025]
 size: M
 model: sonnet
@@ -31,11 +31,11 @@ The nightly backup runs at 03:30 ET from the dispatcher. If the dispatcher ever 
 
 ## Acceptance criteria
 
-- [ ] AC-1: Given a `schedule` run when `backups/daily/<today's UTC date>.dump` already exists, the run's first steps find it and end green without dumping production. The summary says "Already backed up today by run <link or key>; skipped".
-- [ ] AC-2: Given a `schedule` run when that object doesn't exist, the run takes the backup as before. A `workflow_dispatch` run always takes the backup, whatever exists (manual re-runs and the dispatcher still replace the day's dump).
-- [ ] AC-3: Two owner-approved branch runs show both paths: one after a dump for the day exists (skips, AC-1) and, with the check pointed at a date that has no dump, one that proceeds (AC-2). Each run's summary says which path it took.
-- [ ] AC-4: `backup.yml`'s header comment and `README.md` › Backups say the backup is started by the dispatcher at 03:30 ET, that the `schedule` entry is a fallback that skips when the day's dump exists, and the fallback's time.
-- [ ] AC-5: README › Dispatcher no longer mentions TASK-026 or a double backup run (the paragraph under the table, What it doesn't do, Logs and failures), and D-109 and D-122 each end "Amended by D-128", a new decisions-log row that records the fallback. (Added at the plan gate, owner-approved 2026-10-25.)
+- [x] AC-1: Given a `schedule` run when `backups/daily/<today's UTC date>.dump` already exists, the run's first steps find it and end green without dumping production. The summary says "Already backed up today by run <link or key>; skipped".
+- [x] AC-2: Given a `schedule` run when that object doesn't exist, the run takes the backup as before. A `workflow_dispatch` run always takes the backup, whatever exists (manual re-runs and the dispatcher still replace the day's dump).
+- [x] AC-3: Two owner-approved branch runs show both paths: one after a dump for the day exists (skips, AC-1) and, with the check pointed at a date that has no dump, one that proceeds (AC-2). Each run's summary says which path it took.
+- [x] AC-4: `backup.yml`'s header comment and `README.md` › Backups say the backup is started by the dispatcher at 03:30 ET, that the `schedule` entry is a fallback that skips when the day's dump exists, and the fallback's time.
+- [x] AC-5: README › Dispatcher no longer mentions TASK-026 or a double backup run (the paragraph under the table, What it doesn't do, Logs and failures), and D-109 and D-122 each end "Amended by D-128", a new decisions-log row that records the fallback. (Added at the plan gate, owner-approved 2026-10-25.)
 
 ## Out of scope
 
@@ -58,7 +58,7 @@ The nightly backup runs at 03:30 ET from the dispatcher. If the dispatcher ever 
 
 _Work noticed during this task and deliberately left out. Each bullet ends `→ <path> § <section>` (where it was placed) or `→ not tracked: <reason>`. See `.claude/skills/track-follow-ups/classify.md`; the PR's Follow-ups section is copied from here._
 
-- `.github/actions/skip-if-dispatched` (TASK-022) skips a `schedule` run only when a dispatched run succeeded in the last 6 hours; GitHub has started scheduled runs 5–8 hours late, so a late fallback of `results.yml` or `lines.yml` runs the job a second time (harmless upserts, but a few CFBD calls). Widen the window or check what the job produced → new Draft task TASK-028 (approved at plan)
+- `.github/actions/skip-if-dispatched` (TASK-022) skips a `schedule` run only when a dispatched run succeeded in the last 6 hours; GitHub has started scheduled runs 5–8 hours late, so a late fallback of `results.yml` or `lines.yml` runs the job a second time (harmless upserts, but a few CFBD calls). Widen the window or check what the job produced → docs/tasks/TASK-028-widen-skip-if-dispatched-window.md (new, Draft); stub in docs/08-tasklist.md § M2 (M2.9)
 
 ## Plan
 
@@ -90,7 +90,7 @@ Approved 2026-10-25 at `d88ff01`.
 
 ## Review log
 
-_Filled by /implement-task. One line per round._
+Verify R1 PASS | Audit R1 PASS (11 new tests all fail on main) | Spec R1 APPROVE (AC-3 pending until the branch runs; nit taken: fallback time in the header) | Branch runs: run 40168170423 (`check_date=2026-10-24`, skipped) and run 40168212780 (`check_date=2000-01-01`, backed up)
 
 ## Blocked
 
@@ -98,7 +98,7 @@ _Only if status is Blocked: what failed, what was tried, best hypothesis, decisi
 
 ## Metrics
 
-- Verify rounds:
-- Review rounds:
-- First-pass AC FAILs:
-- Plan revisions after approval:
+- Verify rounds: 1
+- Review rounds: 1
+- First-pass AC FAILs: 0
+- Plan revisions after approval: 0
