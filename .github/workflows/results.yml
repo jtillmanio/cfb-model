@@ -7,13 +7,19 @@
 #
 # A failed check ends the run before production is opened, so nothing partial is published. The
 # dispatcher (infra/dispatcher, D-122) starts it on time with workflow_dispatch; the cron below is
-# a late fallback that does nothing if a dispatched run succeeded in the last 6 hours. The logic
+# a late fallback that does nothing if a dispatched run succeeded since 3 hours before the
+# cron's own slot (D-129). The logic
 # lives in `engine job results` (python/engine/src/engine/jobs.py); README › Jobs says how to read
 # a failed run. Secrets reach steps only through `env:`.
 name: Results
 
 on:
   workflow_dispatch:
+    inputs:
+      fallback_cron:
+        description: "Try the fallback: take the late-fallback path as if this cron had fired (e.g. the schedule below). Empty: always run"
+        required: false
+        default: ""
   schedule:
     # Fallback for the dispatcher's Sun and Mon 06:00 ET: 12:00 UTC is 08:00 ET in EDT, 07:00 ET in EST
     - cron: "0 12 * * 0,1"
@@ -39,15 +45,14 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - name: Skip the fallback if the dispatcher's run succeeded
-        id: guard
-        uses: ./.github/actions/skip-if-dispatched
-
       - uses: astral-sh/setup-uv@v10.3.0
-        if: ${{ steps.guard.outputs.skip != 'true' }}
         with:
           enable-cache: true
           cache-dependency-glob: python/uv.lock
+
+      - name: Skip the fallback if the dispatcher's run succeeded
+        id: guard
+        uses: ./.github/actions/skip-if-dispatched
 
       # `uv run` installs the dev group, which holds the engine's pyarrow, boto3 and duckdb (D-114).
       - name: Pull, stage, check and publish to production

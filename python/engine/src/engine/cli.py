@@ -245,9 +245,21 @@ def main(argv: list[str] | None = None) -> None:
         help="Append the run's summary as markdown ($GITHUB_STEP_SUMMARY)",
     )
 
+    commands.add_parser(
+        "fallback",
+        add_help=False,
+        help="Say whether a scheduled run is a late fallback to skip (the workflow guard, D-129)",
+        description="Arguments are forwarded to engine.fallback: --event, --schedule, "
+        "--workflow, --summary. Writes skip=true|false to $GITHUB_OUTPUT.",
+    )
+
     seed = commands.add_parser("seed", help="Load seed data into the test DB")
     seed.add_argument("what", choices=["fixture"])
 
+    if (argv if argv is not None else sys.argv[1:])[:1] == ["fallback"]:
+        from engine import fallback
+
+        sys.exit(fallback.main((argv if argv is not None else sys.argv[1:])[1:]))
     args = parser.parse_args(argv)
 
     if args.command == "ingest":
