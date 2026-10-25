@@ -393,8 +393,11 @@ keep production's games, scores and lines current with nobody running anything. 
 | `lines.yml` | Daily 08:00, Thu and Fri 19:00 | `0 14 * * *`, `0 1 * * 5,6` | 2 |
 
 GitHub's cron knows only UTC, so each fallback fires 1–2 hours after its ET slot (an hour later in
-EDT than in EST). It runs only when no dispatched run of that workflow succeeded in the last 6
-hours (`.github/actions/skip-if-dispatched`). Both workflows share the `lake-publish` concurrency
+EDT than in EST). GitHub can start it 5-8 hours late, so the check is anchored to the cron's slot,
+not the start: it runs only when no dispatched run of that workflow succeeded since 3 hours before
+that slot (`.github/actions/skip-if-dispatched`, `engine fallback`). To try both paths on a branch,
+run the workflow with `fallback_cron` set to its cron (skips if the day's dispatched run succeeded)
+and without it (runs the job). Both workflows share the `lake-publish` concurrency
 group, so two runs never write the lake or publish at once; a queued one waits.
 
 ### Run one by hand

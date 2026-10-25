@@ -345,7 +345,7 @@ def workflow(name: str) -> str:
 @pytest.mark.parametrize("name", ["results.yml", "lines.yml"])
 def test_workflows_dispatch_schedule_and_share_concurrency(name: str) -> None:
     text = workflow(name)
-    assert re.search(r"^on:\n  workflow_dispatch:\n  schedule:\n", text, re.M)
+    assert re.search(r"^on:\n  workflow_dispatch:\n(    .*\n)*  schedule:\n", text, re.M)
     concurrency = r"^concurrency:\n  group: lake-publish\n  cancel-in-progress: false$"
     assert re.search(concurrency, text, re.M)
     assert "timeout-minutes: 10" in text
@@ -363,7 +363,7 @@ def crons(name: str) -> list[tuple[str, str]]:
     return [
         (re.findall(r'cron: "([^"]+)"', line)[0], lines[i - 1])
         for i, line in enumerate(lines)
-        if "cron:" in line
+        if line.lstrip().startswith("- cron:")
     ]
 
 

@@ -1,11 +1,16 @@
 # The dispatcher (infra/dispatcher, D-122) starts each scheduled workflow on time with a
 # workflow_dispatch; the workflow's own `schedule` cron is only a late fallback for when the
-# dispatcher didn't. This says whether a run is that fallback with nothing to do: a `schedule`
-# run when a dispatched run of the same workflow succeeded in the last 6 hours. Every other run
-# (dispatched, or a schedule run with no recent success) goes ahead. The job needs
-# `permissions: actions: read` for `gh run list`.
+# dispatcher didn't. This says whether a run is that fallback with nothing to do: a `schedule` run
+# when a dispatched run of the same workflow succeeded at or after 3 hours before the cron's own
+# slot (D-129). Anchoring to the slot, not to when the run started, keeps GitHub's 5-8 hour late
+# starts from moving the window. Every other run (dispatched, or a schedule run with no such
+# success) goes ahead. A dispatch with `fallback_cron` set takes the fallback path as if that cron
+# had fired, to try both paths on a branch.
+#
+# The logic is `engine fallback` (python/engine/src/engine/fallback.py), so the calling job must
+# run `astral-sh/setup-uv` first and needs `permissions: actions: read` for `gh run list`.
 name: Skip if dispatched
-description: Output skip=true for a schedule run when a workflow_dispatch run succeeded in the last 6 hours
+description: Output skip=true for a schedule run when a workflow_dispatch run succeeded since 3 hours before its cron slot
 
 outputs:
   skip:
@@ -15,29 +20,17 @@ outputs:
 runs:
   using: composite
   steps:
-    - name: Did a dispatched run succeed in the last 6 hours?
+    - name: Did the dispatcher's run for this slot succeed?
       id: check
       shell: bash
       env:
         GH_TOKEN: ${{ github.token }}
         EVENT: ${{ github.event_name }}
+        SCHEDULE: ${{ github.event.schedule || github.event.inputs.fallback_cron }}
         WORKFLOW_REF: ${{ github.workflow_ref }}
       run: |
-        if [ "$EVENT" != "schedule" ]; then
-          echo "skip=false" >> "$GITHUB_OUTPUT"
-          exit 0
-        fi
         # owner/repo/.github/workflows/<file>@<ref> -> <file>
         workflow="${WORKFLOW_REF%@*}"
         workflow="${workflow##*/}"
-        since="$(date -u -d '6 hours ago' +%Y-%m-%dT%H:%M:%SZ)"
-        found="$(gh run list --repo "$GITHUB_REPOSITORY" --workflow "$workflow" \
-          --event workflow_dispatch --status success --created ">=$since" \
-          --json databaseId --jq length)"
-        if [ "$found" -gt 0 ]; then
-          echo "skip=true" >> "$GITHUB_OUTPUT"
-          echo "Skipped: the dispatcher's run of \`$workflow\` succeeded since $since UTC." >> "$GITHUB_STEP_SUMMARY"
-        else
-          echo "skip=false" >> "$GITHUB_OUTPUT"
-          echo "No dispatched run of \`$workflow\` succeeded since $since UTC: running as the fallback." >> "$GITHUB_STEP_SUMMARY"
-        fi
+        uv --directory python run engine fallback --event "$EVENT" --schedule "$SCHEDULE" \
+          --workflow "$workflow" --summary "$GITHUB_STEP_SUMMARY"
