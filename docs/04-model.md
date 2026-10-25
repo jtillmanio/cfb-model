@@ -351,7 +351,7 @@ The **pooled validation result** is all 2016–2023 predictions taken together. 
 ### 9.2 Leakage rules
 
 **Concept: leakage**, again (§ 5): any path by which information from after kickoff reaches a prediction. Each rule below closes one path, and each gets a test ([02 › Testing strategy](02-architecture.md#testing-strategy)).
-- **Unit of work is (season, week).** Ratings "entering week N" use only games that finished before week N. Feature rows carry `as_of`, and the harness asserts no input postdates it.
+- **Unit of work is (season, week).** Ratings "entering week N" use only games that finished before week N. Feature rows carry `as_of`, and the harness asserts no input postdates it. The feature tables set `as_of` to the week's first kickoff and count a game as finished 4 hours after its own kickoff, and the rebuild fails if a row reads a game that didn't finish by its `as_of` (D-127).
 - **Learned weights are fit on seasons before the one being predicted** (an expanding window). This covers the margin-model coefficients, prior weights, decay curve, σ and the empirical margin distribution. They are refit once per season; team ratings update weekly.
 - **Preseason inputs** (talent, returning production, recruiting) use the values published before that season.
 - **Market lines are targets and pick-time inputs, never rating features.** Market shrinkage blends with the line being evaluated, which is known at pick time. No rating or margin model trains on lines.

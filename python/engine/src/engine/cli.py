@@ -278,7 +278,7 @@ def main(argv: list[str] | None = None) -> None:
             rebuild(open_lake())
         except UnsafeDatabaseError as e:
             _refuse(str(e))
-        except PointInTimeError as e:  # a failed check: no staged or feature file replaced
+        except PointInTimeError as e:  # a failed check: no feature or `TABLES` file replaced
             print(f"FAIL {e}")
             sys.exit(1)
         _quality()

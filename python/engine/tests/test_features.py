@@ -3,7 +3,7 @@ week 1 plus weeks 2-8 (`lake_fixture.write_season`). No test opens a socket or a
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import pytest
@@ -36,7 +36,20 @@ def season(lake: LocalLake) -> LocalLake:
 
 def team_weeks(lake: LocalLake) -> dict[tuple[str, str, int], dict[str, Any]]:
     rows = featured(lake, "team_week_features").to_pylist()
-    return {(r["team_source_id"], r["season_type"], r["week"]): r for r in rows}
+    keyed = {(r["team_source_id"], r["season_type"], r["week"]): r for r in rows}
+    assert len(keyed) == len(rows)  # one row per team, season type and week
+    return keyed
+
+
+def games_params(week: int, season_type: str = "regular") -> dict[str, Any]:
+    return {"classification": "fbs", "seasonType": season_type, "week": week, "year": 2025}
+
+
+def kansas_game(game_id: int, week: int, start: str, **changes: Any) -> dict[str, Any]:
+    game = next(
+        g for g in FIXTURE[fixture_key("games")]["records"] if str(g["id"]) == KANSAS_GAME
+    )
+    return {**game, "id": game_id, "week": week, "startDate": start, **changes}
 
 
 def kickoffs(lake: LocalLake) -> dict[str, tuple[str, str, int, datetime]]:
@@ -60,9 +73,13 @@ def test_every_row_has_as_of_after_its_sources(season: LocalLake) -> None:
     for (team, _, week), row in rows.items():
         assert row["as_of"] is not None
         assert row["as_of"] == first[week]
-        # Counted from the staged games, independently of the feature SQL: only games that
-        # kicked off before as_of, so never the week's own game.
-        before = [k for h, a, _, k in games.values() if team in (h, a) and k < row["as_of"]]
+        # Counted from the staged games, independently of the feature SQL: only games finished
+        # (4 hours after kickoff) by as_of, so never the week's own game.
+        before = [
+            k
+            for h, a, _, k in games.values()
+            if team in (h, a) and k + timedelta(hours=4) <= row["as_of"]
+        ]
         assert row["games_played"] == len(before), (team, week)
         assert row["last_game_kickoff"] == (max(before) if before else None)
 
@@ -171,26 +188,94 @@ def test_games_without_advanced_stats_count_but_leave_the_means(lake: LocalLake)
     assert week4["off_ppa"] == pytest.approx(advanced["offense"]["ppa"])
 
 
-def test_one_game_row_per_staged_game_with_target(season: LocalLake) -> None:
-    # A week-9 game not yet played: in game_features with a NULL target.
-    game = next(
-        g for g in FIXTURE[fixture_key("games")]["records"] if str(g["id"]) == KANSAS_GAME
+def test_a_game_counts_only_once_finished(season: LocalLake) -> None:
+    """A game counts as finished 4 hours after kickoff (D-127): one that kicked off 3 hours
+    before the next week's first kickoff isn't in that week's rows; 4 hours before, it is."""
+    starts = {9: "2025-10-25T16:00:00.000Z", 10: "2025-10-25T19:00:00.000Z"}
+    starts[11] = "2025-10-25T23:00:00.000Z"
+    for week, start in starts.items():
+        game = kansas_game(900199000 + week, week, start)
+        write(season, week_key("games", week), [game], games_params(week))
+    rebuild(season)
+    rows = team_weeks(season)
+    assert rows[(KANSAS, "regular", 10)]["games_played"] == 8  # week 9's game: 3 h before
+    assert rows[(KANSAS, "regular", 11)]["games_played"] == 10  # week 10's: 4 h before
+
+
+def test_tba_kickoffs_and_postseason_follow_the_clock(season: LocalLake) -> None:
+    """A TBA game sets its week's as_of at the start of its Eastern date, and counts in a
+    later row only once its whole date is over. Postseason week 1 comes after every regular
+    week, so its rows hold the whole regular season."""
+    tba = kansas_game(
+        900199009, 9, "2025-10-25T04:00:00.000Z", startTimeTBD=True, homePoints=40
     )
-    unplayed = {
-        **game,
-        "id": 900199999,
-        "week": 9,
-        "startDate": "2025-10-25T22:30:00.000Z",
-        "completed": False,
-        "homePoints": None,
-        "awayPoints": None,
+    # A week-10 game the same Eastern day, at 7 PM: the TBA game may not be over yet.
+    same_day = {
+        **next(
+            g for g in FIXTURE[fixture_key("games")]["records"] if str(g["id"]) == "401756846"
+        ),
+        "id": 900199010,
+        "week": 10,
+        "startDate": "2025-10-25T23:00:00.000Z",
     }
+    write(season, week_key("games", 9), [tba], games_params(9))
+    write(season, week_key("games", 10), [same_day], games_params(10))
+    bowl = kansas_game(900199101, 1, "2025-12-20T20:00:00.000Z", seasonType="postseason")
+    write(
+        season,
+        "raw/cfbd/games/season=2025/season_type=postseason/week=01/"
+        "fetched_at=2025-12-22T120000Z.parquet",
+        [bowl],
+        games_params(1, "postseason"),
+    )
+    rebuild(season)
+    rows = team_weeks(season)
+
+    week9 = rows[(KANSAS, "regular", 9)]
+    assert week9["as_of"] == datetime(2025, 10, 25, 4, tzinfo=UTC)  # midnight Eastern (EDT)
+    assert week9["games_played"] == 8
+    week10 = rows[(KANSAS, "regular", 10)]
+    assert week10["as_of"] == datetime(2025, 10, 25, 23, tzinfo=UTC)
+    assert week10["games_played"] == 8  # the TBA game counts as kicking off at day's end
+
+    bowl_row = rows[(KANSAS, "postseason", 1)]
+    regular = [r["as_of"] for (_, kind, _), r in rows.items() if kind == "regular"]
+    assert bowl_row["as_of"] > max(regular)
+    assert bowl_row["games_played"] == 9  # weeks 1-8 and the TBA game; no week-10 game
+    assert bowl_row["points_for"] == 31 + sum(31 + w for w in range(2, 9)) + 40
+    assert rows[(KANSAS_STATE, "postseason", 1)]["games_played"] == 7 + 1  # bye week 5
+
+
+def test_a_game_with_no_team_id_keeps_its_row(season: LocalLake) -> None:
+    """A staged game with a NULL side still gets a game_features row (NULL on that side), and
+    no team row is keyed NULL."""
     write(
         season,
         week_key("games", 9),
-        [unplayed],
-        {"classification": "fbs", "seasonType": "regular", "week": 9, "year": 2025},
+        [kansas_game(900199020, 9, "2025-10-25T22:30:00.000Z", awayId=None)],
+        games_params(9),
     )
+    rebuild(season)
+    assert None not in {k[0] for k in team_weeks(season)}
+    rows = {r["game_source_id"]: r for r in featured(season, "game_features").to_pylist()}
+    row = rows["900199020"]
+    assert row["away_source_id"] is None
+    assert row["away_games_played"] is None
+    assert row["home_games_played"] == 8
+    assert row["as_of"] == datetime(2025, 10, 25, 22, 30, tzinfo=UTC)
+
+
+def test_one_game_row_per_staged_game_with_target(season: LocalLake) -> None:
+    # A week-9 game not yet played: in game_features with a NULL target.
+    unplayed = kansas_game(
+        900199999,
+        9,
+        "2025-10-25T22:30:00.000Z",
+        completed=False,
+        homePoints=None,
+        awayPoints=None,
+    )
+    write(season, week_key("games", 9), [unplayed], games_params(9))
     rebuild(season)
 
     games = {g["source_id"]: g for g in staged(season, "games").to_pylist()}

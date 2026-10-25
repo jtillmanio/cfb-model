@@ -77,6 +77,8 @@ Approved 2026-10-24 (attended), with both open questions settled as recommended.
 - `game_features`: one row per staged game: `game_source_id, season, season_type, week, as_of, kickoff_at, neutral_site, home_source_id, away_source_id`, `home_*`/`away_*` copies of every feature column, and `margin` (NULL unless final).
 - AC-2 reading: every `team_week_features` row for weeks ≤ 7 is identical, and every week-≤7 `game_features` column except the changed game's own target `margin`.
 
+**Plan revision 1 (2026-10-25, owner's choice after schema review R1):** a game feeds a row only once it has *finished*, counted as 4 hours after kickoff (`features.GAME_HOURS`), not merely kicked off: a game in progress at `as_of` would be final in the backtest and not yet live. The assertion checks the same thing, and `docs/04-model.md` § 9.2 says what's enforced. The same round adds tests for TBA kickoffs, postseason ordering, the 4-hour edge and a NULL team id, LEFT joins in `game_features` (a game with a missing team id keeps its row), the explicit `garbage_time_excluded` join, and a uniqueness check on the team-week grain. Also in scope: `rebuild`'s LIVE refusal covers `features/` too (`test_rebuild_refuses_under_live_with_only_features`), so a LIVE run never overwrites feature files.
+
 **Steps:**
 1. Season fixture helper in `lake_fixture.py`: clone the 5 week-1 games, their advanced stats and lines into weeks 2–8 (7 days apart, points varied, one bye); write the failing tests.
 2. `transform/features.py`: the SQL for both tables, the inclusion rule as a module constant, and `check_point_in_time()` raising `PointInTimeError` naming team, season, season type and week.
