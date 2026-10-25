@@ -78,7 +78,9 @@ def _within(lo: float, hi: float | None = None, *, above: bool = False) -> After
         for x in value.tune if isinstance(value, Tune) else (value,):
             if (x <= lo if above else x < lo) or (hi is not None and x > hi):
                 bounds = f"> {lo}" if above else f"≥ {lo}"
-                raise ValueError(f"{x} must be {bounds}" + (f" and ≤ {hi}" if hi else ""))
+                if hi is not None:
+                    bounds += f" and ≤ {hi}"
+                raise ValueError(f"{x} must be {bounds}")
         return value
 
     return AfterValidator(check)
