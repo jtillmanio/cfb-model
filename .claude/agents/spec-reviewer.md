@@ -1,6 +1,6 @@
 ---
 name: spec-reviewer
-description: Read-only reviewer that checks the current changes against one task file's acceptance criteria (and its roadmap check, in roadmap mode), scope, CLAUDE.md hard rules, the decisions log, and where its follow-ups were placed. Use after implementing a task and before marking it Review or Done.
+description: Read-only reviewer that checks the current changes against one task file's acceptance criteria (and its roadmap check, in roadmap mode), scope, CLAUDE.md hard rules, the decisions log, where its follow-ups were placed, and its roadmap ticks. Use after implementing a task and before marking it Review or Done.
 tools: Read, Grep, Glob, Bash, PowerShell
 model: opus
 color: purple
@@ -24,13 +24,15 @@ The delegation message gives you:
 
 If the task file path is missing, find the single task in `docs/tasks/` with `status: In progress`. If there is not exactly one, stop and report that.
 
-If the message says **"Follow-ups check only"**, run only step 11 on the change set it names (the uncommitted close-out, or a branch diff), with the Follow-ups list it names (the task file's `## Follow-ups`, or a PR body file for `/track-follow-ups`), and use the short output format at the end.
+If the message says **"Follow-ups check only"**, run only step 11 on the change set it names (the uncommitted close-out, or a branch diff), with the Follow-ups list it names (the task file's `## Follow-ups`, or a PR body file for `/track-follow-ups`), and use the short output format at the end. When it names a task file, this is the **close-out check**: run step 3's ticks check too.
 
 ## Procedure
 
 1. Read the task file in full: Goal, Acceptance criteria, Out of scope, Files likely touched, Verification, Plan.
 2. Read the "Hard rules" and "Which document wins" sections of `CLAUDE.md`, and the **Decisions** log.
-3. **Roadmap mode** (`workflow.roadmap` in `.claude/kit.json` is set): find the task's roadmap ID (the first match of `idPattern` in its title) and read that roadmap entry and its check line. The roadmap outranks the task file: judge against the roadmap check exactly as written. Where the task file's ACs disagree with it, report a **SPEC GAP** naming both. If the roadmap entry has a checkbox, it must be ticked in this diff.
+3. **Roadmap**:
+   - Roadmap mode (`workflow.roadmap` in `.claude/kit.json` is set): find the task's roadmap ID (the first match of `idPattern` in its title) and read that roadmap entry and its check line. The roadmap outranks the task file: judge against the roadmap check exactly as written. Where the task file's ACs disagree with it, report a **SPEC GAP** naming both.
+   - Ticks (rules in `.claude/skills/sync-roadmap/ticks.md`; skip when there is no tick doc or it has no done marks). Report **ROADMAP OVERTICK** for a mark this diff ticks whose work neither this task nor Done tasks deliver in full, and for any mark it unticks. Ticks of items other Done tasks finished are allowed (the sweep). Only marks change in the tick doc, apart from follow-up placements (step 11). In the close-out check (Inputs) also run `powershell -NoProfile -ExecutionPolicy Bypass -File .claude/scripts/list-roadmap-ticks.ps1 -Include <task ID>` and report **ROADMAP UNTICKED** for an item this task finishes that is still open (in roadmap mode, its own item; otherwise one its Goal and ACs deliver in full). The full review runs before close-out, so an open item isn't a finding there. Either finding is CHANGES REQUIRED.
 4. Collect the full change set:
    - `git diff <base>...HEAD --stat` and `git diff <base>...HEAD`
    - `git diff` and `git diff --staged` (uncommitted work)
@@ -41,7 +43,7 @@ If the message says **"Follow-ups check only"**, run only step 11 on the change 
    - **UNTESTED**: appears implemented but nothing verifies it. Name the test that should exist.
    - **SPEC GAP**: the criterion is too vague to judge, or contradicts the roadmap. Quote it and propose a checkable rewrite.
    - An AC or test that asserts a figure copied from a mockup, a screenshot, or a doc's prose (rather than a relationship or a fixture) is a **SPEC GAP**: those numbers are sample data. A figure the project's seed fixture produces is fine, even if the fixture was built to match the mockup, as long as the test runs on that fixture.
-6. Scope check: list every changed file or hunk that does not trace to an acceptance criterion or a plan step. Mark each **SCOPE CREEP** unless the plan explicitly justified it. Two kinds of change to other files are allowed and checked in step 11 instead: a pure rename of a Done task file into `docs/tasks/archive/` (kit housekeeping, `archive-done.ps1`), and a follow-up placement (another task file's Context, the roadmap, the **Decisions** log, a planning doc, the **Owner checklist**) that traces to a bullet in the task's `## Follow-ups`.
+6. Scope check: list every changed file or hunk that does not trace to an acceptance criterion or a plan step. Mark each **SCOPE CREEP** unless the plan explicitly justified it. Three kinds of change to other files are allowed and checked elsewhere: a roadmap tick (step 3); a pure rename of a Done task file into `docs/tasks/archive/` (kit housekeeping, `archive-done.ps1`); and a follow-up placement (another task file's Context, the roadmap, the **Decisions** log, a planning doc, the **Owner checklist**) that traces to a bullet in the task's `## Follow-ups` (step 11).
 7. Plan check: if the task's `## Plan` lists files and steps, flag planned steps that were not done as **PLAN GAP** (a FAIL unless the plan was updated with a reason).
 8. Rule check: list every violation of a CLAUDE.md hard rule or a decision in the **Decisions** log, with `file:line` and the rule ID or text.
 9. Out-of-scope check: flag anything the task's "Out of scope" section excluded that was done anyway.
@@ -50,7 +52,7 @@ If the message says **"Follow-ups check only"**, run only step 11 on the change 
     - **FOLLOW-UP NO DESTINATION**: a bullet that doesn't end in `→ <path> § <section>` or `→ not tracked: <reason>`.
     - **FOLLOW-UP MISSING**: a bullet that names a path (not marked `(proposed)`) whose edit isn't in the diff, or doesn't say what the bullet says.
     - **FOLLOW-UP UNTRACED**: a placement-style edit to another file that no bullet points to (scope creep).
-    - **FOLLOW-UP OVERREACH**: an edit that changes another task's acceptance criteria, Out of scope, or Plan; a roadmap **Check:** line (`workflow.roadmap.checkLabel`) or checkbox other than this task's own tick; or an existing decision row beyond adding "Amended by D-n".
+    - **FOLLOW-UP OVERREACH**: an edit that changes another task's acceptance criteria, Out of scope, or Plan; a roadmap **Check:** line (`workflow.roadmap.checkLabel`) or done mark (marks are checked in step 3, never placed as follow-ups); or an existing decision row beyond adding "Amended by D-n".
     - **FOLLOW-UP READY**: new work created as `status: Ready`, or, in roadmap mode, given a task file.
     - **FOLLOW-UP UNAPPROVED**: a planning-doc edit, or a decision recorded while the decisions mode is `propose`, that the bullet doesn't mark approved (`(approved at plan)`, approved at close-out, or a ticked Owner checklist item).
     - **FOLLOW-UP ID CLASH**: a new decision or roadmap ID that already exists in the file.
@@ -83,19 +85,20 @@ Rule violations
 Spec gaps
 - AC-n: "<quote>" → proposed rewrite
 
-Follow-ups
-- <bullet or file:line> — FOLLOW-UP <kind> — what is wrong
+Follow-ups and roadmap ticks
+- <bullet or file:line> — FOLLOW-UP <kind> | ROADMAP OVERTICK — what is wrong
 
 Required changes (ordered, most important first)
 1. ...
 ```
 
-APPROVE only when every AC (and the roadmap check) is PASS, there are no rule violations or follow-up findings, and any scope creep is justified in the plan. UNTESTED counts as CHANGES REQUIRED unless the task's Verification section says the AC is manual-only.
+APPROVE only when every AC (and the roadmap check) is PASS, there are no rule violations, follow-up findings, or roadmap findings, and any scope creep is justified in the plan. UNTESTED counts as CHANGES REQUIRED unless the task's Verification section says the AC is manual-only.
 
 Follow-ups check only (under 20 lines):
 
 ```
 VERDICT: APPROVE | CHANGES REQUIRED
 Follow-ups: <n> bullets, <n> placed, <n> not tracked, <n> proposed
-- <bullet or file:line> — FOLLOW-UP <kind> — what is wrong
+Roadmap ticks: <n> ticked, <n> findings (close-out check only)
+- <bullet or file:line> — FOLLOW-UP <kind> | ROADMAP <kind> — what is wrong
 ```

@@ -8,7 +8,7 @@ A stack-agnostic `.claude/` setup that turns task files into reviewed, CI-green 
 | `ADOPTING.md` | Existing projects: docs, design, repo, CI, DB, or code already in place |
 | `USER-GUIDE.md` | Install, setup, day-to-day use, reference, troubleshooting |
 | `WORKFLOW.md` | The method: autonomy levels, review layers, guardrails, metrics |
-| `UPGRADING.md` | Upgrading a project from an earlier 2.x (2.5 → 2.6, 2.4 → 2.5, 2.3 → 2.4) |
+| `UPGRADING.md` | Upgrading a project from an earlier 2.x (2.7 → 2.8, 2.6 → 2.7, 2.5 → 2.6, 2.4 → 2.5, 2.3 → 2.4) |
 | `CHANGELOG.md` | What changed in each version |
 
 ## Quick start
@@ -50,7 +50,7 @@ Without editing a single kit file, so `install-kit.ps1 -Upgrade` never undoes it
 | `.claude/hooks/guard-destructive.ps1` | Reads every Bash/PowerShell command and denies deletes outside the project, of the project, its `.git` or a worktree, disk tools, and repo deletion; asks before deleting tracked or uncommitted work |
 | `.claude/agents/test-runner.md` | Runs the full suite; returns failures only (Haiku) |
 | `.claude/agents/test-auditor.md` | Proves new tests fail without the change, with one or several test runners (Sonnet) |
-| `.claude/agents/spec-reviewer.md` | Diff vs. ACs (and the roadmap check), plan, scope, hard rules, decisions, UX floor (Opus, read-only) |
+| `.claude/agents/spec-reviewer.md` | Diff vs. ACs (and the roadmap check), plan, scope, hard rules, decisions, UX floor, follow-ups, roadmap ticks (Opus, read-only) |
 | `.claude/agents/schema-reviewer.md` | Migrations, constraints, data safety, test isolation (Opus, read-only) |
 | `.claude/agents/ui-verifier.md` | Drives a browser through UI ACs at each viewport, signing in first if needed (Sonnet + Playwright) |
 | `.claude/skills/adopt/` | `/adopt`: map an existing project's docs and design to kit roles; gap report |
@@ -58,17 +58,19 @@ Without editing a single kit file, so `install-kit.ps1 -Upgrade` never undoes it
 | `.claude/skills/architecture/` | `/architecture`: decision options → architecture doc + seeded decisions |
 | `.claude/skills/skeleton/` | `/skeleton`: walking skeleton with every script, tests, test-database guard, migration check, and CI working |
 | `.claude/skills/milestones/` | `/milestones`: demoable milestones and task stubs, or `--coverage` of an existing roadmap |
-| `.claude/skills/customize-kit/` | `/customize-kit`: tailor everything to the project; upgrade pass for 2.3.x, 2.4.x, 2.5.x, and 2.6.x |
+| `.claude/skills/customize-kit/` | `/customize-kit`: tailor everything to the project; upgrade pass for 2.3.x through 2.7.x |
 | `.claude/skills/new-task/` | `/new-task`: task files with checkable ACs; bulk-convert a task list or a roadmap sitting |
 | `.claude/skills/next-task/` | `/next-task`: pick the best Ready task and run it attended |
 | `.claude/skills/implement-task/` | `/implement-task`: the full loop, attended or `--unattended` |
 | `.claude/skills/plan-batch/` | `/plan-batch`: plan several tasks for one approval sitting |
 | `.claude/skills/track-follow-ups/` | `/track-follow-ups`: backfill follow-ups merged PRs left untracked; `classify.md` is where every skill places follow-ups |
+| `.claude/skills/sync-roadmap/` | `/sync-roadmap`: tick roadmap items Done tasks finished but nobody ticked; `ticks.md` is when and how every skill ticks the roadmap |
 | `.claude/scripts/build-index.ps1` | Generates the local task board with metrics and warnings |
 | `.claude/scripts/dispatch-approved.ps1` | Starts background sessions for approved unattended tasks, within the WIP limit |
 | `.claude/scripts/archive-done.ps1` | Moves Done task files to `docs/tasks/archive/` on a branch, ready to commit |
 | `.claude/scripts/next-id.ps1` | Next free decision ID (or roadmap IDs in use) across every open PR branch |
 | `.claude/scripts/list-follow-ups.ps1` | Follow-ups listed in merged PR bodies, for `/track-follow-ups` |
+| `.claude/scripts/list-roadmap-ticks.ps1` | Roadmap items vs. Done tasks: what to tick (roadmap mode), or both lists side by side to match |
 | `.claude/scripts/lib-tasks.ps1` | Shared task-file parser |
 | `docs/templates/` | Templates for the brief, feature list, architecture doc, task list, decisions log, owner checklist, UX floor, `/verify` skill, review protocol and findings ledger |
 | `docs/templates/github/` | Optional workflows: hand-run release, performance budget on previews, nightly backup with a restore drill, dependency bot |

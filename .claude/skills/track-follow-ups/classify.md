@@ -95,6 +95,6 @@ Headings written before the PR exists name the branch. Right after `gh pr create
 
 - Every bullet in `## Follow-ups` ends in a destination or `not tracked: <reason>`.
 - Every follow-up edit outside this task's files traces to one bullet, and every bullet with a path has its edit in the diff (except `(proposed)`).
-- A follow-up edit never changes another task's acceptance criteria, Out of scope, or Plan, or any roadmap **Check:** line or checkbox.
+- A follow-up edit never changes another task's acceptance criteria, Out of scope, or Plan, or any roadmap **Check:** line or checkbox. Ticks follow `.claude/skills/sync-roadmap/ticks.md` and are never follow-ups.
 - New work is never `Ready`, and in roadmap mode gets no task file.
 - A destination-6 edit or recorded `propose` decision is listed as approved (at plan, at close-out, or a ticked checklist item).
