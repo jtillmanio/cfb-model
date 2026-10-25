@@ -99,6 +99,22 @@ def object_keys(day: date) -> list[str]:
     return keys
 
 
+def needs_check(event: str, check_date: date | None) -> bool:
+    """Only the GitHub-schedule fallback asks whether the day is already backed up (D-128).
+    A dispatch (the dispatcher, a manual re-run) always backs up, unless it names a date to
+    check, which is how the fallback path is tried on a branch."""
+    return event == "schedule" or check_date is not None
+
+
+def classify_head(returncode: int, stderr: str) -> str:
+    """`aws s3api head-object` on the day's key: "exists", "missing" (a 404) or "error"."""
+    if returncode == 0:
+        return "exists"
+    if "(404)" in stderr or "Not Found" in stderr:
+        return "missing"
+    return "error"
+
+
 def render_summary(
     production: Mapping[str, int],
     restored: Mapping[str, int],
@@ -254,9 +270,55 @@ def upload(args: argparse.Namespace) -> None:
         raise BackupFailed("Not written: " + ", ".join(failed))
 
 
+def fallback(args: argparse.Namespace) -> None:
+    """Says whether this run should skip the backup: `skip=true` when the day's daily dump is
+    already in R2. Never fails: any doubt (no R2 settings, an R2 error) means back up anyway,
+    so a broken check can't cost a day's backup; a broken token then fails at the upload."""
+    if not needs_check(args.event, args.date):
+        _summary("Dispatched run: taking the backup.")
+        _output(skip="false")
+        return
+    day = args.date or run_date(datetime.now(UTC))
+    key = object_keys(day)[0]
+    bucket = os.environ.get("R2_BUCKET", "").strip()
+    account = os.environ.get("R2_ACCOUNT_ID", "").strip()
+    if not bucket or not account:
+        _summary(
+            "**Couldn't check R2** (R2_BUCKET and R2_ACCOUNT_ID must both be set) "
+            f"for {day}; taking the backup."
+        )
+        _output(skip="false")
+        return
+    result = subprocess.run(
+        ["aws", "s3api", "head-object", "--bucket", bucket, "--key", key,
+         "--endpoint-url", f"https://{account}.r2.cloudflarestorage.com"],
+        check=False, capture_output=True, text=True,
+    )
+    outcome = classify_head(result.returncode, result.stderr or "")
+    if outcome == "exists":
+        _summary(f"Already backed up today ({day}) by `{key}`; skipped.")
+    elif outcome == "missing":
+        _summary(f"No dump for {day} (`{key}` not found); taking the backup.")
+    else:
+        detail = (result.stderr or "").strip()
+        _summary(f"**Couldn't check R2** for `{key}` ({detail}); taking the backup.")
+    _output(skip="true" if outcome == "exists" else "false")
+
+
+def _optional_date(value: str) -> date | None:
+    """The dispatch input arrives as an empty string unless the owner set it."""
+    return date.fromisoformat(value) if value.strip() else None
+
+
 def add_commands(subparsers: Any) -> None:
     backup = subparsers.add_parser("backup", help="Steps of the backup workflow")
     steps = backup.add_subparsers(dest="step", required=True)
+
+    p = steps.add_parser("fallback", help="Skip the backup if the day's dump is already in R2")
+    p.add_argument("--event", required=True, help="The workflow's event (github.event_name)")
+    p.add_argument("--date", type=_optional_date, default=None,
+                   help="Check this UTC date instead of today's, even on a dispatch (empty: none)")
+    p.set_defaults(func=fallback)
 
     p = steps.add_parser("dump", help=f"pg_dump {BACKUP_URL_VAR} and count its rows")
     p.add_argument("--out", type=Path, required=True, help="The dump file (custom format)")

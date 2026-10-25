@@ -189,16 +189,16 @@ GitHub then starts the workflow on `main`, and its run shows in the Actions tab 
 | `lines.yml` | Thu and Fri 19:00 | The pick window, when lines move most before the weekend |
 
 This table mirrors `SCHEDULE` in `infra/dispatcher/src/index.ts`; that file wins if they differ.
-Until TASK-026, `backup.yml` also keeps its own 07:30 UTC cron, so the backup can run twice a day
-(a same-day run replaces that day's dump; about 5 extra Actions minutes). `results.yml` and
-`lines.yml` keep UTC crons as late fallbacks, which do nothing when the dispatcher's run succeeded
-([Jobs](#jobs)).
+`backup.yml` keeps a 12:00 UTC cron as a fallback (D-128): it does nothing when the day's dump is
+already in R2 ([Backups](#backups)). `results.yml` and `lines.yml` keep UTC crons as late
+fallbacks, which do nothing when the dispatcher's run succeeded ([Jobs](#jobs)).
 
 ### What it doesn't do
 - **Retry.** A tick that runs late but inside its quarter hour still fires. A quarter hour Cloudflare
   skips entirely isn't made up later.
 - **Tell GitHub when something fails.** A failed dispatch shows only in the Worker's logs and as a
-  failed cron event in Cloudflare. TASK-026 adds a GitHub-side fallback for the backup.
+  failed cron event in Cloudflare. Only the backup has a fallback that notices a dispatcher that
+  has stopped ([Backups](#backups)).
 - **Run anything itself, or change the workflows.** Each workflow keeps its `workflow_dispatch`
   trigger and can still be run by hand (`gh workflow run <file>`).
 
@@ -290,14 +290,18 @@ Worker's cron events.
 | `403` or `404` | The token can't see the repo or lacks Actions: Read and write, or the workflow file isn't on `main` | Check the token's repository and permission; check the file name in `SCHEDULE` |
 | `422` | The workflow has no `workflow_dispatch` trigger, or the branch in `vars` doesn't exist | Add the trigger on `main`, or fix `GITHUB_REF` |
 
-Nothing on the GitHub side reports a missed dispatch yet (TASK-026 adds a fallback for the
-backup). A run that didn't start shows as a gap in `gh run list --workflow <file>`.
+Nothing on the GitHub side reports a missed dispatch; the backup's fallback just takes that day's
+backup instead. A run that didn't start shows as a gap in `gh run list --workflow <file>`.
 
 ## Backups
 
 The **Backup** workflow (`.github/workflows/backup.yml`) runs nightly, started at 03:30 ET by the
-[dispatcher](#dispatcher) (and, until TASK-026, by its own 07:30 UTC cron), and stores a dump only
-after proving it restores:
+[dispatcher](#dispatcher). Its `schedule` entry (12:00 UTC, 08:00 EDT or 07:00 EST) is only a
+fallback (D-128): a `fallback` job first looks for the day's `backups/daily/<UTC date>.dump` in R2
+and, if it exists, ends the run green without touching production ("Already backed up today …;
+skipped" in the Summary). If the dispatcher has stopped, the fallback takes that day's backup,
+late but not missed. A dispatched run always backs up. The workflow stores a dump only after
+proving it restores:
 
 1. **dump**: `pg_dump` of production through `BACKUP_DATABASE_URL` (a read-only role), and an exact
    row count of every table taken in the same snapshot as the dump.
@@ -328,6 +332,12 @@ gh run watch
 ```
 The run's **Summary** lists each table's row count in production and in the restore, the views
 queried, the dump size and every key it uploaded.
+
+To try the fallback without waiting for the schedule, name the date to check (a branch run that
+finds the dump skips; a date with no dump takes a full backup of production):
+```powershell
+gh workflow run backup.yml -f check_date=2026-10-25
+```
 
 ### Read a failed run
 A failed step writes **Backup failed:** and the reason in the Summary. Before the upload, that
