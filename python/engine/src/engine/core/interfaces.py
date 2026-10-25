@@ -1,0 +1,75 @@
+"""The contract every model meets, so backtests, production runs, the Lab and the API treat them
+the same (docs/04-model.md § 6 Engineering contract, D-050). A model is a pure function of its
+inputs and its `ModelSpec`.
+
+Sport-agnostic (D-022): teams and games are the serving database's ids, and nothing here knows
+what a conference or an FCS team is.
+"""
+
+from __future__ import annotations
+
+from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
+from datetime import datetime
+from typing import Literal, Protocol
+
+TeamId = int
+
+
+@dataclass(frozen=True, slots=True)
+class GameContext:
+    """A game to predict: what's known about it before kickoff."""
+
+    game_id: int
+    season: int
+    season_type: Literal["regular", "postseason"]
+    week: int
+    kickoff: datetime
+    home_team: TeamId
+    away_team: TeamId
+    neutral_site: bool
+
+
+@dataclass(frozen=True, slots=True)
+class GameResult(GameContext):
+    """A finished game a model can fit on."""
+
+    home_points: int
+    away_points: int
+
+    @property
+    def margin(self) -> int:
+        return self.home_points - self.away_points
+
+
+GameHistory = Sequence[GameResult]
+
+
+@dataclass(frozen=True, slots=True)
+class Ratings:
+    """A fit's output entering a week: each team's rating and the learned weights."""
+
+    as_of: datetime
+    teams: Mapping[TeamId, float]
+    params: Mapping[str, float]  # e.g. home_field, margin_sd; stored as model_runs.fitted_params
+
+
+Driver = tuple[str, float]  # ("Home pass offense vs away pass defense", 3.1)
+
+
+@dataclass(frozen=True, slots=True)
+class Prediction:
+    pred_margin: float  # home − away
+    margin_sd: float
+    home_win_prob: float
+    drivers: tuple[Driver, ...] = ()  # the "why this pick" contributions, in points
+
+
+class RatingModel(Protocol):
+    def fit(self, games: GameHistory, as_of: datetime) -> Ratings: ...
+
+
+class GamePredictor(Protocol):
+    def predict(self, game: GameContext, ratings: Ratings, as_of: datetime) -> Prediction:
+        """Returns pred_margin, margin_sd, home_win_prob, drivers."""
+        ...

@@ -1,14 +1,14 @@
 ---
 id: TASK-029
 title: Define ModelSpec v1, the model interfaces and the probability math in engine.core
-status: Ready
+status: In progress
 depends_on: []
 size: M
 model: opus
 autonomy: attended
 ui: false
-plan_status: none
-planned_at_commit:
+plan_status: approved
+planned_at_commit: b5f8f8f
 ---
 
 # TASK-029 — Define ModelSpec v1, the model interfaces and the probability math in engine.core
@@ -68,9 +68,40 @@ Every model, the backtest and later the API describe a model the same way: a val
 
 _Work noticed during this task and deliberately left out. Each bullet ends `→ <path> § <section>` (where it was placed) or `→ not tracked: <reason>`. See `.claude/skills/track-follow-ups/classify.md`; the PR's Follow-ups section is copied from here._
 
+- 04 § 6's YAML sketch shows `stat` + `split`, `name`, and no tune syntax; amend it to the v1 shape (flat input ids, `{tune: [...]}`, no `name`, `spec_schema_version`) (approved at plan) → docs/04-model.md § Every model is a spec
+- TASK-030 tunes through `ModelSpec.tunables()` and `ModelSpec.resolve()` (approved at plan) → docs/tasks/TASK-030-walk-forward-backtest-harness.md § Context
+- Rung 0 baselines aren't `ModelSpec`s: a baseline is a name plus the wrapped model's spec (approved at plan) → docs/tasks/TASK-032-backtest-baselines.md § Context
+- The fixture's v1.0 spec is written in the v1 shape; sample-data § 8's prior fade (100% → 50% wk 4 → 10% wk 8) isn't linear, so it uses `decay: {type: fitted}` (approved at plan) → docs/tasks/TASK-034-model-registry-schema.md § Context
+
 ## Plan
 
-_Written by /plan-batch or /implement-task Phase 1. Approved by the user (plan_status: approved) before any code is written._
+**Decisions (approved 2026-10-25):**
+1. Input ids are flat, one per metric and split: `epa_per_play`, `rush_epa_per_play`, `pass_epa_per_play`, `success_rate`, `rush_success_rate`, `pass_success_rate`. No `split` field (04 § 6's sketch); offense and defense come from the same fit, so the side isn't in the id. Each entry carries a `feature` stem (`pass_ppa`) naming its `team_week_features` column, and a test checks every stem exists.
+2. A tuned setting is `{"tune": [v1, v2, ...]}` (≥ 2 values) wherever a number goes. `spec.tunables()` → `{"hyperparameters.ridge_alpha": (...), ...}`; `spec.resolve({path: value})` → a validated spec, refusing an unknown path or a value outside the candidates. Pick code refuses an unresolved spec.
+3. Spec v1: `spec_schema_version: 1` (inside the spec JSON, so no column); `base: power | efficiency` (`power` refuses inputs, `efficiency` needs ≥ 1); `inputs[{stat, weight}]`; `hyperparameters{ridge_alpha?, recency_half_life_weeks?, margin_cap?}`; `home_field: fit | number`; `prior?{components, regression, weights, decay: fitted | linear(zero_at_week)}`; `distribution: normal | empirical`; `picks{min_edge_pts, min_prob, market_shrinkage_k = 1, tiers{A ≥ B ≥ C}}`. No `name` (it lives on `model_versions`, and a rename mustn't change the spec's hash).
+4. Cover probability goes through a `MarginDistribution` protocol (`prob_above(pred, t)`, `prob_below(pred, t)`); `NormalMargin(sd)` uses stdlib `NormalDist`. M4.3's empirical distribution implements the same protocol (pushes on integer lines fit it; so does M19.2's per-game σ).
+5. Rung 0 baselines aren't specs: TASK-032 wraps a `RatingModel`, so a baseline is a name plus a wrapped spec.
+6. No numpy: `Ratings` holds dicts keyed by team id; `pyproject.toml` and `uv.lock` unchanged.
+
+**Steps:**
+1. `core/inputs.py`: `InputDef` (frozen, every § 10.6 field required and non-empty) and the 6 entries.
+2. `core/probability.py`: `edge`, `MarginDistribution`, `NormalMargin`, `cover_probability(pred, spread, dist)` → side, edge, prob; `expected_value(p, price=-110)`; `blended_margin(pred, spread, k)`.
+3. `core/spec.py`: `ModelSpec`, `Tune`, `Weight`, `tunables`, `resolve`; the `stat` validator checks the registry and its JSON Schema is the registry's ids as an enum.
+4. `core/picks.py`: `pick(pred, spread, rules, dist)` → `Pick(side, edge, prob, tier, blended_margin)` or `None`.
+5. `core/interfaces.py`: frozen dataclasses `GameResult`, `GameContext`, `Ratings`, `Prediction` (drivers as `(label, points)` tuples); `RatingModel` and `GamePredictor` protocols per 04 § 6.
+6. `core/__init__.py` exports; `docs/decisions.md` D-### row.
+
+**Files:** the five new `python/engine/src/engine/core/` modules and `__init__.py`; tests `python/engine/tests/test_core_probability.py`, `test_core_picks.py` (not in Files likely touched), `test_model_spec.py`, `test_input_registry.py` (not in Files likely touched), `test_core_imports.py`; `docs/decisions.md`; the follow-up placements at close-out (`docs/04-model.md`, TASK-030/032/034 Context).
+
+**Test strategy:**
+- AC-1: `test_core_probability.py` (edge, Φ(3/16) = 0.5744, EV formula, EV 0 at 110/210, mirrored away side).
+- AC-2: `test_core_picks.py` (tiers at 5.0/3.6/2.5, none at 2.4, none at 3.0 with σ large enough that p < 0.55); shrinkage formula and k = 1 in `test_core_probability.py`.
+- AC-3: `test_model_spec.py` (each error names its field; strict weights refuse `"6"` and `true`; JSON round-trip; schema enum equals registry ids).
+- AC-4: `test_input_registry.py` (6 entries, every field filled, unique ids, missing label/definition refused, stems exist in `team_week_features`).
+- AC-5: `test_core_imports.py` subprocess `sys.modules` check.
+- AC-6: `test_core_imports.py` test double assigned to `RatingModel`/`GamePredictor`-typed names; `pnpm typecheck` (pyright).
+
+**Risks:** pydantic lax mode would accept `"6"`/`True` as a weight (use strict numbers, tested); float rounding at tier edges (6.6 − 3.0 = 3.5999…) is harmless for these thresholds.
 
 ## Review log
 
