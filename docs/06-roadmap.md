@@ -76,7 +76,7 @@ Phase 8  Multi-sport (NFL)
 ## Phase 2 — Baselines & backtest harness
 **Goal:** the measuring stick, which comes before any serious model.
 
-- [ ] `ModelSpec` (v1 schema) + `RatingModel` / `GamePredictor` interfaces in `engine.core`
+- [x] `ModelSpec` (v1 schema) + `RatingModel` / `GamePredictor` interfaces in `engine.core`
 - [ ] Walk-forward backtest harness by (season, week), with leakage assertions
 - [ ] Metrics + markdown/HTML backtest report (MAE, ATS by edge bucket, calibration, ROI)
 - [ ] Baselines: HFA-only, closing line, SP+/FPI comparison

@@ -214,33 +214,35 @@ A model version becomes `production` only if, on the validation seasons:
 ## 6. Config-driven models & the model lab
 
 ### Every model is a spec
-To make "create and customize a model in the UI" possible, and to make versions reproducible, **a model is fully described by a declarative `ModelSpec`** (a pydantic model, stored as `model_versions.spec`). The code is a generic engine that reads the spec. A sketch:
+To make "create and customize a model in the UI" possible, and to make versions reproducible, **a model is fully described by a declarative `ModelSpec`** (a pydantic model, stored as `model_versions.spec`). The code is a generic engine that reads the spec. The v1 shape (`engine/core/spec.py`, D-130):
 
 ```yaml
-name: efficiency-v1-pass-heavy
+spec_schema_version: 1      # which shape this spec has
 base: efficiency            # rating family: power | efficiency | (later) ml-residual
-inputs:                     # which opponent-adjusted stats to rate
-  - {stat: epa_per_play, split: pass, weight: fit}
-  - {stat: epa_per_play, split: rush, weight: fit}
+inputs:                     # which opponent-adjusted stats to rate (power takes none)
+  - {stat: pass_epa_per_play, weight: fit}
+  - {stat: rush_epa_per_play, weight: fit}
   - {stat: success_rate, weight: fit}
-  - {stat: explosiveness, weight: 0.0}       # excluded
+  - {stat: rush_success_rate, weight: 0.0}   # excluded
 hyperparameters:
   ridge_alpha: 150
-  recency_half_life_weeks: 6
+  recency_half_life_weeks: {tune: [4, 6, 8]}  # the backtest picks one per season
   margin_cap: 28
 home_field: fit             # or a fixed number, e.g. 2.0
 prior:
   components: [last_season, returning_production, talent, recruiting]
+  regression: 0.3           # how far last season's rating moves toward the mean
   weights: fit
   decay: {type: fitted}     # or {type: linear, zero_at_week: 8}
 distribution: empirical     # or normal
 picks:
   min_edge_pts: 3.0
+  min_prob: 0.55
   market_shrinkage_k: 0.7
   tiers: {A: 5.0, B: 3.5, C: 2.5}
 ```
 
-Each weight is either **`fit`** (learned from data by the backtest) or **fixed** at a number you choose. The spec's JSON Schema generates the model-builder form in the UI, so the form can never offer an option the engine doesn't support. Each `stat` names an entry in the input registry (§ 10.6), which holds its label and plain-English definition.
+Each weight is either **`fit`** (learned from data by the backtest) or **fixed** at a number you choose. A setting (a hyperparameter, prior or pick-rule number) is a number or `{tune: [...]}`, the candidates the backtest chooses between using earlier seasons only (§ 9.1). A model is built from the spec once each tuned setting is fixed to one candidate. The spec's JSON Schema generates the model-builder form in the UI, so the form can never offer an option the engine doesn't support. Each `stat` names an entry in the input registry (§ 10.6), which holds its label and plain-English definition. An id is one metric and split (`pass_epa_per_play`), and offense and defense are both rated from it. The spec has no name: a version's name lives on `model_versions`, so renaming a model never changes its spec.
 
 ### Two kinds of numbers: settings vs learned weights
 **Concept: hyperparameters vs parameters.** *Parameters* (weights) are what the model **learns** from data: "1.0 EPA/play is worth 28 points," "home field = 2.3." *Hyperparameters* are settings **you choose** that control how learning happens: the ridge `alpha`, the recency half-life, the margin cap. The backtest tunes hyperparameters by trying values and keeping the best on the validation seasons.

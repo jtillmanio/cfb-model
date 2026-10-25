@@ -32,6 +32,7 @@ The serving database can hold model versions, the runs that executed them, and t
   - **`team_ratings` key:** 03's PK `(model_version_id, team_id, season, week)` allows one row per version and week, which blocks the new rows a re-run inserts (CLAUDE.md › Domain conventions). The PK is `(model_run_id, team_id, season, week)`, with an index on `(model_version_id, season, week)` for the views' reads.
   - **Statuses change in place:** `model_runs.status` (queued → running → succeeded/failed) and `model_versions.status` (dev → candidate → production → retired) are a run's and a version's lifecycle, so they're updated. Only `team_ratings` and `predictions` get the insert-only triggers (hard rule 2), and their foreign keys to `model_runs` and `model_versions` are `ON DELETE RESTRICT`, so no run or version with outputs can be deleted.
   - **Fixture predictions:** the fixture has 11 Week 6 games today. This task seeds a v1.0 prediction for each of them; M5.5 seeds the other 43 games behind "54 games" and their predictions with them (a note on M5.5's stub says so).
+- *From TASK-029 (PR #87):* write the fixture's v1.0 spec in the v1 shape (D-130, `engine/core/spec.py`): `base: efficiency`, inputs from the registry (`pass_epa_per_play`, `rush_epa_per_play`, `success_rate`), no `name` (it's the `model_versions` column). `design/sample-data.md` § 8's prior fade (100% → 50% at week 4 → 10% at week 8) isn't linear, so the spec uses `prior.decay: {type: fitted}`; the learned weights it shows go in `fitted_params`.
 
 ## Acceptance criteria
 
