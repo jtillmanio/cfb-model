@@ -19,7 +19,7 @@ A GitHub `schedule` fallback of `results.yml` or `lines.yml` that starts hours l
 
 ## Context
 
-- *From TASK-026 (branch `feat/026-backup-dispatch-with-fallback`):* `.github/actions/skip-if-dispatched` (TASK-022) skips a `schedule` run only when a `workflow_dispatch` run of the same workflow succeeded in the last 6 hours. GitHub has started scheduled runs 5–8 hours late (D-122), so a late fallback can fall outside that window and run the job a second time. The upserts are harmless, but it spends a few CFBD calls (the call budget, D-027).
+- *From TASK-026 (PR #84):* `.github/actions/skip-if-dispatched` (TASK-022) skips a `schedule` run only when a `workflow_dispatch` run of the same workflow succeeded in the last 6 hours. GitHub has started scheduled runs 5–8 hours late (D-122), so a late fallback can fall outside that window and run the job a second time. The upserts are harmless, but it spends a few CFBD calls (the call budget, D-027).
 - TASK-026 settled the same question for the backup differently (D-128): its fallback asks R2 whether the day's dump exists, not whether a dispatched run succeeded recently. `results` and `lines` have no single artifact per day to ask about, so the choice here is open: widen the window, or check what the job produced.
 - **Decide at the plan gate:** the window (or the output to check), and whether it differs per workflow (`lines.yml` runs five times a week; a window long enough to cover an 8-hour lag can swallow the next slot's own fallback).
 
