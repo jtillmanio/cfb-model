@@ -1,14 +1,14 @@
 ---
 id: TASK-026
 title: Run the backup from the dispatcher with a GitHub-schedule fallback
-status: Ready
+status: In progress
 depends_on: [TASK-024, TASK-025]
-size: S
+size: M
 model: sonnet
 autonomy: attended
 ui: false
-plan_status: none
-planned_at_commit:
+plan_status: approved
+planned_at_commit: d88ff01
 ---
 
 # TASK-026 — Run the backup from the dispatcher with a GitHub-schedule fallback
@@ -35,6 +35,7 @@ The nightly backup runs at 03:30 ET from the dispatcher. If the dispatcher ever 
 - [ ] AC-2: Given a `schedule` run when that object doesn't exist, the run takes the backup as before. A `workflow_dispatch` run always takes the backup, whatever exists (manual re-runs and the dispatcher still replace the day's dump).
 - [ ] AC-3: Two owner-approved branch runs show both paths: one after a dump for the day exists (skips, AC-1) and, with the check pointed at a date that has no dump, one that proceeds (AC-2). Each run's summary says which path it took.
 - [ ] AC-4: `backup.yml`'s header comment and `README.md` › Backups say the backup is started by the dispatcher at 03:30 ET, that the `schedule` entry is a fallback that skips when the day's dump exists, and the fallback's time.
+- [ ] AC-5: README › Dispatcher no longer mentions TASK-026 or a double backup run (the paragraph under the table, What it doesn't do, Logs and failures), and D-109 and D-122 each end "Amended by D-128", a new decisions-log row that records the fallback. (Added at the plan gate, owner-approved 2026-10-25.)
 
 ## Out of scope
 
@@ -57,9 +58,35 @@ The nightly backup runs at 03:30 ET from the dispatcher. If the dispatcher ever 
 
 _Work noticed during this task and deliberately left out. Each bullet ends `→ <path> § <section>` (where it was placed) or `→ not tracked: <reason>`. See `.claude/skills/track-follow-ups/classify.md`; the PR's Follow-ups section is copied from here._
 
+- `.github/actions/skip-if-dispatched` (TASK-022) skips a `schedule` run only when a dispatched run succeeded in the last 6 hours; GitHub has started scheduled runs 5–8 hours late, so a late fallback of `results.yml` or `lines.yml` runs the job a second time (harmless upserts, but a few CFBD calls). Widen the window or check what the job produced → new Draft task TASK-028 (approved at plan)
+
 ## Plan
 
-_Written by /plan-batch or /implement-task Phase 1. Approved by the user (plan_status: approved) before any code is written._
+Approved 2026-10-25 at `d88ff01`.
+
+**Open question from TASK-022, settled:** the fallback checks R2 for `backups/daily/<UTC date>.dump`, not `.github/actions/skip-if-dispatched`. The guard's 6-hour window fails when GitHub starts the fallback 5–8 hours late (it would run a second full backup); the dump check asks whether today's backup exists, so a late start doesn't matter, and a hand-run backup counts too. The R2 token (Object Read & Write) can already `HeadObject`.
+
+**Steps**
+1. Tests first, in `python/db/tests/test_backup.py` (a TASK-026 section), each failing on the old code:
+   - a `workflow_dispatch` run without `--date` outputs `skip=false` and makes no `aws` call (AC-2);
+   - a `schedule` run whose daily dump exists (`head-object` exits 0) outputs `skip=true`, calls `aws s3api head-object` on `backups/daily/<date>.dump` with the R2 endpoint, and the summary says "Already backed up today (<date>) by `backups/daily/<date>.dump`; skipped." (AC-1);
+   - a `schedule` run whose dump is missing (non-zero exit, `Not Found`/404) outputs `skip=false` and says it is taking the backup (AC-2);
+   - any other R2 error outputs `skip=false` with a warning, so the fallback still backs up;
+   - `--date` makes a `workflow_dispatch` run behave as the fallback (the AC-3 test hook);
+   - workflow shape: a `fallback` job runs before `backup`, which has `needs: fallback` and `if: needs.fallback.outputs.skip != 'true'`; the `schedule` cron is `0 12 * * *`; the dispatch input `check_date` reaches the command; R2 secrets reach the check only through `env:`.
+2. `python/db/src/db/backup.py`: `python -m db backup fallback --event E [--date D]`. A pure decision for the `head-object` result, then the command: writes `skip=` to `$GITHUB_OUTPUT` and one summary line. Date defaults to `run_date(now)`.
+3. `.github/workflows/backup.yml`: a `fallback` job (checkout, setup-uv, the command with the R2 env and checksum settings) that always runs; the `backup` job `needs` it and is skipped on `skip == 'true'` (no `always()`, so the existing "nothing runs past a failure" test still holds). Cron `0 12 * * *` (08:00 EDT, 07:00 EST; 8 hours late it is still the dispatched run's UTC date). A `workflow_dispatch` input `check_date` (empty by default) tests the fallback path on a branch. Rewrite the header comment (AC-4).
+4. `README.md`: › Backups opening sentence (AC-4); › Dispatcher: the paragraph under the table, What it doesn't do, Logs and failures (AC-5).
+5. `docs/decisions.md`: D-128 (the fallback job, its cron, the R2 check, `check_date`, `skip-if-dispatched` rejected and why); append "Amended by D-128" to D-109 and D-122 (AC-5). Take the ID from `next-id.ps1` again before writing.
+6. Close-out: create TASK-028 (Draft) for the follow-up above.
+
+**Files:** `.github/workflows/backup.yml`, `python/db/src/db/backup.py`, `python/db/tests/test_backup.py`, `README.md`, `docs/decisions.md` (and this file; TASK-028 at close-out). Size raised S → M: Python plus CI, 5 files.
+
+**Test strategy:** AC-1, AC-2: the pytest cases in step 1. AC-3: two owner-approved branch runs, which are also the "Changed workflow run on the branch" ready gate: `gh workflow run backup.yml --ref <branch> -f check_date=<today UTC>` after the day's dump exists (skips; never reads production), then `-f check_date=2000-01-01` (proceeds: a full backup that reads production and replaces today's dump). AC-4, AC-5: test-runner on the text, plus spec-reviewer.
+
+**AC-2 reading:** a dispatch with `check_date` set runs the fallback's check (the test hook AC-3 needs); without it, a dispatch always backs up.
+
+**Risks:** the check job adds about 20 s to every run (uv setup). A `head-object` error other than 404 proceeds with the backup, so a broken R2 token fails at the upload as it does today.
 
 ## Review log
 
