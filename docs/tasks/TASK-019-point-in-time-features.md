@@ -8,7 +8,7 @@ model: opus
 autonomy: attended
 ui: false
 plan_status: approved
-planned_at_commit: 945fd7d
+planned_at_commit: d7a35af
 ---
 
 # TASK-019 — Build point-in-time team_week_features and game_features
@@ -89,7 +89,7 @@ Approved 2026-10-24 (attended), with both open questions settled as recommended.
 **Files:** `python/engine/src/engine/transform/features.py` (new), `transform/__init__.py`, `cli.py` (not listed), `tests/lake_fixture.py` (not listed: the fixture is generated in code, so existing counts don't move), `tests/test_features.py` (new), `tests/test_leakage.py` (new), `tests/test_transform.py` (not listed), `docs/03-data-model.md` (not listed), `docs/decisions.md` (not listed).
 
 **Tests:**
-- AC-1: `test_features.py::test_every_row_has_as_of_after_its_sources`, `::test_leaky_inclusion_fails_the_build_naming_the_row` (the rule monkeypatched from `<` to `<=`; rebuild exits 1 naming team, season and week)
+- AC-1: `test_features.py::test_every_row_has_as_of_after_its_sources`, `::test_leaky_inclusion_fails_the_build_naming_the_row` (the rule monkeypatched to let in a game kicking off at `as_of`; rebuild exits 1 naming team, season and week), `::test_check_point_in_time_names_an_injected_leak` (plan revision 1: a game 3 h before `as_of` is named, 4 h before isn't)
 - AC-2: `test_leakage.py::test_changing_a_week7_game_leaves_weeks_through_7_unchanged`
 - AC-3: `test_features.py::test_week4_counts_three_games_and_week1_is_empty`
 - AC-4: `test_features.py::test_one_game_row_per_staged_game_with_target`

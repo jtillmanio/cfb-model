@@ -1,6 +1,7 @@
 """The leakage test (TASK-019, docs/02-architecture.md › Testing strategy): changing a game after
 week N leaves every week-N feature row unchanged. Rows "entering week N" may read only games
-that kicked off before that week, so a week-7 game can change week 8's rows and no earlier ones.
+that finished (4 hours after kickoff) before that week's `as_of`, so a week-7 game can change
+week 8's rows and no earlier ones.
 """
 
 from __future__ import annotations

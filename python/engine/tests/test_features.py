@@ -87,7 +87,8 @@ def test_every_row_has_as_of_after_its_sources(season: LocalLake) -> None:
         assert game["as_of"] is not None
         for side in ("home", "away"):
             last = game[f"{side}_last_game_kickoff"]
-            assert last is None or last < game["as_of"] <= game["kickoff_at"]
+            assert last is None or last + timedelta(hours=4) <= game["as_of"]
+            assert game["as_of"] <= game["kickoff_at"]
 
 
 def test_leaky_inclusion_fails_the_build_naming_the_row(
@@ -106,8 +107,9 @@ def test_leaky_inclusion_fails_the_build_naming_the_row(
 
 
 def test_check_point_in_time_names_an_injected_leak(season: LocalLake) -> None:
-    """The assertion on its own: a row whose newest source game is at or after as_of, or that
-    has no as_of, is named."""
+    """The assertion on its own: a row whose newest source game kicked off less than 4 hours
+    before as_of (so may not have finished), or that has no as_of, is named; one exactly 4
+    hours before isn't."""
     rebuild(season)
     from engine.transform.staging import connect
 
@@ -117,18 +119,26 @@ def test_check_point_in_time_names_an_injected_leak(season: LocalLake) -> None:
         con.execute(f"CREATE TABLE {name} AS SELECT * FROM {name}_ok")
     features.check_point_in_time(con)  # the real build passes
 
-    con.execute(
-        "UPDATE team_week_features SET last_game_kickoff = as_of "
-        f"WHERE team_source_id = '{KANSAS}' AND week = 4"
-    )
+    def set_last(week: int, before_as_of: str) -> None:
+        con.execute(
+            f"UPDATE team_week_features SET last_game_kickoff = as_of - INTERVAL {before_as_of} "
+            f"WHERE team_source_id = '{KANSAS}' AND week = {week}"
+        )
+
+    set_last(4, "3 HOURS")  # kicked off, not finished
+    set_last(6, "4 HOURS")  # finished at as_of: allowed
     con.execute(
         "UPDATE team_week_features SET as_of = NULL "
         f"WHERE team_source_id = '{KANSAS}' AND week = 5"
     )
     with pytest.raises(features.PointInTimeError) as e:
         features.check_point_in_time(con)
-    assert f"team {KANSAS}, 2025 regular week 4: its newest source game kicked off" in str(e.value)
-    assert f"team {KANSAS}, 2025 regular week 5: as_of is NULL" in str(e.value)
+    message = str(e.value)
+    assert f"team {KANSAS}, 2025 regular week 4: its newest source game kicked off" in message
+    assert "less than 4 hours before as_of" in message
+    assert f"team {KANSAS}, 2025 regular week 5: as_of is NULL" in message
+    assert f"team {KANSAS}, 2025 regular week 6" not in message
+    assert message.startswith("2 feature rows")
 
 
 def test_week4_counts_three_games_and_week1_is_empty(season: LocalLake) -> None:
