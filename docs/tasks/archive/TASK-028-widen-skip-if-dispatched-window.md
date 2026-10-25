@@ -1,7 +1,7 @@
 ---
 id: TASK-028
 title: Stop a late fallback run of results and lines repeating the dispatched run
-status: Review
+status: Done
 depends_on: [TASK-022]
 size: S
 model: sonnet
