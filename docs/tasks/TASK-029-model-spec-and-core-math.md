@@ -1,7 +1,7 @@
 ---
 id: TASK-029
 title: Define ModelSpec v1, the model interfaces and the probability math in engine.core
-status: In progress
+status: Review
 depends_on: []
 size: M
 model: opus
@@ -32,12 +32,12 @@ Every model, the backtest and later the API describe a model the same way: a val
 
 ## Acceptance criteria
 
-- [ ] AC-1: The probability functions return, for pred_margin 6.0 and spread_home −3.0 with σ 16.0: edge 3.0 (home side), cover probability Φ(3/16) to 4 decimal places, and EV at −110 equal to `p × 100/110 − (1 − p)`; EV is 0 to 6 decimal places at p = 110/210; a negative edge names the away side with the same probability as the mirrored positive edge.
-- [ ] AC-2: Given a spec with pick rules min edge 2.5, min probability 0.55 and tiers A ≥ 5.0, B ≥ 3.5, C ≥ 2.5, the pick function returns tier A at edge 5.0, B at 3.6, C at 2.5, no pick at 2.4, and no pick at edge 3.0 when the probability is below 0.55; with market shrinkage k the blended margin is `k × pred_margin + (1 − k) × (−spread_home)`, and k = 1 leaves the edge unchanged.
-- [ ] AC-3: `ModelSpec` refuses, with an error naming the field, a spec with an unknown field, an input id that isn't in the registry, or a weight that is neither `fit` nor a number; a valid spec round-trips through JSON to an equal object, and its JSON Schema lists exactly the registry's input ids as the allowed `stat` values.
-- [ ] AC-4: The input registry has one entry per v1 input (§ 10.2), each with every § 10.6 field filled; ids are unique, and a test fails if an entry is added without a label or definition.
-- [ ] AC-5: Importing `engine.core` in a fresh interpreter loads none of `duckdb`, `pyarrow`, `httpx`, `boto3`, `pandas` or any `engine.sports`, `engine.ingest` or `engine.transform` module (checked through `sys.modules` in a subprocess).
-- [ ] AC-6: `RatingModel` and `GamePredictor` are typed protocols matching 04 § 6's contract, and a `Prediction` carries `pred_margin`, `margin_sd`, `home_win_prob` and `drivers` as `(label, points)` pairs; pyright passes with a test double implementing both.
+- [x] AC-1: The probability functions return, for pred_margin 6.0 and spread_home −3.0 with σ 16.0: edge 3.0 (home side), cover probability Φ(3/16) to 4 decimal places, and EV at −110 equal to `p × 100/110 − (1 − p)`; EV is 0 to 6 decimal places at p = 110/210; a negative edge names the away side with the same probability as the mirrored positive edge.
+- [x] AC-2: Given a spec with pick rules min edge 2.5, min probability 0.55 and tiers A ≥ 5.0, B ≥ 3.5, C ≥ 2.5, the pick function returns tier A at edge 5.0, B at 3.6, C at 2.5, no pick at 2.4, and no pick at edge 3.0 when the probability is below 0.55; with market shrinkage k the blended margin is `k × pred_margin + (1 − k) × (−spread_home)`, and k = 1 leaves the edge unchanged.
+- [x] AC-3: `ModelSpec` refuses, with an error naming the field, a spec with an unknown field, an input id that isn't in the registry, or a weight that is neither `fit` nor a number; a valid spec round-trips through JSON to an equal object, and its JSON Schema lists exactly the registry's input ids as the allowed `stat` values.
+- [x] AC-4: The input registry has one entry per v1 input (§ 10.2), each with every § 10.6 field filled; ids are unique, and a test fails if an entry is added without a label or definition.
+- [x] AC-5: Importing `engine.core` in a fresh interpreter loads none of `duckdb`, `pyarrow`, `httpx`, `boto3`, `pandas` or any `engine.sports`, `engine.ingest` or `engine.transform` module (checked through `sys.modules` in a subprocess).
+- [x] AC-6: `RatingModel` and `GamePredictor` are typed protocols matching 04 § 6's contract, and a `Prediction` carries `pred_margin`, `margin_sd`, `home_win_prob` and `drivers` as `(label, points)` pairs; pyright passes with a test double implementing both.
 
 ## Out of scope
 
@@ -72,6 +72,7 @@ _Work noticed during this task and deliberately left out. Each bullet ends `→ 
 - TASK-030 tunes through `ModelSpec.tunables()` and `ModelSpec.resolve()` (approved at plan) → docs/tasks/TASK-030-walk-forward-backtest-harness.md § Context
 - Rung 0 baselines aren't `ModelSpec`s: a baseline is a name plus the wrapped model's spec (approved at plan) → docs/tasks/TASK-032-backtest-baselines.md § Context
 - The fixture's v1.0 spec is written in the v1 shape; sample-data § 8's prior fade (100% → 50% wk 4 → 10% wk 8) isn't linear, so it uses `decay: {type: fitted}` (approved at plan) → docs/tasks/TASK-034-model-registry-schema.md § Context
+- Spec review note: `Tiers` skips the A ≥ B ≥ C check while a tier is tuned, so an impossible tuning grid is caught only by `resolve()` → not tracked: by design; `resolve()` re-validates, so no resolved spec breaks the order
 
 ## Plan
 
@@ -105,7 +106,7 @@ _Work noticed during this task and deliberately left out. Each bullet ends `→ 
 
 ## Review log
 
-_Filled by /implement-task. One line per round._
+Verify R1 PASS (re-run after the review notes) | Audit R1 PASS | Spec R1 APPROVE (3 non-blocking notes; the error-message bound and D-130's weight wording fixed)
 
 ## Blocked
 
@@ -113,7 +114,7 @@ _Only if status is Blocked: what failed, what was tried, best hypothesis, decisi
 
 ## Metrics
 
-- Verify rounds:
-- Review rounds:
-- First-pass AC FAILs:
-- Plan revisions after approval:
+- Verify rounds: 1 (plus a re-run on the review fixes)
+- Review rounds: 1
+- First-pass AC FAILs: 0
+- Plan revisions after approval: 0
