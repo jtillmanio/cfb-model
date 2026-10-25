@@ -1,7 +1,7 @@
 ---
 id: TASK-019
 title: Build point-in-time team_week_features and game_features
-status: Review
+status: Done
 depends_on: [TASK-018]
 size: M
 model: opus
