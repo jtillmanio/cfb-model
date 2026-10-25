@@ -1,7 +1,7 @@
 ---
 id: TASK-026
 title: Run the backup from the dispatcher with a GitHub-schedule fallback
-status: Review
+status: Done
 depends_on: [TASK-024, TASK-025]
 size: M
 model: sonnet
