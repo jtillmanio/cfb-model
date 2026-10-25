@@ -1,7 +1,7 @@
 ---
 id: TASK-019
 title: Build point-in-time team_week_features and game_features
-status: In progress
+status: Review
 depends_on: [TASK-018]
 size: M
 model: opus
@@ -34,11 +34,11 @@ For any season and week, the lake holds each team's form entering that week and 
 
 ## Acceptance criteria
 
-- [ ] AC-1: Every `team_week_features` and `game_features` row has a non-null `as_of`, and the build asserts each row's newest source game kickoff is before its `as_of`. Given an injected input that violates it, the build fails and names the team, season and week.
-- [ ] AC-2: Given the lake fixture, changing the score and stats of one week-7 game and rebuilding leaves every row for weeks ≤ 7 identical, and changes at least one week-8 row.
-- [ ] AC-3: Given a fixture team that played in weeks 1, 2 and 3, its week-4 row has 3 games played and points for equal to the sum of those three games' points; its week-1 row has 0 games played and NULL averages.
-- [ ] AC-4: `game_features` has one row per staged game, carrying the home and away teams' entering-week features, `neutral_site`, and the target `margin = home_points − away_points` (NULL for a game not yet played).
-- [ ] AC-5: `engine transform --rebuild` builds the feature tables after staging, still with zero API calls.
+- [x] AC-1: Every `team_week_features` and `game_features` row has a non-null `as_of`, and the build asserts each row's newest source game kickoff is before its `as_of`. Given an injected input that violates it, the build fails and names the team, season and week.
+- [x] AC-2: Given the lake fixture, changing the score and stats of one week-7 game and rebuilding leaves every row for weeks ≤ 7 identical, and changes at least one week-8 row.
+- [x] AC-3: Given a fixture team that played in weeks 1, 2 and 3, its week-4 row has 3 games played and points for equal to the sum of those three games' points; its week-1 row has 0 games played and NULL averages.
+- [x] AC-4: `game_features` has one row per staged game, carrying the home and away teams' entering-week features, `neutral_site`, and the target `margin = home_points − away_points` (NULL for a game not yet played).
+- [x] AC-5: `engine transform --rebuild` builds the feature tables after staging, still with zero API calls.
 
 ## Out of scope
 
@@ -62,6 +62,10 @@ For any season and week, the lake holds each team's form entering that week and 
 ## Follow-ups
 
 _Work noticed during this task and deliberately left out. Each bullet ends `→ <path> § <section>` (where it was placed) or `→ not tracked: <reason>`. See `.claude/skills/track-follow-ups/classify.md`; the PR's Follow-ups section is copied from here._
+
+- Candidate decision: how the feature tables are built (as_of, the finished-at-4-hours cutoff, rows, columns, per-game means, missing advanced stats, the assertion); D-042 marked "Amended by D-127" → docs/decisions.md § D-127
+- CFBD files every bowl and CFP round under postseason week 1, so a team has one postseason row and a later CFP round's `game_features` don't see its earlier rounds. That matters once the backtest scores postseason games (04 § 9.3) → docs/decisions.md § D-127 (Revisit if)
+- `.env.local`'s `LAKE_URI=./data` resolves against the working directory, so `uv --directory python run engine …` reads and writes `python/data/` instead of the repo's `data/` (this task's first manual rebuild did; the empty folder was deleted with the owner's OK) → docs/owner-checklist.md § Actions
 
 ## Plan
 
@@ -100,13 +104,19 @@ Approved 2026-10-24 (attended), with both open questions settled as recommended.
 
 _Filled by /implement-task. One line per round._
 
+- Verify R1 PASS → R2 PASS (after schema R1 fixes) → R3 PASS (after schema R2 fixes, on the rebased branch)
+- Audit R1 NOT RUN (the tree held an untracked `python/data/`; deleted with the owner's OK) → R1 PASS (every AC PROVEN)
+- Spec R1 APPROVE (two doc-accuracy notes, fixed) → R2 APPROVE (noted the branch was cut from the unmerged kit-2.8 branch: rebased onto `main`'s squash, identical tree)
+- Schema R1 CHANGES (MAJOR: kickoff isn't finished; MAJOR: TBA and postseason untested; 4 MINOR) → R2 CHANGES (MAJOR: the check's 4-hour window untested; 3 MINOR) → R3 APPROVE (a third round, approved by the owner)
+- Manual: local lake 2014–2026 rebuilt, 45,198 team-week rows and 11,260 game rows (one per staged game), 0 violations. Ohio State 2024 weeks 1–8: games played rises by at most one a week, byes flat, each `as_of` after its previous game. Lake-wide, 80 rows rise by 2, all at week 2: teams whose "week 0" game CFBD files under week 1
+
 ## Blocked
 
 _Only if status is Blocked: what failed, what was tried, best hypothesis, decision needed._
 
 ## Metrics
 
-- Verify rounds:
-- Review rounds:
-- First-pass AC FAILs:
-- Plan revisions after approval:
+- Verify rounds: 3 (all PASS; re-runs after review fixes)
+- Review rounds: 3 (schema; spec 2)
+- First-pass AC FAILs: 0
+- Plan revisions after approval: 1 (finished-at-4-hours cutoff, after schema R1)
