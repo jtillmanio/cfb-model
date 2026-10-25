@@ -10,8 +10,8 @@
 # README › Backups says how to read a failed run. Secrets reach steps only through `env:`.
 #
 # The dispatcher starts this workflow at 03:30 ET (D-122), after Saturday's late games, before
-# Sunday's results job, and within the 24-hour recovery point (D-092). The `schedule` entry is only
-# a fallback (D-128), for a dispatcher that has stopped and so started nothing: the `fallback` job
+# Sunday's results job, and within the 24-hour recovery point (D-092). The `schedule` entry
+# (12:00 UTC) is only a fallback (D-128), for a dispatcher that has stopped and so started nothing: the `fallback` job
 # skips the backup when the day's dump is already in R2, and takes it otherwise. A dispatched run
 # always backs up (a manual re-run replaces the day's dump).
 name: Backup
