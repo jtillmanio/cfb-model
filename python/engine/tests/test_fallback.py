@@ -189,3 +189,13 @@ def test_workflows_set_up_uv_before_the_guard_and_take_a_test_cron(name: str) ->
         "uses: ./.github/actions/skip-if-dispatched"
     )
     assert re.search(r"^\s+fallback_cron:\n", text, re.M)
+
+
+@pytest.mark.parametrize("name", ["results.yml", "lines.yml"])
+def test_the_job_step_is_gated_on_the_guard_output(name: str) -> None:
+    text = (repo_root() / ".github/workflows" / name).read_text("utf-8")
+    assert "id: guard" in text
+    steps = text.split("      - name: ")[2:]  # after the guard step
+    job = [s for s in steps if "engine job" in s]
+    assert len(job) == 1
+    assert "if: ${{ steps.guard.outputs.skip != 'true' }}" in job[0]
