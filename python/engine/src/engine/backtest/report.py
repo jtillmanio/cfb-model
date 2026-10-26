@@ -180,7 +180,8 @@ def _opening(o: m.OpeningLine, games: int) -> Section:
         "Opening line and CLV",
         (
             "Picks made at the opening line, graded at it; CLV is how many points that line beat "
-            f"the close by (04 § 9.3). Target: average CLV above zero.{warning}",
+            "the same books' close by (04 § 9.3, D-132). Target: average CLV above zero."
+            f"{warning}",
         ),
         (Table(("Metric", "Value"), rows),),
     )

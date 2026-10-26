@@ -6,8 +6,12 @@ The line kinds come from `publish.lines.map_lines`, as published. A game's closi
 untimed `closing` rows (each book's first pull at or after the cutoff: CFBD's close), else its
 last pull before the cutoff, and there is none until the cutoff has passed. Its spread and total
 are the `consensus` book's when it quoted that price, else the median across the books (04 § 9.3).
-Its opening spread, which a backtest grades opening-line picks and CLV on, is the books' first
-quoted opener by the same rule (TASK-031).
+
+The opening line, which a backtest grades opening-line picks and measures CLV on, comes from the
+books that quoted both an opener and a close for the game: their opener (`spread_home_open`) and
+their close (`spread_home_open_close`), each by the same consensus-else-median rule. CLV then
+compares one set of books with itself; only some books quote openers (consensus never does), so
+the main close would mix sources (TASK-031, D-132).
 """
 
 from __future__ import annotations
@@ -27,7 +31,8 @@ SCHEMA = pa.schema(
     [
         ("game_source_id", pa.string()),
         ("spread_home", pa.float64()),
-        ("spread_home_open", pa.float64()),  # NULL when no book quoted an opener
+        ("spread_home_open", pa.float64()),  # NULL: no book quoted both an opener and a close
+        ("spread_home_open_close", pa.float64()),  # those same books' close, for CLV
         ("total", pa.float64()),
         ("source", pa.string()),  # which rule gave the spread: consensus or median
         ("closing_from", pa.string()),  # cfbd_close or last_snapshot, as in game_market
@@ -70,12 +75,17 @@ def closing_lines(games: pa.Table, lines: pa.Table, at: datetime | None = None) 
             closing_from = "last_snapshot"
         spread, source = _price(group, "spread_home")
         total, _ = _price(group, "total")
-        opening, _ = _price([r for r in rows if r["kind"] == "opening"], "spread_home")
+        openers = [r for r in rows if r["kind"] == "opening" and r["spread_home"] is not None]
+        opened = {r["provider"]: r for r in openers}
+        both = [r for r in group if r["provider"] in opened and r["spread_home"] is not None]
+        opening, _ = _price([opened[r["provider"]] for r in both], "spread_home")
+        open_close, _ = _price(both, "spread_home")
         out.append(
             {
                 "game_source_id": game,
                 "spread_home": spread,
                 "spread_home_open": opening,
+                "spread_home_open_close": open_close,
                 "total": total,
                 "source": source,
                 "closing_from": closing_from,

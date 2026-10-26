@@ -380,7 +380,8 @@ class Graded:
     margin_sd: float
     home_win_prob: float
     spread_home: float  # the close
-    spread_home_open: float | None
+    spread_home_open: float | None  # the opener of the books that quoted both ends
+    spread_home_open_close: float | None  # and those books' close: CLV's other end
     margin: int
     edge: float  # on the blended margin, against the close
     side: Side  # the side the edge likes
@@ -400,10 +401,11 @@ class Graded:
 
     @property
     def clv(self) -> float | None:
-        """Points the opener pick's line beat the close by (04 § 9.3)."""
-        if self.open_pick is None or self.spread_home_open is None:
+        """Points the opener pick's line beat the same books' close by (04 § 9.3, D-132)."""
+        opened, closed = self.spread_home_open, self.spread_home_open_close
+        if self.open_pick is None or opened is None or closed is None:
             return None
-        moved = self.spread_home_open - self.spread_home
+        moved = opened - closed
         return moved if self.open_pick.side == "home" else -moved
 
 
@@ -432,6 +434,7 @@ def grade_rows(
                 home_win_prob=row["home_win_prob"],
                 spread_home=close,
                 spread_home_open=opener,
+                spread_home_open_close=row.get("spread_home_open_close"),
                 margin=row["margin"],
                 edge=cover.edge,
                 side=cover.side,
@@ -607,7 +610,8 @@ def breakdown(
 
 
 WEEK_GROUPS = ("Weeks 1–3", "Weeks 4–6", "Weeks 7–9", "Weeks 10–12", "Weeks 13+", "Postseason")
-SPREAD_GROUPS = ("0–3", "3.5–7", "7.5–14", "14.5–21", "21.5+")
+# By bound, not half-point: a median close can sit on a quarter point.
+SPREAD_GROUPS = ("Up to 3", "Over 3 to 7", "Over 7 to 14", "Over 14 to 21", "Over 21")
 SIDE_GROUPS = ("Likes the favorite", "Likes the underdog", "Pick'em")
 
 
@@ -626,7 +630,7 @@ def spread_group(g: Graded) -> str:
     for top, label in zip((3, 7, 14, 21), SPREAD_GROUPS, strict=False):
         if size <= top:
             return label
-    return "21.5+"
+    return "Over 21"
 
 
 def side_group(g: Graded) -> str:

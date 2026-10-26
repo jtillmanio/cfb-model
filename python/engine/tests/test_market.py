@@ -30,7 +30,7 @@ def test_closing_lines_median_on_fixture(lake: LocalLake) -> None:
     kansas = closing[KANSAS_FRESNO]
     assert (kansas["spread_home"], kansas["source"]) == (-14.0, "median")  # the mean is -14.17
     assert kansas["closing_from"] == "cfbd_close"
-    assert kansas["spread_home_open"] == -14.0
+    assert (kansas["spread_home_open"], kansas["spread_home_open_close"]) == (-14.0, -14.0)
     assert closing["401756846"]["spread_home"] == -3.0  # Kansas State-Iowa State
 
 
@@ -77,19 +77,23 @@ def test_without_a_close_the_last_snapshot_before_kickoff() -> None:
     assert (row["spread_home"], row["closing_from"]) == (-5.5, "last_snapshot")
 
 
-def test_the_opening_spread_by_the_same_rule() -> None:
-    """The opener CLV is measured from (04 § 9.3): consensus's opening spread, else the median
-    across books, else none."""
+def test_the_opener_and_its_close_come_from_the_same_books() -> None:
+    """CLV compares the books that quoted both an opener and a close with themselves (04 § 9.3,
+    D-132): consensus never quotes an opener, so its close mustn't stand in for theirs."""
     after = KICKOFF + timedelta(days=2)
     books = (("consensus", after, -3.5), ("Bovada", after, -3.0), ("DraftKings", after, -2.0))
 
-    def opening(*opens: float | None) -> float | None:
-        (row,) = closing_lines(game(), lines(*books, opens=opens)).to_pylist()
-        return row["spread_home_open"]
+    def opening(*opens: float | None, rows: tuple = books) -> tuple[float | None, ...]:
+        (row,) = closing_lines(game(), lines(*rows, opens=opens)).to_pylist()
+        return row["spread_home"], row["spread_home_open"], row["spread_home_open_close"]
 
-    assert opening(-1.0, -2.0, -6.0) == -1.0  # consensus
-    assert opening(None, -2.0, -6.0) == -4.0  # the median
-    assert opening(None, None, None) is None
+    # Bovada and DraftKings open −2 and −6 and close −3 and −2; the main close stays consensus.
+    assert opening(None, -2.0, -6.0) == (-3.5, -4.0, -2.5)
+    assert opening(-1.0, -2.0, -6.0) == (-3.5, -1.0, -3.5)  # a consensus opener: consensus both
+    assert opening(None, None, None) == (-3.5, None, None)
+    # DraftKings quoted an opener but no close: it's left out of both.
+    no_close = (("consensus", after, -3.5), ("Bovada", after, -3.0), ("DraftKings", after, None))
+    assert opening(None, -2.0, -6.0, rows=no_close) == (-3.5, -2.0, -3.0)
 
 
 def test_no_closing_line_before_the_cutoff() -> None:

@@ -266,7 +266,7 @@
         "name": "Spread size (closing, either side)",
         "groups": [
           {
-            "label": "0–3",
+            "label": "Up to 3",
             "games": 17,
             "mae": 6.866988126,
             "closing_mae": 4.970588235,
@@ -277,7 +277,7 @@
             }
           },
           {
-            "label": "7.5–14",
+            "label": "Over 7 to 14",
             "games": 16,
             "mae": 5.212059156,
             "closing_mae": 14.90625,
