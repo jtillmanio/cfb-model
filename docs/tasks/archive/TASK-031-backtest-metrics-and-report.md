@@ -1,0 +1,133 @@
+---
+id: TASK-031
+title: Compute backtest metrics and write the markdown/HTML report
+status: Done
+depends_on: [TASK-030]
+size: M
+model: opus
+autonomy: attended
+ui: false
+plan_status: approved
+planned_at_commit: f5ccd6e
+---
+
+# TASK-031 — Compute backtest metrics and write the markdown/HTML report
+
+## Goal
+
+Every backtest ends in a report that shows how accurate the model was against the closing line, whether its picks would have won, whether bigger edges win more often, whether its probabilities are honest, and whether a model really beats another or just got lucky.
+
+## Context
+
+- Task list: `docs/08-tasklist.md` › M3 › M3.3.
+- Model: `docs/04-model.md` § 9.3 Lines, games and grading (closing line source per game; pushes in records but out of win %; units at −110, win +1.0u, loss −1.1u; ROI = units won ÷ units risked; CLV measured on opening-line picks against the close); § 9.4 Metrics and targets (every row: MAE gap vs closing, RMSE, ATS vs closing with a 95% interval, logistic edge trend with the § 5 buckets beside it, consistency per validation season, calibration in 2.5-point bins from 50% to 65%+ with the ±3-point rule for bins of ≥ 100 picks, avg CLV, ROI, win % by pick bucket, contest top 4, Brier score of `home_win_prob`, breakdowns); § 9.5 What "beats" means (week-level paired bootstrap, 10,000 resamples); § 5 Metrics we report.
+- Architecture: `docs/02-architecture.md` › Testing strategy › Levels › Model / backtest (golden numbers that change only in a commit that says why); › Components › 1 (`backtest/`; heavy dependencies only in `engine[train]`).
+- Decisions: D-076, D-077 (gate definitions: logistic slope interval above zero, ≤ 2 of 8 seasons below 50% and pooled ATS > 52.4% without the best season, calibration ±3 points on bins with ≥ 100 picks; the § 5 all-game buckets feed the gate, the pick buckets are display only), D-091 (week-level paired bootstrap), D-054 (flat 1 unit), D-046 (closing line is primary, opening also reported).
+- Feature: F-37 Calibration charts (`docs/01-product.md` › Feature index): the calibration numbers computed here are what the Performance screen draws later.
+- **Concept:** a calibration bin asks "of the games we called 57.5–60%, how many actually covered?". If the answer is 53%, the model is overconfident and its probabilities can't be taken at face value, however good its MAE looks.
+- **Concept:** the bootstrap resamples whole weeks because games in one week share news and line moves; resampling single games would overstate how sure we are.
+- **Decide at the plan gate:** the report's sections and file names (markdown and HTML from one source); which library fits the logistic regression and its interval (statsmodels in `engine[train]`, or a hand-rolled fit on numpy); the bootstrap's fixed seed; the breakdowns' bins (week of season, spread size, favorite/underdog).
+- **Settled when this task was written (2026-10-25, owner accepted the recommendation):** the conference-tier breakdown waits for M4.1, which builds the per-season tier map in `sports/cfb` (04 § 10.4); a note on M4.1's stub carries it. Build the breakdowns as one function grouping by any per-game column, so M4.1 only supplies a tier per game.
+- *From TASK-030 (PR #90):* the harness writes each run to the lake at `backtests/<run>/predictions.parquet`, one row per eligible game in (season, `as_of`, season type, week) order: `season`, `season_type`, `week`, `as_of`, `game_source_id`, `kickoff_at`, `home_source_id`, `away_source_id`, `neutral_site`, `pred_margin`, `margin_sd`, `home_win_prob`, `spread_home` (the close), `spread_source`, `closing_from`, `home_points`, `away_points`, `margin`; `run.json` beside it holds the spec, model, seasons and the settings chosen per season (03 › Lake layout › Backtests, D-131). It has no opening line, which CLV on opening-line picks needs (04 § 9.3): the plan decides whether this task joins it from staged `lines` (`spread_home_open`, same consensus-or-median rule) or the harness adds a column. Postseason rows have `season_type` = `postseason` for the separate report.
+
+## Acceptance criteria
+
+- [x] AC-1: Given a results fixture of 5 graded picks (3 wins, 1 loss, 1 push), the report shows the record 3-1-1, win % 75.0, units +1.9 and ROI equal to units won ÷ units risked; given model and closing errors on the same games, it shows both MAEs and their difference, and RMSE.
+- [x] AC-2: Given a fixture where the edge side covers more often as the edge grows, the edge trend's logistic slope and its 95% interval are both above zero and the gate reads pass; given a fixture with no relationship, the interval includes zero and the gate reads fail; the § 5 buckets (0–1.5, 1.5–3, 3–5, 5+) are shown beside it.
+- [x] AC-3: Given picks with known displayed probabilities and outcomes, every calibration bin (2.5-point steps from 50% to 65%+) shows its pick count, mean predicted probability and actual hit rate, and the calibration gate fails exactly when a bin with ≥ 100 picks is more than 3 points off.
+- [x] AC-4: The consistency gate passes or fails per D-077 on fixtures built for each case (3 of 8 seasons below 50% fails; pooled ATS ≤ 52.4% after removing the best season fails).
+- [x] AC-5: Given two models scored on the same games where one is better by a constant amount every week, the paired week-level bootstrap (10,000 resamples, fixed seed) reports a 95% interval entirely below zero and "beats"; given identical models, the interval contains zero; the same seed gives identical intervals on repeat runs.
+- [x] AC-6: `engine backtest … --report <dir>` writes a markdown and an HTML report of every § 9.4 row the run's data supports, marking each gate pass or fail, and a golden test on the TASK-030 fixture compares the metrics against committed numbers.
+
+## Out of scope
+
+- The Performance and Lab screens that draw these numbers (M7), and storing metrics in `model_runs.metrics` (TASK-034 adds the column; publishing backtest runs comes later).
+- Tuning pick rules (M4.4) and the go/no-go decision itself (M4.7).
+- The conference-tier breakdown and the tier map it needs (M4.1, `docs/08-tasklist.md` › M4 › M4.1).
+- Totals metrics (Phase 7).
+
+## Files likely touched
+
+- `python/engine/src/engine/backtest/metrics.py`: § 9.4 metrics and gates (new).
+- `python/engine/src/engine/backtest/bootstrap.py`: the paired week-level bootstrap (new).
+- `python/engine/src/engine/backtest/report.py`: markdown and HTML report (new).
+- `python/engine/src/engine/cli.py`: `--report` on `engine backtest`.
+- `python/engine/pyproject.toml` and `python/uv.lock` (through `uv add --optional train`): statsmodels, if the plan picks it.
+- `python/engine/tests/test_backtest_metrics.py`, `test_bootstrap.py`, `test_backtest_report.py`: AC-1 to AC-6 (new).
+- `docs/decisions.md`: report format and metric choices as a D-### row.
+
+## Verification
+
+- Automated: the three new test files; `pnpm test`.
+- Manual: run the harness with the stub spec on 2016–2017 of the local lake with `--report` → open the HTML report; every row is labeled, pushes don't appear in win %, and each gate shows pass or fail.
+
+## Follow-ups
+
+_Work noticed during this task and deliberately left out. Each bullet ends `→ <path> § <section>` (where it was placed) or `→ not tracked: <reason>`. See `.claude/skills/track-follow-ups/classify.md`; the PR's Follow-ups section is copied from here._
+
+- TASK-033 compares runs with `engine.backtest.bootstrap.compare()` for 04 § 9.6's "beats both baselines" bar; there's no CLI compare (approved at plan) → docs/tasks/TASK-033-rung-1-power-ratings.md § Context
+- Candidate decision: the report format and metric choices in the Plan, and the same-books CLV rule the owner chose at review (approved at plan) → docs/decisions.md § D-132
+- CFBD's books quote no opening spreads before 2021 (consensus never does; Bovada from 2021, DraftKings 2023, ESPN Bet 2024), so validation seasons 2016–2020 have no CLV or opening-line ATS; the report says so → docs/04-model.md § 9.3 (fixed in this PR, owner-approved with the CLV choice)
+- The backtest grades cover probabilities with a normal margin per row; M4.3's empirical distribution must reach `grade_rows` → docs/08-tasklist.md § M4 › M4.3
+- The conference-tier breakdown's hook is `metrics.breakdown(name, games, key)` → docs/08-tasklist.md § M4 › M4.1
+- `publish.lines.map_lines` gives a provider's one `opening` slot to its first pull with any opener, so a pull with only `total_open` would hide a later spread opener (schema review R2) → not tracked: no effect on today's lake (76 total-only first pulls, none followed by a spread opener); raised in the PR for the owner
+
+## Plan
+
+Approved 2026-10-26 with the recommended answers (calibration on every eligible game; pushes aren't risked).
+
+**Steps**
+1. Opening line: `engine.transform.market.closing_lines()` adds `spread_home_open` (the `opening` rows, consensus else median, as the close); the harness writes it as a new `predictions.parquet` column (NULL when no opener), and `backtest_golden.csv` is regenerated with the commit saying why.
+2. `engine/backtest/metrics.py`: § 9.4 rows and gates (pass / fail / n/a). Picks through `core.picks.pick()` with the spec resolved by each season's choices and `NormalMargin(margin_sd)` per row. `breakdown(rows, key)` groups by any per-game key (M4.1 adds tier).
+3. `engine/backtest/bootstrap.py`: week-level paired bootstrap (10,000 resamples, seed 20261007, percentile interval) for MAE difference and ATS win % difference, plus `compare()` joining two runs on `game_source_id`. The report uses it for the MAE gap vs closing.
+4. `engine/backtest/report.py`: one report structure rendered to `report.md` and `report.html` (stdlib, inline CSS). Sections: gates summary, accuracy, ATS and units, edge trend, consistency, calibration, CLV at the opener, pick buckets, contest top 4, win probability, breakdowns, postseason alone, holdout when opened.
+5. `engine/cli.py`: `engine backtest … --report DIR`.
+
+**Choices**
+- Logistic edge trend: hand-rolled Newton fit (2 parameters), Wald 95% interval; separation → n/a. No new dependency.
+- ATS interval: Wilson 95%. The bar is `break_even(-110)` = 110/210 (52.38%, "52.4%").
+- Market win prob: Φ(−spread_home / margin_sd of the row).
+- Calibration: every eligible game's displayed cover probability (the favored side, after shrinkage), bins [50, 52.5) … [62.5, 65), 65+; pushes excluded.
+- ROI: 1.1u risked per win or loss; a push is refunded, not risked (3-1-1 → 1.9 / 4.4).
+- Breakdowns: week 1–3, 4–6, 7–9, 10–12, 13+, postseason; |close| ≤ 3, ≤ 7, ≤ 14, ≤ 21, > 21; the edge side is favorite / underdog / pick'em.
+- Consistency: ≤ 2 seasons below 50% literally; n/a when one season remains after dropping the best.
+
+**Files**
+- `python/engine/src/engine/backtest/metrics.py`, `bootstrap.py`, `report.py` (new)
+- `python/engine/src/engine/backtest/harness.py`: the opener column (not in Files likely touched)
+- `python/engine/src/engine/transform/market.py`: `spread_home_open` (not listed)
+- `python/engine/src/engine/cli.py`: `--report`
+- `python/engine/tests/test_backtest_metrics.py`, `test_bootstrap.py`, `test_backtest_report.py` (new); `test_market.py` (not listed)
+- `python/engine/tests/fixtures/backtest_golden.csv` (regenerated, not listed), `backtest_report_golden.json` (new)
+- `docs/03-data-model.md` › Backtests: the new column (not listed); `docs/decisions.md`: D-### row
+
+**Test strategy**
+- AC-1 `test_backtest_metrics.py::test_record_units_roi_and_errors`
+- AC-2 `test_backtest_metrics.py::test_edge_trend_passes_on_a_trend` / `…_fails_with_no_relationship`
+- AC-3 `test_backtest_metrics.py::test_calibration_bins` / `test_calibration_gate_*` (3.0 vs 3.01 pts, 100 vs 99 picks)
+- AC-4 `test_backtest_metrics.py::test_consistency_*` (three fixtures)
+- AC-5 `test_bootstrap.py` (constant gap beats; identical contains zero; seed repeatable)
+- AC-6 `test_backtest_report.py` (CLI writes both files, every row labelled, each gate marked; golden metrics JSON at 10 significant digits, `UPDATE_GOLDEN=1`)
+
+**Revised 2026-10-26 (after approval, owner's choice at schema review):** step 1's opener is now two columns, `spread_home_open` and `spread_home_open_close`, the opener and the close of the books that quoted both, each consensus else median; CLV compares them, so it never mixes the consensus close with a book-median opener (consensus quotes no openers). 04 § 9.3, 03 › Backtests and D-132 were updated with it.
+
+**Risks:** pure-Python bootstrap speed (~1-2 s at 8 seasons; fine). The fixture run is small, so several gates read n/a in the golden.
+
+## Review log
+
+_Filled by /implement-task. One line per round._
+
+- Verify R1 PASS | Audit R1 PASS | Spec R1 APPROVE (2 recommendations) | Schema R1 CHANGES (CLV mixed a book-median opener with the consensus close)
+- Owner chose same books at both ends → Verify R2 PASS | Audit R2 CHANGES (the no-opener test didn't discriminate; added a same-books-close test and a last-snapshot case, each shown failing on 089478b's source, not re-audited independently) | Spec R2 APPROVE | Schema R2 APPROVE
+- Manual: stub spec on 2016–2017 of the local lake with `--report`: both files written, every row labelled, pushes out of win %, each gate marked; it found the cp1252 console crash (fixed, with a test) and that 2016–2020 have no openers
+
+## Blocked
+
+_Only if status is Blocked: what failed, what was tried, best hypothesis, decision needed._
+
+## Metrics
+
+- Verify rounds: 3 (all PASS; re-runs after the review fixes)
+- Review rounds: 2 (spec), 2 (schema); audit 2
+- First-pass AC FAILs: 0 (schema R1's CHANGES was the CLV line source, not an AC)
+- Plan revisions after approval: 1 (the same-books close column)

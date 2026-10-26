@@ -30,6 +30,7 @@ def test_closing_lines_median_on_fixture(lake: LocalLake) -> None:
     kansas = closing[KANSAS_FRESNO]
     assert (kansas["spread_home"], kansas["source"]) == (-14.0, "median")  # the mean is -14.17
     assert kansas["closing_from"] == "cfbd_close"
+    assert (kansas["spread_home_open"], kansas["spread_home_open_close"]) == (-14.0, -14.0)
     assert closing["401756846"]["spread_home"] == -3.0  # Kansas State-Iowa State
 
 
@@ -37,14 +38,16 @@ def game(kickoff_at: datetime | None = KICKOFF, game_date: date = date(2025, 9, 
     return pa.table({"source_id": ["1"], "kickoff_at": [kickoff_at], "game_date": [game_date]})
 
 
-def lines(*rows: tuple[str, datetime, float | None]) -> pa.Table:
+def lines(
+    *rows: tuple[str, datetime, float | None], opens: tuple[float | None, ...] = ()
+) -> pa.Table:
     return pa.table(
         {
             "game_source_id": ["1"] * len(rows),
             "provider": [p for p, _, _ in rows],
             "fetched_at": [at for _, at, _ in rows],
             "spread_home": pa.array([s for _, _, s in rows], pa.float64()),
-            "spread_home_open": pa.array([None] * len(rows), pa.float64()),
+            "spread_home_open": pa.array(opens or [None] * len(rows), pa.float64()),
             "total": pa.array([None] * len(rows), pa.float64()),
             "total_open": pa.array([None] * len(rows), pa.float64()),
             "ml_home": pa.array([None] * len(rows), pa.int32()),
@@ -72,6 +75,43 @@ def test_without_a_close_the_last_snapshot_before_kickoff() -> None:
     (row,) = closing_lines(game(), table, at=KICKOFF + timedelta(days=1)).to_pylist()
 
     assert (row["spread_home"], row["closing_from"]) == (-5.5, "last_snapshot")
+
+
+def test_the_opener_and_its_close_come_from_the_same_books() -> None:
+    """CLV compares the books that quoted both an opener and a close with themselves (04 § 9.3,
+    D-132): consensus never quotes an opener, so its close mustn't stand in for theirs."""
+    after = KICKOFF + timedelta(days=2)
+    books = (("consensus", after, -3.5), ("Bovada", after, -3.0), ("DraftKings", after, -2.0))
+
+    def opening(*opens: float | None, rows: tuple = books) -> tuple[float | None, ...]:
+        (row,) = closing_lines(game(), lines(*rows, opens=opens)).to_pylist()
+        return row["spread_home"], row["spread_home_open"], row["spread_home_open_close"]
+
+    # Bovada and DraftKings open −2 and −6 and close −3 and −2; the main close stays consensus.
+    assert opening(None, -2.0, -6.0) == (-3.5, -4.0, -2.5)
+    assert opening(-1.0, -2.0, -6.0) == (-3.5, -1.0, -3.5)  # a consensus opener: consensus both
+    assert opening(None, None, None) == (-3.5, None, None)
+    # DraftKings quoted an opener but no close: it's left out of both.
+    no_close = (("consensus", after, -3.5), ("Bovada", after, -3.0), ("DraftKings", after, None))
+    assert opening(None, -2.0, -6.0, rows=no_close) == (-3.5, -2.0, -3.0)
+
+
+def test_without_a_close_the_opener_books_are_those_in_the_last_pull() -> None:
+    """On the last-snapshot fallback, a book counts only if it's in the final pull before
+    kickoff, the same set the main close reads."""
+    early, late = KICKOFF - timedelta(days=3), KICKOFF - timedelta(hours=5)
+    table = lines(
+        ("Bovada", early, -7.0),
+        ("Bovada", late, -6.0),
+        ("DraftKings", early, -5.0),  # opened −4, but missing from the last pull
+        ("ESPN Bet", late, -5.0),  # in the last pull, but quoted no opener
+        opens=(-6.0, -6.0, -4.0, None),
+    )
+
+    (row,) = closing_lines(game(), table, at=KICKOFF + timedelta(days=1)).to_pylist()
+
+    assert (row["spread_home"], row["closing_from"]) == (-5.5, "last_snapshot")
+    assert (row["spread_home_open"], row["spread_home_open_close"]) == (-6.0, -6.0)
 
 
 def test_no_closing_line_before_the_cutoff() -> None:
