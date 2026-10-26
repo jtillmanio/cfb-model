@@ -788,14 +788,24 @@ describe("TASK-008 AC-1: .github/workflows/lighthouse.yml has 02's shape", () =>
     expect(jobs.report).toMatch(/^ {4}needs: \[plan, measure, fixture\]$/m);
     expect(jobs.measure).toMatch(/^ {6}fail-fast: false$/m);
     expect(jobs.measure).toMatch(/^ {8}route: \$\{\{ fromJSON\(needs\.plan\.outputs\.routes\) \}\}$/m);
-    // plan's group is `pr-<n>`, so the measuring jobs' group is lighthouse-pr-<n>-<route>.
+    // plan's group is `pr-<n>`, so the measuring jobs' group is lighthouse-pr-<n>-preview-<route>.
     expect(jobs.measure).toMatch(
-      /concurrency:\n {6}group: lighthouse-\$\{\{ needs\.plan\.outputs\.group \}\}-\$\{\{ matrix\.route \}\}\n {6}cancel-in-progress: true/,
+      /concurrency:\n {6}group: lighthouse-\$\{\{ needs\.plan\.outputs\.group \}\}-\$\{\{ needs\.plan\.outputs\.mode \}\}-\$\{\{ matrix\.route \}\}\n {6}cancel-in-progress: true/,
     );
     // The report runs when a route's job failed, so that route is reported; not when cancelled.
     expect(jobs.report).toMatch(/if: \$\{\{ !cancelled\(\)/);
     // A preview's report and the fixture's never cancel each other.
     expect(jobs.report).toMatch(/group: lighthouse-\$\{\{ needs\.plan\.outputs\.group \}\}-\$\{\{ needs\.plan\.outputs\.mode \}\}-report/);
+  });
+
+  it("names the run's kind in every concurrency group, so a skipped job never cancels the other kind's", () => {
+    // A job whose `if` skips it still takes its concurrency group: without the mode, a preview
+    // run's skipped fixture job cancelled the pull request's fixture run mid-measure (PR #94).
+    const groups = Object.entries(jobs).filter(([, text]) => /^ {4}concurrency:$/m.test(text));
+    expect(groups.map(([name]) => name)).toEqual(["measure", "fixture", "report"]);
+    for (const [name, text] of groups) {
+      expect(text, name).toMatch(/^ {6}group: lighthouse-\$\{\{ needs\.plan\.outputs\.group \}\}-\$\{\{ needs\.plan\.outputs\.mode \}\}-/m);
+    }
   });
 
   it("gives only the report job pull-requests: write, and no job anything else to write", () => {

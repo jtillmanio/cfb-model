@@ -91,8 +91,10 @@ jobs:
       matrix:
         route: ${{ fromJSON(needs.plan.outputs.routes) }}
     # A newer push to the same PR cancels this route's measuring: only the newest commit matters.
+    # The mode keeps a fixture run's skipped measure jobs, which still take their group, from
+    # cancelling a preview's.
     concurrency:
-      group: lighthouse-${{ needs.plan.outputs.group }}-${{ matrix.route }}
+      group: lighthouse-${{ needs.plan.outputs.group }}-${{ needs.plan.outputs.mode }}-${{ matrix.route }}
       cancel-in-progress: true
     env:
       SHA: ${{ github.event.deployment.sha || github.sha }}
@@ -166,9 +168,11 @@ jobs:
     timeout-minutes: 25
     permissions:
       contents: read
-    # A newer push to the same PR cancels this measuring: only the newest commit matters.
+    # A newer push to the same PR cancels this measuring: only the newest commit matters. The mode
+    # keeps a preview run's skipped fixture job, which still takes its group, from cancelling this
+    # one (PR #94).
     concurrency:
-      group: lighthouse-${{ needs.plan.outputs.group }}-fixture
+      group: lighthouse-${{ needs.plan.outputs.group }}-${{ needs.plan.outputs.mode }}-fixture
       cancel-in-progress: true
     # The values e2e runs with (web/e2e/test-env.ts, .github/workflows/ci.yml): test-only and not
     # secret, so this job needs no repository secret. web/lib/perf.test.ts keeps them equal.
