@@ -1,7 +1,7 @@
 ---
 id: TASK-030
 title: Build the walk-forward rolling-origin backtest harness
-status: Review
+status: Done
 depends_on: [TASK-029]
 size: M
 model: opus
