@@ -1,7 +1,7 @@
 ---
 id: TASK-033
 title: Build Rung 1 least-squares power ratings, plus notebooks #2–3
-status: Review
+status: Done
 depends_on: [TASK-031, TASK-032]
 size: M
 model: opus
