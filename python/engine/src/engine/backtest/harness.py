@@ -88,6 +88,7 @@ class Eligible:
     home_points: int
     away_points: int
     spread_home: float
+    spread_home_open: float | None
     spread_source: str
     closing_from: str
 
@@ -209,6 +210,7 @@ def load(lake: Lake) -> History:
                 home_points=g["home_points"],
                 away_points=g["away_points"],
                 spread_home=line["spread_home"],
+                spread_home_open=line["spread_home_open"],
                 spread_source=line["source"],
                 closing_from=line["closing_from"],
             )
@@ -282,6 +284,7 @@ def predict_season(model: BacktestModel, history: History, season: int) -> list[
                     "margin_sd": p.margin_sd,
                     "home_win_prob": p.home_win_prob,
                     "spread_home": e.spread_home,
+                    "spread_home_open": e.spread_home_open,
                     "spread_source": e.spread_source,
                     "closing_from": e.closing_from,
                     "home_points": e.home_points,
@@ -425,6 +428,7 @@ def schema() -> Any:
             ("margin_sd", pa.float64()),
             ("home_win_prob", pa.float64()),
             ("spread_home", pa.float64()),  # the closing line
+            ("spread_home_open", pa.float64()),  # the opening line, by the same rule; NULL if none
             ("spread_source", pa.string()),  # consensus or median (04 § 9.3)
             ("closing_from", pa.string()),  # cfbd_close or last_snapshot (D-120)
             ("home_points", pa.int32()),

@@ -30,6 +30,7 @@ def test_closing_lines_median_on_fixture(lake: LocalLake) -> None:
     kansas = closing[KANSAS_FRESNO]
     assert (kansas["spread_home"], kansas["source"]) == (-14.0, "median")  # the mean is -14.17
     assert kansas["closing_from"] == "cfbd_close"
+    assert kansas["spread_home_open"] == -14.0
     assert closing["401756846"]["spread_home"] == -3.0  # Kansas State-Iowa State
 
 
@@ -37,14 +38,16 @@ def game(kickoff_at: datetime | None = KICKOFF, game_date: date = date(2025, 9, 
     return pa.table({"source_id": ["1"], "kickoff_at": [kickoff_at], "game_date": [game_date]})
 
 
-def lines(*rows: tuple[str, datetime, float | None]) -> pa.Table:
+def lines(
+    *rows: tuple[str, datetime, float | None], opens: tuple[float | None, ...] = ()
+) -> pa.Table:
     return pa.table(
         {
             "game_source_id": ["1"] * len(rows),
             "provider": [p for p, _, _ in rows],
             "fetched_at": [at for _, at, _ in rows],
             "spread_home": pa.array([s for _, _, s in rows], pa.float64()),
-            "spread_home_open": pa.array([None] * len(rows), pa.float64()),
+            "spread_home_open": pa.array(opens or [None] * len(rows), pa.float64()),
             "total": pa.array([None] * len(rows), pa.float64()),
             "total_open": pa.array([None] * len(rows), pa.float64()),
             "ml_home": pa.array([None] * len(rows), pa.int32()),
@@ -72,6 +75,21 @@ def test_without_a_close_the_last_snapshot_before_kickoff() -> None:
     (row,) = closing_lines(game(), table, at=KICKOFF + timedelta(days=1)).to_pylist()
 
     assert (row["spread_home"], row["closing_from"]) == (-5.5, "last_snapshot")
+
+
+def test_the_opening_spread_by_the_same_rule() -> None:
+    """The opener CLV is measured from (04 § 9.3): consensus's opening spread, else the median
+    across books, else none."""
+    after = KICKOFF + timedelta(days=2)
+    books = (("consensus", after, -3.5), ("Bovada", after, -3.0), ("DraftKings", after, -2.0))
+
+    def opening(*opens: float | None) -> float | None:
+        (row,) = closing_lines(game(), lines(*books, opens=opens)).to_pylist()
+        return row["spread_home_open"]
+
+    assert opening(-1.0, -2.0, -6.0) == -1.0  # consensus
+    assert opening(None, -2.0, -6.0) == -4.0  # the median
+    assert opening(None, None, None) is None
 
 
 def test_no_closing_line_before_the_cutoff() -> None:

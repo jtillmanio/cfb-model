@@ -1,14 +1,14 @@
 ---
 id: TASK-031
 title: Compute backtest metrics and write the markdown/HTML report
-status: Ready
+status: In progress
 depends_on: [TASK-030]
 size: M
 model: opus
 autonomy: attended
 ui: false
-plan_status: none
-planned_at_commit:
+plan_status: approved
+planned_at_commit: f5ccd6e
 ---
 
 # TASK-031 — Compute backtest metrics and write the markdown/HTML report
@@ -65,9 +65,47 @@ Every backtest ends in a report that shows how accurate the model was against th
 
 _Work noticed during this task and deliberately left out. Each bullet ends `→ <path> § <section>` (where it was placed) or `→ not tracked: <reason>`. See `.claude/skills/track-follow-ups/classify.md`; the PR's Follow-ups section is copied from here._
 
+- TASK-033 compares runs with `engine.backtest.bootstrap.compare()` for 04 § 9.6's "beats both baselines" bar; there's no CLI compare (approved at plan)
+- Candidate decision: the report format and metric choices in the Plan (approved at plan)
+
 ## Plan
 
-_Written by /plan-batch or /implement-task Phase 1. Approved by the user (plan_status: approved) before any code is written._
+Approved 2026-10-26 with the recommended answers (calibration on every eligible game; pushes aren't risked).
+
+**Steps**
+1. Opening line: `engine.transform.market.closing_lines()` adds `spread_home_open` (the `opening` rows, consensus else median, as the close); the harness writes it as a new `predictions.parquet` column (NULL when no opener), and `backtest_golden.csv` is regenerated with the commit saying why.
+2. `engine/backtest/metrics.py`: § 9.4 rows and gates (pass / fail / n/a). Picks through `core.picks.pick()` with the spec resolved by each season's choices and `NormalMargin(margin_sd)` per row. `breakdown(rows, key)` groups by any per-game key (M4.1 adds tier).
+3. `engine/backtest/bootstrap.py`: week-level paired bootstrap (10,000 resamples, seed 20261007, percentile interval) for MAE difference and ATS win % difference, plus `compare()` joining two runs on `game_source_id`. The report uses it for the MAE gap vs closing.
+4. `engine/backtest/report.py`: one report structure rendered to `report.md` and `report.html` (stdlib, inline CSS). Sections: gates summary, accuracy, ATS and units, edge trend, consistency, calibration, CLV at the opener, pick buckets, contest top 4, win probability, breakdowns, postseason alone, holdout when opened.
+5. `engine/cli.py`: `engine backtest … --report DIR`.
+
+**Choices**
+- Logistic edge trend: hand-rolled Newton fit (2 parameters), Wald 95% interval; separation → n/a. No new dependency.
+- ATS interval: Wilson 95%. The bar is `break_even(-110)` = 110/210 (52.38%, "52.4%").
+- Market win prob: Φ(−spread_home / margin_sd of the row).
+- Calibration: every eligible game's displayed cover probability (the favored side, after shrinkage), bins [50, 52.5) … [62.5, 65), 65+; pushes excluded.
+- ROI: 1.1u risked per win or loss; a push is refunded, not risked (3-1-1 → 1.9 / 4.4).
+- Breakdowns: week 1–3, 4–6, 7–9, 10–12, 13+, postseason; |close| ≤ 3, ≤ 7, ≤ 14, ≤ 21, > 21; the edge side is favorite / underdog / pick'em.
+- Consistency: ≤ 2 seasons below 50% literally; n/a when one season remains after dropping the best.
+
+**Files**
+- `python/engine/src/engine/backtest/metrics.py`, `bootstrap.py`, `report.py` (new)
+- `python/engine/src/engine/backtest/harness.py`: the opener column (not in Files likely touched)
+- `python/engine/src/engine/transform/market.py`: `spread_home_open` (not listed)
+- `python/engine/src/engine/cli.py`: `--report`
+- `python/engine/tests/test_backtest_metrics.py`, `test_bootstrap.py`, `test_backtest_report.py` (new); `test_market.py` (not listed)
+- `python/engine/tests/fixtures/backtest_golden.csv` (regenerated, not listed), `backtest_report_golden.json` (new)
+- `docs/03-data-model.md` › Backtests: the new column (not listed); `docs/decisions.md`: D-### row
+
+**Test strategy**
+- AC-1 `test_backtest_metrics.py::test_record_units_roi_and_errors`
+- AC-2 `test_backtest_metrics.py::test_edge_trend_passes_on_a_trend` / `…_fails_with_no_relationship`
+- AC-3 `test_backtest_metrics.py::test_calibration_bins` / `test_calibration_gate_*` (3.0 vs 3.01 pts, 100 vs 99 picks)
+- AC-4 `test_backtest_metrics.py::test_consistency_*` (three fixtures)
+- AC-5 `test_bootstrap.py` (constant gap beats; identical contains zero; seed repeatable)
+- AC-6 `test_backtest_report.py` (CLI writes both files, every row labelled, each gate marked; golden metrics JSON at 10 significant digits, `UPDATE_GOLDEN=1`)
+
+**Risks:** pure-Python bootstrap speed (~1-2 s at 8 seasons; fine). The fixture run is small, so several gates read n/a in the golden.
 
 ## Review log
 

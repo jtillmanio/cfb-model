@@ -141,6 +141,7 @@ def test_backtest_predicts_every_eligible_game_once_in_week_order(
     kansas_id = backtest_game_id(2022, "regular", 1, "401756847")
     (kansas,) = [r for r in rows if r["game_source_id"] == kansas_id]
     assert kansas["spread_home"] == -14.0
+    assert kansas["spread_home_open"] == -14.0  # its openers -13.5, -14 and -14.5 (TASK-031)
 
 
 def test_a_game_that_is_not_final_gets_no_row(

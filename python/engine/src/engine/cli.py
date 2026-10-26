@@ -213,6 +213,15 @@ def _backtest(args: argparse.Namespace, seasons: list[int]) -> None:
     print(f"Wrote {folder}/predictions.parquet and run.json")
     if opened:
         print(f"Holdout runs so far: {holdout.count(lake)}")
+    if args.report:
+        from engine.backtest import metrics, report
+
+        scored = metrics.compute(result.rows, spec, result.choices, holdout=opened)
+        run = {"model": name, "spec_hash": harness.spec_hash(spec), "tune_from": args.tune_from}
+        md, page = report.write(Path(args.report), scored, {**run, "folder": folder})
+        for gate_name, gate in scored.gates:  # the details hold − and ≤, which cp1252 lacks
+            print(f"  {gate.status.upper():4} {gate_name}")
+        print(f"Wrote {md} and {page}")
 
 
 def main(argv: list[str] | None = None) -> None:
@@ -326,7 +335,8 @@ def main(argv: list[str] | None = None) -> None:
         description="Predicts every FBS-vs-FBS game with a closing line in the seasons, each "
         "week fit only on games finished before it, each season's tuned settings chosen on "
         "earlier seasons (docs/04-model.md § 9). Reads staging/ and features/ in LAKE_URI and "
-        "writes backtests/<run>/predictions.parquet and run.json. Exits 1 if the point-in-time "
+        "writes backtests/<run>/predictions.parquet and run.json; --report also writes the "
+        "metrics and gates (04 § 9.4) as report.md and report.html. Exits 1 if the point-in-time "
         "check fails, 2 on a refusal.",
     )
     bt.add_argument("--spec", required=True, metavar="FILE", help="A ModelSpec as JSON")
@@ -345,6 +355,9 @@ def main(argv: list[str] | None = None) -> None:
         help="Open the locked holdout seasons (2024-2025); needs --reason, and is recorded",
     )
     bt.add_argument("--reason", help="Why the holdout is being opened")
+    bt.add_argument(
+        "--report", metavar="DIR", help="Write the metrics and gates to DIR/report.md and .html"
+    )
 
     seed = commands.add_parser("seed", help="Load seed data into the test DB")
     seed.add_argument("what", choices=["fixture"])

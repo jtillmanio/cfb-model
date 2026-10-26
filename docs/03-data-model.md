@@ -118,7 +118,7 @@ DuckDB SQL builds `staging/` and `features/` from `raw/`, so it's fully reproduc
 
 | File | One row per | Columns |
 |---|---|---|
-| `predictions.parquet` | eligible game of a scored season (FBS vs FBS, final, with a closing line), in (season, `as_of`, season type, week, `game_source_id` as text) order | `season`, `season_type`, `week`, `as_of` (the week's), `game_source_id`, `kickoff_at` (NULL when TBA), `home_source_id`, `away_source_id`, `neutral_site`, `pred_margin`, `margin_sd`, `home_win_prob`, `spread_home` (the closing line, `engine.transform.market.closing_lines()`), `spread_source` (`consensus` or `median`), `closing_from` (`cfbd_close` or `last_snapshot`), `home_points`, `away_points`, `margin` |
+| `predictions.parquet` | eligible game of a scored season (FBS vs FBS, final, with a closing line), in (season, `as_of`, season type, week, `game_source_id` as text) order | `season`, `season_type`, `week`, `as_of` (the week's), `game_source_id`, `kickoff_at` (NULL when TBA), `home_source_id`, `away_source_id`, `neutral_site`, `pred_margin`, `margin_sd`, `home_win_prob`, `spread_home` (the closing line, `engine.transform.market.closing_lines()`), `spread_home_open` (the opening line by the same rule, NULL when no book quoted one; TASK-031), `spread_source` (`consensus` or `median`), `closing_from` (`cfbd_close` or `last_snapshot`), `home_points`, `away_points`, `margin` |
 
 ## Serving database (Postgres) schema
 

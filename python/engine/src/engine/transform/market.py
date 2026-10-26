@@ -6,6 +6,8 @@ The line kinds come from `publish.lines.map_lines`, as published. A game's closi
 untimed `closing` rows (each book's first pull at or after the cutoff: CFBD's close), else its
 last pull before the cutoff, and there is none until the cutoff has passed. Its spread and total
 are the `consensus` book's when it quoted that price, else the median across the books (04 § 9.3).
+Its opening spread, which a backtest grades opening-line picks and CLV on, is the books' first
+quoted opener by the same rule (TASK-031).
 """
 
 from __future__ import annotations
@@ -25,6 +27,7 @@ SCHEMA = pa.schema(
     [
         ("game_source_id", pa.string()),
         ("spread_home", pa.float64()),
+        ("spread_home_open", pa.float64()),  # NULL when no book quoted an opener
         ("total", pa.float64()),
         ("source", pa.string()),  # which rule gave the spread: consensus or median
         ("closing_from", pa.string()),  # cfbd_close or last_snapshot, as in game_market
@@ -67,10 +70,12 @@ def closing_lines(games: pa.Table, lines: pa.Table, at: datetime | None = None) 
             closing_from = "last_snapshot"
         spread, source = _price(group, "spread_home")
         total, _ = _price(group, "total")
+        opening, _ = _price([r for r in rows if r["kind"] == "opening"], "spread_home")
         out.append(
             {
                 "game_source_id": game,
                 "spread_home": spread,
+                "spread_home_open": opening,
                 "total": total,
                 "source": source,
                 "closing_from": closing_from,
