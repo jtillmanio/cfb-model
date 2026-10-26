@@ -34,6 +34,10 @@ GAME_HOURS = 4
 # week's `as_of`. The leakage tests loosen it to prove `check_point_in_time` catches a leak.
 INCLUDED = f"s.kickoff + INTERVAL {GAME_HOURS} HOURS <= w.as_of"
 
+# A staged game's kickoff for the point-in-time rule: a TBA game kicks off at the end of its
+# Eastern `game_date`, so it's never early (the backtest harness reads it too).
+KICKOFF = "coalesce(kickoff_at, timezone('America/New_York', CAST(game_date + 1 AS TIMESTAMP)))"
+
 _RATES = [
     f"{side}_{split}{metric}"
     for side in ("off", "def")
@@ -76,8 +80,7 @@ def team_week_features() -> str:
     return f"""
     WITH g AS (
         SELECT *,
-            coalesce(kickoff_at, timezone('America/New_York',
-                CAST(game_date + 1 AS TIMESTAMP))) AS kickoff,
+            {KICKOFF} AS kickoff,
             coalesce(kickoff_at, timezone('America/New_York',
                 CAST(game_date AS TIMESTAMP))) AS earliest
         FROM games

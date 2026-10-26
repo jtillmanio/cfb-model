@@ -77,7 +77,7 @@ Phase 8  Multi-sport (NFL)
 **Goal:** the measuring stick, which comes before any serious model.
 
 - [x] `ModelSpec` (v1 schema) + `RatingModel` / `GamePredictor` interfaces in `engine.core`
-- [ ] Walk-forward backtest harness by (season, week), with leakage assertions
+- [x] Walk-forward backtest harness by (season, week), with leakage assertions
 - [ ] Metrics + markdown/HTML backtest report (MAE, ATS by edge bucket, calibration, ROI)
 - [ ] Baselines: HFA-only, closing line, SP+/FPI comparison
 - [ ] Rung 1: least-squares power ratings with margin cap, recency weighting, priors from last season
