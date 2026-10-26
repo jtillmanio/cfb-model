@@ -142,6 +142,48 @@ def test_backtest_predicts_every_eligible_game_once_in_week_order(
     assert kansas["spread_home"] == -14.0
 
 
+def test_a_game_that_is_not_final_gets_no_row(
+    empty_lake: LocalLake, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Kansas-Fresno State, 2023 week 8: never completed, though its line is there.
+    unplayed = (2023, "regular", 8, "401756847")
+    write_backtest_seasons(empty_lake, unplayed=unplayed)
+    rebuild(empty_lake)
+    game = backtest_game_id(*unplayed)
+    staged_game = by_source_id(staged(empty_lake, "games"))[game]
+    assert staged_game["status"] == "scheduled"
+    assert game in {r["game_source_id"] for r in staged(empty_lake, "lines").to_pylist()}
+
+    spec = spec_file(tmp_path, FIXED)
+    assert engine("backtest", "--spec", spec, "--seasons", "2022-2023", "--model", "stub") == 0
+
+    rows = predictions(empty_lake)
+    assert game not in {r["game_source_id"] for r in rows}
+    assert len(rows) == 65
+
+
+def test_scoring_a_holdout_season_never_tunes_on_one(empty_lake: LocalLake) -> None:
+    write_backtest_seasons(empty_lake, (2022, 2023, 2024, 2025))
+    rebuild(empty_lake)
+    shown: list[tuple[int, ...]] = []
+
+    def recording_tuner(
+        spec: ModelSpec, tuning: Sequence[int], evaluate: harness.Evaluate
+    ) -> Mapping[str, float]:
+        shown.append(tuple(tuning))
+        return harness.grid_tuner(spec, tuning, evaluate)
+
+    spec = ModelSpec.model_validate(TUNED)
+    harness.run(spec, MeanMargin, harness.load(empty_lake), [2024, 2025], 2022, recording_tuner)
+
+    # 2025 is tuned on 2022-2023 like 2024, not on 2024 (04 § 9.1).
+    assert shown == [(2022, 2023), (2022, 2023)]
+
+
+def by_source_id(table: pa.Table) -> dict[str, dict[str, Any]]:
+    return {r["source_id"]: r for r in table.to_pylist()}
+
+
 def test_scoring_a_season_tunes_on_earlier_seasons_and_fits_on_finished_games(
     empty_lake: LocalLake,
 ) -> None:

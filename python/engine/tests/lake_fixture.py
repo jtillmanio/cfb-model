@@ -158,7 +158,7 @@ def backtest_game_id(season: int, season_type: str, week: int, week1_id: str) ->
 
 
 def _backtest_week(
-    season: int, season_type: str, week: int, rescore: Rescore | None
+    season: int, season_type: str, week: int, rescore: Rescore | None, unplayed: Rescore | None
 ) -> dict[str, list[dict[str, Any]]]:
     games, stats, lines = [], [], []
     post = season_type == "postseason"
@@ -179,6 +179,7 @@ def _backtest_week(
         offense_ppa = None
         if rescore == (season, season_type, week, week1_id):
             home_points, away_points, offense_ppa = 3, 45, -0.9
+        played = unplayed != (season, season_type, week, week1_id)
         at = {"season": season, "seasonType": season_type, "week": week}
         games.append(
             {
@@ -186,8 +187,9 @@ def _backtest_week(
                 **at,
                 "id": new_id,
                 "startDate": start.astimezone(UTC).strftime("%Y-%m-%dT%H:%M:%S.000Z"),
-                "homePoints": home_points,
-                "awayPoints": away_points,
+                "completed": played,
+                "homePoints": home_points if played else None,
+                "awayPoints": away_points if played else None,
             }
         )
         for r in FIXTURE[fixture_key("stats_game_advanced")]["records"]:
@@ -206,10 +208,14 @@ def _backtest_week(
 
 
 def write_backtest_seasons(
-    lake: LocalLake, seasons: tuple[int, ...] = BACKTEST_SEASONS, rescore: Rescore | None = None
+    lake: LocalLake,
+    seasons: tuple[int, ...] = BACKTEST_SEASONS,
+    rescore: Rescore | None = None,
+    unplayed: Rescore | None = None,
 ) -> None:
     """Each season's games, advanced stats and lines, each pulled after its week's games.
-    `rescore` gives that game a 3-45 score and a poor offense instead."""
+    `rescore` gives that game a 3-45 score and a poor offense instead; `unplayed` leaves that
+    game uncompleted with no score (its line is still there)."""
     for season in seasons:
         weeks = [("regular", w) for w in range(1, SEASON_WEEKS + 1)] + [("postseason", 1)]
         for season_type, week in weeks:
@@ -217,7 +223,7 @@ def write_backtest_seasons(
                 pulled = datetime(season + 1, 1, 20, 12, tzinfo=UTC)
             else:
                 pulled = datetime(season, 8, 25, 12, tzinfo=UTC) + timedelta(days=7 * (week - 1))
-            records = _backtest_week(season, season_type, week, rescore)
+            records = _backtest_week(season, season_type, week, rescore, unplayed)
             for endpoint, rows in records.items():
                 extra = {
                     "games": {"classification": "fbs"},
