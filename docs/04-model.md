@@ -48,7 +48,7 @@ We find the ratings that best explain all game results so far, solving a least-s
 Refinements we'll test:
 - **Margin cap / diminishing returns:** a 63–0 blowout isn't 9× more informative than a 7-point win. Cap at about 28, or use a log transform.
 - **Recency weighting:** week-10 games count more than week-1 games.
-- **FCS opponents:** pool them into a few FCS tiers so they don't distort FBS ratings.
+- **FCS opponents:** pool them so they don't distort FBS ratings. Rung 1 uses one pool for every FCS team: the lake holds only games with an FBS team in them, so an FCS team has one or two games a season, with nothing to sort them into tiers by (TASK-033, D-134).
 
 ### Rung 2: Opponent-adjusted efficiency ratings (the core model, v1)
 
@@ -408,7 +408,7 @@ Why weeks: games in the same week share news, weather and line moves, so treatin
 |---|---|---|---|
 | 0 | Nothing modeled | — | — |
 | 1 | Data pipeline | — | Records the benchmark: closing-line MAE for 2014–2025, the number every later phase is compared with. Data-quality checks pass. **Recorded 2026-10-20 (TASK-021, commit `a78e0e3`): 12.38 points pooled over 9,085 final FBS-vs-FBS games**, by season from 11.81 (2025) to 13.05 (2016); notebook #1 (`python/notebooks/01-explore.py`) has the table. CFBD's `consensus` line stops in late 2023, so 2024–2025 use the median across books (§ 9.3) |
-| 2 | Rung 1 power ratings | Home-field only (home by the fitted home-field value), and last season's final ratings carried over | Lower MAE than both on pooled validation (§ 9.5). The closing line and SP+/FPI are reported alongside, but beating them isn't required yet |
+| 2 | Rung 1 power ratings | Home-field only (home by the fitted home-field value), and last season's final ratings carried over | Lower MAE than both on pooled validation (§ 9.5). The closing line and SP+/FPI are reported alongside, but beating them isn't required yet. **Met 2026-10-26 (TASK-033, D-134), `engine/specs/power-v1.json` over 5,954 games: MAE 13.29 against home field only 16.51 (difference −3.22, 95% interval −3.54 to −2.88) and last season carried over 15.06 (−1.77, −2.03 to −1.50)**; the closing line is 12.43 (+0.86). SP+ and FPI have no game to compare: every staged rating is season-final, so each is a hindsight benchmark |
 | 3 | Rung 2 (v1): efficiency ratings, priors, margin model, pick rules | Rung 1 | Lower MAE than Rung 1 (§ 9.5) **and** every gate in § 9.4. Market shrinkage stays only if validation ATS with it is at least as good as without it (k = 1) |
 | 4 | No model change (the web app) | — | The app shows exactly what the engine computed: API values equal engine output for the fixture and for each live week |
 | 5 | Season simulations | The same simulation with ratings frozen at the preseason prior | Lower Brier score (the mean squared error of a probability; lower is better) for final win totals and conference-title odds, measured at weeks 4, 8 and 12 of 2016–2023 |

@@ -33,6 +33,7 @@ from engine.backtest.baselines import (
     UNSEEN,
     BenchmarkRating,
     ClosingLine,
+    FittedHomeField,
     HomeField,
     LastSeason,
 )
@@ -195,13 +196,53 @@ def test_last_season_wraps_the_model_registered_under_the_specs_base(
     spec.write_text(json.dumps(CAP), "utf-8")
     argv = ["backtest", "--spec", str(spec), "--seasons", "2022-2023", "--model", "last_season"]
 
-    assert engine(*argv) == 2  # `power` is Rung 1's, which TASK-033 registers
+    monkeypatch.delitem(backtest.MODELS, "power")
+    assert engine(*argv) == 2  # nothing to wrap
 
     monkeypatch.setitem(backtest.MODELS, "power", MeanMargin)
     assert engine(*argv) == 0
     rows = written(empty_lake)
     assert {r["note"] for r in rows if r["season"] == 2022} == {UNSEEN}
     assert {r["note"] for r in rows if r["season"] == 2023} == {None}
+
+
+# TASK-033: home field only is the home-field edge the model under test fits (04 § 9.6).
+
+
+def test_home_field_predicts_the_wrapped_models_fitted_edge_entering_each_week() -> None:
+    games = [
+        played(2021, 1, 1, 2, 10),
+        played(2021, 2, 3, 4, 4),
+        played(2022, 1, 1, 2, 30),
+        played(2022, 2, 2, 3, -2),
+    ]
+    model = FittedHomeField(MeanMargin(SPEC))
+    for day in (1, 2, 3):  # entering 2022 day 1, 2 and 3: the fit grows with the season
+        as_of = datetime(2022, 9, day, 12, tzinfo=UTC)
+        seen = [g for g in games if g.kickoff < as_of]
+        fitted = MeanMargin(SPEC).fit(seen, as_of).params["home_field"]
+        ratings = model.fit(seen, as_of)
+        assert model.predict(context(1, 2022, 1, 2), ratings, as_of).pred_margin == fitted
+        neutral = context(2, 2022, 1, 2, neutral=True)
+        assert model.predict(neutral, ratings, as_of).pred_margin == 0.0
+    # Unlike the mean-margin `HomeField`, this season's games move it.
+    assert fitted != HomeField().predict(
+        context(1, 2022, 1, 2), HomeField().fit(games, as_of), as_of
+    ).pred_margin
+
+
+def test_home_field_wraps_the_model_registered_under_the_specs_base(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from engine.models.power import PowerRatings
+
+    built = backtest.MODELS["home_field"](SPEC)
+    assert isinstance(built, FittedHomeField) and isinstance(built.inner, PowerRatings)
+    monkeypatch.delitem(backtest.MODELS, "power")
+    with pytest.raises(harness.RefusedError, match="home_field"):
+        backtest.MODELS["home_field"](SPEC)
+    with pytest.raises(harness.RefusedError, match="games alone"):
+        FittedHomeField(HomeField())  # type: ignore[arg-type]
 
 
 # AC-3

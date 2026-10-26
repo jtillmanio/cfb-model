@@ -10,9 +10,12 @@ import html
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from engine.backtest import metrics as m
+
+if TYPE_CHECKING:
+    from engine.backtest.compare import Versus
 
 FILES = ("report.md", "report.html")
 DASH = "—"
@@ -256,6 +259,67 @@ def _breakdowns(breakdowns: Sequence[m.Breakdown]) -> Section:
     return Section("Breakdowns", ("Reported, not gated.",), tuple(tables))
 
 
+LABELS = {
+    "home_field": "Home field only",
+    "last_season": "Last season carried over",
+    "closing_line": "Closing line",
+    "sp": "SP+",
+    "fpi": "FPI",
+}
+
+
+def _comparison(versus: Sequence[Versus], model: str) -> Section:
+    """The model against each Rung 0 baseline on the same games (04 § 9.5-9.6)."""
+    rows = []
+    for v in versus:
+        d = v.difference
+        verdict = ("beats it" if v.beats else "doesn't beat it") if v.bar else "reported only"
+        if d is None:
+            verdict = "no game to compare"
+        notes = [f"{n} dropped: {count}" for n, count in v.dropped.items()]
+        if v.unseen:
+            notes.append(f"unseen team kept: {v.unseen}")
+        rows.append(
+            (
+                LABELS.get(v.name, v.name),
+                str(v.games),
+                pts(v.mae),
+                pts(v.model_mae),
+                DASH if d is None else f"{d.estimate:+.2f} ({d.low:+.2f} to {d.high:+.2f})",
+                verdict,
+                "; ".join(notes) or DASH,
+            )
+        )
+    bars = [v for v in versus if v.bar]
+    passed = bool(bars) and all(v.beats for v in bars)
+    return Section(
+        "Comparison with the baselines",
+        (
+            f"Bar (04 § 9.6): {'PASS' if passed else 'FAIL'}. {model} must have a lower MAE than "
+            "home field only and last season carried over: the 95% interval of a week-level "
+            "paired bootstrap of its absolute error minus theirs entirely below zero (§ 9.5). "
+            "The closing line and SP+/FPI are reported alongside.",
+            "Each baseline ran with the settings this run chose for each season. Hindsight "
+            "benchmarks and games with an unrated team are left out of that baseline's row "
+            "(and of the model's MAE beside it); unseen-team games are kept.",
+        ),
+        (
+            Table(
+                (
+                    "Baseline",
+                    "Games",
+                    "Baseline MAE",
+                    f"{model} MAE",
+                    "Difference (95% interval)",
+                    f"{model}",
+                    "Notes",
+                ),
+                tuple(rows),
+            ),
+        ),
+    )
+
+
 def _postseason(s: m.Summary) -> Section:
     acc = _accuracy(s.accuracy, "Postseason on its own")
     record, win, units, roi = record_cells(s.picks)
@@ -274,8 +338,11 @@ def _postseason(s: m.Summary) -> Section:
     )
 
 
-def build(metrics: m.Metrics, run: Mapping[str, Any]) -> Document:
-    """The report for one run: `run` is its `run.json` fields plus the lake `folder`."""
+def build(
+    metrics: m.Metrics, run: Mapping[str, Any], comparison: Sequence[Versus] = ()
+) -> Document:
+    """The report for one run: `run` is its `run.json` fields plus the lake `folder`, and
+    `comparison` the baselines it was compared with, if any."""
     first, last = metrics.seasons[0], metrics.seasons[-1]
     facts = (
         ("Model", str(run.get("model", DASH))),
@@ -288,6 +355,7 @@ def build(metrics: m.Metrics, run: Mapping[str, Any]) -> Document:
         ("Cover probabilities", "normal margin with each game's σ (margin_sd)"),
     )
     sections = [
+        *([_comparison(comparison, str(run.get("model", "Model")))] if comparison else []),
         _gates(metrics),
         _accuracy(metrics.accuracy),
         _ats(metrics),
@@ -360,9 +428,11 @@ def html_page(doc: Document) -> str:
     return "\n".join(out) + "\n"
 
 
-def write(folder: Path, metrics: m.Metrics, run: Mapping[str, Any]) -> tuple[Path, Path]:
+def write(
+    folder: Path, metrics: m.Metrics, run: Mapping[str, Any], comparison: Sequence[Versus] = ()
+) -> tuple[Path, Path]:
     """Write `report.md` and `report.html` into `folder` (created if missing)."""
-    doc = build(metrics, run)
+    doc = build(metrics, run, comparison)
     folder.mkdir(parents=True, exist_ok=True)
     md, page = (folder / name for name in FILES)
     md.write_text(markdown(doc), "utf-8", newline="\n")

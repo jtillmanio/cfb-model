@@ -167,7 +167,7 @@ def _backtest(args: argparse.Namespace, seasons: list[int]) -> None:
     from pydantic import ValidationError
 
     from engine import backtest, clock
-    from engine.backtest import harness, holdout
+    from engine.backtest import compare, harness, holdout
     from engine.core.spec import ModelSpec
     from engine.ingest.lake import open_lake
     from engine.transform.features import PointInTimeError
@@ -180,14 +180,13 @@ def _backtest(args: argparse.Namespace, seasons: list[int]) -> None:
         opened = holdout.guard(seasons, args.holdout, args.reason)
     except holdout.HoldoutRefusedError as e:
         _refuse(str(e))
+    if args.compare and (args.model or opened):
+        _refuse("--compare baselines compares the spec's own model on validation seasons only")
     name = args.model or spec.base
     factory = backtest.MODELS.get(name)
     if factory is None:
         known = ", ".join(sorted(backtest.MODELS))
-        _refuse(
-            f"no model is registered as {name!r} yet (registered: {known}); Rung 1's power "
-            "model is TASK-033, so pass --model stub to try the harness"
-        )
+        _refuse(f"no model is registered as {name!r} (registered: {known})")
     lake = open_lake()
     try:
         history = harness.load(lake)
@@ -196,6 +195,11 @@ def _backtest(args: argparse.Namespace, seasons: list[int]) -> None:
         if opened:
             holdout.record(lake, at, harness.spec_hash(spec), seasons, args.reason, name)
         result = harness.run(spec, factory, history, seasons, args.tune_from)
+        others = (
+            compare.run_baselines(spec, history, seasons, args.tune_from, result.choices)
+            if args.compare
+            else {}
+        )
     except harness.RefusedError as e:
         _refuse(str(e))
     except PointInTimeError as e:
@@ -204,6 +208,12 @@ def _backtest(args: argparse.Namespace, seasons: list[int]) -> None:
     folder = harness.write(
         lake, result, spec=spec, model=name, tune_from=args.tune_from, holdout=opened, at=at
     )
+    for other, run in others.items():
+        written = harness.write(
+            lake, run, spec=spec, model=other, tune_from=args.tune_from, holdout=False, at=at
+        )
+        print(f"Wrote {written}/predictions.parquet ({other})")
+    versus = compare.compare(result.rows, others)
     print(f"Backtest {seasons[0]}-{seasons[-1]} ({name}): {len(result.rows)} games predicted.")
     for season, choices in result.choices.items():
         if choices:
@@ -213,12 +223,23 @@ def _backtest(args: argparse.Namespace, seasons: list[int]) -> None:
     print(f"Wrote {folder}/predictions.parquet and run.json")
     if opened:
         print(f"Holdout runs so far: {holdout.count(lake)}")
+    for v in versus:  # ASCII only: a cp1252 console can't print the minus sign
+        d = v.difference
+        if d is None or v.mae is None or v.model_mae is None:
+            dropped = ", ".join(f"{n} {c}" for n, c in v.dropped.items())
+            print(f"  {v.name}: no game to compare ({dropped} left out)")
+            continue
+        verdict = ("BEATS" if v.beats else "DOES NOT BEAT") if v.bar else "reported"
+        print(
+            f"  {v.name}: {v.games} games, MAE {v.mae:.2f} vs {name} {v.model_mae:.2f}, "
+            f"difference {d.estimate:+.2f} [{d.low:+.2f}, {d.high:+.2f}] {verdict}"
+        )
     if args.report:
         from engine.backtest import metrics, report
 
         scored = metrics.compute(result.rows, spec, result.choices, holdout=opened)
         run = {"model": name, "spec_hash": harness.spec_hash(spec), "tune_from": args.tune_from}
-        md, page = report.write(Path(args.report), scored, {**run, "folder": folder})
+        md, page = report.write(Path(args.report), scored, {**run, "folder": folder}, versus)
         for gate_name, gate in scored.gates:  # the details hold − and ≤, which cp1252 lacks
             print(f"  {gate.status.upper():4} {gate_name}")
         print(f"Wrote {md} and {page}")
@@ -357,6 +378,12 @@ def main(argv: list[str] | None = None) -> None:
     bt.add_argument("--reason", help="Why the holdout is being opened")
     bt.add_argument(
         "--report", metavar="DIR", help="Write the metrics and gates to DIR/report.md and .html"
+    )
+    bt.add_argument(
+        "--compare",
+        choices=["baselines"],
+        help="Also run the Rung 0 baselines with this run's settings and compare them on the "
+        "same games (04 § 9.5-9.6); the report gains the comparison",
     )
 
     seed = commands.add_parser("seed", help="Load seed data into the test DB")
