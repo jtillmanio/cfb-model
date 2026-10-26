@@ -127,24 +127,32 @@ def _wrappable(inner: RatingModel, name: str) -> frozenset[str]:
 
 class FittedHomeField:
     """Predict only the home-field edge the wrapped model has fit entering the week, and 0 at a
-    neutral site: what rating the teams adds over home field alone. σ is `HomeField`'s, the
-    spread of earlier seasons' margins."""
+    neutral site: what rating the teams adds over home field alone. σ is the spread of the
+    margins of every earlier season's games around that edge."""
 
     baseline = True
 
     def __init__(self, inner: RatingModel) -> None:
         self.inner = inner
         self.reads = _wrappable(inner, "home_field")
-        self._home = HomeField()
+        self._memo: dict[tuple[int, datetime], float] = {}
 
     def fit(self, games: GameHistory, as_of: datetime) -> Ratings:
         hfa = self.inner.fit(games, as_of).params["home_field"]
         return Played(as_of, {}, {"home_field": hfa}, games)
 
+    def _sd(self, ratings: Played, season: int) -> float:
+        key = (season, ratings.as_of)
+        if key not in self._memo:
+            hfa = ratings.params["home_field"]
+            earlier = _before(ratings.games, season)
+            self._memo[key] = _sd([g.margin - (0.0 if g.neutral_site else hfa) for g in earlier])
+        return self._memo[key]
+
     def predict(self, game: GameContext, ratings: Ratings, as_of: datetime) -> Prediction:
-        _, sd = self._home.edge(ratings, game.season)
-        margin = 0.0 if game.neutral_site else _played(ratings).params["home_field"]
-        return _prediction(margin, sd, (("Home field", margin),))
+        played = _played(ratings)
+        margin = 0.0 if game.neutral_site else played.params["home_field"]
+        return _prediction(margin, self._sd(played, game.season), (("Home field", margin),))
 
 
 class LastSeason:

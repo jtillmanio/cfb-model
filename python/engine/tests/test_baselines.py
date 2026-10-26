@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import io
 import json
+import statistics
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
@@ -222,7 +223,11 @@ def test_home_field_predicts_the_wrapped_models_fitted_edge_entering_each_week()
         seen = [g for g in games if g.kickoff < as_of]
         fitted = MeanMargin(SPEC).fit(seen, as_of).params["home_field"]
         ratings = model.fit(seen, as_of)
-        assert model.predict(context(1, 2022, 1, 2), ratings, as_of).pred_margin == fitted
+        prediction = model.predict(context(1, 2022, 1, 2), ratings, as_of)
+        assert prediction.pred_margin == fitted
+        # σ: 2021's margins around that edge (10 and 4 at home).
+        spread = statistics.stdev([10 - fitted, 4 - fitted])
+        assert prediction.margin_sd == pytest.approx(spread)
         neutral = context(2, 2022, 1, 2, neutral=True)
         assert model.predict(neutral, ratings, as_of).pred_margin == 0.0
     # Unlike the mean-margin `HomeField`, this season's games move it.

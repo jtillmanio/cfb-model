@@ -200,6 +200,7 @@ def _backtest(args: argparse.Namespace, seasons: list[int]) -> None:
             if args.compare
             else {}
         )
+        versus = compare.compare(result.rows, others)  # before anything is written
     except harness.RefusedError as e:
         _refuse(str(e))
     except PointInTimeError as e:
@@ -213,7 +214,6 @@ def _backtest(args: argparse.Namespace, seasons: list[int]) -> None:
             lake, run, spec=spec, model=other, tune_from=args.tune_from, holdout=False, at=at
         )
         print(f"Wrote {written}/predictions.parquet ({other})")
-    versus = compare.compare(result.rows, others)
     print(f"Backtest {seasons[0]}-{seasons[-1]} ({name}): {len(result.rows)} games predicted.")
     for season, choices in result.choices.items():
         if choices:

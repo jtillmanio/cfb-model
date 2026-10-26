@@ -3,7 +3,8 @@
 - **FCS pool.** The lake holds only games with an FBS team, so an FCS team has one or two games a
   season: too few to rate on its own. Every FCS team is rated as one pooled team instead, which
   keeps those games from distorting FBS ratings while still counting what they say about the FBS
-  side. A team with no classification is rated on its own.
+  side. A team with no classification is pooled too: in a lake of games with an FBS team, the
+  unlabelled side is the lower-division one.
 - **Newcomers.** A team with no rating last season starts from the FCS pool's prior: every team
   that joined FBS since 2014 moved up from FCS.
 - **Season of a date.** A season runs from late August to the January bowls, so a date from July
@@ -21,9 +22,7 @@ FCS = "fcs"
 
 def pool_of(classification: str | None) -> str | None:
     """The pool a team is rated in, or None for a team rated on its own."""
-    if classification is None or classification == "fbs":
-        return None
-    return FCS
+    return None if classification == "fbs" else FCS
 
 
 def season_of(as_of: datetime) -> int:

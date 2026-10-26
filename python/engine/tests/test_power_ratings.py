@@ -284,8 +284,8 @@ def test_what_rung_1_doesnt_do_is_refused(spec: dict[str, Any], message: str) ->
 
 
 def test_the_cfb_rules() -> None:
-    assert pool_of("fbs") is None and pool_of(None) is None
-    assert pool_of("fcs") == pool_of("ii") == "fcs"
+    assert pool_of("fbs") is None
+    assert pool_of("fcs") == pool_of("ii") == pool_of(None) == "fcs"
     assert season_of(datetime(2023, 8, 26, tzinfo=UTC)) == 2023
     assert season_of(datetime(2024, 1, 9, tzinfo=UTC)) == 2023
     assert backtest.MODELS["power"](ModelSpec.model_validate({"base": "power", "picks": PICKS}))
