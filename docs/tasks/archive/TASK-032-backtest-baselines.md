@@ -1,7 +1,7 @@
 ---
 id: TASK-032
 title: Add the backtest baselines: home field only, last season, closing line, SP+/FPI
-status: Review
+status: Done
 depends_on: [TASK-030]
 size: S
 model: sonnet
