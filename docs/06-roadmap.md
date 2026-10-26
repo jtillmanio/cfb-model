@@ -78,7 +78,7 @@ Phase 8  Multi-sport (NFL)
 
 - [x] `ModelSpec` (v1 schema) + `RatingModel` / `GamePredictor` interfaces in `engine.core`
 - [x] Walk-forward backtest harness by (season, week), with leakage assertions
-- [ ] Metrics + markdown/HTML backtest report (MAE, ATS by edge bucket, calibration, ROI)
+- [x] Metrics + markdown/HTML backtest report (MAE, ATS by edge bucket, calibration, ROI)
 - [ ] Baselines: HFA-only, closing line, SP+/FPI comparison
 - [ ] Rung 1: least-squares power ratings with margin cap, recency weighting, priors from last season
 - [ ] Notebooks #2–3: build ratings by hand; ratings → probabilities

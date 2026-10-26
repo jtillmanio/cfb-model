@@ -96,6 +96,24 @@ def test_the_opener_and_its_close_come_from_the_same_books() -> None:
     assert opening(None, -2.0, -6.0, rows=no_close) == (-3.5, -2.0, -3.0)
 
 
+def test_without_a_close_the_opener_books_are_those_in_the_last_pull() -> None:
+    """On the last-snapshot fallback, a book counts only if it's in the final pull before
+    kickoff, the same set the main close reads."""
+    early, late = KICKOFF - timedelta(days=3), KICKOFF - timedelta(hours=5)
+    table = lines(
+        ("Bovada", early, -7.0),
+        ("Bovada", late, -6.0),
+        ("DraftKings", early, -5.0),  # opened −4, but missing from the last pull
+        ("ESPN Bet", late, -5.0),  # in the last pull, but quoted no opener
+        opens=(-6.0, -6.0, -4.0, None),
+    )
+
+    (row,) = closing_lines(game(), table, at=KICKOFF + timedelta(days=1)).to_pylist()
+
+    assert (row["spread_home"], row["closing_from"]) == (-5.5, "last_snapshot")
+    assert (row["spread_home_open"], row["spread_home_open_close"]) == (-6.0, -6.0)
+
+
 def test_no_closing_line_before_the_cutoff() -> None:
     table = lines(("Bovada", KICKOFF - timedelta(hours=5), -6.0))
     tba = game(kickoff_at=None)  # cutoff: the end of 2025-09-06 Eastern, 04:00Z on the 7th

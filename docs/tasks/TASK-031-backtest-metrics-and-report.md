@@ -1,7 +1,7 @@
 ---
 id: TASK-031
 title: Compute backtest metrics and write the markdown/HTML report
-status: In progress
+status: Review
 depends_on: [TASK-030]
 size: M
 model: opus
@@ -32,12 +32,12 @@ Every backtest ends in a report that shows how accurate the model was against th
 
 ## Acceptance criteria
 
-- [ ] AC-1: Given a results fixture of 5 graded picks (3 wins, 1 loss, 1 push), the report shows the record 3-1-1, win % 75.0, units +1.9 and ROI equal to units won ÷ units risked; given model and closing errors on the same games, it shows both MAEs and their difference, and RMSE.
-- [ ] AC-2: Given a fixture where the edge side covers more often as the edge grows, the edge trend's logistic slope and its 95% interval are both above zero and the gate reads pass; given a fixture with no relationship, the interval includes zero and the gate reads fail; the § 5 buckets (0–1.5, 1.5–3, 3–5, 5+) are shown beside it.
-- [ ] AC-3: Given picks with known displayed probabilities and outcomes, every calibration bin (2.5-point steps from 50% to 65%+) shows its pick count, mean predicted probability and actual hit rate, and the calibration gate fails exactly when a bin with ≥ 100 picks is more than 3 points off.
-- [ ] AC-4: The consistency gate passes or fails per D-077 on fixtures built for each case (3 of 8 seasons below 50% fails; pooled ATS ≤ 52.4% after removing the best season fails).
-- [ ] AC-5: Given two models scored on the same games where one is better by a constant amount every week, the paired week-level bootstrap (10,000 resamples, fixed seed) reports a 95% interval entirely below zero and "beats"; given identical models, the interval contains zero; the same seed gives identical intervals on repeat runs.
-- [ ] AC-6: `engine backtest … --report <dir>` writes a markdown and an HTML report of every § 9.4 row the run's data supports, marking each gate pass or fail, and a golden test on the TASK-030 fixture compares the metrics against committed numbers.
+- [x] AC-1: Given a results fixture of 5 graded picks (3 wins, 1 loss, 1 push), the report shows the record 3-1-1, win % 75.0, units +1.9 and ROI equal to units won ÷ units risked; given model and closing errors on the same games, it shows both MAEs and their difference, and RMSE.
+- [x] AC-2: Given a fixture where the edge side covers more often as the edge grows, the edge trend's logistic slope and its 95% interval are both above zero and the gate reads pass; given a fixture with no relationship, the interval includes zero and the gate reads fail; the § 5 buckets (0–1.5, 1.5–3, 3–5, 5+) are shown beside it.
+- [x] AC-3: Given picks with known displayed probabilities and outcomes, every calibration bin (2.5-point steps from 50% to 65%+) shows its pick count, mean predicted probability and actual hit rate, and the calibration gate fails exactly when a bin with ≥ 100 picks is more than 3 points off.
+- [x] AC-4: The consistency gate passes or fails per D-077 on fixtures built for each case (3 of 8 seasons below 50% fails; pooled ATS ≤ 52.4% after removing the best season fails).
+- [x] AC-5: Given two models scored on the same games where one is better by a constant amount every week, the paired week-level bootstrap (10,000 resamples, fixed seed) reports a 95% interval entirely below zero and "beats"; given identical models, the interval contains zero; the same seed gives identical intervals on repeat runs.
+- [x] AC-6: `engine backtest … --report <dir>` writes a markdown and an HTML report of every § 9.4 row the run's data supports, marking each gate pass or fail, and a golden test on the TASK-030 fixture compares the metrics against committed numbers.
 
 ## Out of scope
 
@@ -65,8 +65,12 @@ Every backtest ends in a report that shows how accurate the model was against th
 
 _Work noticed during this task and deliberately left out. Each bullet ends `→ <path> § <section>` (where it was placed) or `→ not tracked: <reason>`. See `.claude/skills/track-follow-ups/classify.md`; the PR's Follow-ups section is copied from here._
 
-- TASK-033 compares runs with `engine.backtest.bootstrap.compare()` for 04 § 9.6's "beats both baselines" bar; there's no CLI compare (approved at plan)
-- Candidate decision: the report format and metric choices in the Plan (approved at plan)
+- TASK-033 compares runs with `engine.backtest.bootstrap.compare()` for 04 § 9.6's "beats both baselines" bar; there's no CLI compare (approved at plan) → docs/tasks/TASK-033-rung-1-power-ratings.md § Context
+- Candidate decision: the report format and metric choices in the Plan, and the same-books CLV rule the owner chose at review (approved at plan) → docs/decisions.md § D-132
+- CFBD's books quote no opening spreads before 2021 (consensus never does; Bovada from 2021, DraftKings 2023, ESPN Bet 2024), so validation seasons 2016–2020 have no CLV or opening-line ATS; the report says so → docs/04-model.md § 9.3 (fixed in this PR, owner-approved with the CLV choice)
+- The backtest grades cover probabilities with a normal margin per row; M4.3's empirical distribution must reach `grade_rows` → docs/08-tasklist.md § M4 › M4.3
+- The conference-tier breakdown's hook is `metrics.breakdown(name, games, key)` → docs/08-tasklist.md § M4 › M4.1
+- `publish.lines.map_lines` gives a provider's one `opening` slot to its first pull with any opener, so a pull with only `total_open` would hide a later spread opener (schema review R2) → not tracked: no effect on today's lake (76 total-only first pulls, none followed by a spread opener); raised in the PR for the owner
 
 ## Plan
 
@@ -105,11 +109,17 @@ Approved 2026-10-26 with the recommended answers (calibration on every eligible 
 - AC-5 `test_bootstrap.py` (constant gap beats; identical contains zero; seed repeatable)
 - AC-6 `test_backtest_report.py` (CLI writes both files, every row labelled, each gate marked; golden metrics JSON at 10 significant digits, `UPDATE_GOLDEN=1`)
 
+**Revised 2026-10-26 (after approval, owner's choice at schema review):** step 1's opener is now two columns, `spread_home_open` and `spread_home_open_close`, the opener and the close of the books that quoted both, each consensus else median; CLV compares them, so it never mixes the consensus close with a book-median opener (consensus quotes no openers). 04 § 9.3, 03 › Backtests and D-132 were updated with it.
+
 **Risks:** pure-Python bootstrap speed (~1-2 s at 8 seasons; fine). The fixture run is small, so several gates read n/a in the golden.
 
 ## Review log
 
 _Filled by /implement-task. One line per round._
+
+- Verify R1 PASS | Audit R1 PASS | Spec R1 APPROVE (2 recommendations) | Schema R1 CHANGES (CLV mixed a book-median opener with the consensus close)
+- Owner chose same books at both ends → Verify R2 PASS | Audit R2 CHANGES (the no-opener test didn't discriminate; added a same-books-close test and a last-snapshot case, each shown failing on 089478b's source, not re-audited independently) | Spec R2 APPROVE | Schema R2 APPROVE
+- Manual: stub spec on 2016–2017 of the local lake with `--report`: both files written, every row labelled, pushes out of win %, each gate marked; it found the cp1252 console crash (fixed, with a test) and that 2016–2020 have no openers
 
 ## Blocked
 
@@ -117,7 +127,7 @@ _Only if status is Blocked: what failed, what was tried, best hypothesis, decisi
 
 ## Metrics
 
-- Verify rounds:
-- Review rounds:
-- First-pass AC FAILs:
-- Plan revisions after approval:
+- Verify rounds: 3 (all PASS; re-runs after the review fixes)
+- Review rounds: 2 (spec), 2 (schema); audit 2
+- First-pass AC FAILs: 0 (schema R1's CHANGES was the CLV line source, not an AC)
+- Plan revisions after approval: 1 (the same-books close column)

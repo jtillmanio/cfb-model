@@ -158,7 +158,7 @@ def row(
         "home_win_prob": 0.76,
         "spread_home": -3.0,
         "spread_home_open": open_line,
-        "spread_home_open_close": None if open_line is None else open_close,
+        "spread_home_open_close": open_close,
         "margin": margin,
     }
 
@@ -188,7 +188,7 @@ def test_the_report_shows_records_without_pushes_in_win_pct() -> None:
 def test_clv_measures_the_opener_against_the_same_books_close() -> None:
     """A home pick at −1 whose books closed −4 beat their close by 3 points, though the main
     (consensus) close is −3: CLV never mixes sources (D-132). A game with no opener is out."""
-    metrics = m.compute([row(10, -1.0, -4.0), row(7, None)], SPEC_EVERY_EDGE, {})
+    metrics = m.compute([row(10, -1.0, -4.0), row(7, None, None)], SPEC_EVERY_EDGE, {})
 
     assert metrics.opening.games == 1
     assert metrics.opening.clv == pytest.approx(3.0)
@@ -196,9 +196,19 @@ def test_clv_measures_the_opener_against_the_same_books_close() -> None:
     assert not metrics.opening.warning
 
 
+def test_clv_needs_the_same_books_close() -> None:
+    """With no close from the opener's books there's no CLV: the main close never stands in."""
+    metrics = m.compute([row(10, -1.0, None)], SPEC_EVERY_EDGE, {})
+
+    assert metrics.opening.games == 1
+    assert str(metrics.opening.picks) == "1-0-0"  # graded at the opener, which needs no close
+    assert metrics.opening.clv is None
+
+
 def test_a_run_with_no_opener_says_so() -> None:
-    """CFBD's books quote no openers before 2021, so a 2016-2020 run has no CLV to measure."""
-    metrics = m.compute([row(10, None), row(7, None)], SPEC_EVERY_EDGE, {})
+    """CFBD's books quote no openers before 2021, so a 2016-2020 run has no CLV to measure.
+    (A regression guard: the message arrived with the report itself.)"""
+    metrics = m.compute([row(10, None, None), row(7, None, None)], SPEC_EVERY_EDGE, {})
     md = report.markdown(report.build(metrics, {}))
 
     assert metrics.opening.games == 0
