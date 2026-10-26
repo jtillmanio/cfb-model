@@ -75,9 +75,17 @@ jobs:
           pnpm install --frozen-lockfile
           uv --directory python sync
 
+      # --with-deps apt-installs Chromium's libraries and fonts from the runner's Ubuntu mirror,
+      # which can stall for minutes a package (one run took 13.5 min, all apt, the browser 3 s).
+      # Short apt timeouts with retries get past a stalled download; the step timeout fails a
+      # mirror that stays stuck in minutes rather than at the job's limit, for a re-run.
       - name: Install the e2e browser
         if: steps.scope.outputs.full == 'true'
-        run: pnpm --dir web exec playwright install --with-deps chromium
+        timeout-minutes: 6
+        run: |
+          printf '%s\n' 'Acquire::Retries "3";' 'Acquire::http::Timeout "20";' \
+            'Acquire::https::Timeout "20";' | sudo tee /etc/apt/apt.conf.d/99ci-timeouts
+          pnpm --dir web exec playwright install --with-deps chromium
 
       # Migrations are forward-only (D-020): fail if one already on main was edited, renamed or
       # deleted. A PR diffs from its merge base with the base branch; a push to main from the
