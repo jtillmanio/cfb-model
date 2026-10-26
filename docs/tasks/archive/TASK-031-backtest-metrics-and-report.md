@@ -1,7 +1,7 @@
 ---
 id: TASK-031
 title: Compute backtest metrics and write the markdown/HTML report
-status: Review
+status: Done
 depends_on: [TASK-030]
 size: M
 model: opus
