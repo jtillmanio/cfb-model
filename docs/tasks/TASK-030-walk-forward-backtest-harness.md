@@ -1,7 +1,7 @@
 ---
 id: TASK-030
 title: Build the walk-forward rolling-origin backtest harness
-status: In progress
+status: Review
 depends_on: [TASK-029]
 size: M
 model: opus
@@ -33,12 +33,12 @@ One command replays history week by week for any model spec, predicting each wee
 
 ## Acceptance criteria
 
-- [ ] AC-1: Given the two-season lake fixture and a spec, `engine backtest --spec <file> --seasons <first>-<last>` predicts every eligible game of each scored season once, in (season, week) order, and writes one results row per game holding at least season, week, game id, `pred_margin`, `margin_sd`, the closing spread and the actual margin; FBS-vs-FCS games and games without a closing line get no row.
-- [ ] AC-2: Given a tuner that records the seasons it is shown, scoring season Y shows it exactly the seasons from the first tuning season through Y−1, skipping holdout seasons (so 2024 and 2025 both tune through 2023; reworded by the owner at review), and fitting week N of season Y passes the model only games that finished before that week's `as_of`.
-- [ ] AC-3: Given the two-season fixture, changing the score and stats of one week-N game of the second season and re-running leaves every prediction for weeks ≤ N identical and changes at least one later prediction.
-- [ ] AC-4: Given an input row whose source time isn't before its `as_of`, the run stops with a non-zero exit naming the season and week; given a model that asks for hindsight ratings or market lines as a fitting input, the run stops with an error naming the input.
-- [ ] AC-5: `--seasons` reaching 2024 or 2025 without `--holdout --reason "<text>"` exits non-zero and writes nothing; with both, the run completes and appends one holdout record (time, spec hash, seasons, reason) that a later run can count.
-- [ ] AC-6: Running the same spec on the same fixture twice gives byte-identical results, equal to a committed golden file; the golden file changes only in a commit whose message says why.
+- [x] AC-1: Given the two-season lake fixture and a spec, `engine backtest --spec <file> --seasons <first>-<last>` predicts every eligible game of each scored season once, in (season, week) order, and writes one results row per game holding at least season, week, game id, `pred_margin`, `margin_sd`, the closing spread and the actual margin; FBS-vs-FCS games and games without a closing line get no row.
+- [x] AC-2: Given a tuner that records the seasons it is shown, scoring season Y shows it exactly the seasons from the first tuning season through Y−1, skipping holdout seasons (so 2024 and 2025 both tune through 2023; reworded by the owner at review), and fitting week N of season Y passes the model only games that finished before that week's `as_of`.
+- [x] AC-3: Given the two-season fixture, changing the score and stats of one week-N game of the second season and re-running leaves every prediction for weeks ≤ N identical and changes at least one later prediction.
+- [x] AC-4: Given an input row whose source time isn't before its `as_of`, the run stops with a non-zero exit naming the season and week; given a model that asks for hindsight ratings or market lines as a fitting input, the run stops with an error naming the input.
+- [x] AC-5: `--seasons` reaching 2024 or 2025 without `--holdout --reason "<text>"` exits non-zero and writes nothing; with both, the run completes and appends one holdout record (time, spec hash, seasons, reason) that a later run can count.
+- [x] AC-6: Running the same spec on the same fixture twice gives byte-identical results, equal to a committed golden file; the golden file changes only in a commit whose message says why.
 
 ## Out of scope
 
@@ -68,12 +68,15 @@ One command replays history week by week for any model spec, predicting each wee
 
 _Work noticed during this task and deliberately left out. Each bullet ends `→ <path> § <section>` (where it was placed) or `→ not tracked: <reason>`. See `.claude/skills/track-follow-ups/classify.md`; the PR's Follow-ups section is copied from here._
 
-- TASK-031 reads the results file: its key, its columns, and that it has no opening line, which 04 § 9.3's CLV needs (approved at plan)
-- TASK-032's baselines register in `engine.backtest.MODELS` and run with `--model`; an SP+/FPI baseline needs a `benchmark_ratings` input with its own published-before-the-game check (approved at plan)
-- TASK-033 registers the power model under `power`; the once-a-season refit of learned weights is the model's job, since the harness only calls `fit(games, as_of)` (approved at plan). Added at review: `GameResult` carries no team classification, so pooling FCS teams into tiers (04 § 2, D-047) needs a field or a new harness input
-- TASK-034: the results file and the holdout log move to `model_runs` (approved at plan)
-- `docs/03-data-model.md` › Lake layout gains `backtests/`, and `docs/04-model.md` § 9.2 says how the postseason week is scored (approved at plan)
-- Candidate decision: the harness's design (approved at plan)
+- TASK-031 reads the results file: its key, its columns, and that it has no opening line, which 04 § 9.3's CLV needs (approved at plan) → docs/tasks/TASK-031-backtest-metrics-and-report.md § Context
+- TASK-032's baselines register in `engine.backtest.MODELS` and run with `--model`; an SP+/FPI baseline needs a `benchmark_ratings` input with its own published-before-the-game check (approved at plan) → docs/tasks/TASK-032-backtest-baselines.md § Context
+- TASK-033 registers the power model under `power`; the once-a-season refit of learned weights is the model's job, since the harness only calls `fit(games, as_of)` (approved at plan). Added at review: `GameResult` carries no team classification, so pooling FCS teams into tiers (04 § 2, D-047) needs a field or a new harness input → docs/tasks/TASK-033-rung-1-power-ratings.md § Context
+- TASK-034: the results file and the holdout log move to `model_runs` (approved at plan); written as an open question for its plan → docs/tasks/TASK-034-model-registry-schema.md § Context
+- `docs/03-data-model.md` › Lake layout gains `backtests/`, and `docs/04-model.md` § 9.2 says how the postseason week is scored (approved at plan) → docs/03-data-model.md § Lake layout and docs/04-model.md § 9.2 (fixed in this PR)
+- Candidate decision: the harness's design (approved at plan) → docs/decisions.md § D-131
+- Schema review: `staging/` and `features/` carry no shared build stamp, so a rebuild that stopped between them *and* a CFBD reschedule could give a game an old `as_of` → not tracked: needs both at once; the stale-features refusal catches the common case, and D-131's revisit covers it if a rebuild ever stops midway
+- Schema review: one undated game anywhere in the lake refuses every backtest, like `check_point_in_time` → not tracked: the schema reviewer required no change; CFBD always sends `startDate`, and the refusal names the game
+- Schema review: no TBA game in the backtest fixture → not tracked: the harness reuses `features.KICKOFF`, whose TBA rule the feature-table tests cover
 
 ## Plan
 
@@ -99,13 +102,19 @@ Approved 2026-10-26 at `17289d8`.
 
 _Filled by /implement-task. One line per round._
 
+- Verify R1 PASS (634e80c) → R2 PASS after the audit fixes (003e6fb) → R3 PASS (79e395b) → R4 PASS after the review fixes (2269845, pytest 422)
+- Audit R1 CHANGES (not-final game UNPROVEN; holdout tuning UNPROVEN) → R2 CHANGES (not-final still UNPROVEN: the fixture's unplayed game had no score) → fixed in 79e395b and its mutant (`status == "final"` → True) shown failing by me, not an independent auditor round
+- Spec R1 CHANGES (a custom tuner's `evaluate` could run the scored season, hard rule 4; AC-2 wording, a SPEC GAP the owner settled by rewording it; golden floats vs Linux CI; run.json doc fields) → R2 APPROVE
+- Schema R1 APPROVE (4 MINOR: stale features silently dropped a game, an undated game crashed, no TBA fixture, doc wording; the first two and the docs fixed in 2269845) → R2 APPROVE
+- Manual: local lake 2016-2017 → 1,536 games, 2016-2023 → 5,954, CFBD ledger hash unchanged; `--seasons 2024` without the flag → exit 2
+
 ## Blocked
 
 _Only if status is Blocked: what failed, what was tried, best hypothesis, decision needed._
 
 ## Metrics
 
-- Verify rounds:
-- Review rounds:
-- First-pass AC FAILs:
-- Plan revisions after approval:
+- Verify rounds: 4 (all PASS; re-runs after the audit and review fixes)
+- Review rounds: 2 (spec), 2 (schema); audit 2 plus one self-checked mutant
+- First-pass AC FAILs: 0 (spec R1 passed all six; its CHANGES were a rule-4 gap and the AC-2 wording)
+- Plan revisions after approval: 0 (review fixes: the tuner guard and two `load` refusals)
