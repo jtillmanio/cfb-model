@@ -139,18 +139,33 @@ def load(lake: Lake) -> History:
     for name, table in tables.items():
         con.register(name, table)
     check_point_in_time(con)
-    closing = {
-        r["game_source_id"]: r for r in closing_lines(tables["games"], tables["lines"]).to_pylist()
-    }
     games = (
         con.execute(f"""
-            SELECT g.*, f.as_of FROM (SELECT *, {KICKOFF} AS kickoff FROM games) g
-            JOIN game_features f ON f.game_source_id = g.source_id
+            SELECT g.*, f.as_of, f.game_source_id IS NOT NULL AS featured
+            FROM (SELECT *, {KICKOFF} AS kickoff FROM games) g
+            LEFT JOIN game_features f ON f.game_source_id = g.source_id
             ORDER BY g.kickoff, g.source_id""")
         .arrow()
         .read_all()
         .to_pylist()
     )
+    # game_features has a row per staged game, so a missing one means features/ is older than
+    # staging/ (a rebuild that stopped between them): refuse rather than drop the game.
+    stale = [g["source_id"] for g in games if not g["featured"]]
+    if stale:
+        raise RefusedError(
+            f"{len(stale)} staged games have no game_features row ({', '.join(stale[:5])}): "
+            "features/ is older than staging/; run engine transform --rebuild"
+        )
+    undated = [g["source_id"] for g in games if g["kickoff"] is None]
+    if undated:
+        raise RefusedError(
+            f"{len(undated)} staged games have no kickoff time or date ({', '.join(undated[:5])}),"
+            " so the point-in-time rule can't place them"
+        )
+    closing = {
+        r["game_source_id"]: r for r in closing_lines(tables["games"], tables["lines"]).to_pylist()
+    }
 
     results: list[GameResult] = []
     by_week: dict[tuple[int, str, int], tuple[datetime, list[Eligible]]] = {}
@@ -358,10 +373,23 @@ def run(
             cache[key] = predict_season(factory(spec.resolve(choices)), history, season)
         return cache[key]
 
+    def shown_only(season: int, tuning: tuple[int, ...]) -> Evaluate:
+        """`evaluate` for season's tuner, refusing any season outside its tuning seasons."""
+
+        def guarded(choices: Choices, asked: int) -> list[Row]:
+            if asked not in tuning:
+                raise PointInTimeError(
+                    f"the tuner for {season} asked to evaluate {asked}, outside its tuning "
+                    f"seasons {', '.join(map(str, tuning)) or '(none)'} (04 § 9.1)"
+                )
+            return evaluate(choices, asked)
+
+        return guarded
+
     rows: list[Row] = []
     chosen: dict[int, Choices] = {}
     for season, tuning in plan.items():
-        choices = dict(tuner(spec, tuning, evaluate))
+        choices = dict(tuner(spec, tuning, shown_only(season, tuning)))
         if not spec.resolve(choices).is_resolved:
             raise RefusedError(
                 f"the tuner left {', '.join(spec.resolve(choices).tunables())} "

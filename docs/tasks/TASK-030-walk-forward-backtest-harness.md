@@ -34,7 +34,7 @@ One command replays history week by week for any model spec, predicting each wee
 ## Acceptance criteria
 
 - [ ] AC-1: Given the two-season lake fixture and a spec, `engine backtest --spec <file> --seasons <first>-<last>` predicts every eligible game of each scored season once, in (season, week) order, and writes one results row per game holding at least season, week, game id, `pred_margin`, `margin_sd`, the closing spread and the actual margin; FBS-vs-FCS games and games without a closing line get no row.
-- [ ] AC-2: Given a tuner that records the seasons it is shown, scoring season Y shows it exactly the seasons from the first tuning season through Y−1, and fitting week N of season Y passes the model only games that finished before that week's `as_of`.
+- [ ] AC-2: Given a tuner that records the seasons it is shown, scoring season Y shows it exactly the seasons from the first tuning season through Y−1, skipping holdout seasons (so 2024 and 2025 both tune through 2023; reworded by the owner at review), and fitting week N of season Y passes the model only games that finished before that week's `as_of`.
 - [ ] AC-3: Given the two-season fixture, changing the score and stats of one week-N game of the second season and re-running leaves every prediction for weeks ≤ N identical and changes at least one later prediction.
 - [ ] AC-4: Given an input row whose source time isn't before its `as_of`, the run stops with a non-zero exit naming the season and week; given a model that asks for hindsight ratings or market lines as a fitting input, the run stops with an error naming the input.
 - [ ] AC-5: `--seasons` reaching 2024 or 2025 without `--holdout --reason "<text>"` exits non-zero and writes nothing; with both, the run completes and appends one holdout record (time, spec hash, seasons, reason) that a later run can count.
@@ -70,7 +70,7 @@ _Work noticed during this task and deliberately left out. Each bullet ends `→ 
 
 - TASK-031 reads the results file: its key, its columns, and that it has no opening line, which 04 § 9.3's CLV needs (approved at plan)
 - TASK-032's baselines register in `engine.backtest.MODELS` and run with `--model`; an SP+/FPI baseline needs a `benchmark_ratings` input with its own published-before-the-game check (approved at plan)
-- TASK-033 registers the power model under `power`; the once-a-season refit of learned weights is the model's job, since the harness only calls `fit(games, as_of)` (approved at plan)
+- TASK-033 registers the power model under `power`; the once-a-season refit of learned weights is the model's job, since the harness only calls `fit(games, as_of)` (approved at plan). Added at review: `GameResult` carries no team classification, so pooling FCS teams into tiers (04 § 2, D-047) needs a field or a new harness input
 - TASK-034: the results file and the holdout log move to `model_runs` (approved at plan)
 - `docs/03-data-model.md` › Lake layout gains `backtests/`, and `docs/04-model.md` § 9.2 says how the postseason week is scored (approved at plan)
 - Candidate decision: the harness's design (approved at plan)

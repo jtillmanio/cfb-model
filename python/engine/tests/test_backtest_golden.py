@@ -26,12 +26,20 @@ SPEC = {
 }
 
 
+def _text(value: object) -> str:
+    if value is None:
+        return ""
+    # 10 significant digits: the libm behind `**` and `erf` can differ in the last bits
+    # between Windows and Linux (CI), and no model number means anything that fine.
+    return f"{value:.10g}" if isinstance(value, float) else str(value)
+
+
 def render(data: bytes) -> str:
-    """The results as CSV text: one line per row, values as Python prints them."""
+    """The results as CSV text: one line per row."""
     table = pq.read_table(io.BytesIO(data))
     lines = [",".join(table.column_names)]
     for row in table.to_pylist():
-        lines.append(",".join("" if v is None else str(v) for v in row.values()))
+        lines.append(",".join(_text(v) for v in row.values()))
     return "\n".join(lines) + "\n"
 
 

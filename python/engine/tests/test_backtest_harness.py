@@ -35,7 +35,8 @@ from engine.backtest.stub import MeanMargin
 from engine.core.interfaces import GameContext, GameHistory, Prediction, Ratings
 from engine.core.spec import ModelSpec
 from engine.ingest.lake import LocalLake
-from engine.transform import feature_key, rebuild
+from engine.transform import feature_key, rebuild, staging_key
+from engine.transform.features import PointInTimeError
 
 PICKS = {"min_edge_pts": 3.0, "min_prob": 0.55, "tiers": {"A": 5.0, "B": 3.5, "C": 2.5}}
 FIXED: dict[str, Any] = {
@@ -179,6 +180,64 @@ def test_scoring_a_holdout_season_never_tunes_on_one(empty_lake: LocalLake) -> N
 
     # 2025 is tuned on 2022-2023 like 2024, not on 2024 (04 § 9.1).
     assert shown == [(2022, 2023), (2022, 2023)]
+
+
+def test_a_tuner_that_evaluates_the_scored_season_stops_the_run(empty_lake: LocalLake) -> None:
+    write_backtest_seasons(empty_lake, (2022, 2023))
+    rebuild(empty_lake)
+
+    def peeking_tuner(
+        spec: ModelSpec, tuning: Sequence[int], evaluate: harness.Evaluate
+    ) -> Mapping[str, float]:
+        evaluate({"hyperparameters.margin_cap": 14}, 2023)  # the season being scored
+        return harness.grid_tuner(spec, tuning, evaluate)
+
+    spec = ModelSpec.model_validate(TUNED)
+    with pytest.raises(PointInTimeError, match="2023"):
+        harness.run(spec, MeanMargin, harness.load(empty_lake), [2023], 2022, peeking_tuner)
+
+
+def rewrite(lake: LocalLake, key: str, edit: Any) -> None:
+    """Replace a derived lake table with `edit(rows)`, keeping its schema."""
+    table = pq.read_table(io.BytesIO(lake.read(key)))
+    buffer = io.BytesIO()
+    pq.write_table(pa.Table.from_pylist(edit(table.to_pylist()), table.schema), buffer)
+    lake.replace(key, buffer.getvalue())
+
+
+def test_a_staged_game_missing_from_the_feature_tables_is_refused(
+    backtest_lake: LocalLake, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    # Features older than staging (a rebuild that stopped between them) lack a newer game.
+    game = backtest_game_id(2023, "regular", 4, "401756847")
+    rewrite(
+        backtest_lake,
+        feature_key("game_features"),
+        lambda rows: [r for r in rows if r["game_source_id"] != game],
+    )
+    spec = spec_file(tmp_path, FIXED)
+    assert engine("backtest", "--spec", spec, "--seasons", "2022-2023", "--model", "stub") == 2
+    err = capsys.readouterr().err
+    assert game in err and "transform --rebuild" in err
+    assert written(backtest_lake) == []
+
+
+def test_a_game_with_no_kickoff_time_is_refused(
+    backtest_lake: LocalLake, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    game = backtest_game_id(2022, "regular", 2, "401756847")
+    rewrite(
+        backtest_lake,
+        staging_key("games"),
+        lambda rows: [
+            {**r, "kickoff_at": None, "game_date": None} if r["source_id"] == game else r
+            for r in rows
+        ],
+    )
+    spec = spec_file(tmp_path, FIXED)
+    assert engine("backtest", "--spec", spec, "--seasons", "2022-2023", "--model", "stub") == 2
+    assert game in capsys.readouterr().err
+    assert written(backtest_lake) == []
 
 
 def by_source_id(table: pa.Table) -> dict[str, dict[str, Any]]:
