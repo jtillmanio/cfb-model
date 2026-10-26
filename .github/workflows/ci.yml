@@ -75,9 +75,15 @@ jobs:
           pnpm install --frozen-lockfile
           uv --directory python sync
 
+      # No --with-deps: the runner image ships Google Chrome, so Chromium's libraries are already
+      # installed, and what --with-deps added was ~20 MB of CJK and fallback fonts that Ubuntu's
+      # Azure mirror served at ~40 KB/s (13.5 min one run; e2e has no screenshot tests, so fonts
+      # change nothing). This only downloads the browser from Playwright's CDN, a few seconds;
+      # the step timeout fails a stuck download long before the job's limit, for a re-run.
       - name: Install the e2e browser
         if: steps.scope.outputs.full == 'true'
-        run: pnpm --dir web exec playwright install --with-deps chromium
+        timeout-minutes: 6
+        run: pnpm --dir web exec playwright install chromium
 
       # Migrations are forward-only (D-020): fail if one already on main was edited, renamed or
       # deleted. A PR diffs from its merge base with the base branch; a push to main from the
