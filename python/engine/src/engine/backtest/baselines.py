@@ -25,7 +25,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Any
 
-from engine.backtest.harness import Benchmark, RefusedError
+from engine.backtest.harness import Benchmark, BenchmarkInput, RefusedError
 from engine.backtest.stub import DEFAULT_SD
 from engine.core.interfaces import (
     GameContext,
@@ -36,7 +36,7 @@ from engine.core.interfaces import (
     Ratings,
 )
 from engine.core.probability import NormalMargin, win_probability
-from engine.transform.features import GAME_HOURS
+from engine.transform.features import GAME_HOURS, PointInTimeError
 
 HINDSIGHT = "hindsight benchmark"
 UNSEEN = "unseen team"
@@ -76,8 +76,10 @@ def _prediction(margin: float, sd: float, drivers: tuple[tuple[str, float], ...]
 
 
 def comparable(rows: Iterable[Mapping[str, Any]]) -> list[Mapping[str, Any]]:
-    """The results rows that may count as a baseline beaten: not a hindsight benchmark."""
-    return [r for r in rows if r.get("note") is None or HINDSIGHT not in r["note"]]
+    """The results rows that may count as a baseline beaten: not a hindsight benchmark, and not
+    a game where a team had no rating (it would be rated 0, a bar that's easy to beat). A note
+    can hold both, joined by "; "."""
+    return [r for r in rows if not {HINDSIGHT, UNRATED} & set((r.get("note") or "").split("; "))]
 
 
 class HomeField:
@@ -124,6 +126,8 @@ class LastSeason:
     def __init__(self, inner: RatingModel) -> None:
         self.inner = inner
         self.reads: frozenset[str] = getattr(inner, "reads", frozenset({"games"}))
+        if getattr(inner, "baseline", False) or self.reads - {"games"}:
+            raise RefusedError("last_season wraps a model that fits on games alone (D-133)")
         self._frozen: dict[int, Ratings] = {}
 
     def fit(self, games: GameHistory, as_of: datetime) -> Ratings:
@@ -136,6 +140,11 @@ class LastSeason:
             played = _played(ratings)
             earlier = _before(played.games, season)
             end = max(g.kickoff for g in earlier) + _FINISHED if earlier else played.as_of
+            if end > played.as_of:  # the point-in-time rule, 04 § 9.2
+                raise PointInTimeError(
+                    f"last_season's fit for {season} was given a game that hadn't finished by "
+                    f"its as_of {played.as_of.isoformat()}"
+                )
             self._frozen[season] = self.inner.fit(earlier, end)
         return self._frozen[season]
 
@@ -183,6 +192,15 @@ class ClosingLine:
         return _prediction(margin, self._sd(ratings, game.season), (("Closing line", margin),))
 
 
+def check_published(rating: Benchmark, game: GameContext, cutoff: datetime) -> None:
+    """Assert a rating used as known before `game` was published before `cutoff` (04 § 9.2)."""
+    if rating.known_at is None or rating.known_at >= cutoff:
+        raise PointInTimeError(
+            f"game {game.game_id}: the {rating.system} rating of team {rating.team} wasn't "
+            f"published before {cutoff.isoformat()} (point-in-time rule, 04 § 9.2)"
+        )
+
+
 class BenchmarkRating:
     """SP+ or FPI as a predictor: `rating_home − rating_away`, plus home field for a game that
     isn't at a neutral site. Only a rating published before kickoff counts; with none, the
@@ -195,10 +213,13 @@ class BenchmarkRating:
     def __init__(self, system: str) -> None:
         self.system = system
         self._by_team: dict[tuple[int, int], list[Benchmark]] = {}
+        self._earliest: Mapping[int, datetime] = {}
         self._home = HomeField()
 
     def use(self, inputs: Mapping[str, Any]) -> None:
-        rows = [b for b in inputs["benchmark_ratings"] if b.system == self.system]
+        given: BenchmarkInput = inputs["benchmark_ratings"]
+        self._earliest = given.earliest
+        rows = [b for b in given.rows if b.system == self.system]
         if not rows:
             raise RefusedError(
                 f"no {self.system} ratings are staged: run engine transform --rebuild after "
@@ -214,9 +235,14 @@ class BenchmarkRating:
     def _rating(self, game: GameContext, team: int) -> tuple[float | None, bool]:
         """The team's rating for this game, and whether it's hindsight."""
         rows = self._by_team.get((game.season, team), [])
-        known = [r for r in rows if r.known_at is not None and r.known_at < game.kickoff]
+        # Known before the game means before its earliest possible kickoff: a TBA game's date
+        # starts at Eastern midnight, though `game.kickoff` puts it at the end of the date.
+        cutoff = self._earliest.get(game.game_id, game.kickoff)
+        known = [r for r in rows if r.known_at is not None and r.known_at < cutoff]
         if known:
-            return max(known, key=lambda r: r.known_at or r.fetched_at).rating, False
+            newest = max(known, key=lambda r: r.known_at or r.fetched_at)
+            check_published(newest, game, cutoff)
+            return newest.rating, False
         final = [r for r in rows if r.known_at is None]
         return (final[-1].rating, True) if final else (None, False)
 

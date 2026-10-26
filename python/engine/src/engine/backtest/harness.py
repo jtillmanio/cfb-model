@@ -44,6 +44,10 @@ from engine.transform.features import GAME_HOURS, KICKOFF, PointInTimeError, che
 
 TUNE_FROM = 2015  # 2014 is warm-up only (04 § 9.1)
 
+# The earliest a staged game could have kicked off: a TBA game's date starts at Eastern midnight
+# (the start of its week's `as_of`, D-127), where `KICKOFF` puts it at the end of its date.
+EARLIEST = "coalesce(kickoff_at, timezone('America/New_York', CAST(game_date AS TIMESTAMP)))"
+
 FIT_INPUTS = frozenset({"games"})
 # What only a baseline may read (D-133): the closing spread of every staged game with a line, by
 # game id, and the staged benchmark ratings. Each baseline filters them to what it may know.
@@ -117,7 +121,8 @@ class Week:
 @dataclass(frozen=True, slots=True)
 class Benchmark:
     """A staged SP+/FPI/Elo rating: `known_at` is when it was published if that was before the
-    season ended, otherwise None (a season-final rating, hindsight for a game of that season)."""
+    season ended, otherwise None (season-final, or a season with no staged calendar: hindsight
+    for a game of that season either way)."""
 
     system: str
     season: int
@@ -128,12 +133,22 @@ class Benchmark:
 
 
 @dataclass(frozen=True, slots=True)
+class BenchmarkInput:
+    """What a benchmark baseline is given: the staged ratings, and each game's earliest possible
+    kickoff, so a rating published on a TBA game's date never counts as known before it."""
+
+    rows: tuple[Benchmark, ...]
+    earliest: Mapping[int, datetime]  # game id -> kickoff, or the start of a TBA game's date
+
+
+@dataclass(frozen=True, slots=True)
 class History:
     results: tuple[GameResult, ...]  # every final game with both teams, by kickoff
     kickoffs: tuple[datetime, ...]  # `results`' kickoffs, for bisecting
     weeks: tuple[Week, ...]  # in run order
     closing_spreads: Mapping[int, float] = field(default_factory=dict)  # game id -> spread_home
     benchmarks: tuple[Benchmark, ...] = ()
+    earliest: Mapping[int, datetime] = field(default_factory=dict)  # game id -> earliest kickoff
 
     def season_weeks(self, season: int) -> list[Week]:
         return [w for w in self.weeks if w.season == season]
@@ -166,7 +181,7 @@ def load(lake: Lake) -> History:
     games = (
         con.execute(f"""
             SELECT g.*, f.as_of, f.game_source_id IS NOT NULL AS featured
-            FROM (SELECT *, {KICKOFF} AS kickoff FROM games) g
+            FROM (SELECT *, {KICKOFF} AS kickoff, {EARLIEST} AS earliest FROM games) g
             LEFT JOIN game_features f ON f.game_source_id = g.source_id
             ORDER BY g.kickoff, g.source_id""")
         .arrow()
@@ -256,6 +271,7 @@ def load(lake: Lake) -> History:
         tuple(weeks),
         spreads,
         _benchmarks(lake),
+        {int(g["source_id"]): g["earliest"] for g in games if g["earliest"] is not None},
     )
 
 
@@ -319,7 +335,10 @@ def check_reads(model: BacktestModel) -> None:
 
 def give_inputs(model: BacktestModel, history: History) -> None:
     """Hand a baseline the `BASELINE_INPUTS` it declared, and nothing else."""
-    available = {"closing_lines": history.closing_spreads, "benchmark_ratings": history.benchmarks}
+    available = {
+        "closing_lines": history.closing_spreads,
+        "benchmark_ratings": BenchmarkInput(history.benchmarks, history.earliest),
+    }
     given = {name: available[name] for name in sorted(model.reads & BASELINE_INPUTS)}
     if given:
         cast(Any, model).use(given)

@@ -7,17 +7,20 @@ from __future__ import annotations
 
 import io
 import json
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
 import pyarrow.parquet as pq
 import pytest
 from lake_fixture import (
+    FIXTURE,
     benchmark_pulls,
     benchmark_rating,
     engine,
+    fixture_key,
     staged,
+    write,
     write_backtest_seasons,
     write_benchmarks,
 )
@@ -26,6 +29,7 @@ from engine import backtest
 from engine.backtest import baselines, harness
 from engine.backtest.baselines import (
     HINDSIGHT,
+    UNRATED,
     UNSEEN,
     BenchmarkRating,
     ClosingLine,
@@ -35,8 +39,9 @@ from engine.backtest.baselines import (
 from engine.backtest.stub import MeanMargin
 from engine.core.interfaces import GameContext, GameResult
 from engine.core.spec import ModelSpec
-from engine.ingest.lake import LocalLake
+from engine.ingest.lake import LocalLake, raw_folder, raw_key
 from engine.transform import rebuild
+from engine.transform.features import PointInTimeError
 from engine.transform.market import closing_lines
 
 PICKS = {"min_edge_pts": 3.0, "min_prob": 0.55, "tiers": {"A": 5.0, "B": 3.5, "C": 2.5}}
@@ -269,6 +274,91 @@ def test_a_hindsight_result_is_never_a_baseline_beaten(backtest_lake: LocalLake)
     assert all(r["note"] != HINDSIGHT for r in kept)
     hindsight = {r["game_source_id"] for r in rows if r["note"] == HINDSIGHT}
     assert hindsight.isdisjoint(r["game_source_id"] for r in kept)
+
+
+def benchmark(known_at: datetime | None, rating: float, team: int = 1) -> harness.Benchmark:
+    return harness.Benchmark(
+        "sp", 2023, team, rating, known_at or datetime(2024, 2, 1, tzinfo=UTC), known_at
+    )
+
+
+def rate(rows: list[harness.Benchmark], game: GameContext, earliest: datetime) -> Any:
+    """`BenchmarkRating("sp")`'s rating of the home team (team 1) of `game`."""
+    model = BenchmarkRating("sp")
+    model.use({"benchmark_ratings": harness.BenchmarkInput(tuple(rows), {game.game_id: earliest})})
+    return model._rating(game, 1)  # pyright: ignore[reportPrivateUsage]
+
+
+def test_a_rating_published_after_kickoff_is_never_known_before_it() -> None:
+    game = context(1, 2023, 1, 2)  # 2023-10-01 18:00
+    early = benchmark(datetime(2023, 9, 20, tzinfo=UTC), 5.0)
+    late = benchmark(datetime(2023, 10, 20, tzinfo=UTC), 9.0)  # a mid-season pull, after the game
+    final = benchmark(None, 12.0)
+    assert rate([early, late, final], game, game.kickoff) == (5.0, False)
+    assert rate([late, final], game, game.kickoff) == (12.0, True)  # the season-final row
+    assert rate([late], game, game.kickoff) == (None, False)  # nothing known, nothing final
+
+
+def test_a_rating_published_on_a_tba_games_date_is_not_known_before_it() -> None:
+    # TBA: `kickoff` is the end of the Eastern date (the GameContext's), but the game may have
+    # kicked off at the start of it, so a pull at noon that day is hindsight.
+    game = context(1, 2023, 1, 2)
+    start_of_date = game.kickoff - timedelta(hours=18)
+    pulled = benchmark(game.kickoff - timedelta(hours=9), 7.0)
+    final = benchmark(None, 12.0)
+    assert rate([pulled, final], game, start_of_date) == (12.0, True)
+    assert rate([pulled, final], game, game.kickoff) == (7.0, False)  # at the date's end it's known
+
+
+def test_a_rating_not_published_before_the_cutoff_trips_the_point_in_time_check() -> None:
+    game = context(1, 2023, 1, 2)
+    for known_at in (None, game.kickoff, game.kickoff + timedelta(days=3)):
+        with pytest.raises(PointInTimeError, match="game 1"):
+            baselines.check_published(benchmark(known_at, 5.0), game, game.kickoff)
+    baselines.check_published(benchmark(game.kickoff - timedelta(days=3), 5.0), game, game.kickoff)
+
+
+def test_the_harness_gives_a_tba_game_the_start_of_its_date(backtest_lake: LocalLake) -> None:
+    game = next(g for g in FIXTURE[fixture_key("games")]["records"] if str(g["id"]) == "401756846")
+    tba = {**game, "id": 900199009, "week": 9, "season": 2022, "startTimeTBD": True}
+    tba["startDate"] = "2022-10-25T04:00:00.000Z"  # CFBD's placeholder: Eastern midnight (EDT)
+    params = {"classification": "fbs", "seasonType": "regular", "week": 9, "year": 2022}
+    key = raw_key(raw_folder("games", 2022, 9), datetime(2022, 10, 27, 12, tzinfo=UTC))
+    write(backtest_lake, key, [tba], params)
+    rebuild(backtest_lake)
+
+    history = harness.load(backtest_lake)
+
+    assert history.earliest[900199009] == datetime(2022, 10, 25, 4, tzinfo=UTC)
+    played = next(r for r in history.results if r.game_id == 900199009)
+    assert played.kickoff == datetime(2022, 10, 26, 4, tzinfo=UTC)  # the end of its date
+    regular = next(r for r in history.results if r.game_id != 900199009)
+    assert history.earliest[regular.game_id] == regular.kickoff
+
+
+def test_a_game_with_an_unrated_team_is_not_comparable() -> None:
+    rows = [
+        {"game_source_id": "a", "note": None},
+        {"game_source_id": "b", "note": HINDSIGHT},
+        {"game_source_id": "c", "note": UNRATED},
+        {"game_source_id": "d", "note": f"{HINDSIGHT}; {UNRATED}"},
+        {"game_source_id": "e", "note": UNSEEN},  # counted by the report, still a fair bar
+    ]
+    assert [r["game_source_id"] for r in baselines.comparable(rows)] == ["a", "e"]
+
+
+def test_last_season_asserts_the_games_it_fits_on_had_finished() -> None:
+    games = [played(2021, 1, 1, 2, 12)]  # 2021-09-01 18:00, finished 22:00
+    model = LastSeason(MeanMargin(SPEC))
+    too_soon = datetime(2021, 9, 1, 20, tzinfo=UTC)
+    game = context(1, 2022, 1, 2)
+    with pytest.raises(PointInTimeError, match="2022"):
+        model.predict(game, model.fit(games, too_soon), too_soon)
+
+
+def test_last_season_wraps_only_a_model_that_fits_on_games() -> None:
+    with pytest.raises(harness.RefusedError, match="games alone"):
+        LastSeason(ClosingLine())  # type: ignore[arg-type]
 
 
 def test_a_benchmark_with_nothing_staged_is_refused(empty_lake: LocalLake) -> None:
