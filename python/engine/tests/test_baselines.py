@@ -310,6 +310,14 @@ def test_a_rating_published_on_a_tba_games_date_is_not_known_before_it() -> None
     assert rate([pulled, final], game, game.kickoff) == (7.0, False)  # at the date's end it's known
 
 
+def test_a_game_with_no_earliest_kickoff_is_refused_not_cut_off_late() -> None:
+    game = context(1, 2023, 1, 2)
+    model = BenchmarkRating("sp")
+    model.use({"benchmark_ratings": harness.BenchmarkInput((benchmark(None, 1.0),), {})})
+    with pytest.raises(PointInTimeError, match="game 1"):
+        model._rating(game, 1)  # pyright: ignore[reportPrivateUsage]
+
+
 def test_a_rating_not_published_before_the_cutoff_trips_the_point_in_time_check() -> None:
     game = context(1, 2023, 1, 2)
     for known_at in (None, game.kickoff, game.kickoff + timedelta(days=3)):

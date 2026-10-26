@@ -45,7 +45,8 @@ from engine.transform.features import GAME_HOURS, KICKOFF, PointInTimeError, che
 TUNE_FROM = 2015  # 2014 is warm-up only (04 § 9.1)
 
 # The earliest a staged game could have kicked off: a TBA game's date starts at Eastern midnight
-# (the start of its week's `as_of`, D-127), where `KICKOFF` puts it at the end of its date.
+# (the start of its week's `as_of`, D-127), where `KICKOFF` puts it at the end of its date. The
+# same expression as `earliest` in the features SQL (`transform/features.py`): keep them equal.
 EARLIEST = "coalesce(kickoff_at, timezone('America/New_York', CAST(game_date AS TIMESTAMP)))"
 
 FIT_INPUTS = frozenset({"games"})

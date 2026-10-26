@@ -6,7 +6,8 @@ predictions every real model has to beat, scored by the same harness on the same
   whole season (no in-season updates, no regression toward the mean).
 - `ClosingLine`: the market's closing spread, by `closing_lines()`'s rule (consensus, else the
   median), which each results row records in `spread_source`.
-- `BenchmarkRating("sp" | "fpi")`: the published rating from before kickoff, plus home field.
+- `BenchmarkRating("sp" | "fpi")`: the rating published before the game's earliest possible
+  kickoff, plus home field.
   When none was published before the game, the season-final rating stands in, and the row is
   noted as a hindsight benchmark (04 § 9.2): it never counts as a baseline beaten.
 
@@ -237,7 +238,9 @@ class BenchmarkRating:
         rows = self._by_team.get((game.season, team), [])
         # Known before the game means before its earliest possible kickoff: a TBA game's date
         # starts at Eastern midnight, though `game.kickoff` puts it at the end of the date.
-        cutoff = self._earliest.get(game.game_id, game.kickoff)
+        if game.game_id not in self._earliest:
+            raise PointInTimeError(f"game {game.game_id} has no earliest kickoff to cut off at")
+        cutoff = self._earliest[game.game_id]
         known = [r for r in rows if r.known_at is not None and r.known_at < cutoff]
         if known:
             newest = max(known, key=lambda r: r.known_at or r.fetched_at)
