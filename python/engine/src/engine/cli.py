@@ -148,6 +148,73 @@ def _job(kind: Kind, target: str, summary_path: str | None) -> None:
         sys.exit(code)
 
 
+def _season_range(parser: argparse.ArgumentParser, text: str) -> list[int]:
+    first, sep, last = text.partition("-")
+    try:
+        seasons = list(range(int(first), int(last if sep else first) + 1))
+    except ValueError:
+        parser.error(f"--seasons takes SEASON or FIRST-LAST, not {text!r}")
+    if not seasons:
+        parser.error(f"--seasons {text}: the first season is after the last")
+    return seasons
+
+
+def _backtest(args: argparse.Namespace, seasons: list[int]) -> None:
+    """Walk the seasons forward and write the results; exit 1 if the point-in-time check fails,
+    2 on a refusal (a locked holdout season, a refused input, nothing to tune on)."""
+    from pathlib import Path
+
+    from pydantic import ValidationError
+
+    from engine import backtest, clock
+    from engine.backtest import harness, holdout
+    from engine.core.spec import ModelSpec
+    from engine.ingest.lake import open_lake
+    from engine.transform.features import PointInTimeError
+
+    try:
+        spec = ModelSpec.model_validate_json(Path(args.spec).read_text("utf-8"))
+    except (OSError, ValidationError) as e:
+        _refuse(f"--spec {args.spec}: {e}")
+    try:
+        opened = holdout.guard(seasons, args.holdout, args.reason)
+    except holdout.HoldoutRefusedError as e:
+        _refuse(str(e))
+    name = args.model or spec.base
+    factory = backtest.MODELS.get(name)
+    if factory is None:
+        known = ", ".join(sorted(backtest.MODELS))
+        _refuse(
+            f"no model is registered as {name!r} yet (registered: {known}); Rung 1's power "
+            "model is TASK-033, so pass --model stub to try the harness"
+        )
+    lake = open_lake()
+    try:
+        history = harness.load(lake)
+        harness.prepare(spec, factory, history, seasons, args.tune_from)
+        at = clock.now()
+        if opened:
+            holdout.record(lake, at, harness.spec_hash(spec), seasons, args.reason, name)
+        result = harness.run(spec, factory, history, seasons, args.tune_from)
+    except harness.RefusedError as e:
+        _refuse(str(e))
+    except PointInTimeError as e:
+        print(f"FAIL {e}")
+        sys.exit(1)
+    folder = harness.write(
+        lake, result, spec=spec, model=name, tune_from=args.tune_from, holdout=opened, at=at
+    )
+    print(f"Backtest {seasons[0]}-{seasons[-1]} ({name}): {len(result.rows)} games predicted.")
+    for season, choices in result.choices.items():
+        if choices:
+            tuning = result.tuned_on[season]
+            settings = ", ".join(f"{path} = {value:g}" for path, value in choices.items())
+            print(f"  {season}: {settings} (tuned on {tuning[0]}-{tuning[-1]})")
+    print(f"Wrote {folder}/predictions.parquet and run.json")
+    if opened:
+        print(f"Holdout runs so far: {holdout.count(lake)}")
+
+
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(prog="engine")
     commands = parser.add_subparsers(dest="command", required=True)
@@ -253,6 +320,32 @@ def main(argv: list[str] | None = None) -> None:
         "--workflow, --summary. Writes skip=true|false to $GITHUB_OUTPUT.",
     )
 
+    bt = commands.add_parser(
+        "backtest",
+        help="Replay seasons week by week for a model spec (walk-forward, rolling-origin)",
+        description="Predicts every FBS-vs-FBS game with a closing line in the seasons, each "
+        "week fit only on games finished before it, each season's tuned settings chosen on "
+        "earlier seasons (docs/04-model.md § 9). Reads staging/ and features/ in LAKE_URI and "
+        "writes backtests/<run>/predictions.parquet and run.json. Exits 1 if the point-in-time "
+        "check fails, 2 on a refusal.",
+    )
+    bt.add_argument("--spec", required=True, metavar="FILE", help="A ModelSpec as JSON")
+    bt.add_argument("--seasons", required=True, metavar="FIRST-LAST", help="e.g. 2016-2023")
+    bt.add_argument(
+        "--tune-from",
+        type=int,
+        default=2015,
+        metavar="SEASON",
+        help="The first tuning season (default %(default)s; 2014 is warm-up only)",
+    )
+    bt.add_argument("--model", help="A registered model to run instead of the spec's base")
+    bt.add_argument(
+        "--holdout",
+        action="store_true",
+        help="Open the locked holdout seasons (2024-2025); needs --reason, and is recorded",
+    )
+    bt.add_argument("--reason", help="Why the holdout is being opened")
+
     seed = commands.add_parser("seed", help="Load seed data into the test DB")
     seed.add_argument("what", choices=["fixture"])
 
@@ -311,6 +404,10 @@ def main(argv: list[str] | None = None) -> None:
     elif args.command == "job":
         load_env()
         _job(args.kind, args.target, args.summary)
+    elif args.command == "backtest":
+        seasons = _season_range(bt, args.seasons)
+        load_env()
+        _backtest(args, seasons)
     elif args.command == "seed":
         load_env()
         from engine.fixture import seed_fixture

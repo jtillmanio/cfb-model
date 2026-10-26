@@ -25,7 +25,7 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 
 from engine import cli
-from engine.ingest.lake import LocalLake, encode_raw, fetched_at_of
+from engine.ingest.lake import LocalLake, encode_raw, fetched_at_of, raw_folder, raw_key
 
 FIXTURE: dict[str, Any] = json.loads(
     (Path(__file__).parent / "fixtures" / "lake.json").read_text("utf-8")
@@ -135,6 +135,103 @@ def write_season(lake: LocalLake, without_stats: tuple[int, str] | None = None) 
 def write_repull(lake: LocalLake, endpoint: str, week: int, records: list[dict[str, Any]]) -> None:
     """A later pull of one season-fixture week, a day after its first."""
     write(lake, week_key(endpoint, week, hours=24), records, _params(endpoint, week))
+
+
+# The backtest fixture (TASK-030): two seasons of the week-1 pairings, weeks 1-8 a week apart,
+# then a postseason week 1 holding a December game and a January one (CFBD files every bowl and
+# CFP round there, D-127). Western Kentucky-Sam Houston has no line in week 3, so that FBS game
+# gets no results row; UNLV-Idaho State (FCS) never gets one.
+BACKTEST_SEASONS = (2022, 2023)
+NO_LINE = (3, "401757218")
+# week-1 game id -> its postseason kickoff, days after the season's December 17.
+POSTSEASON = {"401756847": 0, "401754516": 24}
+
+Rescore = tuple[int, str, int, str]  # season, season type, week, week-1 game id
+
+
+def backtest_game_id(season: int, season_type: str, week: int, week1_id: str) -> str:
+    """The id `write_backtest_seasons` gives a season's copy of a week-1 fixture game."""
+    games = FIXTURE[fixture_key("games")]["records"]
+    index = next(i for i, g in enumerate(games) if str(g["id"]) == week1_id)
+    kind = 1 if season_type == "postseason" else 0
+    return f"9{season % 100:02d}{kind}{week:02d}{index}"
+
+
+def _backtest_week(
+    season: int, season_type: str, week: int, rescore: Rescore | None, unplayed: Rescore | None
+) -> dict[str, list[dict[str, Any]]]:
+    games, stats, lines = [], [], []
+    post = season_type == "postseason"
+    for game in FIXTURE[fixture_key("games")]["records"]:
+        week1_id = str(game["id"])
+        if post and week1_id not in POSTSEASON:
+            continue
+        new_id = int(backtest_game_id(season, season_type, week, week1_id))
+        start = datetime.fromisoformat(game["startDate"]).replace(year=season)
+        if post:
+            start = start.replace(month=12, day=17) + timedelta(days=POSTSEASON[week1_id])
+        else:
+            start += timedelta(days=7 * (week - 1))
+        # Scores move with the week, and differently each season, so ratings change weekly.
+        step = 9 if post else week
+        home_points = game["homePoints"] + step + (season - BACKTEST_SEASONS[0]) * (step % 3)
+        away_points = game["awayPoints"]
+        offense_ppa = None
+        if rescore == (season, season_type, week, week1_id):
+            home_points, away_points, offense_ppa = 3, 45, -0.9
+        played = unplayed != (season, season_type, week, week1_id)
+        at = {"season": season, "seasonType": season_type, "week": week}
+        games.append(
+            {
+                **copy.deepcopy(game),
+                **at,
+                "id": new_id,
+                "startDate": start.astimezone(UTC).strftime("%Y-%m-%dT%H:%M:%S.000Z"),
+                "completed": played,
+                "homePoints": home_points,
+                "awayPoints": away_points,
+            }
+        )
+        for r in FIXTURE[fixture_key("stats_game_advanced")]["records"]:
+            if r["gameId"] == game["id"]:
+                row = {**copy.deepcopy(r), **at, "gameId": new_id}
+                if offense_ppa is not None:
+                    row["offense"] = {**row["offense"], "ppa": offense_ppa, "successRate": 0.1}
+                stats.append(row)
+        if (week, week1_id) != NO_LINE or post:
+            lines += [
+                {**copy.deepcopy(r), **at, "id": new_id}
+                for r in FIXTURE[fixture_key("lines")]["records"]
+                if r["id"] == game["id"]
+            ]
+    return {"games": games, "stats_game_advanced": stats, "lines": lines}
+
+
+def write_backtest_seasons(
+    lake: LocalLake,
+    seasons: tuple[int, ...] = BACKTEST_SEASONS,
+    rescore: Rescore | None = None,
+    unplayed: Rescore | None = None,
+) -> None:
+    """Each season's games, advanced stats and lines, each pulled after its week's games.
+    `rescore` gives that game a 3-45 score and a poor offense instead; `unplayed` leaves that
+    game uncompleted, as CFBD shows one in progress: its score and line are still there."""
+    for season in seasons:
+        weeks = [("regular", w) for w in range(1, SEASON_WEEKS + 1)] + [("postseason", 1)]
+        for season_type, week in weeks:
+            if season_type == "postseason":
+                pulled = datetime(season + 1, 1, 20, 12, tzinfo=UTC)
+            else:
+                pulled = datetime(season, 8, 25, 12, tzinfo=UTC) + timedelta(days=7 * (week - 1))
+            records = _backtest_week(season, season_type, week, rescore, unplayed)
+            for endpoint, rows in records.items():
+                extra = {
+                    "games": {"classification": "fbs"},
+                    "stats_game_advanced": {"excludeGarbageTime": "true"},
+                }.get(endpoint, {})
+                params = {**extra, "seasonType": season_type, "week": week, "year": season}
+                key = raw_key(raw_folder(endpoint, season, week, season_type), pulled)
+                write(lake, key, rows, params)
 
 
 def by_id(table: pa.Table, column: str = "source_id") -> dict[str, dict[str, Any]]:
