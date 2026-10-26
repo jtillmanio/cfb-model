@@ -223,6 +223,8 @@ def load(lake: Lake) -> History:
                 home_team=int(g["home_source_id"]),
                 away_team=int(g["away_source_id"]),
                 neutral_site=bool(g["neutral_site"]),
+                home_classification=g["home_classification"],
+                away_classification=g["away_classification"],
             )
         if context is not None and final:
             results.append(
@@ -458,8 +460,16 @@ def run(
     seasons: Sequence[int],
     tune_from: int = TUNE_FROM,
     tuner: Tuner = grid_tuner,
+    choices: Mapping[int, Choices] | None = None,
 ) -> BacktestRun:
+    """Walk each season forward with its tuned settings. `choices` replays settings another run
+    chose (season -> choices) instead of tuning, so a model compared with that run is scored
+    with the same settings (TASK-033's `--compare baselines`)."""
     plan = prepare(spec, factory, history, seasons, tune_from)
+    if choices is not None:
+        missing = [s for s in plan if s not in choices]
+        if missing:
+            raise RefusedError(f"no settings to replay for season {missing[0]}")
     cache: dict[tuple[tuple[tuple[str, float], ...], int], list[Row]] = {}
 
     def evaluate(choices: Choices, season: int) -> list[Row]:
@@ -484,14 +494,17 @@ def run(
     rows: list[Row] = []
     chosen: dict[int, Choices] = {}
     for season, tuning in plan.items():
-        choices = dict(tuner(spec, tuning, shown_only(season, tuning)))
-        if not spec.resolve(choices).is_resolved:
+        if choices is None:
+            picked = dict(tuner(spec, tuning, shown_only(season, tuning)))
+        else:
+            picked = dict(choices[season])
+        if not spec.resolve(picked).is_resolved:
             raise RefusedError(
-                f"the tuner left {', '.join(spec.resolve(choices).tunables())} "
+                f"the settings left {', '.join(spec.resolve(picked).tunables())} "
                 f"unresolved for {season}"
             )
-        chosen[season] = choices
-        rows += evaluate(choices, season)
+        chosen[season] = picked
+        rows += evaluate(picked, season)
     return BacktestRun(tuple(rows), chosen, plan)
 
 

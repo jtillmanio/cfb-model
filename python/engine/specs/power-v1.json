@@ -1,0 +1,21 @@
+{
+  "spec_schema_version": 1,
+  "base": "power",
+  "hyperparameters": {
+    "margin_cap": {"tune": [28, 38, 50]},
+    "recency_half_life_weeks": {"tune": [8, 16, 32]}
+  },
+  "home_field": "fit",
+  "prior": {
+    "components": ["last_season"],
+    "regression": {"tune": [0.1, 0.2, 0.3]},
+    "decay": {"type": "linear", "zero_at_week": {"tune": [9, 12, 16]}}
+  },
+  "distribution": "normal",
+  "picks": {
+    "min_edge_pts": 3.0,
+    "min_prob": 0.55,
+    "market_shrinkage_k": 1.0,
+    "tiers": {"A": 5.0, "B": 3.5, "C": 2.5}
+  }
+}

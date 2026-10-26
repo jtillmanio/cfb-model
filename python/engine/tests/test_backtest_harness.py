@@ -364,11 +364,13 @@ def test_a_model_that_asks_for_a_refused_input_stops_the_run(
     assert written(backtest_lake) == []
 
 
-def test_a_spec_base_with_no_model_yet_is_refused(
+def test_a_model_name_with_nothing_registered_is_refused(
     backtest_lake: LocalLake, tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    assert engine("backtest", "--spec", spec_file(tmp_path, FIXED), "--seasons", "2022") == 2
-    assert "power" in capsys.readouterr().err
+    spec = spec_file(tmp_path, FIXED)
+    assert engine("backtest", "--spec", spec, "--seasons", "2022", "--model", "nope") == 2
+    assert "'nope'" in capsys.readouterr().err
+    assert written(backtest_lake) == []
 
 
 @pytest.fixture
