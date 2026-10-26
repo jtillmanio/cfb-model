@@ -127,8 +127,8 @@ def _wrappable(inner: RatingModel, name: str) -> frozenset[str]:
 
 class FittedHomeField:
     """Predict only the home-field edge the wrapped model has fit entering the week, and 0 at a
-    neutral site: what rating the teams adds over home field alone. σ is the spread of the
-    margins of every earlier season's games around that edge."""
+    neutral site: what rating the teams adds over home field alone. σ is the root-mean-square
+    of every earlier season's margins around that edge."""
 
     baseline = True
 
@@ -145,8 +145,13 @@ class FittedHomeField:
         key = (season, ratings.as_of)
         if key not in self._memo:
             hfa = ratings.params["home_field"]
-            earlier = _before(ratings.games, season)
-            self._memo[key] = _sd([g.margin - (0.0 if g.neutral_site else hfa) for g in earlier])
+            misses = [
+                (g.margin - (0.0 if g.neutral_site else hfa)) ** 2
+                for g in _before(ratings.games, season)
+            ]
+            # Around the edge itself, not re-centred: an edge below the mean home margin is part
+            # of what this baseline gets wrong.
+            self._memo[key] = math.sqrt(math.fsum(misses) / len(misses)) if misses else DEFAULT_SD
         return self._memo[key]
 
     def predict(self, game: GameContext, ratings: Ratings, as_of: datetime) -> Prediction:

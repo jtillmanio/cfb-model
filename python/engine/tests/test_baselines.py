@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import io
 import json
-import statistics
+import math
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
@@ -225,8 +225,9 @@ def test_home_field_predicts_the_wrapped_models_fitted_edge_entering_each_week()
         ratings = model.fit(seen, as_of)
         prediction = model.predict(context(1, 2022, 1, 2), ratings, as_of)
         assert prediction.pred_margin == fitted
-        # σ: 2021's margins around that edge (10 and 4 at home).
-        spread = statistics.stdev([10 - fitted, 4 - fitted])
+        # σ: the root-mean-square of 2021's margins around that edge (10 and 4 at home), not
+        # re-centred, so an edge below the mean home margin widens it.
+        spread = math.sqrt(((10 - fitted) ** 2 + (4 - fitted) ** 2) / 2)
         assert prediction.margin_sd == pytest.approx(spread)
         neutral = context(2, 2022, 1, 2, neutral=True)
         assert model.predict(neutral, ratings, as_of).pred_margin == 0.0
