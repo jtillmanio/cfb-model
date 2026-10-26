@@ -69,6 +69,8 @@ staging/    # cleaned, typed, deduped, "latest version" of each entity
 features/   # model-ready, point-in-time-safe tables
   team_week_features/  (one row per team, season, week = as-of state)
   game_features/       (one row per game: home vs away features + target)
+backtests/  # walk-forward backtest runs and the holdout log, only ever added to
+  <run>/predictions.parquet, <run>/run.json, holdout/<time>-<spec hash>.json
 backups/    # nightly verified pg_dumps of the serving DB
 ```
 
@@ -111,6 +113,12 @@ DuckDB SQL builds `staging/` and `features/` from `raw/`, so it's fully reproduc
 |---|---|---|
 | `team_week_features` | team, season, season type and week (the team entering that week) | `team_source_id`, `season`, `season_type`, `week`, `as_of`, `last_game_kickoff` (the newest game counted), `games_played`, `points_for`, `points_against` (sums), `points_for_per_game`, `points_against_per_game`, `margin_per_game`, `advanced_games` (games with an advanced-stats row; a rate's mean skips a game whose value is NULL), `off_plays`, `def_plays` (sums), then the means `{off,def}_{ppa,success_rate,explosiveness}` and the same with `rush_` and `pass_` before the metric (e.g. `def_pass_success_rate`) |
 | `game_features` | staged game | `game_source_id`, `season`, `season_type`, `week`, `as_of`, `kickoff_at`, `neutral_site`, `home_source_id`, `away_source_id`, every `team_week_features` column from `last_game_kickoff` on as `home_<column>` and `away_<column>` (NULL for a side with no team id), and the target `margin` (`home_points − away_points`, NULL until final) |
+
+**Backtests** (TASK-030, D-131): `engine backtest` reads `staging/` and `features/` and writes each run to a new folder, `backtests/<UTC time>-<first 12 hex of the spec hash>/` (with `-2`, `-3` … if that name is taken): `predictions.parquet` (below) and `run.json` (`created_at`, the spec and its sha256 hash, the model, the scored seasons, `tune_from`, whether it opened the holdout, the settings chosen for each season and the seasons they were tuned on, and the number of games). The predictions hold nothing about when they ran, so a re-run of the same spec on the same lake is byte-identical. A run that scores a holdout season adds one record to `backtests/holdout/` first (time, spec hash, seasons, reason, model), so the Lab can count how often the holdout has been opened (04 § 6). These move to `model_runs` once it exists (planned: TASK-034 and later).
+
+| File | One row per | Columns |
+|---|---|---|
+| `predictions.parquet` | eligible game of a scored season (FBS vs FBS, final, with a closing line), in (season, `as_of`, season type, week, `game_source_id` as text) order | `season`, `season_type`, `week`, `as_of` (the week's), `game_source_id`, `kickoff_at` (NULL when TBA), `home_source_id`, `away_source_id`, `neutral_site`, `pred_margin`, `margin_sd`, `home_win_prob`, `spread_home` (the closing line, `engine.transform.market.closing_lines()`), `spread_source` (`consensus` or `median`), `closing_from` (`cfbd_close` or `last_snapshot`), `home_points`, `away_points`, `margin` |
 
 ## Serving database (Postgres) schema
 
