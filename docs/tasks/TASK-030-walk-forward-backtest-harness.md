@@ -1,14 +1,14 @@
 ---
 id: TASK-030
 title: Build the walk-forward rolling-origin backtest harness
-status: Ready
+status: In progress
 depends_on: [TASK-029]
 size: M
 model: opus
 autonomy: attended
 ui: false
-plan_status: none
-planned_at_commit:
+plan_status: approved
+planned_at_commit: 17289d8
 ---
 
 # TASK-030 — Build the walk-forward rolling-origin backtest harness
@@ -68,9 +68,32 @@ One command replays history week by week for any model spec, predicting each wee
 
 _Work noticed during this task and deliberately left out. Each bullet ends `→ <path> § <section>` (where it was placed) or `→ not tracked: <reason>`. See `.claude/skills/track-follow-ups/classify.md`; the PR's Follow-ups section is copied from here._
 
+- TASK-031 reads the results file: its key, its columns, and that it has no opening line, which 04 § 9.3's CLV needs (approved at plan)
+- TASK-032's baselines register in `engine.backtest.MODELS` and run with `--model`; an SP+/FPI baseline needs a `benchmark_ratings` input with its own published-before-the-game check (approved at plan)
+- TASK-033 registers the power model under `power`; the once-a-season refit of learned weights is the model's job, since the harness only calls `fit(games, as_of)` (approved at plan)
+- TASK-034: the results file and the holdout log move to `model_runs` (approved at plan)
+- `docs/03-data-model.md` › Lake layout gains `backtests/`, and `docs/04-model.md` § 9.2 says how the postseason week is scored (approved at plan)
+- Candidate decision: the harness's design (approved at plan)
+
 ## Plan
 
-_Written by /plan-batch or /implement-task Phase 1. Approved by the user (plan_status: approved) before any code is written._
+Approved 2026-10-26 at `17289d8`.
+
+1. **Two-season fixture.** `lake_fixture.write_backtest_seasons(lake, (2022, 2023))`: the 2025 week-1 games, advanced stats and lines relabeled into weeks 1–8 of each season (scores varying by week and season) plus a postseason week 1 with a December and a January game; one FBS-vs-FBS game has no line.
+2. **Load** (`harness.load`): staged `games`, `game_features` (each week's `as_of`) and `market.closing_lines()` (D-121) from the lake; re-run `features.check_point_in_time` on the feature rows. Eligible = FBS vs FBS, final, closing spread (04 § 9.3). The fit history is every final game, FCS included.
+3. **Walk-forward** in (season, `as_of`, season type, week) order: each week `fit()` gets the games finished (kickoff + 4 h) by its `as_of`; the harness asserts that and raises `PointInTimeError` naming the season and week; each eligible game is predicted once.
+4. **Tuning:** a `Tuner(spec, tuning_seasons, evaluate)` protocol; the default grid-searches `spec.tunables()` on pooled margin MAE, ties to the first grid point, with (choices, season) predictions cached. Tuning seasons for Y run from `--tune-from` (default 2015) to Y−1, never a holdout season (04 § 9.1). A spec with tunables and no tuning season, or a tuning season with no eligible games, is refused.
+5. **Models:** `MODELS: name → factory(resolved spec)`; a model declares `reads`. `games` is allowed; `hindsight_ratings` (D-056) and `lines`, `line_snapshots`, `closing_lines` (04 § 9.2) are refused, unknown names too, naming the input. `power` is unregistered until TASK-033. `engine/backtest/stub.py`: a mean-margin-plus-home-field model with a tunable setting, for tests and the manual check.
+6. **Holdout** (`holdout.py`): a season range reaching 2024 or 2025 needs `--holdout --reason "<text>"`, else exit 2 and nothing written. With both, everything is validated, then one record (time, spec hash, seasons, reason, model) is written to `backtests/holdout/<time>-<hash>.json`, then the run starts; `holdout.count(lake)` counts them.
+7. **CLI:** `engine backtest --spec F --seasons A-B [--tune-from Y] [--model NAME] [--holdout --reason T]`; exit 1 on a point-in-time failure, 2 on a refusal.
+8. **Output:** `backtests/<UTC time>-<spec hash>/predictions.parquet` (season, season_type, week, as_of, game_source_id, kickoff_at, home/away_source_id, neutral_site, pred_margin, margin_sd, home_win_prob, spread_home, spread_source, closing_from, home/away_points, margin; no timestamps of the run, so two runs are byte-identical) and `run.json` (spec, hash, choices per season, seasons, model).
+9. **Docs:** 03 › Lake layout `backtests/`; 04 § 9.2 postseason note; a D-### row.
+
+**Files:** `python/engine/src/engine/backtest/{__init__,harness,holdout,stub}.py` (new); `cli.py`; `transform/features.py` (not in Files likely touched: export the kickoff SQL so the harness reuses it); `tests/lake_fixture.py`; `tests/test_backtest_{harness,leakage,golden}.py` and `tests/fixtures/backtest_golden.csv` (new); `docs/03-data-model.md`, `docs/04-model.md`, `docs/decisions.md`.
+
+**Tests:** AC-1, AC-2, AC-4, AC-5 in `test_backtest_harness.py` (AC-2 on a four-season in-memory set: the tuner sees [2015, 2016], [2015–2017], [2015–2018]); AC-3 in `test_backtest_leakage.py` (rescore a week-5 2023 game, compare prediction columns); AC-6 in `test_backtest_golden.py` (byte-identical parquet twice, and equal to a committed CSV, since a golden parquet breaks on a pyarrow upgrade).
+
+**Decided at the gate:** postseason week 1 stays one unit, every postseason game predicted from ratings entering the first bowl (leak-free; later CFP rounds see slightly stale ratings; D-127's revisit is out of scope). Holdout seasons tune on 2015–2023 (04 § 9.1), so 2025 isn't tuned "through Y−1"; validation seasons are unaffected. Learned weights refit once per season inside the model.
 
 ## Review log
 
