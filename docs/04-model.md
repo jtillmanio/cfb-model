@@ -50,6 +50,8 @@ Refinements we'll test:
 - **Recency weighting:** week-10 games count more than week-1 games.
 - **FCS opponents:** pool them so they don't distort FBS ratings. Rung 1 uses one pool for every FCS team: the lake holds only games with an FBS team in them, so an FCS team has one or two games a season, with nothing to sort them into tiers by (TASK-033, D-134).
 
+How Rung 1 is built (TASK-033, D-134): the least squares runs on this season's games only, and the FBS ratings average zero, so a rating is points better than the average FBS team. Last season's final rating, regressed toward zero, is the prior, blended in as "Preseason priors" below describes, with a linear decay. σ is the root-mean-square error of the model's own week-by-week predictions of last season, so it's measured out of sample. Notebook #2 (`python/notebooks/02-ratings-by-hand.py`) solves one week by hand.
+
 ### Rung 2: Opponent-adjusted efficiency ratings (the core model, v1)
 
 Scoring margin is noisy: turnovers, a bad bounce, garbage time. **Efficiency** (EPA/play, success rate) is more stable and more predictive, so we rate offenses and defenses on that.

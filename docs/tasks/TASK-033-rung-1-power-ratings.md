@@ -1,7 +1,7 @@
 ---
 id: TASK-033
 title: Build Rung 1 least-squares power ratings, plus notebooks #2–3
-status: In progress
+status: Review
 depends_on: [TASK-031, TASK-032]
 size: M
 model: opus
@@ -35,12 +35,12 @@ Every team gets one rating per week, fit from game margins with a margin cap, re
 
 ## Acceptance criteria
 
-- [ ] AC-1: Given a noiseless fixture of 4 teams whose margins are generated from known ratings and HFA, a fit with no cap, recency or prior recovers each rating and HFA within 0.01, with ratings averaging zero.
-- [ ] AC-2: Given the spec's margin cap c, a game won by more than c gives the same ratings as the same game won by exactly c; given half-life h, a game h weeks older than another has half its weight (checked on the fitted weights).
-- [ ] AC-3: Entering week 1 of season Y, every team's rating equals its final Y−1 rating regressed by the spec's factor (a team new to the data gets its pool's prior), and the prior's weight falls as the season's games accumulate as the spec defines.
-- [ ] AC-4: `engine backtest --spec <power-v1 spec> --seasons 2016-2023 --compare baselines --report <dir>` (2014 warm-up, 2015 tuning) writes one report with Rung 1, home field only, last season carried over (Rung 1's final ratings), the closing line and SP+/FPI on the same games, and the paired bootstrap result for Rung 1 against each of the first two.
-- [ ] AC-5: On the local lake, Rung 1 beats both home field only and last season carried over on pooled 2016–2023 validation (§ 9.5: the 95% interval of the MAE difference is entirely below zero). If it doesn't, the task goes to Blocked with the report attached; settings are never tuned on 2024–2025 to fix it.
-- [ ] AC-6: Notebooks `python/notebooks/02-ratings-by-hand.py` and `03-ratings-to-probabilities.py` run top to bottom from the local mirror with the CFBD ledger unchanged; #2 solves one week's ratings with the least-squares equations written out and matches the engine's ratings for that week within 0.01; #3 turns a rating gap into a margin, a cover probability and an EV with TASK-029's functions.
+- [x] AC-1: Given a noiseless fixture of 4 teams whose margins are generated from known ratings and HFA, a fit with no cap, recency or prior recovers each rating and HFA within 0.01, with ratings averaging zero.
+- [x] AC-2: Given the spec's margin cap c, a game won by more than c gives the same ratings as the same game won by exactly c; given half-life h, a game h weeks older than another has half its weight (checked on the fitted weights).
+- [x] AC-3: Entering week 1 of season Y, every team's rating equals its final Y−1 rating regressed by the spec's factor (a team new to the data gets its pool's prior), and the prior's weight falls as the season's games accumulate as the spec defines.
+- [x] AC-4: `engine backtest --spec <power-v1 spec> --seasons 2016-2023 --compare baselines --report <dir>` (2014 warm-up, 2015 tuning) writes one report with Rung 1, home field only, last season carried over (Rung 1's final ratings), the closing line and SP+/FPI on the same games, and the paired bootstrap result for Rung 1 against each of the first two.
+- [x] AC-5: On the local lake, Rung 1 beats both home field only and last season carried over on pooled 2016–2023 validation (§ 9.5: the 95% interval of the MAE difference is entirely below zero). If it doesn't, the task goes to Blocked with the report attached; settings are never tuned on 2024–2025 to fix it.
+- [x] AC-6: Notebooks `python/notebooks/02-ratings-by-hand.py` and `03-ratings-to-probabilities.py` run top to bottom from the local mirror with the CFBD ledger unchanged; #2 solves one week's ratings with the least-squares equations written out and matches the engine's ratings for that week within 0.01; #3 turns a rating gap into a margin, a cover probability and an EV with TASK-029's functions.
 
 ## Out of scope
 
@@ -71,6 +71,13 @@ _Work noticed during this task and deliberately left out. Each bullet ends `→ 
 
 - 04 § 2 Rung 1 says FCS opponents pool into "a few tiers"; Rung 1 uses one pool, because the lake holds only games with an FBS team, so each FCS team has one or two games and nothing to tier them by (approved at plan) → docs/04-model.md § 2 Rung 1
 - 04 § 9.6 Phase 2 row: record Rung 1's pooled 2016–2023 result beside the bar (approved at plan) → docs/04-model.md § 9.6
+- Candidate decision: Rung 1's design, the `--compare baselines` comparison, home field only as the fitted HFA (amends D-133) and the 2016–2023 result → docs/decisions.md § D-134
+- `--compare baselines` writes one folder per baseline sharing the model run's time and spec hash, with replayed `choices` (schema review; approved at close-out) → docs/03-data-model.md § Lake layout › Backtests
+- 04 § 2 doesn't say how Rung 1 is built (season-only least squares, FBS mean zero, regressed prior, out-of-sample σ, notebook #2) (approved at close-out) → docs/04-model.md § 2 Rung 1
+- TASK-035 publishes Rung 1's output: where the model, spec and fitted params live, and that FCS teams share the pool's rating → docs/tasks/TASK-035-publish-ratings-and-ranking-views.md § Context
+- The season a fit belongs to comes from the date of `as_of` (July on), so a spring-played FBS game would be fit as the season before (schema review) → not tracked: the lake has no FBS game before July, and the rule is stated in `engine/sports/cfb/teams.py` and D-134
+- SP+ and FPI have only season-final ratings staged, so neither can be compared yet → not tracked: already D-134's revisit condition (a pre-game benchmark source)
+- Cap 50 and Z 16 still sit at the top of the widened grid for 2020–2023 → not tracked: MAE was flat across the widening (13.30 to 13.29); recorded in D-134, and Rung 2's tuning (M4) sets its own grid
 
 ## Plan
 
@@ -123,7 +130,9 @@ _Approved 2026-10-26 in the session (home field: option A, Rung 1's fitted HFA).
 
 ## Review log
 
-_Filled by /implement-task. One line per round._
+- Verify R1 PASS | Audit R1 PASS (AC-1 to AC-4 proven; AC-5, AC-6 manual) | Schema R1 APPROVE (3 minor: 03 doc sentence → close-out approval, compare before writing → fixed, season-of-date → follow-up) | Spec R1 CHANGES (2 follow-ups without destinations; plan gaps: unclassified teams not pooled, home field σ not around the edge, `pool_fcs` name) → fixed → Verify R2 PASS → Spec R2 CHANGES (σ still re-centred, test non-discriminating) → fixed, test shown failing on ba50c67 → Spec R3 APPROVE (owner approved a third round)
+- AC-5 (local lake, `engine/specs/power-v1.json`, 2016–2023, 5,954 games): Rung 1 MAE 13.29; home field only 16.51 (−3.22, 95% −3.54 to −2.88), last season carried over 15.06 (−1.77, −2.03 to −1.50): both beaten; closing line 12.43 (+0.86); SP+/FPI no comparable game (all hindsight). All § 9.4 gates fail (not required in Phase 2). The run takes about 2 minutes
+- AC-6: both notebooks ran headless; #2's hand solve matches the engine to 1.3e-13 entering 2019 week 5 (w = 0.636); `data/cfbd_calls.json` sha256 unchanged (2b253928…)
 
 ## Blocked
 
@@ -131,7 +140,7 @@ _Only if status is Blocked: what failed, what was tried, best hypothesis, decisi
 
 ## Metrics
 
-- Verify rounds:
-- Review rounds:
-- First-pass AC FAILs:
-- Plan revisions after approval:
+- Verify rounds: 2 (both PASS), plus the engine suite after the R2 fix
+- Review rounds: 3 (spec; the third approved by the owner), 1 (schema); audit 1
+- First-pass AC FAILs: 0 (spec R1's CHANGES were follow-up destinations and plan gaps, not an AC)
+- Plan revisions after approval: 1 (the tuning grid widened after the first real-lake run)

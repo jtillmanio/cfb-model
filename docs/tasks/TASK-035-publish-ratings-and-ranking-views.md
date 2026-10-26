@@ -30,6 +30,7 @@ Rung 1's ratings and predictions for any season and week land in Postgres as a n
 - *Added 2026-10-20:* no task computed SOS before M3.7 was given it; the Rankings "SOS" column and the team page's "34th SOS rank" read this view.
 - **Concept:** storing a rank would go stale the moment a new run lands; computing it in a view from the stored ratings means it's always the rank of the newest ratings.
 - **Decide at the plan gate:** the command (`engine rate --season Y --week N --target dev|test`, or a flag on `engine publish`); which run a view reads when a version has several runs for one week (the newest succeeded run); the site adjustment in SOS (for example the opponent's rating plus the run's HFA when the opponent was at home, minus it when away, nothing on neutral sites); whether SOS rank orders FBS teams only; tie handling in ranks.
+- *From TASK-033 (feat/task-033-rung-1-power-ratings):* Rung 1 is `engine.backtest.MODELS["power"]`, i.e. `PowerRatings(spec, RULES)` (`engine/models/power.py`, CFB rules in `engine/sports/cfb/teams.py`), spec `python/engine/specs/power-v1.json`, whose tuned settings per season are in a backtest's `run.json` `choices` (D-134). `Ratings.params` holds `home_field`, `margin_sd`, `prior_weight`, `new_team` and `pool_fcs`, which is what `model_runs.fitted_params` stores. `Ratings.teams` lists every FCS team seen at the one FCS pool's rating, so `team_ratings` rows for FCS teams repeat that number: decide whether to publish them or the pool once.
 
 ## Acceptance criteria
 
