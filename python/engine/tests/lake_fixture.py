@@ -158,7 +158,12 @@ def backtest_game_id(season: int, season_type: str, week: int, week1_id: str) ->
 
 
 def _backtest_week(
-    season: int, season_type: str, week: int, rescore: Rescore | None, unplayed: Rescore | None
+    season: int,
+    season_type: str,
+    week: int,
+    rescore: Rescore | None,
+    unplayed: Rescore | None,
+    consensus: tuple[Rescore, float] | None,
 ) -> dict[str, list[dict[str, Any]]]:
     games, stats, lines = [], [], []
     post = season_type == "postseason"
@@ -204,6 +209,9 @@ def _backtest_week(
                 for r in FIXTURE[fixture_key("lines")]["records"]
                 if r["id"] == game["id"]
             ]
+            if consensus is not None and consensus[0] == (season, season_type, week, week1_id):
+                book = {**lines[-1]["lines"][0], "provider": "consensus", "spread": consensus[1]}
+                lines[-1]["lines"].append(book)
     return {"games": games, "stats_game_advanced": stats, "lines": lines}
 
 
@@ -212,10 +220,12 @@ def write_backtest_seasons(
     seasons: tuple[int, ...] = BACKTEST_SEASONS,
     rescore: Rescore | None = None,
     unplayed: Rescore | None = None,
+    consensus: tuple[Rescore, float] | None = None,
 ) -> None:
     """Each season's games, advanced stats and lines, each pulled after its week's games.
     `rescore` gives that game a 3-45 score and a poor offense instead; `unplayed` leaves that
-    game uncompleted, as CFBD shows one in progress: its score and line are still there."""
+    game uncompleted, as CFBD shows one in progress: its score and line are still there;
+    `consensus` adds a `consensus` book quoting that spread to that game's line."""
     for season in seasons:
         weeks = [("regular", w) for w in range(1, SEASON_WEEKS + 1)] + [("postseason", 1)]
         for season_type, week in weeks:
@@ -223,7 +233,7 @@ def write_backtest_seasons(
                 pulled = datetime(season + 1, 1, 20, 12, tzinfo=UTC)
             else:
                 pulled = datetime(season, 8, 25, 12, tzinfo=UTC) + timedelta(days=7 * (week - 1))
-            records = _backtest_week(season, season_type, week, rescore, unplayed)
+            records = _backtest_week(season, season_type, week, rescore, unplayed, consensus)
             for endpoint, rows in records.items():
                 extra = {
                     "games": {"classification": "fbs"},
@@ -232,6 +242,70 @@ def write_backtest_seasons(
                 params = {**extra, "seasonType": season_type, "week": week, "year": season}
                 key = raw_key(raw_folder(endpoint, season, week, season_type), pulled)
                 write(lake, key, rows, params)
+
+
+# Benchmark ratings (TASK-032): for each backtest season, an SP+ and an FPI pull in mid-season
+# (known_at set, before the season's calendar ends) and one after the season (season-final).
+BENCHMARK_TEAMS = (
+    "Kansas State",
+    "Iowa State",
+    "UNLV",
+    "Kansas",
+    "Fresno State",
+    "Western Kentucky",
+    "Sam Houston",
+    "Hawai'i",
+    "Stanford",
+)
+
+
+SYSTEMS = (("sp", "ratings_sp", "rating"), ("fpi", "ratings_fpi", "fpi"))
+
+
+def benchmark_pulls(season: int) -> tuple[datetime, datetime]:
+    """When the mid-season pull and the season-final pull were fetched."""
+    return datetime(season, 9, 20, 12, tzinfo=UTC), datetime(season + 1, 2, 1, 12, tzinfo=UTC)
+
+
+def benchmark_rating(system: str, team: str, final: bool) -> float:
+    """What a pull gave `team`: the season-final pull differs from the mid-season one."""
+    early = BENCHMARK_TEAMS.index(team) - 4.0 + (0.5 if system == "fpi" else 0.0)
+    return 2 * early + 1 if final else early
+
+
+def write_benchmarks(lake: LocalLake, seasons: tuple[int, ...] = BACKTEST_SEASONS) -> None:
+    """Each season's calendar (ending 20 January) and its SP+ and FPI pulls."""
+    for season in seasons:
+        weeks = [
+            {"season": season, "week": 1, "seasonType": "regular"},
+            {"season": season, "week": 1, "seasonType": "postseason"},
+        ]
+        ends = [datetime(season, 12, 10, tzinfo=UTC), datetime(season + 1, 1, 20, tzinfo=UTC)]
+        starts = [datetime(season, 8, 20, tzinfo=UTC), ends[0]]
+        calendar = [
+            {
+                **week,
+                "startDate": start.strftime("%Y-%m-%dT%H:%M:%S.000Z"),
+                "endDate": end.strftime("%Y-%m-%dT%H:%M:%S.000Z"),
+                "firstGameStart": start.strftime("%Y-%m-%dT%H:%M:%S.000Z"),
+                "lastGameStart": end.strftime("%Y-%m-%dT%H:%M:%S.000Z"),
+            }
+            for week, start, end in zip(weeks, starts, ends, strict=True)
+        ]
+        params = {"year": season}
+        write(lake, raw_key(raw_folder("calendar", season), ends[1]), calendar, params)
+        for final, pulled in enumerate(benchmark_pulls(season)):
+            for system, endpoint, field in SYSTEMS:
+                records = [
+                    {
+                        "year": season,
+                        "team": team,
+                        "conference": "Big 12",
+                        field: benchmark_rating(system, team, bool(final)),
+                    }
+                    for team in BENCHMARK_TEAMS
+                ]
+                write(lake, raw_key(raw_folder(endpoint, season), pulled), records, params)
 
 
 def by_id(table: pa.Table, column: str = "source_id") -> dict[str, dict[str, Any]]:

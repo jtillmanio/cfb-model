@@ -1,14 +1,14 @@
 ---
 id: TASK-032
 title: Add the backtest baselines: home field only, last season, closing line, SP+/FPI
-status: Ready
+status: In progress
 depends_on: [TASK-030]
 size: S
 model: sonnet
 autonomy: unattended
 ui: false
-plan_status: none
-planned_at_commit:
+plan_status: approved
+planned_at_commit: bd5e49c
 ---
 
 # TASK-032 — Add the backtest baselines: home field only, last season, closing line, SP+/FPI
@@ -57,11 +57,31 @@ The backtest can score the simple predictions every real model has to beat (home
 
 ## Follow-ups
 
+- Add the `note` column to the Backtests description (approved at plan) → docs/03-data-model.md § Lake layout › Backtests
+- Record the baselines' design as D-133 (approved at plan) → docs/decisions.md
+
 _Work noticed during this task and deliberately left out. Each bullet ends `→ <path> § <section>` (where it was placed) or `→ not tracked: <reason>`. See `.claude/skills/track-follow-ups/classify.md`; the PR's Follow-ups section is copied from here._
 
 ## Plan
 
-_Written by /plan-batch or /implement-task Phase 1. Approved by the user (plan_status: approved) before any code is written._
+_Approved 2026-10-26 (attended)._
+
+**Design.** `GamePredictor.predict` sees only `(game, ratings, as_of)`, so baselines can't read lines or benchmarks today. A model with `baseline = True` may declare `closing_lines` and `benchmark_ratings` in `reads` (04 § 9.2 still refuses them for every other model); the harness hands it only the inputs it declared via `use(inputs)`. `History` gains the staged `benchmark_ratings` rows (optional, so older lakes still load). A model may provide `note(game, ratings) -> str | None`; results gain a nullable `note` column ("hindsight benchmark", "unseen team", "unrated team").
+
+**Steps** (test first for each AC)
+1. `HomeField`: mean non-neutral margin over seasons before `game.season`, frozen per season (AC-1).
+2. `LastSeason(inner)`: the inner model's fit on games before season Y, frozen for Y, no regression; notes "unseen team" (AC-2).
+3. `ClosingLine`: `-spread_home`; the row's `spread_source` records consensus vs median (AC-3).
+4. `BenchmarkRating("sp"|"fpi")`: latest row with `known_at` < kickoff, else the season-final row, noted "hindsight benchmark"; plus HFA for non-neutral games (AC-4).
+5. Register `home_field`, `last_season`, `closing_line`, `sp`, `fpi` in `MODELS`; `last_season` wraps `MODELS[spec.base]` and refuses cleanly until `power` exists (TASK-033).
+
+**Files:** `backtest/baselines.py` (new), `backtest/harness.py` (inputs hook, `note` column, benchmark load), `backtest/__init__.py`, `tests/test_baselines.py` (new), `tests/lake_fixture.py`, `tests/test_backtest_golden.py` + golden CSV only if the `note` column changes it, `docs/decisions.md` (D-133), `docs/03-data-model.md` § Lake layout › Backtests (`note` column).
+
+**Tests:** AC-1 `test_home_field_ignores_later_seasons` (+ neutral gives 0); AC-2 `test_last_season_frozen_and_unseen_team`; AC-3 `test_closing_line_matches_closing_lines`; AC-4 `test_benchmark_uses_known_at_else_hindsight`; `check_reads` still refuses `closing_lines` for a non-baseline.
+
+**Risks:** HFA as the mean non-neutral margin runs a little high (FCS games included); Rung 1 fits it jointly. Manual check on 2024-2025 compares against `closing_lines()` directly rather than spending holdout looks.
+
+**Follow-ups (approved at plan):** `docs/03-data-model.md` § Lake layout › Backtests: `note` column; D-133 in the decisions log.
 
 ## Review log
 
