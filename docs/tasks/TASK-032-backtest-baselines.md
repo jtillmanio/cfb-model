@@ -1,7 +1,7 @@
 ---
 id: TASK-032
 title: Add the backtest baselines: home field only, last season, closing line, SP+/FPI
-status: In progress
+status: Review
 depends_on: [TASK-030]
 size: S
 model: sonnet
@@ -33,10 +33,10 @@ The backtest can score the simple predictions every real model has to beat (home
 
 ## Acceptance criteria
 
-- [ ] AC-1: The home-field baseline predicts `pred_margin = HFA` for every non-neutral game and 0 for neutral-site games, with HFA fit only on games before the season being scored (expanding window, 04 § 9.2); a test shows a later season's games don't change it.
-- [ ] AC-2: The last-season baseline, wrapping a stub rating model, predicts every game of season Y as `rating_home − rating_away + HFA × (not neutral_site)` from that model's unregressed final ratings for Y−1; its predictions don't change when a game of season Y is changed, and a team missing from Y−1 gets the stub's unseen-team rating.
-- [ ] AC-3: The closing-line baseline's predicted margin for each game equals `−spread_home` from `engine.transform.market.closing_lines()` on the same lake, and each row records whether the line came from `consensus` or the median.
-- [ ] AC-4: The SP+/FPI baselines use only `benchmark_ratings` rows whose `known_at` is before kickoff; when a game has none, the baseline is computed from the season-final row and every such result is labeled "hindsight benchmark", never counted as a baseline beaten.
+- [x] AC-1: The home-field baseline predicts `pred_margin = HFA` for every non-neutral game and 0 for neutral-site games, with HFA fit only on games before the season being scored (expanding window, 04 § 9.2); a test shows a later season's games don't change it.
+- [x] AC-2: The last-season baseline, wrapping a stub rating model, predicts every game of season Y as `rating_home − rating_away + HFA × (not neutral_site)` from that model's unregressed final ratings for Y−1; its predictions don't change when a game of season Y is changed, and a team missing from Y−1 gets the stub's unseen-team rating.
+- [x] AC-3: The closing-line baseline's predicted margin for each game equals `−spread_home` from `engine.transform.market.closing_lines()` on the same lake, and each row records whether the line came from `consensus` or the median.
+- [x] AC-4: The SP+/FPI baselines use only `benchmark_ratings` rows whose `known_at` is before kickoff; when a game has none, the baseline is computed from the season-final row and every such result is labeled "hindsight benchmark", never counted as a baseline beaten.
 
 ## Out of scope
 
@@ -57,10 +57,15 @@ The backtest can score the simple predictions every real model has to beat (home
 
 ## Follow-ups
 
-- Add the `note` column to the Backtests description (approved at plan) → docs/03-data-model.md § Lake layout › Backtests
-- Record the baselines' design as D-133 (approved at plan) → docs/decisions.md
-
 _Work noticed during this task and deliberately left out. Each bullet ends `→ <path> § <section>` (where it was placed) or `→ not tracked: <reason>`. See `.claude/skills/track-follow-ups/classify.md`; the PR's Follow-ups section is copied from here._
+
+- The `note` column in `predictions.parquet` needed describing (approved at plan) → docs/03-data-model.md § Lake layout › Backtests (done in this PR)
+- The Benchmarks paragraph said a baseline reads `known_at` "before kickoff"; the code cuts off at the game's earliest possible kickoff (approved at close-out) → docs/03-data-model.md § Lake layout › Benchmarks (fixed in this PR)
+- The baselines' design and the earliest-kickoff cutoff are a lasting decision (approved at plan; the row was extended after review R1/R2) → docs/decisions.md § D-133
+- TASK-033's comparison must run the baselines through `baselines.comparable()` and report the hindsight, unrated and unseen-team games it leaves out or counts → docs/tasks/TASK-033-rung-1-power-ratings.md § Context
+- `--model last_season` re-tunes the wrapped model on last season's own MAE, not on the settings Rung 1 chose, and the other baselines re-run the grid on a spec they ignore: TASK-033 decides how the comparison passes Rung 1's chosen settings → docs/tasks/TASK-033-rung-1-power-ratings.md § Context
+- `harness.EARLIEST` repeats the `earliest` expression in the features SQL that sets each week's `as_of` → not tracked: a comment names both copies and a TBA test pins the harness's value; moving it into `features.py` is outside this task's files
+- `ruff format` would reformat seven files already on `main` (`jobs.py`, `staging.py`, `backfill.py`, `report.py` and three tests) → not tracked: formatting isn't one of `verify.full`'s checks, and rewriting unrelated files isn't this task's diff
 
 ## Plan
 
@@ -85,7 +90,9 @@ _Approved 2026-10-26 (attended)._
 
 ## Review log
 
-_Filled by /implement-task. One line per round._
+Verify R1 PASS → R2 PASS after the review fixes → R3 PASS on the branch head | Audit R1 PASS (4 of 4 ACs proven; 9 mutants run, the one survivor is equivalent) | Schema R1 CHANGES (TBA cutoff, no point-in-time assertion) → R2 APPROVE | Spec R1 CHANGES (no point-in-time assertion on the benchmark path) → R2 APPROVE
+
+Manual check (closing-line baseline over the local lake, read straight from `closing_lines()`, so no holdout look was spent): per-season MAE 12.03 (2022, 765 consensus / 11 median), 12.11 (2023, 29 / 763), 12.07 (2024, all median), 11.81 (2025, all median). 2023 and 2024 match notebook #1. The change at the consensus seam (2023 → 2024, −0.04) is smaller than 2022 → 2023 (+0.08) and 2024 → 2025 (−0.26).
 
 ## Blocked
 
@@ -93,7 +100,7 @@ _Only if status is Blocked: what failed, what was tried, best hypothesis, decisi
 
 ## Metrics
 
-- Verify rounds:
-- Review rounds:
-- First-pass AC FAILs:
-- Plan revisions after approval:
+- Verify rounds: 3 (all PASS; re-runs after the review fixes)
+- Review rounds: 2 (spec), 2 (schema); audit 1
+- First-pass AC FAILs: 0 (both R1 CHANGES were a rule-4 gap, not an AC)
+- Plan revisions after approval: 1 (the benchmark cutoff became a game's earliest possible kickoff, with point-in-time assertions, after schema R1; made without asking first)
