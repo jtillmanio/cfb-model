@@ -188,8 +188,8 @@ def _backtest_week(
                 "id": new_id,
                 "startDate": start.astimezone(UTC).strftime("%Y-%m-%dT%H:%M:%S.000Z"),
                 "completed": played,
-                "homePoints": home_points if played else None,
-                "awayPoints": away_points if played else None,
+                "homePoints": home_points,
+                "awayPoints": away_points,
             }
         )
         for r in FIXTURE[fixture_key("stats_game_advanced")]["records"]:
@@ -215,7 +215,7 @@ def write_backtest_seasons(
 ) -> None:
     """Each season's games, advanced stats and lines, each pulled after its week's games.
     `rescore` gives that game a 3-45 score and a poor offense instead; `unplayed` leaves that
-    game uncompleted with no score (its line is still there)."""
+    game uncompleted, as CFBD shows one in progress: its score and line are still there."""
     for season in seasons:
         weeks = [("regular", w) for w in range(1, SEASON_WEEKS + 1)] + [("postseason", 1)]
         for season_type, week in weeks:

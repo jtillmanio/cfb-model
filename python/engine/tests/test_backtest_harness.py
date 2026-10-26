@@ -145,13 +145,14 @@ def test_backtest_predicts_every_eligible_game_once_in_week_order(
 def test_a_game_that_is_not_final_gets_no_row(
     empty_lake: LocalLake, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    # Kansas-Fresno State, 2023 week 8: never completed, though its line is there.
+    # Kansas-Fresno State, 2023 week 8: not completed, though its score and line are there.
     unplayed = (2023, "regular", 8, "401756847")
     write_backtest_seasons(empty_lake, unplayed=unplayed)
     rebuild(empty_lake)
     game = backtest_game_id(*unplayed)
     staged_game = by_source_id(staged(empty_lake, "games"))[game]
     assert staged_game["status"] == "scheduled"
+    assert staged_game["home_points"] is not None
     assert game in {r["game_source_id"] for r in staged(empty_lake, "lines").to_pylist()}
 
     spec = spec_file(tmp_path, FIXED)
