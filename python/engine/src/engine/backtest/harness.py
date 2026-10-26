@@ -16,8 +16,11 @@ with one `as_of`, the first bowl's kickoff: a later CFP round is predicted from 
 entering the bowls. That's leak-free and slightly stale (D-127's revisit).
 
 **Inputs.** A model declares what it reads (`reads`). Only `FIT_INPUTS` are given; hindsight
-ratings and market lines are refused by name (D-056, 04 § 9.2). Learned weights are the model's
-own: it's fit with `fit(games, as_of)` each week, and refits what it learns once a season itself.
+ratings and market lines are refused by name (D-056, 04 § 9.2). A Rung 0 baseline (`baseline =
+True`, D-133) may also read `BASELINE_INPUTS`, the closing lines and the staged benchmark
+ratings: it's a bar to beat, never a fitted model, and it gets them through `use(inputs)`, only
+those it declared. Learned weights are the model's own: it's fit with `fit(games, as_of)` each
+week, and refits what it learns once a season itself.
 """
 
 from __future__ import annotations
@@ -29,7 +32,7 @@ import json
 import math
 from bisect import bisect_right
 from collections.abc import Callable, Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from typing import Any, Literal, Protocol, cast
 
@@ -41,13 +44,22 @@ from engine.transform.features import GAME_HOURS, KICKOFF, PointInTimeError, che
 
 TUNE_FROM = 2015  # 2014 is warm-up only (04 § 9.1)
 
+# The earliest a staged game could have kicked off: a TBA game's date starts at Eastern midnight
+# (the start of its week's `as_of`, D-127), where `KICKOFF` puts it at the end of its date. The
+# same expression as `earliest` in the features SQL (`transform/features.py`): keep them equal.
+EARLIEST = "coalesce(kickoff_at, timezone('America/New_York', CAST(game_date AS TIMESTAMP)))"
+
 FIT_INPUTS = frozenset({"games"})
+# What only a baseline may read (D-133): the closing spread of every staged game with a line, by
+# game id, and the staged benchmark ratings. Each baseline filters them to what it may know.
+BASELINE_INPUTS = frozenset({"closing_lines", "benchmark_ratings"})
 _LINES = "market lines are targets and pick-time inputs, never fitting inputs (04 § 9.2)"
 REFUSED_INPUTS = {
     "hindsight_ratings": "hindsight ratings are computed from the whole season (D-056)",
     "lines": _LINES,
     "line_snapshots": _LINES,
     "closing_lines": _LINES,
+    "benchmark_ratings": "published ratings are a benchmark to beat, not a fit input (04 § 9.2)",
 }
 
 _FINISHED = timedelta(hours=GAME_HOURS)
@@ -108,10 +120,36 @@ class Week:
 
 
 @dataclass(frozen=True, slots=True)
+class Benchmark:
+    """A staged SP+/FPI/Elo rating: `known_at` is when it was published if that was before the
+    season ended, otherwise None (season-final, or a season with no staged calendar: hindsight
+    for a game of that season either way)."""
+
+    system: str
+    season: int
+    team: int
+    rating: float
+    fetched_at: datetime
+    known_at: datetime | None
+
+
+@dataclass(frozen=True, slots=True)
+class BenchmarkInput:
+    """What a benchmark baseline is given: the staged ratings, and each game's earliest possible
+    kickoff, so a rating published on a TBA game's date never counts as known before it."""
+
+    rows: tuple[Benchmark, ...]
+    earliest: Mapping[int, datetime]  # game id -> kickoff, or the start of a TBA game's date
+
+
+@dataclass(frozen=True, slots=True)
 class History:
     results: tuple[GameResult, ...]  # every final game with both teams, by kickoff
     kickoffs: tuple[datetime, ...]  # `results`' kickoffs, for bisecting
     weeks: tuple[Week, ...]  # in run order
+    closing_spreads: Mapping[int, float] = field(default_factory=dict)  # game id -> spread_home
+    benchmarks: tuple[Benchmark, ...] = ()
+    earliest: Mapping[int, datetime] = field(default_factory=dict)  # game id -> earliest kickoff
 
     def season_weeks(self, season: int) -> list[Week]:
         return [w for w in self.weeks if w.season == season]
@@ -144,7 +182,7 @@ def load(lake: Lake) -> History:
     games = (
         con.execute(f"""
             SELECT g.*, f.as_of, f.game_source_id IS NOT NULL AS featured
-            FROM (SELECT *, {KICKOFF} AS kickoff FROM games) g
+            FROM (SELECT *, {KICKOFF} AS kickoff, {EARLIEST} AS earliest FROM games) g
             LEFT JOIN game_features f ON f.game_source_id = g.source_id
             ORDER BY g.kickoff, g.source_id""")
         .arrow()
@@ -223,7 +261,42 @@ def load(lake: Lake) -> History:
         for (season, season_type, week), (as_of, eligible) in by_week.items()
     ]
     weeks.sort(key=lambda w: (w.season, w.as_of, w.season_type, w.week))
-    return History(tuple(results), tuple(r.kickoff for r in results), tuple(weeks))
+    spreads = {
+        int(game): line["spread_home"]
+        for game, line in closing.items()
+        if line["spread_home"] is not None
+    }
+    return History(
+        tuple(results),
+        tuple(r.kickoff for r in results),
+        tuple(weeks),
+        spreads,
+        _benchmarks(lake),
+        {int(g["source_id"]): g["earliest"] for g in games if g["earliest"] is not None},
+    )
+
+
+def _benchmarks(lake: Lake) -> tuple[Benchmark, ...]:
+    """The staged benchmark ratings, or none if the lake hasn't staged them: only the SP+ and
+    FPI baselines read them, and they refuse to run on none."""
+    from engine.transform import staging_key
+
+    key = staging_key("benchmark_ratings")
+    if key not in lake.list(key.rpartition("/")[0]):
+        return ()
+    rows = _read(lake, key).to_pylist()
+    return tuple(
+        Benchmark(
+            r["system"],
+            r["season"],
+            int(r["team_source_id"]),
+            r["rating"],
+            r["fetched_at"],
+            r["known_at"],
+        )
+        for r in rows
+        if r["team_source_id"] is not None and r["rating"] is not None
+    )
 
 
 def _fields(context: GameContext) -> dict[str, Any]:
@@ -246,8 +319,10 @@ def _check_fit(games: Sequence[GameResult], week: Week) -> None:
 
 
 def check_reads(model: BacktestModel) -> None:
-    """Refuse a model that reads anything but `FIT_INPUTS`, naming the input."""
-    for name in sorted(model.reads):
+    """Refuse a model that reads anything but `FIT_INPUTS` (and, for a baseline,
+    `BASELINE_INPUTS`), naming the input."""
+    allowed = FIT_INPUTS | BASELINE_INPUTS if getattr(model, "baseline", False) else FIT_INPUTS
+    for name in sorted(model.reads - allowed):
         if name in REFUSED_INPUTS:
             raise RefusedError(
                 f"the model asks for {name!r} as a fitting input: {REFUSED_INPUTS[name]}"
@@ -259,9 +334,22 @@ def check_reads(model: BacktestModel) -> None:
             )
 
 
+def give_inputs(model: BacktestModel, history: History) -> None:
+    """Hand a baseline the `BASELINE_INPUTS` it declared, and nothing else."""
+    available = {
+        "closing_lines": history.closing_spreads,
+        "benchmark_ratings": BenchmarkInput(history.benchmarks, history.earliest),
+    }
+    given = {name: available[name] for name in sorted(model.reads & BASELINE_INPUTS)}
+    if given:
+        cast(Any, model).use(given)
+
+
 def predict_season(model: BacktestModel, history: History, season: int) -> list[Row]:
     """Walk one season forward: fit entering each week, then predict its eligible games."""
     check_reads(model)
+    give_inputs(model, history)
+    note = getattr(model, "note", None)  # a baseline's remark on a game, e.g. a hindsight rating
     rows: list[Row] = []
     for week in history.season_weeks(season):
         if not week.games:
@@ -285,6 +373,7 @@ def predict_season(model: BacktestModel, history: History, season: int) -> list[
                     "pred_margin": p.pred_margin,
                     "margin_sd": p.margin_sd,
                     "home_win_prob": p.home_win_prob,
+                    "note": note(e.context, ratings) if note else None,
                     "spread_home": e.spread_home,
                     "spread_home_open": e.spread_home_open,
                     "spread_home_open_close": e.spread_home_open_close,
@@ -430,6 +519,7 @@ def schema() -> Any:
             ("pred_margin", pa.float64()),
             ("margin_sd", pa.float64()),
             ("home_win_prob", pa.float64()),
+            ("note", pa.string()),  # a baseline's remark (hindsight benchmark, unseen team)
             ("spread_home", pa.float64()),  # the closing line
             # The opener and the close of the books that quoted both (CLV); NULL if none did.
             ("spread_home_open", pa.float64()),
