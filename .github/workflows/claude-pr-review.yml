@@ -29,8 +29,40 @@ jobs:
         if: env.HAS_TOKEN == 'true'
         with:
           fetch-depth: 1
+      # The project's hooks (.claude/settings.json) run `powershell`, which Linux doesn't have, and
+      # guard-destructive blocks on failure: every gh call was denied and the job exited green
+      # having reviewed nothing (every run from PR #45 to #97). The runner ships pwsh.
+      - name: Let the project's hooks find powershell
+        if: env.HAS_TOKEN == 'true'
+        run: sudo ln -sf "$(command -v pwsh)" /usr/local/bin/powershell
+      # The guard was written for Windows. Prove it works here before the review relies on it: it
+      # must let a gh read through (exit 0, no output) and still block gh repo delete (exit 2).
+      # A broken guard fails this step, instead of silently blocking every review as before.
+      - name: Check the destructive-command guard works on Linux
+        if: env.HAS_TOKEN == 'true'
+        env:
+          CLAUDE_PROJECT_DIR: ${{ github.workspace }}
+        run: |
+          set +e
+          guard() {
+            printf '{"tool_name":"Bash","tool_input":{"command":"%s"},"cwd":"%s"}' "$1" "$PWD" |
+              powershell -NoProfile -ExecutionPolicy Bypass -File .claude/hooks/guard-destructive.ps1
+          }
+          out=$(guard "gh pr view 1 --json state" 2>&1); code=$?
+          if [ "$code" -ne 0 ] || [ -n "$out" ]; then
+            echo "::error::the guard didn't allow a gh read on Linux (exit $code): $out"; exit 1
+          fi
+          guard "gh repo delete owner/repo --yes" >/dev/null 2>&1; code=$?
+          if [ "$code" -ne 2 ]; then
+            echo "::error::the guard didn't block gh repo delete on Linux (exit $code)"; exit 1
+          fi
+          echo "The guard works on Linux: it allows gh reads and blocks gh repo delete."
       - uses: anthropics/claude-code-action@v1
         if: env.HAS_TOKEN == 'true'
+        # The review's agents ran in the background and the job ended while the run "waited" on
+        # them, again green with nothing reviewed. Run them in the foreground.
+        env:
+          CLAUDE_CODE_DISABLE_BACKGROUND_TASKS: "1"
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           plugin_marketplaces: "https://github.com/anthropics/claude-code.git"
