@@ -1,7 +1,7 @@
 ---
 id: TASK-034
 title: Add model_versions, model_runs, team_ratings and predictions
-status: In progress
+status: Review
 depends_on: [TASK-029]
 size: M
 model: opus
@@ -37,11 +37,11 @@ The serving database can hold model versions, the runs that executed them, and t
 
 ## Acceptance criteria
 
-- [ ] AC-1: After `pnpm db:migrate:test`, the four tables exist with the columns in 03 › Models & outputs plus `model_versions.market` and the `team_ratings` PK `(model_run_id, team_id, season, week)`, `pnpm db:check` reports one head with the models matching, and the migration runs up → down → up cleanly.
-- [ ] AC-2: Inserting a second `production` version for the same sport and market fails on the partial unique index; a `production` version for the same sport with the other market, or a second `candidate` or `dev` version, succeeds; a soft-deleted production version doesn't block a new one; a `market` other than `spread` or `total` is refused.
-- [ ] AC-3: UPDATE, DELETE and TRUNCATE on `team_ratings` and on `predictions` each raise an error and leave the rows unchanged; inserting a second run's rows for the same version, team, season and week succeeds.
-- [ ] AC-4: On the seeded test DB, the registry holds v1.0 (production), v1.1 (candidate, parent v1.0) and v1.2-dev (dev, parent v1.1); every version's `spec` validates as a `ModelSpec`; v1.0's backtest run carries the validation and holdout summaries from 02 › Seed data in `metrics` and its learned weights in `fitted_params`.
-- [ ] AC-5: On the seeded test DB, every seeded FBS team has a rating entering weeks 5 and 6 of 2026 under v1.0, ordered so that week 6 reproduces the `design/sample-data.md` § 4 order and its Δ from week 5, and each of the 11 seeded week-6 games has one v1.0 prediction; Texas vs Oklahoma's has `drivers` and `margin_sd` set.
+- [x] AC-1: After `pnpm db:migrate:test`, the four tables exist with the columns in 03 › Models & outputs plus `model_versions.market` and the `team_ratings` PK `(model_run_id, team_id, season, week)`, `pnpm db:check` reports one head with the models matching, and the migration runs up → down → up cleanly.
+- [x] AC-2: Inserting a second `production` version for the same sport and market fails on the partial unique index; a `production` version for the same sport with the other market, or a second `candidate` or `dev` version, succeeds; a soft-deleted production version doesn't block a new one; a `market` other than `spread` or `total` is refused.
+- [x] AC-3: UPDATE, DELETE and TRUNCATE on `team_ratings` and on `predictions` each raise an error and leave the rows unchanged; inserting a second run's rows for the same version, team, season and week succeeds.
+- [x] AC-4: On the seeded test DB, the registry holds v1.0 (production), v1.1 (candidate, parent v1.0) and v1.2-dev (dev, parent v1.1); every version's `spec` validates as a `ModelSpec`; v1.0's backtest run carries the validation and holdout summaries from 02 › Seed data in `metrics` and its learned weights in `fitted_params`.
+- [x] AC-5: On the seeded test DB, every seeded FBS team has a rating entering weeks 5 and 6 of 2026 under v1.0, ordered so that week 6 reproduces the `design/sample-data.md` § 4 order and its Δ from week 5, and each of the 11 seeded week-6 games has one v1.0 prediction; Texas vs Oklahoma's has `drivers` and `margin_sd` set.
 
 ## Out of scope
 
@@ -74,6 +74,12 @@ _Work noticed during this task and deliberately left out. Each bullet ends `→ 
 - `docs/03-data-model.md` › Lake layout › Backtests says backtest runs move to `model_runs` "planned: TASK-034 and later"; reword it to say the move waits on M14.1 → docs/03-data-model.md § Lake layout (approved at plan)
 - The fixture's `model_runs.metrics` (`validation`, `holdout`, `accuracy`, `pick_buckets`, `calibration`) is a placeholder shape; M14.1 writes the real one from `engine.backtest.metrics.Metrics` and must match it or update the fixture, since M7.4 reads it → docs/08-tasklist.md § M14.1 (approved at plan, revision 1)
 - 02 › Seed data's "7 variants since the last promotion" isn't seeded: nothing defines a variant or records when a version was promoted → docs/08-tasklist.md § M14.4 (approved at plan, revision 1)
+- Schema review: `rating`, `pred_margin`, `pred_total` and `margin_sd` accept NaN and ±Infinity, and insert-only rows can't be fixed; the publish path should refuse them → docs/tasks/TASK-035-publish-ratings-and-ranking-views.md § Context
+- Schema review: no `team_ratings` index leads with `team_id`; per-team reads (trajectory, team page) go through `(model_version_id, season, week)` → docs/tasks/TASK-035-publish-ratings-and-ranking-views.md § Context
+- Schema review: a run's `season`, `week`, `as_of` and `fitted_params` can still be updated after it has outputs (D-135 put no trigger on `model_runs`); a column-scoped trigger would close it → docs/08-tasklist.md § M14.2
+- Schema review: the fixture's run `as_of` is the calendar week start, while D-127's feature `as_of` is the week's first kickoff; which one a published run carries is open → docs/tasks/TASK-035-publish-ratings-and-ranking-views.md § Context
+- Spec review: AC-5's text promises § 4's Δ, which can't be reproduced; the test asserts the owner-approved Δ (Plan › Decisions made at the gate, 1). Proposed wording: "…week 6 reproduces the § 4 order, and its Δ from week 5 is the rank change between the seeded week-5 and week-6 ratings (the top 10's week 5 from `traj[4]` in rankings-data.js)" → not tracked: the ACs are the owner's; proposed in the PR for the owner to accept or leave
+- Roadmap `docs/06-roadmap.md` › Phase 2's `model_versions` / … / `predictions` + publish item is only partly delivered (publish is TASK-035) and stays open → not tracked: already tracked in TASK-035 § Context (Roadmap)
 
 ## Plan
 
@@ -115,7 +121,10 @@ _Approved by the owner at the plan gate, 2026-10-27 (session reply "approve"), i
 
 ## Review log
 
-_Filled by /implement-task. One line per round._
+- Plan: approved 2026-10-27; revision 1 (Opus review at the owner's request, DDL unchanged)
+- Verify R1 PASS (typecheck, lint, db:check, pytest 531, vitest, build, e2e 40)
+- Audit R1 PASS (AC-1 to AC-5 PROVEN; base run in a scratch schema, shared test DB untouched)
+- Spec R1 APPROVE (AC-5 wording note) | Schema R1 APPROVE (5 minor findings, all placed as follow-ups)
 
 ## Blocked
 
@@ -123,7 +132,7 @@ _Only if status is Blocked: what failed, what was tried, best hypothesis, decisi
 
 ## Metrics
 
-- Verify rounds:
-- Review rounds:
-- First-pass AC FAILs:
-- Plan revisions after approval:
+- Verify rounds: 1
+- Review rounds: 1 (spec), 1 (schema); audit 1
+- First-pass AC FAILs: 0
+- Plan revisions after approval: 1 (the owner asked for an Opus review of the approved plan; seed details, DDL unchanged)
