@@ -1,7 +1,7 @@
 ---
 id: TASK-035
 title: Publish model runs, ratings and predictions, with the team_rankings and team_schedule_strength views
-status: Review
+status: Done
 depends_on: [TASK-033, TASK-034]
 size: M
 model: opus
