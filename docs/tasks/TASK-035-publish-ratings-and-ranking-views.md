@@ -109,6 +109,8 @@ _Approved by the owner 2026-10-27._
 **Revisions during implementation** (both inside the plan's scope, reported in the PR)
 1. `rate()` takes the lake, not a loaded `History`: the week's unplayed games aren't in `History` (it keeps final games and eligible ones), so `rate` reads them from staged `games` itself, leaving `harness.py` unchanged.
 2. `python/db/tests/model_rows.py` (new): the constructed teams, version, runs, ratings and games both view test files share.
+3. Decision 6's NULL rule, as built: SOS is NULL with no game played, when an opponent has no rating in the run, or when a home or away game can't be adjusted because the run has no `home_field`; a schedule of neutral-site games needs no HFA (spec review R1).
+4. From schema review R1: `publish` fits before opening the transaction (`fit_week`, then `write`), as decision 7 said; a finite number a CHECK refuses (σ ≤ 0, a share outside 0–1) is a failed run too; `canceled` and `postponed` games aren't predicted; the newest run is picked once per week (`DISTINCT ON`) and the week before is looked up laterally; an unset dev URL or an invalid stored spec is a refusal.
 
 ## Review log
 

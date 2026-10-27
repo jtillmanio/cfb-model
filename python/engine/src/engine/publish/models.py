@@ -4,10 +4,12 @@ predictions to Postgres (TASK-035, D-136).
 The week is the feature week of D-127: its `as_of` is its first kickoff, and the fit is the
 backtest's (`harness.fit_games`: every final game that finished, kickoff + 4 h, by `as_of`), so a
 published week is the week the backtest scored. Its predictions are every staged regular-season
-game of the week with both teams, played or not.
+game of the week with both teams that isn't canceled or postponed, played or not.
 
-Outputs are insert-only (hard rule 2): a re-run adds a new `model_runs` row and its own ratings and
-predictions. A fit that raises, or gives a NaN or infinite number, is recorded as a `failed` run
+The lake is read and the model fit before any database transaction opens (`fit_week`); `write`
+then inserts in one short transaction. Outputs are insert-only (hard rule 2): a re-run adds a new
+`model_runs` row and its own ratings and predictions. A fit that raises, or gives a number the
+tables can't hold (NaN, ±Infinity, σ ≤ 0, a share outside 0–1), is recorded as a `failed` run
 with its error and nothing else; a refusal (an unstaged week, an unpublished team, a version with
 another spec) writes nothing. The model's team and game ids are CFBD's; they're mapped to
 `teams.id` and `games.id` by `(source, source_id)`. Regular season only: `team_ratings` has no
@@ -24,6 +26,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, time, timedelta
 from typing import Any, Literal
 
+from pydantic import ValidationError
 from sqlalchemy import Connection, text
 
 from db.session import make_engine
@@ -38,6 +41,7 @@ SPORT = "cfb"
 MARKET = "spread"
 SOURCE = "cfbd"  # whose ids the lake's teams and games carry
 SEASON_TYPE = "regular"
+NOT_PLAYED = frozenset({"canceled", "postponed"})  # never predicted: a prediction is permanent
 
 
 class RateRefused(ValueError):
@@ -51,6 +55,23 @@ class RunSummary:
     ratings: int
     predictions: int
     error: str | None = None
+
+
+Predicted = list[tuple[GameContext, Prediction]]
+
+
+@dataclass(frozen=True, slots=True)
+class FittedWeek:
+    """A fit entering one week, ready to insert: its ratings and predictions, or its error."""
+
+    season: int
+    week: int
+    as_of: datetime
+    started: datetime
+    finished: datetime
+    choices: Mapping[str, float]
+    outputs: tuple[Ratings, Predicted] | None
+    error: str | None
 
 
 def settings(spec: ModelSpec, run: Mapping[str, Any] | None, season: int) -> dict[str, float]:
@@ -77,7 +98,7 @@ def settings(spec: ModelSpec, run: Mapping[str, Any] | None, season: int) -> dic
 def _week(
     lake: Lake, history: harness.History, season: int, week: int
 ) -> tuple[datetime, list[GameContext]]:
-    """The week's `as_of` and every staged game of it with both teams."""
+    """The week's `as_of` and every staged game of it with both teams that will be played."""
     import pyarrow.parquet as pq
 
     from engine.transform import staging_key
@@ -110,6 +131,7 @@ def _week(
         if (g["season"], g["season_type"], g["week"]) == (season, SEASON_TYPE, week)
         and g["home_source_id"] is not None
         and g["away_source_id"] is not None
+        and g["status"] not in NOT_PLAYED
     ]
     return as_of, sorted(games, key=lambda g: (g.kickoff, g.game_id))
 
@@ -122,9 +144,6 @@ def _kickoff(game: Mapping[str, Any]) -> datetime:
     return midnight.astimezone(UTC)
 
 
-Predicted = list[tuple[GameContext, Prediction]]
-
-
 def _fit(
     model: harness.BacktestModel,
     history: harness.History,
@@ -132,7 +151,7 @@ def _fit(
     games: list[GameContext],
 ) -> tuple[Ratings, Predicted] | str:
     """The ratings entering `week` and its games' predictions, fit as the backtest fits them;
-    or, if the fit raises or gives a number Postgres can't hold, the error to record."""
+    or, if the fit raises or gives a number the tables can't hold, the error to record."""
     try:
         fit_on = harness.fit_games(history, week.as_of)
         harness._check_fit(fit_on, week)
@@ -140,14 +159,17 @@ def _fit(
         predicted = [(g, model.predict(g, ratings, week.as_of)) for g in games]
     except Exception as e:  # a failed fit is recorded as a failed run, not raised
         return f"{type(e).__name__}: {e}"
-    return _non_finite(ratings, predicted) or (ratings, predicted)
+    return _unstorable(ratings, predicted) or (ratings, predicted)
 
 
-def _non_finite(ratings: Ratings, predictions: Predicted) -> str | None:
-    """The first NaN or infinite number the run would store, named; None if there's none."""
+def _unstorable(ratings: Ratings, predictions: Predicted) -> str | None:
+    """The first number the run would store that its table refuses (NaN, ±Infinity, or outside
+    0003's CHECKs: σ > 0, shares 0–1), named; None if there's none."""
     for name, value in ratings.params.items():
         if not math.isfinite(value):
             return f"fitted param {name} is {value}"
+    if not 0 <= ratings.params.get("prior_weight", 0) <= 1:
+        return f"prior_weight {ratings.params['prior_weight']} isn't between 0 and 1"
     for team, value in ratings.teams.items():
         if not math.isfinite(value):
             return f"rating of team {team} is {value}"
@@ -156,10 +178,48 @@ def _non_finite(ratings: Ratings, predictions: Predicted) -> str | None:
             value = getattr(p, name)
             if not math.isfinite(value):
                 return f"{name} of game {game.game_id} is {value}"
+        if p.margin_sd <= 0:
+            return f"margin_sd of game {game.game_id} is {p.margin_sd}, not above 0"
+        if not 0 <= p.home_win_prob <= 1:
+            return f"home_win_prob of game {game.game_id} is {p.home_win_prob}, not 0-1"
         for label, points in p.drivers:
             if not math.isfinite(points):
                 return f"driver {label!r} of game {game.game_id} is {points}"
     return None
+
+
+def fit_week(
+    lake: Lake, spec: ModelSpec, choices: Mapping[str, float], *, season: int, week: int
+) -> FittedWeek:
+    """Read the lake and fit `spec` (resolved with `choices`) entering `week`; no database is
+    opened. A fit that fails is returned with its error, to be recorded; a refusal raises."""
+    try:
+        resolved = spec.resolve(choices)
+    except ValueError as e:
+        raise RateRefused(str(e)) from e
+    if not resolved.is_resolved:
+        raise RateRefused(f"no setting chosen for {', '.join(resolved.tunables())}")
+    factory = MODELS.get(spec.base)
+    if factory is None:
+        raise RateRefused(f"no model is registered as {spec.base!r}")
+    history = harness.load(lake)
+    as_of, games = _week(lake, history, season, week)
+    model = factory(resolved)
+    harness.check_reads(model)
+
+    started = clock.now()
+    fitted = _fit(model, history, harness.Week(season, SEASON_TYPE, week, as_of, ()), games)
+    finished = clock.now()
+    return FittedWeek(
+        season,
+        week,
+        as_of,
+        started,
+        finished,
+        dict(choices),
+        None if isinstance(fitted, str) else fitted,
+        fitted if isinstance(fitted, str) else None,
+    )
 
 
 def _ids(conn: Connection, table: str, source: str, wanted: Iterable[int]) -> dict[int, int]:
@@ -195,7 +255,11 @@ def _version(conn: Connection, spec: ModelSpec, name: str, version: str) -> int 
     ).one_or_none()
     if row is None:
         return None
-    if harness.spec_hash(ModelSpec.model_validate(row.spec)) != harness.spec_hash(spec):
+    try:
+        stored = ModelSpec.model_validate(row.spec)
+    except ValidationError as e:
+        raise RateRefused(f"{name} {version}'s stored spec isn't a valid ModelSpec: {e}") from e
+    if harness.spec_hash(stored) != harness.spec_hash(spec):
         raise RateRefused(f"{name} {version} already exists with a different spec")
     return row.id
 
@@ -222,10 +286,8 @@ def _create_version(conn: Connection, spec: ModelSpec, name: str, version: str) 
 def _insert_run(
     conn: Connection,
     version_id: int,
-    run: Mapping[str, Any],
-    *,
+    fitted: FittedWeek,
     params: Mapping[str, Any] | None = None,
-    error: str | None = None,
 ) -> int:
     """An ad-hoc run of one week: `succeeded` with its fitted params, or `failed` with its
     error. Inserted finished, so it never sits `running` (a failed fit writes nothing else)."""
@@ -237,68 +299,49 @@ def _insert_run(
             " :finished, CAST(:params AS jsonb), :error) RETURNING id"
         ),
         {
-            **run,
             "v": version_id,
-            "status": "failed" if error is not None else "succeeded",
+            "season": fitted.season,
+            "week": fitted.week,
+            "as_of": fitted.as_of,
+            "status": "failed" if fitted.error is not None else "succeeded",
+            "started": fitted.started,
+            "finished": fitted.finished,
             "params": None if params is None else json.dumps(params),
-            "error": error,
+            "error": fitted.error,
         },
     ).scalar_one()
 
 
-def rate(
-    lake: Lake,
+def write(
     conn: Connection,
+    fitted: FittedWeek,
     spec: ModelSpec,
-    choices: Mapping[str, float],
     *,
-    season: int,
-    week: int,
     name: str,
     version: str,
     source: str | None = None,
 ) -> RunSummary:
-    """Fit `spec` (resolved with `choices`) entering `week` and insert the run with its ratings
-    and predictions, in the caller's transaction. `spec` is the version's recipe as stored."""
-    source = source or SOURCE
-    try:
-        resolved = spec.resolve(choices)
-    except ValueError as e:
-        raise RateRefused(str(e)) from e
-    if not resolved.is_resolved:
-        raise RateRefused(f"no setting chosen for {', '.join(resolved.tunables())}")
-    factory = MODELS.get(spec.base)
-    if factory is None:
-        raise RateRefused(f"no model is registered as {spec.base!r}")
+    """Insert the run with its ratings and predictions, in the caller's transaction. `spec` is
+    the version's recipe as stored; a refusal raises before anything is inserted."""
     version_id = _version(conn, spec, name, version)
-    history = harness.load(lake)
-    as_of, games = _week(lake, history, season, week)
-    model = factory(resolved)
-    harness.check_reads(model)
-
-    started = clock.now()
-    fitted = _fit(model, history, harness.Week(season, SEASON_TYPE, week, as_of, ()), games)
-    finished = clock.now()
-    run = {"season": season, "week": week, "as_of": as_of, "started": started, "finished": finished}
-
-    if isinstance(fitted, str):
+    if fitted.outputs is None:
         version_id = version_id or _create_version(conn, spec, name, version)
-        run_id = _insert_run(conn, version_id, run, error=fitted)
-        return RunSummary(run_id, "failed", 0, 0, fitted)
+        run_id = _insert_run(conn, version_id, fitted)
+        return RunSummary(run_id, "failed", 0, 0, fitted.error)
 
-    ratings, predicted = fitted
-    team_ids = _ids(conn, "teams", source, ratings.teams)
-    game_ids = _ids(conn, "games", source, (g.game_id for g, _ in predicted))
+    ratings, predicted = fitted.outputs
+    team_ids = _ids(conn, "teams", source or SOURCE, ratings.teams)
+    game_ids = _ids(conn, "games", source or SOURCE, (g.game_id for g, _ in predicted))
     version_id = version_id or _create_version(conn, spec, name, version)
-    run_id = _insert_run(conn, version_id, run, params={**ratings.params, "choices": dict(choices)})
+    run_id = _insert_run(conn, version_id, fitted, {**ratings.params, "choices": fitted.choices})
     rating_rows = [
         {
             "run": run_id,
             "v": version_id,
             "team": team_ids[team],
-            "season": season,
-            "week": week,
-            "as_of": as_of,
+            "season": fitted.season,
+            "week": fitted.week,
+            "as_of": fitted.as_of,
             "rating": rating,
             "prior_weight": ratings.params.get("prior_weight"),
         }
@@ -336,6 +379,24 @@ def rate(
         )
     return RunSummary(run_id, "succeeded", len(rating_rows), len(prediction_rows))
 
+
+def rate(
+    lake: Lake,
+    conn: Connection,
+    spec: ModelSpec,
+    choices: Mapping[str, float],
+    *,
+    season: int,
+    week: int,
+    name: str,
+    version: str,
+    source: str | None = None,
+) -> RunSummary:
+    """`fit_week`, then `write` on `conn`."""
+    fitted = fit_week(lake, spec, choices, season=season, week=week)
+    return write(conn, fitted, spec, name=name, version=version, source=source)
+
+
 def publish(
     lake: Lake,
     url: str,
@@ -347,10 +408,8 @@ def publish(
     name: str,
     version: str,
 ) -> RunSummary:
-    """`rate` in one transaction on `url` (the target's direct URL, D-120)."""
+    """Fit with no connection open, then write in one transaction on `url` (the target's direct
+    URL, D-120), so the transaction lasts only as long as the inserts."""
+    fitted = fit_week(lake, spec, choices, season=season, week=week)
     with make_engine(url).begin() as conn:
-        return rate(
-            lake, conn, spec, choices, season=season, week=week, name=name, version=version
-        )
-
-
+        return write(conn, fitted, spec, name=name, version=version)

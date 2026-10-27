@@ -205,6 +205,10 @@ class _Broken:
         p = self.inner.predict(game, ratings, as_of)
         if self.how == "inf_margin":
             return Prediction(math.inf, p.margin_sd, p.home_win_prob, p.drivers)
+        if self.how == "zero_sd":  # finite, but margin_sd's CHECK refuses it
+            return Prediction(p.pred_margin, 0.0, p.home_win_prob, p.drivers)
+        if self.how == "prob_above_one":
+            return Prediction(p.pred_margin, p.margin_sd, 1.5, p.drivers)
         return p
 
 
@@ -214,6 +218,8 @@ class _Broken:
         ("raise", "the solve diverged"),
         ("nan_rating", "rating"),
         ("inf_margin", "pred_margin"),
+        ("zero_sd", "margin_sd"),
+        ("prob_above_one", "home_win_prob"),
     ],
 )
 def test_failed_fit_records_a_failed_run_without_outputs(
@@ -235,6 +241,49 @@ def test_failed_fit_records_a_failed_run_without_outputs(
     assert run["finished_at"] is not None
     assert _outputs(db_conn, summary.run_id) == ([], [])
     assert (summary.status, summary.ratings, summary.predictions) == ("failed", 0, 0)
+
+
+def test_canceled_and_postponed_games_are_not_predicted(
+    published: LocalLake, db_conn: Connection
+) -> None:
+    """A prediction is permanent, so a game that won't be played gets none."""
+    import pyarrow as pa
+    import pyarrow.parquet as pq
+
+    path = published.root / "staging" / "games.parquet"
+    games = pq.read_table(path).to_pylist()
+    week = [g for g in games if (g["season"], g["season_type"], g["week"]) == (2023, "regular", 5)]
+    off = {week[0]["source_id"]: "canceled", week[1]["source_id"]: "postponed"}
+    for g in games:
+        g["status"] = off.get(g["source_id"], g["status"])
+    pq.write_table(pa.Table.from_pylist(games, pq.read_schema(path)), path)
+
+    summary = _rate(published, db_conn)
+
+    predicted = db_conn.execute(
+        text(
+            "SELECT g.source_id FROM predictions p JOIN games g ON g.id = p.game_id"
+            " WHERE p.model_run_id = :r"
+        ),
+        {"r": summary.run_id},
+    ).scalars()
+    assert set(predicted) == {g["source_id"] for g in week} - set(off)
+
+
+def test_rate_refuses_a_version_whose_stored_spec_is_invalid(
+    published: LocalLake, db_conn: Connection
+) -> None:
+    db_conn.execute(
+        text(
+            "INSERT INTO model_versions (sport_id, market, name, version, spec,"
+            " spec_schema_version, created_by, status)"
+            " VALUES ('cfb', 'spread', :n, 'v1.0', '{\"base\": \"nope\"}', 1, 'user', 'dev')"
+        ),
+        {"n": NAME},
+    )
+
+    with pytest.raises(models.RateRefused, match="isn't a valid ModelSpec"):
+        _rate(published, db_conn)
 
 
 def _run_json(**overrides: Any) -> dict[str, Any]:
@@ -301,6 +350,27 @@ def test_rate_cli_refuses_a_tuned_spec_without_choices(
     assert "--choices" in capsys.readouterr().err
 
 
+def test_rate_cli_refuses_without_the_dev_url(
+    lake: LocalLake,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    run_file = tmp_path / "run.json"
+    run_file.write_text(json.dumps(_run_json()), "utf-8")
+    monkeypatch.delenv("DATABASE_URL_UNPOOLED", raising=False)
+    _refuse_postgres(monkeypatch)
+
+    code = engine(
+        "rate",
+        *("--spec", str(SPEC_FILE), "--choices", str(run_file)),
+        *("--season", "2023", "--week", "5", "--target", "dev"),
+    )
+
+    assert code == 2
+    assert "DATABASE_URL_UNPOOLED" in capsys.readouterr().err
+
+
 def test_rate_cli_publishes_through_one_transaction(
     lake: LocalLake,
     db_conn: Connection,
@@ -327,6 +397,15 @@ def test_rate_cli_publishes_through_one_transaction(
         opened.append(url)
         return _Engine()
 
+    steps: list[str] = []
+    fit_week = models.fit_week
+
+    def fit_first(*args: Any, **kwargs: Any) -> models.FittedWeek:
+        assert not opened, "the transaction opened before the fit"
+        steps.append("fit")
+        return fit_week(*args, **kwargs)
+
+    monkeypatch.setattr(models, "fit_week", fit_first)
     monkeypatch.setattr(models, "make_engine", make_engine)
     monkeypatch.setattr(models, "SOURCE", PUBLISH)
     monkeypatch.setenv("TEST_DATABASE_URL", "postgresql://test-host/cfb_test")
@@ -340,6 +419,7 @@ def test_rate_cli_publishes_through_one_transaction(
     )
 
     assert code == 0, capsys.readouterr().err
+    assert steps == ["fit"]
     assert opened == ["postgresql://test-host/cfb_test"]
     out = capsys.readouterr().out
     assert "succeeded" in out

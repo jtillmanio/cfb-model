@@ -27,15 +27,17 @@ SELECT
             ORDER BY t.rating DESC
         )
     END AS rank
-FROM team_ratings t
-LEFT JOIN team_seasons ts ON ts.team_id = t.team_id AND ts.season = t.season
-WHERE t.model_run_id = (
-    SELECT r.id
+FROM (
+    -- The newest succeeded run of each (version, season, week), picked once per week.
+    SELECT DISTINCT ON (r.model_version_id, r.season, r.week)
+        r.id, r.model_version_id, r.season, r.week
     FROM model_runs r
-    WHERE r.model_version_id = t.model_version_id
-        AND r.season = t.season
-        AND r.week = t.week
-        AND r.status = 'succeeded'
-    ORDER BY r.finished_at DESC NULLS LAST, r.id DESC
-    LIMIT 1
-);
+    WHERE r.status = 'succeeded' AND r.season IS NOT NULL
+    ORDER BY r.model_version_id, r.season, r.week, r.finished_at DESC NULLS LAST, r.id DESC
+) newest
+JOIN team_ratings t
+    ON t.model_run_id = newest.id
+    AND t.model_version_id = newest.model_version_id
+    AND t.season = newest.season
+    AND t.week = newest.week
+LEFT JOIN team_seasons ts ON ts.team_id = t.team_id AND ts.season = t.season;

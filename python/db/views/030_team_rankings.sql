@@ -21,9 +21,13 @@ SELECT
     p.rank AS previous_rank,
     p.rank - c.rank AS rank_change
 FROM latest_team_ratings c
-LEFT JOIN latest_team_ratings p
-    ON p.model_version_id = c.model_version_id
-    AND p.season = c.season
-    AND p.week = c.week - 1
-    AND p.team_id = c.team_id
+-- Lateral, so the week before is a parameter of the lookup and only that week is ranked.
+LEFT JOIN LATERAL (
+    SELECT prev.rank
+    FROM latest_team_ratings prev
+    WHERE prev.model_version_id = c.model_version_id
+        AND prev.season = c.season
+        AND prev.week = c.week - 1
+        AND prev.team_id = c.team_id
+) p ON true
 WHERE c.fbs;

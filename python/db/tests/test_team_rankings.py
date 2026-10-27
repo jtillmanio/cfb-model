@@ -112,9 +112,10 @@ def _scans(plan: dict[str, Any], relation: str) -> list[dict[str, Any]]:
 
 
 def assert_index_reads(conn: Connection, view: str) -> None:
-    """Every read of team_ratings for one team's week is an index lookup on its version's week
-    or its run (AC-4). With sequential scans priced out, a view that ranked every rating first
-    would still show a Seq Scan, or an index scan with no condition."""
+    """Every read of team_ratings for one team's week is an index lookup on one week of its
+    version or its run (AC-4). With sequential scans priced out, a view that ranked every rating
+    first would still show a Seq Scan, an index scan with no condition, or one on the version
+    alone (its whole history)."""
     version_id, team_id = conn.execute(
         text(
             "SELECT r.model_version_id, r.team_id FROM team_ratings r"
@@ -139,6 +140,7 @@ def assert_index_reads(conn: Connection, view: str) -> None:
         assert node["Node Type"] != "Seq Scan", node
         cond = node.get("Index Cond") or node.get("Recheck Cond") or ""
         assert "model_version_id" in cond or "model_run_id" in cond, node
+        assert "week" in cond, node
 
 
 def test_single_team_read_uses_index(db_conn: Connection):

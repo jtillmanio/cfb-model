@@ -277,6 +277,9 @@ def _rate(args: argparse.Namespace) -> None:
     try:
         choices = models.settings(spec, run, args.season)
         url = direct_url(args.target)
+    except (models.RateRefused, UnsafeDatabaseError, RuntimeError) as e:
+        _refuse(str(e))  # RuntimeError: the dev URL isn't set
+    try:
         summary = models.publish(
             open_lake(),
             url,
@@ -287,9 +290,9 @@ def _rate(args: argparse.Namespace) -> None:
             name=name,
             version=args.version,
         )
-    except (models.RateRefused, harness.RefusedError, UnsafeDatabaseError) as e:
+    except (models.RateRefused, harness.RefusedError) as e:
         _refuse(str(e))
-    except PointInTimeError as e:
+    except PointInTimeError as e:  # the lake's own check, run as it's loaded
         print(f"FAIL {e}")
         sys.exit(1)
     print(
