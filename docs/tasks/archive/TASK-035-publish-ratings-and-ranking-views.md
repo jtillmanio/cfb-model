@@ -74,7 +74,9 @@ _Work noticed during this task and deliberately left out. Each bullet ends `→ 
 - D-136: the rate command, `as_of`, run choice, FCS rule, SOS formula and failed-run rule; its revisit names postseason ratings, which need a `season_type` on `team_ratings` (approved at plan) → docs/decisions.md § D-136
 - `docs/03-data-model.md` › Views: rows for `latest_team_ratings`, `team_rankings` and `team_schedule_strength` with the agreed rules (approved at plan) → docs/03-data-model.md § Views
 - Schema review R2: a whole-week read of `team_rankings` re-ranks the week before once per team (bounded, index-backed; fine at this size) → docs/decisions.md § D-136 (revisit: the Rankings page reading a whole week)
-- Schema review R2: if backtest runs move into `model_runs` with a season and week, `latest_team_ratings` would pick one that has no ratings → docs/decisions.md § D-136 (revisit: filter to scheduled and ad-hoc runs)
+- Schema review R2: if backtest runs move into `model_runs` with a season and week, `latest_team_ratings` would pick one that has no ratings → fixed in the PR review round: the view reads scheduled and ad-hoc runs only (D-136)
+- PR review: the transform stages only `final` and `scheduled` (from CFBD's `completed`), so `rate`'s canceled/postponed filter never matches and a canceled game gets a permanent prediction → docs/08-tasklist.md § M4.8
+- PR review: `rate` re-reads staged `games` and re-derives a TBA kickoff in Python (`_kickoff`), a second copy of `features.KICKOFF` that could drift; `harness.load` could keep each week's staged contexts instead → docs/08-tasklist.md § M4.8
 - `docs/06-roadmap.md` › Phase 3's `picks` table + views item is only partly delivered (`team_rankings` and `team_schedule_strength` now exist; `picks`, `current_picks`, `pick_outcomes`, `model_record` don't) → not tracked: the roadmap item stays open and its picks tasks (M4.4–M4.6) will finish it
 - The manual dev-DB check (rate 2026's current week on dev, read the top 10) needs a backtest `run.json` that scored 2026 → not tracked: it's this task's Manual verification step, listed in the PR for the owner
 
@@ -87,9 +89,9 @@ _Approved by the owner 2026-10-27._
 2. **`as_of`** is the D-127 feature week's `as_of` (its first kickoff), so the fit sees what the backtest sees entering that week (answers TASK-034's open question; the fixture's Sunday `as_of` is test data only).
 3. **Regular season only**: `team_ratings` has no `season_type`, so postseason week 1 would collide with regular week 1.
 4. **FCS:** a row per FCS team at the pool's rating (what predictions use); ranks and SOS ranks cover FBS teams only (`team_seasons.division = 'fbs'`).
-5. **Run a view reads:** the newest `succeeded` run per (version, season, week), by `finished_at` DESC then `id` DESC. Ties: `RANK()` (1, 2, 2, 4).
+5. **Run a view reads:** the newest `succeeded` run per (version, season, week), by `finished_at` DESC then `id` DESC (scheduled and ad-hoc runs only, from the PR review). Ties: `RANK()` (1, 2, 2, 4).
 6. **SOS:** the mean over this season's `final` games finished (kickoff + 4 h; a TBA game kicks off at the end of its Eastern date) by the run's `as_of`, of the opponent's rating in the same run, + HFA when the opponent was at home, − HFA when away, 0 at a neutral site; HFA = that run's `fitted_params.home_field`. NULL with no game played, or when an opponent or HFA is missing. SOS rank 1 = the highest SOS.
-7. **Failure:** the fit and predictions run before any transaction. A raised error or a NaN/±Infinity output records one `failed` run with its error and no ratings or predictions, exit 1.
+7. **Failure:** the fit and predictions run before any transaction. A raised error or a NaN/±Infinity output records one `failed` run with its error and no ratings or predictions, exit 1. A point-in-time violation raises and writes nothing, exit 1 (from the PR review).
 8. **No new index:** a one-team read ranks its whole week through `(model_version_id, season, week)`; AC-4's reads filter version, team, season and week.
 
 **Steps**
@@ -123,6 +125,7 @@ _Filled by /implement-task. One line per round._
 - Verify R1 PASS (a42ffa3) | Audit R1 CHANGES (AC-4's README clause untested; season-filter mutant unchecked) → R2 PASS (3ef800f; it saw the SOS EXPLAIN test fail twice after a view re-apply, fixed in 486ebe4)
 - Spec R1 CHANGES (D-136 and 03's SOS NULL rule didn't match the view) | Schema R1 CHANGES (MAJOR: fit inside the transaction; MINOR: CHECK-range values, canceled games, per-row newest-run subquery, previous-week read, refusals) → fixed in 36717aa, Verify R2 PASS
 - Spec R2 APPROVE | Schema R2 APPROVE (MINOR: `prior_weight` range check untested, now tested; whole-week re-rank noted in D-136's revisit)
+- PR review (local `/code-review high`; the CI review job never ran): 8 findings. Fixed: a backtest run hiding a week's ratings, a point-in-time violation recorded as a failed fit, a malformed `--choices` crashing. Follow-ups: canceled games never staged, the second staged-games read. Skipped: refusals checked after the fit and the lateral re-rank (D-136's trade-offs), a `choices` param collision (no model emits one)
 
 ## Blocked
 
