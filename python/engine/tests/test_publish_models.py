@@ -199,6 +199,8 @@ class _Broken:
         if self.how == "nan_rating":
             team = next(iter(ratings.teams))
             return Ratings(ratings.as_of, {**ratings.teams, team: math.nan}, ratings.params)
+        if self.how == "prior_weight_above_one":  # finite, but prior_weight's CHECK refuses it
+            return Ratings(ratings.as_of, ratings.teams, {**ratings.params, "prior_weight": 1.5})
         return ratings
 
     def predict(self, game: GameContext, ratings: Ratings, as_of: datetime) -> Prediction:
@@ -220,6 +222,7 @@ class _Broken:
         ("inf_margin", "pred_margin"),
         ("zero_sd", "margin_sd"),
         ("prob_above_one", "home_win_prob"),
+        ("prior_weight_above_one", "prior_weight"),
     ],
 )
 def test_failed_fit_records_a_failed_run_without_outputs(
