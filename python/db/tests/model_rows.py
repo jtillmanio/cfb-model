@@ -63,17 +63,19 @@ def run(
     status: str = "succeeded",
     finished_at: datetime | None = None,
     home_field: float | None = 3.0,
+    run_type: str = "adhoc",
 ) -> int:
     params = None if home_field is None else json.dumps({"home_field": home_field})
     return conn.execute(
         text(
             "INSERT INTO model_runs (model_version_id, run_type, season, week, as_of, status,"
             " started_at, finished_at, fitted_params)"
-            " VALUES (:v, 'adhoc', :season, :week, :as_of, :status, :as_of, :finished,"
+            " VALUES (:v, :run_type, :season, :week, :as_of, :status, :as_of, :finished,"
             " CAST(:params AS jsonb)) RETURNING id"
         ),
         {
             "v": version_id,
+            "run_type": run_type,
             "season": SEASON,
             "week": week,
             "as_of": as_of,

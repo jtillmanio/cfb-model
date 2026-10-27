@@ -52,6 +52,25 @@ def test_newest_succeeded_run_is_ranked(db_conn: Connection):
     assert all(r["previous_rank"] is None and r["rank_change"] is None for r in ranks.values())
 
 
+def test_a_newer_backtest_run_of_the_week_doesnt_hide_its_ratings(db_conn: Connection):
+    """A backtest run may carry a season and week (0003's CHECK) but writes no team_ratings, so
+    only scheduled and ad-hoc runs are read."""
+    m.sport(db_conn)
+    a, b = m.team(db_conn, "a"), m.team(db_conn, "b")
+    v = m.version(db_conn)
+    as_of = m.utc(2030, 9, 5, 16)
+    rated = m.run(db_conn, v, 1, as_of, finished_at=as_of + timedelta(hours=1))
+    m.run(db_conn, v, 1, as_of, run_type="backtest", finished_at=as_of + timedelta(hours=2))
+    m.ratings(db_conn, rated, v, 1, as_of, {a: 2.0, b: 1.0})
+
+    ranks = _rankings(db_conn, v, 1)
+
+    assert {t: (r["rank"], r["model_run_id"]) for t, r in ranks.items()} == {
+        a: (1, rated),
+        b: (2, rated),
+    }
+
+
 def test_change_is_last_weeks_rank_minus_this_weeks(db_conn: Connection):
     """AC-2: FBS teams only; ties share a rank; a team new to the ranks has no change."""
     m.sport(db_conn)
