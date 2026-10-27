@@ -1,7 +1,7 @@
 ---
 id: TASK-034
 title: Add model_versions, model_runs, team_ratings and predictions
-status: Review
+status: Done
 depends_on: [TASK-029]
 size: M
 model: opus
