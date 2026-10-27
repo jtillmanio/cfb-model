@@ -21,7 +21,8 @@ SELECT
     p.rank AS previous_rank,
     p.rank - c.rank AS rank_change
 FROM latest_team_ratings c
--- Lateral, so the week before is a parameter of the lookup and only that week is ranked.
+-- Lateral, so the week before is a parameter of the lookup. The planner may still read it
+-- through the version's season in the (model_version_id, season, week) index (CI's does).
 LEFT JOIN LATERAL (
     SELECT prev.rank
     FROM latest_team_ratings prev
