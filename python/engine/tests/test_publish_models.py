@@ -25,6 +25,7 @@ from engine.ingest.lake import LocalLake
 from engine.publish import models
 from engine.publish.staging import publish_lake
 from engine.transform import rebuild
+from engine.transform.features import PointInTimeError
 
 PUBLISH = "manual"
 NAME = "pytest-power"
@@ -246,6 +247,20 @@ def test_failed_fit_records_a_failed_run_without_outputs(
     assert (summary.status, summary.ratings, summary.predictions) == ("failed", 0, 0)
 
 
+def test_a_point_in_time_violation_raises_and_writes_nothing(
+    published: LocalLake, db_conn: Connection, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Hard rule 4: a fit given a game that hadn't finished by `as_of` fails the check; it isn't
+    recorded as an ordinary failed fit."""
+    runs = db_conn.execute(text("SELECT count(*) FROM model_runs")).scalar_one()
+    monkeypatch.setattr(harness, "fit_games", lambda history, as_of: history.results)
+
+    with pytest.raises(PointInTimeError, match="point-in-time"):
+        _rate(published, db_conn)
+
+    assert db_conn.execute(text("SELECT count(*) FROM model_runs")).scalar_one() == runs
+
+
 def test_canceled_and_postponed_games_are_not_predicted(
     published: LocalLake, db_conn: Connection
 ) -> None:
@@ -307,9 +322,13 @@ def test_settings_of_a_resolved_spec_need_no_run() -> None:
         (None, "--choices"),
         (_run_json(spec_hash="0" * 64), "different spec"),
         (_run_json(choices={"2022": CHOICES}), "2023"),
+        ([CHOICES], "isn't a backtest run"),
+        (_run_json(choices=[CHOICES]), "isn't a backtest run"),
+        (_run_json(choices={str(SEASON): [1.0]}), "isn't a backtest run"),
+        (_run_json(choices={str(SEASON): {path: "high" for path in CHOICES}}), "isn't a number"),
     ],
 )
-def test_settings_refuse(run: dict[str, Any] | None, match: str) -> None:
+def test_settings_refuse(run: Any, match: str) -> None:
     with pytest.raises(models.RateRefused, match=match):
         models.settings(SPEC, run, SEASON)
 

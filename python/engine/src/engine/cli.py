@@ -292,7 +292,7 @@ def _rate(args: argparse.Namespace) -> None:
         )
     except (models.RateRefused, harness.RefusedError) as e:
         _refuse(str(e))
-    except PointInTimeError as e:  # the lake's own check, run as it's loaded
+    except PointInTimeError as e:  # the lake's check as it's loaded, or the fit's (nothing written)
         print(f"FAIL {e}")
         sys.exit(1)
     print(
