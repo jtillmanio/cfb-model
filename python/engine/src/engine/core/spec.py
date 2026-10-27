@@ -8,6 +8,8 @@ model-builder form, so the form can't offer what the engine doesn't support.
   by dotted path and `resolve()` fixes each to one; a model is built from a resolved spec.
 - `base` is the rating family: `power` rates game margins only (Rung 1) and takes no inputs;
   `efficiency` (Rung 2, M4.1) rates the registry inputs it lists.
+- `shrink_toward` is what a rating is pulled toward with little data (04 § 10.4): `zero`, the
+  average team, or `tier`, the level of the team's group (CFB: Power 4, G5, FCS).
 - `spec_schema_version` travels inside the spec, so a stored spec says which shape it has. A new
   optional field whose default reproduces the old behaviour keeps the version; changing what an
   existing field means bumps it.
@@ -171,6 +173,7 @@ class ModelSpec(_Frozen):
     inputs: tuple[Input, ...] = ()
     hyperparameters: Hyperparameters = Field(default_factory=Hyperparameters)
     home_field: Weight = "fit"
+    shrink_toward: Literal["zero", "tier"] = "zero"
     prior: Prior | None = None
     distribution: Literal["normal", "empirical"] = "normal"
     picks: PickRules

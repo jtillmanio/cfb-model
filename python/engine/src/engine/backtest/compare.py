@@ -11,6 +11,9 @@ The model beats a baseline when the week-level paired bootstrap's 95% interval o
 error minus the baseline's lies entirely below zero (`bootstrap.compare`). The bars of 04 § 9.6
 for Rung 1 are home field only and last season carried over; the closing line and SP+/FPI are
 reported alongside.
+
+`runs` pairs any two stored runs the same way (`engine compare`), e.g. Rung 2 against Rung 1 or
+`shrink_toward: tier` against `zero` (TASK-036).
 """
 
 from __future__ import annotations
@@ -96,3 +99,43 @@ def versus(name: str, model: Sequence[Row], baseline: Sequence[Row]) -> Versus:
 
 def compare(model: Sequence[Row], runs: Mapping[str, BacktestRun]) -> list[Versus]:
     return [versus(name, model, run.rows) for name, run in runs.items()]
+
+
+@dataclass(frozen=True, slots=True)
+class RunVersus:
+    """`engine compare A B` (TASK-036): two stored runs on the games both scored."""
+
+    games: int
+    only_a: int  # games A scored and B didn't, left out
+    only_b: int
+    mae_a: float
+    mae_b: float
+    difference: bootstrap.Interval  # A's absolute error minus B's: below zero favors A
+
+    @property
+    def verdict(self) -> str:
+        if self.difference.beats:
+            return "A beats B"
+        if self.difference.low > 0:
+            return "B beats A"
+        return "no clear difference (the interval includes zero)"
+
+
+def runs(a: Sequence[Mapping[str, Any]], b: Sequence[Mapping[str, Any]]) -> RunVersus:
+    """Pair two runs by game, e.g. Rung 2 against Rung 1, or one spec against a variant of it
+    (04 § 9.5)."""
+    in_b = {r["game_source_id"] for r in b}
+    in_a = {r["game_source_id"] for r in a}
+    shared = in_a & in_b
+    if not shared:
+        raise ValueError("the runs share no game")
+    mine = [r for r in a if r["game_source_id"] in shared]
+    theirs = [r for r in b if r["game_source_id"] in shared]
+    return RunVersus(
+        games=len(shared),
+        only_a=len(in_a - in_b),
+        only_b=len(in_b - in_a),
+        mae_a=_mae(mine),
+        mae_b=_mae(theirs),
+        difference=bootstrap.compare(mine, theirs),
+    )

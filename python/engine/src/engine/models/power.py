@@ -85,6 +85,8 @@ class PowerRatings:
         hp = spec.hyperparameters
         if hp.ridge_alpha is not None and fixed(hp.ridge_alpha, "ridge_alpha") != 0:
             raise UnsupportedSpecError("Rung 1 is plain least squares: ridge_alpha is Rung 2's")
+        if spec.shrink_toward != "zero":
+            raise UnsupportedSpecError("Rung 1 has no ridge: shrink_toward is Rung 2's")
         self.rules = rules
         self.cap = None if hp.margin_cap is None else fixed(hp.margin_cap, "margin_cap")
         self.half_life = (

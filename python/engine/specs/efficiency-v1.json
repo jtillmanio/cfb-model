@@ -1,0 +1,30 @@
+{
+  "spec_schema_version": 1,
+  "base": "efficiency",
+  "inputs": [
+    {"stat": "epa_per_play", "weight": "fit"},
+    {"stat": "rush_epa_per_play", "weight": "fit"},
+    {"stat": "pass_epa_per_play", "weight": "fit"},
+    {"stat": "success_rate", "weight": "fit"},
+    {"stat": "rush_success_rate", "weight": "fit"},
+    {"stat": "pass_success_rate", "weight": "fit"}
+  ],
+  "hyperparameters": {
+    "ridge_alpha": {"tune": [0.5, 1, 2]},
+    "recency_half_life_weeks": {"tune": [8, 16]}
+  },
+  "home_field": "fit",
+  "shrink_toward": "tier",
+  "prior": {
+    "components": ["last_season"],
+    "regression": {"tune": [0.1, 0.2]},
+    "decay": {"type": "linear", "zero_at_week": {"tune": [9, 12]}}
+  },
+  "distribution": "normal",
+  "picks": {
+    "min_edge_pts": 3.0,
+    "min_prob": 0.55,
+    "market_shrinkage_k": 1.0,
+    "tiers": {"A": 5.0, "B": 3.5, "C": 2.5}
+  }
+}

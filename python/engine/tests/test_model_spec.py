@@ -102,6 +102,23 @@ def test_the_family_decides_whether_inputs_are_allowed() -> None:
     assert refused(SKETCH | {"inputs": [SKETCH["inputs"][0]] * 2}) == {("inputs",)}
 
 
+def test_shrink_toward_defaults_to_zero_and_takes_tier() -> None:
+    """TASK-036 (04 § 10.4): a new optional field whose default keeps the old behaviour, so the
+    schema version stays 1 (D-130)."""
+    assert ModelSpec.model_validate(SKETCH).shrink_toward == "zero"
+    assert ModelSpec.model_validate(SKETCH | {"shrink_toward": "tier"}).shrink_toward == "tier"
+    assert refused(SKETCH | {"shrink_toward": "conference"}) == {("shrink_toward",)}  # M19.1
+    assert ModelSpec.model_validate(SKETCH | {"shrink_toward": "tier"}).spec_schema_version == 1
+
+
+def test_rung_1_refuses_to_shrink_toward_a_tier() -> None:
+    from engine.models.power import PowerRatings, UnsupportedSpecError
+    from engine.sports.cfb.teams import RULES
+
+    with pytest.raises(UnsupportedSpecError, match="shrink_toward"):
+        PowerRatings(ModelSpec.model_validate(POWER | {"shrink_toward": "tier"}), RULES)
+
+
 def test_tiers_must_descend() -> None:
     tiers = {"A": 3.0, "B": 3.5, "C": 2.5}
     assert refused(SKETCH | {"picks": SKETCH["picks"] | {"tiers": tiers}}) == {("picks", "tiers")}

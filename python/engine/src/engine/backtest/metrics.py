@@ -594,8 +594,7 @@ def contest(games: Sequence[Graded], picks: int = CONTEST_PICKS) -> Contest:
 def breakdown(
     name: str, games: Sequence[Graded], key: Callable[[Graded], str], order: Sequence[str] = ()
 ) -> Breakdown:
-    """Accuracy and picks by any per-game key; groups in `order`, then the rest by label.
-    M4.1's conference tier is one more key (04 § 10.4)."""
+    """Accuracy and picks by any per-game key; groups in `order`, then the rest by label."""
     grouped: dict[str, list[Graded]] = defaultdict(list)
     for g in games:
         grouped[key(g)].append(g)
@@ -649,14 +648,21 @@ def summary(games: Sequence[Graded]) -> Summary:
     )
 
 
+TIER_BREAKDOWN = "Conference tier"
+
+
 def compute(
     rows: Iterable[Mapping[str, Any]],
     spec: ModelSpec,
     choices: Mapping[int, Choices],
     *,
     holdout: bool = False,
+    tier: tuple[Callable[[Mapping[str, Any]], str], Sequence[str]] | None = None,
 ) -> Metrics:
-    """Every § 9.4 row the run's rows support."""
+    """Every § 9.4 row the run's rows support. `tier` is the sport's labeller of a row's
+    conference-tier matchup and the order its labels show in (04 § 10.4); without it the
+    breakdown is left out."""
+    rows = list(rows)
     games = grade_rows(rows, spec, choices)
     if not games:
         raise ValueError("the run has no rows")
@@ -668,6 +674,19 @@ def compute(
     at_open = [g for g in opened if g.open_pick is not None]
     clvs = [c for g in at_open if (c := g.clv) is not None]
     post = [g for g in games if g.postseason]
+    breakdowns = [
+        breakdown("Week of season", games, week_group, WEEK_GROUPS),
+        breakdown("Spread size (closing, either side)", games, spread_group, SPREAD_GROUPS),
+        breakdown(
+            "Favorite or underdog (the side the model likes)", games, side_group, SIDE_GROUPS
+        ),
+    ]
+    if tier is not None:
+        label, order = tier
+        labels = {r["game_source_id"]: label(r) for r in rows}
+        breakdowns.insert(
+            1, breakdown(TIER_BREAKDOWN, games, lambda g: labels[g.game_source_id], order)
+        )
     return Metrics(
         games=len(games),
         seasons=tuple(sorted({g.season for g in games})),
@@ -684,13 +703,7 @@ def compute(
         pick_buckets=buckets(((g.edge, g.result) for g in picked), PICK_BUCKETS, below="Under 2.5"),
         contest=contest(games),
         win_probability=win_probability_score(games),
-        breakdowns=(
-            breakdown("Week of season", games, week_group, WEEK_GROUPS),
-            breakdown("Spread size (closing, either side)", games, spread_group, SPREAD_GROUPS),
-            breakdown(
-                "Favorite or underdog (the side the model likes)", games, side_group, SIDE_GROUPS
-            ),
-        ),
+        breakdowns=tuple(breakdowns),
         postseason=summary(post) if post else None,
         holdout=holdout,
     )

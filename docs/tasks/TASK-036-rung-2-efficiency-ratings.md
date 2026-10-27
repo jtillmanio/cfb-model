@@ -1,14 +1,14 @@
 ---
 id: TASK-036
 title: Build Rung 2 ridge efficiency ratings and the margin model
-status: Ready
+status: In progress
 depends_on: [TASK-033, TASK-035]
 size: M
 model: opus
 autonomy: attended
 ui: false
-plan_status: none
-planned_at_commit:
+plan_status: approved
+planned_at_commit: 9151ead
 ---
 
 # TASK-036 — Build Rung 2 ridge efficiency ratings and the margin model
@@ -82,9 +82,43 @@ Every team gets an offense and a defense rating for each efficiency stat, adjust
 
 _Work noticed during this task and deliberately left out. Each bullet ends `→ <path> § <section>` (where it was placed) or `→ not tracked: <reason>`. See `.claude/skills/track-follow-ups/classify.md`; the PR's Follow-ups section is copied from here._
 
+- The per-stat offense and defense ratings and the margin model's `b_off`/`b_def` coefficients live inside the efficiency fit; M4.3 exposes each unit in points and writes them to `team_ratings` → docs/tasks/TASK-038-points-drivers-empirical-margin.md § Context (approved at plan)
+- Under `shrink_toward: tier` the prior regresses toward the team's tier level, not zero; fitted priors should keep that → docs/tasks/TASK-037-preseason-priors.md § Context (approved at plan)
+
 ## Plan
 
-_Written by /plan-batch or /implement-task Phase 1. Approved by the user (plan_status: approved) before any code is written._
+_Approved by the owner 2026-10-27, with AC-4's golden run on the fixture generator extended to 2021–2023 (option a)._
+
+**Model** (`engine/models/efficiency.py`, built from an `efficiency` spec and the sport's `Rules`, like Rung 1):
+
+1. **Per-stat ridge, this season's games.** For each spec input, `stat = μ + off_O − def_D + h·s + tier_O − tier_D`, `s` = +1 home offense, −1 away offense, 0 neutral. `μ`, `h` and the tier terms (under `tier`) are unpenalized; team offense and defense are penalized by `ridge_alpha`. Rows are recency-weighted (half-life before `as_of`). One `lstsq` on the augmented system solves every stat at once (shared design matrix; an observation missing any spec stat is dropped). Ratings are then shifted so FBS teams average zero, per stat and side. FCS is one pooled unit (Rung 1, D-134); under `tier` it sits in the FCS tier.
+2. **Prior.** Last season's final per-stat ratings, regressed by `prior.regression` toward 0 (`zero`) or toward their tier's level (`tier`), blended with Rung 1's linear decay. A team that hasn't played keeps its prior; a newcomer starts from the FCS pool's prior; with no prior, an unseen team rates at its anchor (0, or its tier's fitted level).
+3. **Margin model.** `pred = HFA·(not neutral) + Σₖ b_offₖ·(offₖ,home − offₖ,away) + b_defₖ·(defₖ,home − defₖ,away)`: symmetric, no intercept, fit by OLS on the FBS-vs-FBS final games of every season before Y, from the ratings entering each game's week; refit once a season; σ = RMSE of its residuals. `home_field` fit or fixed sets HFA. It collapses to one points rating per team, `Rₜ = Σ b_off·off + b_def·def`, so `Ratings.teams` and `predict` keep Rung 1's shape; drivers stay coarse (M4.3). No earlier season → refused (exit 2). The fit asserts every training game's season is before Y (`PointInTimeError`).
+4. **Run time.** Each model caches its weekly fits; the factory reuses one model per resolved spec and the model clears its caches when handed a new input.
+
+**Plumbing:**
+
+5. **Spec** (`core/spec.py`): top-level `shrink_toward: "zero" | "tier"`, default `zero`, schema version stays 1 (D-130). Rung 1 refuses `tier`. An efficiency input with a fixed nonzero weight is refused; weight 0 drops it.
+6. **Tier map** (`sports/cfb/teams.py`): `tier(season, team, conference, classification)` → Power 4 (ACC, Big Ten, Big 12, SEC, Pac-12 through 2023, Notre Dame id 87), G5 (AAC, C-USA, MAC, Mountain West, Sun Belt, other FBS independents, Pac-12 from 2024), FCS (not FBS); an unknown FBS conference raises. `engine tiers --seasons 2014-2025` prints counts per tier and every unmapped team-season (exit 1 if any).
+7. **Conferences** (`core/interfaces.py`, `backtest/harness.py`): `GameContext` gains keyword-only `home_group`/`away_group` (the team's league that season as the source labels it), filled from staged `team_seasons`; `predictions.parquet` gains both columns (03 › Lake layout › Backtests; the two golden CSVs and the report golden JSON regenerate for it). `metrics.compute` takes an optional tier function and adds a "Conference tier" breakdown (Power 4 vs Power 4, Power 4 vs G5, G5 vs G5); the CLI passes CFB's.
+8. **Fit input `team_game_stats`** (`harness.py`, `publish/models.py`): staged `team_game_advanced` (garbage time excluded) joined to staged games, one row per team-game offense, handed over through `use()`. The model reads rows only through `finished_by(as_of)`, which selects by `SELECT_LAG` and raises `PointInTimeError` on any row whose game hadn't finished. `engine rate` hands it over too.
+9. **`engine compare RUN_A RUN_B`** (`cli.py`, `backtest/compare.py`): the week bootstrap of A's absolute error minus B's on the games both scored, for AC-5 and AC-6.
+10. **`engine/specs/efficiency-v1.json`**: the six § 10.2 inputs, weights `fit`, `shrink_toward` per AC-5; grid α {2, 5, 12}, half-life {8, 16, 32}, regression {0.2, 0.3}, Z {12, 16}; widened once if seasons keep picking an edge (as D-134).
+11. **Docs**: 04 § 2 Rung 2 and § 10.4 (how it's built, the AC-5 result), 03 › Backtests (new columns), a D-### row (design, tier map, results).
+
+**Files:** `models/efficiency.py` (new), `backtest/__init__.py`, `backtest/harness.py`, `backtest/metrics.py`, `backtest/compare.py`, `core/spec.py`, `core/interfaces.py`, `sports/cfb/teams.py` (tier map here, not a new `tiers.py`), `cli.py`, `publish/models.py`, `specs/efficiency-v1.json` (new); tests `test_efficiency_ratings.py` (new; AC-1, AC-3 incl. both leak tests, AC-4 golden and re-run), `test_conference_tiers.py` (new; AC-2), `test_backtest_metrics.py`, `test_model_spec.py`, `test_backtest_compare.py`, `fixtures/backtest_efficiency_golden.csv` (new); regenerated `fixtures/backtest_golden.csv`, `backtest_power_golden.csv`, `backtest_report_golden.json`; docs 03, 04, decisions. Not touched: `models/__init__.py` is folded in only if its docstring needs it; `test_backtest_leakage.py` (the stats leak test lives with AC-3). Size: 20 hand-edited files plus 3 regenerated fixtures; kept whole (owner, 2026-10-27).
+
+*As built:* `models/power.py` also changed (Rung 1's refusal of `tier`, step 5) and `models/__init__.py`'s docstring (it named Rung 1 only); `backtest_report_golden.json` didn't change (its test computes metrics without the tier labeller). The grid was widened once (step 10): see D-137.
+
+**Test strategy:**
+- AC-1 → `test_efficiency_ratings.py::test_noiseless_ratings_are_recovered_at_alpha_zero`, `::test_ridge_pulls_a_two_game_team_harder_than_an_eight_game_team`
+- AC-2 → `test_conference_tiers.py` (Pac-12 2023 vs 2024 members, Notre Dame every season, unknown conference raises, `engine tiers` on a fixture lake), `test_efficiency_ratings.py::test_an_unseen_team_rates_at_its_anchor` (tier vs zero); manual: `engine tiers --seasons 2014-2025` on the local lake prints 0 unmapped
+- AC-3 → `test_efficiency_ratings.py::test_noiseless_margin_coefficients_are_recovered`, `::test_a_margin_fit_given_a_game_from_the_predicted_season_fails`, `::test_a_stat_row_whose_game_had_not_finished_fails`
+- AC-4 → `test_efficiency_ratings.py::test_the_efficiency_backtest_matches_the_golden_file` (fixture 2021–2023, `efficiency-v1.json`, scoring 2023 tuned on 2022, run twice byte-identical), `test_backtest_metrics.py::test_tier_breakdown_counts_add_up_to_the_games`; manual: the local-lake run
+- AC-5, AC-6 → manual: local-lake runs of `tier`, `zero` and `power-v1.json` on 2016–2023, then `engine compare`; recorded in the D-row and 04 § 10.4
+- `test_model_spec.py`: `shrink_toward` default, values, Rung 1's refusal; `test_backtest_compare.py`: `engine compare` on two fixture runs
+
+**Risks:** run time of the grid (cache per spec; grid cut if over ~15 minutes a run); collinear inputs make `b_off`/`b_def` individually unstable (predictions aren't); Rung 2 may not beat Rung 1 (AC-6 path).
 
 ## Review log
 

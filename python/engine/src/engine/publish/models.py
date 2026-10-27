@@ -215,6 +215,7 @@ def fit_week(
     as_of, games = _week(lake, history, season, week)
     model = factory(resolved)
     harness.check_reads(model)
+    harness.give_inputs(model, history)
 
     started = clock.now()
     fitted = _fit(model, history, harness.Week(season, SEASON_TYPE, week, as_of, ()), games)

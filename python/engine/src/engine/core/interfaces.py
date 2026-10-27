@@ -32,6 +32,10 @@ class GameContext:
     # pool the levels it can't rate one team at a time. None when the source doesn't say.
     home_classification: str | None = field(default=None, kw_only=True)
     away_classification: str | None = field(default=None, kw_only=True)
+    # Each team's league that season, as the source labels it (CFB: its conference); a model may
+    # map it to the group it shrinks toward. None when the source doesn't say.
+    home_group: str | None = field(default=None, kw_only=True)
+    away_group: str | None = field(default=None, kw_only=True)
 
 
 @dataclass(frozen=True, slots=True)

@@ -170,6 +170,7 @@ def _backtest(args: argparse.Namespace, seasons: list[int]) -> None:
     from engine.backtest import compare, harness, holdout
     from engine.core.spec import ModelSpec
     from engine.ingest.lake import open_lake
+    from engine.models.efficiency import NoEarlierSeasonError
     from engine.transform.features import PointInTimeError
 
     try:
@@ -201,7 +202,7 @@ def _backtest(args: argparse.Namespace, seasons: list[int]) -> None:
             else {}
         )
         versus = compare.compare(result.rows, others)  # before anything is written
-    except harness.RefusedError as e:
+    except (harness.RefusedError, NoEarlierSeasonError) as e:
         _refuse(str(e))
     except PointInTimeError as e:
         print(f"FAIL {e}")
@@ -237,12 +238,77 @@ def _backtest(args: argparse.Namespace, seasons: list[int]) -> None:
     if args.report:
         from engine.backtest import metrics, report
 
-        scored = metrics.compute(result.rows, spec, result.choices, holdout=opened)
+        tier = (backtest.matchup_tier, backtest.TIER_MATCHUPS)
+        scored = metrics.compute(result.rows, spec, result.choices, holdout=opened, tier=tier)
         run = {"model": name, "spec_hash": harness.spec_hash(spec), "tune_from": args.tune_from}
         md, page = report.write(Path(args.report), scored, {**run, "folder": folder}, versus)
         for gate_name, gate in scored.gates:  # the details hold − and ≤, which cp1252 lacks
             print(f"  {gate.status.upper():4} {gate_name}")
         print(f"Wrote {md} and {page}")
+
+
+def _compare_runs(first: str, second: str) -> None:
+    """Pair two stored backtest runs by game; exit 2 if either is missing or they share none."""
+    import io
+
+    import pyarrow.parquet as pq
+
+    from engine.backtest import compare
+    from engine.ingest.lake import open_lake
+
+    lake = open_lake()
+    rows = []
+    for folder in (first, second):
+        key = f"{folder.rstrip('/')}/predictions.parquet"
+        if key not in lake.list(folder.rstrip("/")):
+            _refuse(f"{key} isn't in the lake")
+        rows.append(pq.read_table(io.BytesIO(lake.read(key))).to_pylist())
+    try:
+        v = compare.runs(*rows)
+    except ValueError as e:
+        _refuse(str(e))
+    d = v.difference  # ASCII only: a cp1252 console can't print the minus sign
+    print(f"A {first}: MAE {v.mae_a:.2f}")
+    print(f"B {second}: MAE {v.mae_b:.2f}")
+    print(f"{v.games} shared games ({v.only_a} only in A, {v.only_b} only in B left out)")
+    print(f"A - B: {d.estimate:+.3f} [{d.low:+.3f}, {d.high:+.3f}] (95%, weeks resampled)")
+    print(v.verdict)
+
+
+def _tiers(seasons: list[int]) -> None:
+    """Map every staged FBS team-season to a tier; exit 1 if any is unmapped."""
+    import io
+    from collections import Counter
+
+    import pyarrow.parquet as pq
+
+    from engine.ingest.lake import open_lake
+    from engine.sports.cfb.teams import UnmappedConferenceError, tier_of
+    from engine.transform import staging_key
+
+    lake = open_lake()
+    key = staging_key("team_seasons")
+    if key not in lake.list(key.rpartition("/")[0]):
+        _refuse(f"{key} isn't in the lake: run engine transform --rebuild first")
+    rows = pq.read_table(io.BytesIO(lake.read(key))).to_pylist()
+    counts: Counter[str] = Counter()
+    unmapped = []
+    for r in rows:
+        if r["classification"] != "fbs" or r["season"] not in seasons:
+            continue
+        try:
+            counts[tier_of(r["season"], int(r["team_source_id"]), r["conference"], "fbs")] += 1
+        except UnmappedConferenceError:
+            unmapped.append(f"{r['season']} team {r['team_source_id']} ({r['conference']})")
+    total = sum(counts.values()) + len(unmapped)
+    print(f"{total} FBS team-seasons {seasons[0]}-{seasons[-1]}:")
+    for tier, n in sorted(counts.items()):
+        print(f"  {tier}: {n}")
+    print(f"{len(unmapped)} unmapped")
+    for line in unmapped:
+        print(f"  {line}")
+    if unmapped:
+        sys.exit(1)
 
 
 def _rate(args: argparse.Namespace) -> None:
@@ -446,6 +512,25 @@ def main(argv: list[str] | None = None) -> None:
         "same games (04 § 9.5-9.6); the report gains the comparison",
     )
 
+    cmp = commands.add_parser(
+        "compare",
+        help="Compare two stored backtest runs on the games both scored (paired bootstrap)",
+        description="Reads backtests/<run>/predictions.parquet for each run in LAKE_URI and "
+        "prints each MAE and A's absolute error minus B's with its 95% interval, whole weeks "
+        "resampled (docs/04-model.md § 9.5). Exits 2 if a run is missing or they share no game.",
+    )
+    cmp.add_argument("first", metavar="RUN_A", help="e.g. backtests/20261027T120000000000Z-abc")
+    cmp.add_argument("second", metavar="RUN_B")
+
+    tiers = commands.add_parser(
+        "tiers",
+        help="Check every staged FBS team-season maps to a conference tier",
+        description="Reads staging/team_seasons.parquet and prints each tier's count (Power 4, "
+        "G5) and every FBS team-season whose conference has no tier (docs/04-model.md § 10.4). "
+        "Exits 1 if any is unmapped.",
+    )
+    tiers.add_argument("--seasons", required=True, metavar="FIRST-LAST", help="e.g. 2014-2025")
+
     rate = commands.add_parser(
         "rate",
         help="Fit a model entering one week and publish the run, ratings and predictions",
@@ -533,6 +618,13 @@ def main(argv: list[str] | None = None) -> None:
         seasons = _season_range(bt, args.seasons)
         load_env()
         _backtest(args, seasons)
+    elif args.command == "compare":
+        load_env()
+        _compare_runs(args.first, args.second)
+    elif args.command == "tiers":
+        seasons = _season_range(tiers, args.seasons)
+        load_env()
+        _tiers(seasons)
     elif args.command == "rate":
         load_env()  # before the LIVE check, so a LIVE in .env.local counts
         _rate(args)
