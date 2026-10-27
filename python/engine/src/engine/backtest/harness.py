@@ -16,11 +16,17 @@ with one `as_of`, the first bowl's kickoff: a later CFP round is predicted from 
 entering the bowls. That's leak-free and slightly stale (D-127's revisit).
 
 **Inputs.** A model declares what it reads (`reads`). Only `FIT_INPUTS` are given; hindsight
-ratings and market lines are refused by name (D-056, 04 § 9.2). A Rung 0 baseline (`baseline =
-True`, D-133) may also read `BASELINE_INPUTS`, the closing lines and the staged benchmark
-ratings: it's a bar to beat, never a fitted model, and it gets them through `use(inputs)`, only
-those it declared. Learned weights are the model's own: it's fit with `fit(games, as_of)` each
-week, and refits what it learns once a season itself.
+ratings and market lines are refused by name (D-056, 04 § 9.2). `games` arrive through
+`fit(games, as_of)`; any other fit input it declared arrives once through `use(inputs)` and hands
+out only what finished by an `as_of`, asserting it (`TeamGameStats.finished_by`). A Rung 0
+baseline (`baseline = True`, D-133) may also read `BASELINE_INPUTS`, the closing lines and the
+staged benchmark ratings: it's a bar to beat, never a fitted model, and it gets them through
+`use(inputs)` too, only those it declared. Learned weights are the model's own: it's fit with
+`fit(games, as_of)` each week, and refits what it learns once a season itself.
+
+**Groups.** Each game carries each team's conference that season from staged `team_seasons`
+(`home_group`, `away_group`), for a model that shrinks toward a team's tier and for the report's
+conference-tier breakdown (TASK-036). A season's conferences are set before it starts.
 """
 
 from __future__ import annotations
@@ -37,6 +43,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Any, Literal, Protocol, cast
 
 from engine.backtest.holdout import HOLDOUT_SEASONS
+from engine.core.inputs import INPUTS
 from engine.core.interfaces import GameContext, GamePredictor, GameResult, RatingModel
 from engine.core.spec import ModelSpec
 from engine.ingest.lake import Lake
@@ -49,7 +56,8 @@ TUNE_FROM = 2015  # 2014 is warm-up only (04 § 9.1)
 # same expression as `earliest` in the features SQL (`transform/features.py`): keep them equal.
 EARLIEST = "coalesce(kickoff_at, timezone('America/New_York', CAST(game_date AS TIMESTAMP)))"
 
-FIT_INPUTS = frozenset({"games"})
+# `team_game_stats`: each team-game's offense in staged `team_game_advanced` (TASK-036).
+FIT_INPUTS = frozenset({"games", "team_game_stats"})
 # What only a baseline may read (D-133): the closing spread of every staged game with a line, by
 # game id, and the staged benchmark ratings. Each baseline filters them to what it may know.
 BASELINE_INPUTS = frozenset({"closing_lines", "benchmark_ratings"})
@@ -143,6 +151,41 @@ class BenchmarkInput:
 
 
 @dataclass(frozen=True, slots=True)
+class TeamGameStat:
+    """One team's offense in one final game, garbage time excluded: the observation a defense
+    is rated on too (its opponent's offense)."""
+
+    game_id: int
+    season: int
+    kickoff: datetime  # as `GameResult.kickoff` takes it
+    team: int  # the offense
+    opponent: int  # the defense
+    site: int  # +1 the offense is at home, -1 away, 0 neutral
+    values: Mapping[str, float | None]  # registry `feature` stem -> the offense's value
+
+
+@dataclass(frozen=True, slots=True)
+class TeamGameStats:
+    """The `team_game_stats` fit input: a model sees rows only through `finished_by`."""
+
+    by_season: Mapping[int, tuple[TeamGameStat, ...]] = field(default_factory=dict)  # by kickoff
+
+    def finished_by(self, as_of: datetime, season: int) -> tuple[TeamGameStat, ...]:
+        """`season`'s rows whose game finished (kickoff + `GAME_HOURS`) by `as_of`, asserting
+        each did (point-in-time rule, 04 § 9.2)."""
+        rows = self.by_season.get(season, ())
+        rows = rows[: bisect_right([r.kickoff for r in rows], as_of - SELECT_LAG)]
+        late = [r for r in rows if r.kickoff + _FINISHED > as_of]
+        if late:
+            shown = ", ".join(f"{r.game_id} ({r.team})" for r in late[:5])
+            raise PointInTimeError(
+                f"the fit entering {as_of.isoformat()} was given {len(late)} advanced-stat "
+                f"row(s) of games that hadn't finished (point-in-time rule, 04 § 9.2): {shown}"
+            )
+        return rows
+
+
+@dataclass(frozen=True, slots=True)
 class History:
     results: tuple[GameResult, ...]  # every final game with both teams, by kickoff
     kickoffs: tuple[datetime, ...]  # `results`' kickoffs, for bisecting
@@ -150,6 +193,10 @@ class History:
     closing_spreads: Mapping[int, float] = field(default_factory=dict)  # game id -> spread_home
     benchmarks: tuple[Benchmark, ...] = ()
     earliest: Mapping[int, datetime] = field(default_factory=dict)  # game id -> earliest kickoff
+    stats: TeamGameStats = field(default_factory=TeamGameStats)
+    # (season, team id) -> its conference that season, from staged `team_seasons`: what each
+    # game's `home_group`/`away_group` hold, for any code that builds a `GameContext` itself.
+    groups: Mapping[tuple[int, int], str] = field(default_factory=dict)
 
     def season_weeks(self, season: int) -> list[Week]:
         return [w for w in self.weeks if w.season == season]
@@ -173,7 +220,8 @@ def load(lake: Lake) -> History:
     from engine.transform.market import closing_lines
     from engine.transform.staging import connect
 
-    tables = {name: _read(lake, staging_key(name)) for name in ("games", "lines")}
+    staged = ("games", "lines", "team_seasons", "team_game_advanced")
+    tables = {name: _read(lake, staging_key(name)) for name in staged}
     tables |= {name: _read(lake, feature_key(name)) for name in FEATURE_TABLES}
     con = connect()
     for name, table in tables.items():
@@ -181,9 +229,14 @@ def load(lake: Lake) -> History:
     check_point_in_time(con)
     games = (
         con.execute(f"""
-            SELECT g.*, f.as_of, f.game_source_id IS NOT NULL AS featured
+            SELECT g.*, f.as_of, f.game_source_id IS NOT NULL AS featured,
+                hs.conference AS home_group, aws.conference AS away_group
             FROM (SELECT *, {KICKOFF} AS kickoff, {EARLIEST} AS earliest FROM games) g
             LEFT JOIN game_features f ON f.game_source_id = g.source_id
+            LEFT JOIN team_seasons hs
+              ON hs.team_source_id = g.home_source_id AND hs.season = g.season
+            LEFT JOIN team_seasons aws
+              ON aws.team_source_id = g.away_source_id AND aws.season = g.season
             ORDER BY g.kickoff, g.source_id""")
         .arrow()
         .read_all()
@@ -225,6 +278,8 @@ def load(lake: Lake) -> History:
                 neutral_site=bool(g["neutral_site"]),
                 home_classification=g["home_classification"],
                 away_classification=g["away_classification"],
+                home_group=g["home_group"],
+                away_group=g["away_group"],
             )
         if context is not None and final:
             results.append(
@@ -275,7 +330,55 @@ def load(lake: Lake) -> History:
         spreads,
         _benchmarks(lake),
         {int(g["source_id"]): g["earliest"] for g in games if g["earliest"] is not None},
+        _team_game_stats(con),
+        {
+            (r["season"], int(r["team_source_id"])): r["conference"]
+            for r in tables["team_seasons"].to_pylist()
+            if r["team_source_id"] is not None and r["conference"] is not None
+        },
     )
+
+
+def _team_game_stats(con: Any) -> TeamGameStats:
+    """Each final game's offenses from staged `team_game_advanced` (garbage time excluded, the
+    only variant pulled, D-119), by season and kickoff: the games `History.results` holds (final,
+    both teams known). A team-game CFBD has no row for (D-121) is simply absent."""
+    stems = sorted({d.feature for d in INPUTS})
+    columns = ", ".join(f"a.off_{s} AS {s}" for s in stems)
+    rows = (
+        con.execute(f"""
+            SELECT g.source_id, g.season, g.kickoff, a.team_source_id AS team,
+                CASE WHEN a.team_source_id = g.home_source_id
+                    THEN g.away_source_id ELSE g.home_source_id END AS opponent,
+                CASE WHEN g.neutral_site THEN 0
+                    WHEN a.team_source_id = g.home_source_id THEN 1 ELSE -1 END AS site,
+                {columns}
+            FROM team_game_advanced a
+            JOIN (SELECT *, {KICKOFF} AS kickoff FROM games) g
+              ON g.source_id = a.game_source_id
+             AND a.team_source_id IN (g.home_source_id, g.away_source_id)
+            WHERE a.garbage_time_excluded AND g.status = 'final'
+              AND g.home_points IS NOT NULL AND g.away_points IS NOT NULL
+              AND g.home_source_id IS NOT NULL AND g.away_source_id IS NOT NULL
+            ORDER BY g.season, g.kickoff, g.source_id, a.team_source_id""")
+        .arrow()
+        .read_all()
+        .to_pylist()
+    )
+    by_season: dict[int, list[TeamGameStat]] = {}
+    for r in rows:
+        by_season.setdefault(r["season"], []).append(
+            TeamGameStat(
+                game_id=int(r["source_id"]),
+                season=r["season"],
+                kickoff=r["kickoff"],
+                team=int(r["team"]),
+                opponent=int(r["opponent"]),
+                site=r["site"],
+                values={s: r[s] for s in stems},
+            )
+        )
+    return TeamGameStats({season: tuple(rs) for season, rs in by_season.items()})
 
 
 def _benchmarks(lake: Lake) -> tuple[Benchmark, ...]:
@@ -337,12 +440,14 @@ def check_reads(model: BacktestModel) -> None:
 
 
 def give_inputs(model: BacktestModel, history: History) -> None:
-    """Hand a baseline the `BASELINE_INPUTS` it declared, and nothing else."""
-    available = {
+    """Hand a model the inputs besides `games` it declared (a baseline's `BASELINE_INPUTS` among
+    them, once `check_reads` has let them through), and nothing else."""
+    available: dict[str, Any] = {
+        "team_game_stats": history.stats,
         "closing_lines": history.closing_spreads,
         "benchmark_ratings": BenchmarkInput(history.benchmarks, history.earliest),
     }
-    given = {name: available[name] for name in sorted(model.reads & BASELINE_INPUTS)}
+    given = {name: available[name] for name in sorted(model.reads & available.keys())}
     if given:
         cast(Any, model).use(given)
 
@@ -372,6 +477,8 @@ def predict_season(model: BacktestModel, history: History, season: int) -> list[
                     "home_source_id": e.home_source_id,
                     "away_source_id": e.away_source_id,
                     "neutral_site": e.context.neutral_site,
+                    "home_group": e.context.home_group,
+                    "away_group": e.context.away_group,
                     "pred_margin": p.pred_margin,
                     "margin_sd": p.margin_sd,
                     "home_win_prob": p.home_win_prob,
@@ -510,7 +617,7 @@ def run(
 
 def spec_hash(spec: ModelSpec) -> str:
     """sha256 of the spec's canonical JSON: the same spec always hashes the same."""
-    text = json.dumps(spec.model_dump(mode="json"), sort_keys=True, separators=(",", ":"))
+    text = json.dumps(spec.canonical(), sort_keys=True, separators=(",", ":"))
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
 
@@ -529,6 +636,8 @@ def schema() -> Any:
             ("home_source_id", pa.string()),
             ("away_source_id", pa.string()),
             ("neutral_site", pa.bool_()),
+            ("home_group", pa.string()),  # each team's conference that season; NULL if unknown
+            ("away_group", pa.string()),
             ("pred_margin", pa.float64()),
             ("margin_sd", pa.float64()),
             ("home_win_prob", pa.float64()),

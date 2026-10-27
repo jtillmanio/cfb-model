@@ -225,3 +225,62 @@ def test_consistency_needs_two_seasons() -> None:
 
 def test_break_even_is_110_over_210() -> None:
     assert math.isclose(m.BREAK_EVEN, 110 / 210)
+
+
+# The conference-tier breakdown (TASK-036; 04 § 9.4 › Breakdowns, § 10.4)
+
+
+def tier_row(game: int, home: tuple[str, str], away: tuple[str, str], pred: float) -> dict:
+    """A results row: each side's (team id, conference) in 2023."""
+    return {
+        "season": 2023,
+        "season_type": "regular",
+        "week": 1 + game % 3,
+        "game_source_id": str(game),
+        "home_source_id": home[0],
+        "away_source_id": away[0],
+        "home_group": home[1],
+        "away_group": away[1],
+        "pred_margin": pred,
+        "margin_sd": 14.0,
+        "home_win_prob": 0.6,
+        "spread_home": -3.0,
+        "spread_home_open": None,
+        "spread_home_open_close": None,
+        "margin": 7,
+    }
+
+
+def test_the_tier_breakdown_counts_add_up_to_the_games() -> None:
+    from engine import backtest
+    from engine.core.spec import ModelSpec
+
+    sec, sun, nd = ("333", "SEC"), ("2026", "Sun Belt"), ("87", "FBS Independents")
+    rows = [
+        tier_row(1, sec, sun, 10.0),
+        tier_row(2, sun, sec, -4.0),
+        tier_row(3, sec, nd, 1.0),  # Notre Dame is Power 4
+        tier_row(4, sun, sun, 3.0),
+        tier_row(5, sun, ("1", "Big East"), 3.0),  # a conference the map doesn't know
+    ]
+    spec = ModelSpec.model_validate(
+        {
+            "base": "power",
+            "picks": {"min_edge_pts": 3.0, "min_prob": 0.55, "tiers": {"A": 5, "B": 3.5, "C": 2.5}},
+        }
+    )
+
+    scored = m.compute(rows, spec, {}, tier=(backtest.matchup_tier, backtest.TIER_MATCHUPS))
+    (tiers,) = [b for b in scored.breakdowns if b.name == m.TIER_BREAKDOWN]
+
+    assert [(g.label, g.games) for g in tiers.groups] == [
+        ("Power 4 vs Power 4", 1),
+        ("Power 4 vs G5", 2),
+        ("G5 vs G5", 1),
+        (backtest.UNMAPPED, 1),
+    ]
+    assert sum(g.games for g in tiers.groups) == scored.games == len(rows)
+    vs_g5 = tiers.groups[1]
+    assert vs_g5.mae == pytest.approx((abs(10.0 - 7) + abs(-4.0 - 7)) / 2)
+    # Without the sport's labeller there's no tier breakdown.
+    assert m.TIER_BREAKDOWN not in [b.name for b in m.compute(rows, spec, {}).breakdowns]

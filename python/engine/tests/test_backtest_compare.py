@@ -156,3 +156,46 @@ def test_compare_runs_the_specs_own_model_on_validation_seasons_only(
     assert "--compare" in capsys.readouterr().err
     assert empty_lake.walk("backtests") == []
     assert holdout.count(empty_lake) == 0
+
+
+# `engine compare` (TASK-036): two stored runs on the same games.
+
+
+def test_engine_compare_pairs_two_stored_runs_by_game(
+    backtest_lake: LocalLake, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    from engine.backtest.compare import runs as compare_runs
+
+    argv = ["--seasons", "2023", "--tune-from", "2022"]
+    assert engine("backtest", "--spec", spec_file(tmp_path), *argv) == 0
+    other = tmp_path / "home.json"
+    other.write_text(json.dumps({**SPEC, "home_field": 10.0}), "utf-8")
+    assert engine("backtest", "--spec", str(other), *argv) == 0
+    folders = sorted({k.rpartition("/")[0] for k in backtest_lake.walk("backtests")})
+    first, second = (
+        pq.read_table(io.BytesIO(backtest_lake.read(f"{f}/predictions.parquet"))).to_pylist()
+        for f in folders
+    )
+    capsys.readouterr()
+
+    assert engine("compare", *folders) == 0
+
+    out = capsys.readouterr().out
+    expected = bootstrap.compare(first, second)
+    v = compare_runs(first, second)
+    assert v.games == len(first) == len(second)
+    assert v.difference == expected
+    assert f"A - B: {expected.estimate:+.3f} [{expected.low:+.3f}, {expected.high:+.3f}]" in out
+    assert f"{len(first)} shared games (0 only in A, 0 only in B left out)" in out
+    assert v.verdict in out
+
+    # A game only one run scored is left out and counted.
+    trimmed = compare_runs(first, second[1:])
+    assert (trimmed.games, trimmed.only_a, trimmed.only_b) == (len(first) - 1, 1, 0)
+
+
+def test_engine_compare_refuses_a_missing_run(
+    backtest_lake: LocalLake, capsys: pytest.CaptureFixture[str]
+) -> None:
+    assert engine("compare", "backtests/nope", "backtests/nor-this") == 2
+    assert "error: backtests/nope/predictions.parquet isn't in the lake" in capsys.readouterr().err

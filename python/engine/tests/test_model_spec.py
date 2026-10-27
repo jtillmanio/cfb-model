@@ -102,6 +102,23 @@ def test_the_family_decides_whether_inputs_are_allowed() -> None:
     assert refused(SKETCH | {"inputs": [SKETCH["inputs"][0]] * 2}) == {("inputs",)}
 
 
+def test_shrink_toward_defaults_to_zero_and_takes_tier() -> None:
+    """TASK-036 (04 § 10.4): a new optional field whose default keeps the old behaviour, so the
+    schema version stays 1 (D-130)."""
+    assert ModelSpec.model_validate(SKETCH).shrink_toward == "zero"
+    assert ModelSpec.model_validate(SKETCH | {"shrink_toward": "tier"}).shrink_toward == "tier"
+    assert refused(SKETCH | {"shrink_toward": "conference"}) == {("shrink_toward",)}  # M19.1
+    assert ModelSpec.model_validate(SKETCH | {"shrink_toward": "tier"}).spec_schema_version == 1
+
+
+def test_rung_1_refuses_to_shrink_toward_a_tier() -> None:
+    from engine.models.power import PowerRatings, UnsupportedSpecError
+    from engine.sports.cfb.teams import RULES
+
+    with pytest.raises(UnsupportedSpecError, match="shrink_toward"):
+        PowerRatings(ModelSpec.model_validate(POWER | {"shrink_toward": "tier"}), RULES)
+
+
 def test_tiers_must_descend() -> None:
     tiers = {"A": 3.0, "B": 3.5, "C": 2.5}
     assert refused(SKETCH | {"picks": SKETCH["picks"] | {"tiers": tiers}}) == {("picks", "tiers")}
@@ -163,3 +180,20 @@ def test_a_tune_needs_at_least_two_candidates() -> None:
     hyper = SKETCH["hyperparameters"] | {"margin_cap": {"tune": [28]}}
     fields = refused(SKETCH | {"hyperparameters": hyper})
     assert {f[:2] for f in fields} == {("hyperparameters", "margin_cap")}
+
+
+def test_a_spec_at_shrink_toward_zero_keeps_its_hash() -> None:
+    """D-137: a field added after v1 is left out of the hash at its default, so a backtest's
+    `run.json` written before the field still matches its spec."""
+    import hashlib
+    import json
+
+    from engine.backtest.harness import spec_hash
+
+    spec = ModelSpec.model_validate(POWER)
+    before = {k: v for k, v in spec.model_dump(mode="json").items() if k != "shrink_toward"}
+    text = json.dumps(before, sort_keys=True, separators=(",", ":"))
+
+    assert spec_hash(spec) == hashlib.sha256(text.encode("utf-8")).hexdigest()
+    tier = ModelSpec.model_validate(SKETCH | {"shrink_toward": "tier"})
+    assert spec_hash(tier) != spec_hash(ModelSpec.model_validate(SKETCH))
