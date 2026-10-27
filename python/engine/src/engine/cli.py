@@ -245,6 +245,66 @@ def _backtest(args: argparse.Namespace, seasons: list[int]) -> None:
         print(f"Wrote {md} and {page}")
 
 
+def _rate(args: argparse.Namespace) -> None:
+    """Fit the spec entering the week and publish the run; exit 1 if the fit failed (recorded as
+    a failed run) or the point-in-time check fails, 2 on a refusal (nothing written)."""
+    import json
+    from pathlib import Path
+
+    from pydantic import ValidationError
+
+    from engine.backtest import harness
+    from engine.core.spec import ModelSpec
+    from engine.ingest.lake import open_lake
+    from engine.publish import models
+    from engine.transform.features import PointInTimeError
+
+    try:
+        refuse_if_live(f"rate to {args.target}")
+    except UnsafeDatabaseError as e:
+        _refuse(str(e))
+    try:
+        spec = ModelSpec.model_validate_json(Path(args.spec).read_text("utf-8"))
+    except (OSError, ValidationError) as e:
+        _refuse(f"--spec {args.spec}: {e}")
+    run = None
+    if args.choices:
+        try:
+            run = json.loads(Path(args.choices).read_text("utf-8"))
+        except (OSError, ValueError) as e:
+            _refuse(f"--choices {args.choices}: {e}")
+    name = args.name or spec.base
+    try:
+        choices = models.settings(spec, run, args.season)
+        url = direct_url(args.target)
+    except (models.RateRefused, UnsafeDatabaseError, RuntimeError) as e:
+        _refuse(str(e))  # RuntimeError: the dev URL isn't set
+    try:
+        summary = models.publish(
+            open_lake(),
+            url,
+            spec,
+            choices,
+            season=args.season,
+            week=args.week,
+            name=name,
+            version=args.version,
+        )
+    except (models.RateRefused, harness.RefusedError) as e:
+        _refuse(str(e))
+    except PointInTimeError as e:  # the lake's own check, run as it's loaded
+        print(f"FAIL {e}")
+        sys.exit(1)
+    print(
+        f"Run {summary.run_id} of {name} {args.version} entering {args.season} week {args.week} "
+        f"{summary.status} on {args.target}: {summary.ratings} ratings, "
+        f"{summary.predictions} predictions."
+    )
+    if summary.error:
+        print(f"FAIL {summary.error}")
+        sys.exit(1)
+
+
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(prog="engine")
     commands = parser.add_subparsers(dest="command", required=True)
@@ -386,6 +446,31 @@ def main(argv: list[str] | None = None) -> None:
         "same games (04 § 9.5-9.6); the report gains the comparison",
     )
 
+    rate = commands.add_parser(
+        "rate",
+        help="Fit a model entering one week and publish the run, ratings and predictions",
+        description="Fits the spec on every game finished before the regular-season week's first "
+        "kickoff, as the backtest does, predicts each of the week's staged games, and inserts a "
+        "new model run with its ratings and predictions in one transaction on the target's "
+        "direct URL (re-running inserts another run). A failed fit is recorded as a failed run "
+        "(exit 1); a refusal writes nothing (exit 2). Refused under LIVE=true.",
+    )
+    rate.add_argument("--spec", required=True, metavar="FILE", help="A ModelSpec as JSON")
+    rate.add_argument("--season", type=int, required=True)
+    rate.add_argument("--week", type=int, required=True, help="Rate entering this regular week")
+    rate.add_argument("--target", required=True, choices=["dev", "test"])
+    rate.add_argument(
+        "--choices",
+        metavar="RUN_JSON",
+        help="A backtest's run.json: the settings it chose for the season (a tuned spec needs it)",
+    )
+    rate.add_argument("--name", help="The model version's name (default: the spec's base)")
+    rate.add_argument(
+        "--version",
+        default="v1.0",
+        help="The model version, created as dev if it doesn't exist (default %(default)s)",
+    )
+
     seed = commands.add_parser("seed", help="Load seed data into the test DB")
     seed.add_argument("what", choices=["fixture"])
 
@@ -448,6 +533,9 @@ def main(argv: list[str] | None = None) -> None:
         seasons = _season_range(bt, args.seasons)
         load_env()
         _backtest(args, seasons)
+    elif args.command == "rate":
+        load_env()  # before the LIVE check, so a LIVE in .env.local counts
+        _rate(args)
     elif args.command == "seed":
         load_env()
         from engine.fixture import seed_fixture

@@ -82,7 +82,7 @@ Phase 8  Multi-sport (NFL)
 - [x] Baselines: HFA-only, closing line, SP+/FPI comparison
 - [x] Rung 1: least-squares power ratings with margin cap, recency weighting, priors from last season
 - [x] Notebooks #2–3: build ratings by hand; ratings → probabilities
-- [ ] `model_versions` / `model_runs` (with `fitted_params`) / `team_ratings` / `predictions` + publish
+- [x] `model_versions` / `model_runs` (with `fitted_params`) / `team_ratings` / `predictions` + publish
 
 **Acceptance:** one command runs a 2014–2023 backtest and produces a report comparing Rung 1 to the baselines. You can explain every number in it.
 
