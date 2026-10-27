@@ -1,0 +1,262 @@
+{
+  "_source": "design/sample-data.md §1 (week-6 model lines and win %), §2 (Texas vs Oklahoma drivers and σ), §4 (ratings entering week 6, with off/def), §7 (backtest summaries) and §8 (v1.0 settings, learned weights, versions); weekly ratings from the `traj` arrays in design/handoff/designs/rankings-data.js (preseason = entering week 1). The 18 filler teams' ratings are invented and stay below Utah every week. pred_margin is home − away and home_win_prob is the home team's (§1 states both from the favorite's side); drivers are the §2 table in home − away points. The success_rate weight is per share of plays (the input registry's unit): §8's ×0.31 is per percentage point. Run times come from the fixture calendar in week6.json (TASK-034). Test DB only (D-089).",
+  "sport": "cfb",
+  "market": "spread",
+  "name": "power",
+  "versions": [
+    {
+      "version": "v1.0",
+      "status": "production",
+      "parent": null,
+      "created_at": "2026-08-20T13:00:00Z",
+      "description": "Efficiency ratings from pass and rush EPA/play and success rate, with a fitted preseason prior.",
+      "spec": {
+        "spec_schema_version": 1,
+        "base": "efficiency",
+        "inputs": [
+          {"stat": "pass_epa_per_play", "weight": "fit"},
+          {"stat": "rush_epa_per_play", "weight": "fit"},
+          {"stat": "success_rate", "weight": "fit"}
+        ],
+        "hyperparameters": {
+          "ridge_alpha": {"tune": [8.0, 12.0, 16.0]},
+          "recency_half_life_weeks": {"tune": [3.0, 4.0, 6.0]},
+          "margin_cap": 28.0
+        },
+        "home_field": "fit",
+        "prior": {
+          "components": ["last_season", "returning_production", "talent"],
+          "regression": 0.3,
+          "weights": "fit",
+          "decay": {"type": "fitted"}
+        },
+        "distribution": "normal",
+        "picks": {
+          "min_edge_pts": 2.5,
+          "min_prob": 0.55,
+          "market_shrinkage_k": {"tune": [0.5, 0.6, 0.7]},
+          "tiers": {"A": 5.0, "B": 3.5, "C": 2.5}
+        }
+      }
+    },
+    {
+      "version": "v1.1",
+      "status": "candidate",
+      "parent": "v1.0",
+      "created_at": "2026-09-14T13:00:00Z",
+      "description": "v1.0 plus rush success rate.",
+      "spec": {
+        "spec_schema_version": 1,
+        "base": "efficiency",
+        "inputs": [
+          {"stat": "pass_epa_per_play", "weight": "fit"},
+          {"stat": "rush_epa_per_play", "weight": "fit"},
+          {"stat": "success_rate", "weight": "fit"},
+          {"stat": "rush_success_rate", "weight": "fit"}
+        ],
+        "hyperparameters": {
+          "ridge_alpha": {"tune": [8.0, 12.0, 16.0]},
+          "recency_half_life_weeks": {"tune": [3.0, 4.0, 6.0]},
+          "margin_cap": 28.0
+        },
+        "home_field": "fit",
+        "prior": {
+          "components": ["last_season", "returning_production", "talent"],
+          "regression": 0.3,
+          "weights": "fit",
+          "decay": {"type": "fitted"}
+        },
+        "distribution": "normal",
+        "picks": {
+          "min_edge_pts": 2.5,
+          "min_prob": 0.55,
+          "market_shrinkage_k": {"tune": [0.5, 0.6, 0.7]},
+          "tiers": {"A": 5.0, "B": 3.5, "C": 2.5}
+        }
+      }
+    },
+    {
+      "version": "v1.2-dev",
+      "status": "dev",
+      "parent": "v1.1",
+      "created_at": "2026-10-01T13:00:00Z",
+      "description": "v1.1 plus pass success rate, with recruiting in the prior.",
+      "spec": {
+        "spec_schema_version": 1,
+        "base": "efficiency",
+        "inputs": [
+          {"stat": "pass_epa_per_play", "weight": "fit"},
+          {"stat": "rush_epa_per_play", "weight": "fit"},
+          {"stat": "success_rate", "weight": "fit"},
+          {"stat": "rush_success_rate", "weight": "fit"},
+          {"stat": "pass_success_rate", "weight": "fit"}
+        ],
+        "hyperparameters": {
+          "ridge_alpha": {"tune": [8.0, 12.0, 16.0]},
+          "recency_half_life_weeks": {"tune": [3.0, 4.0, 6.0]},
+          "margin_cap": 28.0
+        },
+        "home_field": "fit",
+        "prior": {
+          "components": ["last_season", "returning_production", "talent", "recruiting"],
+          "regression": 0.3,
+          "weights": "fit",
+          "decay": {"type": "fitted"}
+        },
+        "distribution": "normal",
+        "picks": {
+          "min_edge_pts": 2.5,
+          "min_prob": 0.55,
+          "market_shrinkage_k": {"tune": [0.5, 0.6, 0.7]},
+          "tiers": {"A": 5.0, "B": 3.5, "C": 2.5}
+        }
+      }
+    }
+  ],
+  "backtests": [
+    {
+      "version": "v1.0",
+      "status": "succeeded",
+      "requested_at": "2026-08-20T14:00:00Z",
+      "started_at": "2026-08-20T14:01:00Z",
+      "finished_at": "2026-08-20T15:00:00Z",
+      "fitted_params": {
+        "home_field": 2.3,
+        "inputs": {"pass_epa_per_play": 31.0, "rush_epa_per_play": 24.0, "success_rate": 31.0},
+        "margin_sd": 13.8,
+        "prior_weight_by_week": {"1": 1.0, "2": 0.833, "3": 0.667, "4": 0.5, "5": 0.4, "6": 0.3, "7": 0.2, "8": 0.1},
+        "choices": {
+          "hyperparameters.ridge_alpha": 12.0,
+          "hyperparameters.recency_half_life_weeks": 4.0,
+          "picks.market_shrinkage_k": 0.6
+        },
+        "importance": {
+          "pass_offense": 0.31, "pass_defense": 0.22, "rush_offense": 0.15, "rush_defense": 0.13,
+          "prior": 0.11, "special_teams": 0.05, "home_field": 0.03
+        }
+      },
+      "metrics": {
+        "validation": {"seasons": [2016, 2023], "picks": 1184, "win_pct": 0.541, "roi": 0.033},
+        "holdout": {"seasons": [2024, 2025], "picks": 263, "win_pct": 0.532, "roi": 0.016},
+        "accuracy": {"mae": 12.9, "closing_mae": 12.6},
+        "pick_buckets": [
+          {"label": "2.5–3.5", "picks": 512, "win_pct": 0.52},
+          {"label": "3.5–5.0", "picks": 431, "win_pct": 0.546},
+          {"label": "5.0–7.0", "picks": 176, "win_pct": 0.569},
+          {"label": "7.0+", "picks": 65, "win_pct": 0.554}
+        ],
+        "calibration": [
+          {"predicted": 0.525, "hit_rate": 0.52},
+          {"predicted": 0.55, "hit_rate": 0.541},
+          {"predicted": 0.575, "hit_rate": 0.562},
+          {"predicted": 0.6, "hit_rate": 0.578},
+          {"predicted": 0.625, "hit_rate": 0.589},
+          {"predicted": 0.65, "hit_rate": 0.596}
+        ]
+      }
+    },
+    {
+      "version": "v1.1",
+      "status": "succeeded",
+      "requested_at": "2026-09-14T14:00:00Z",
+      "started_at": "2026-09-14T14:01:00Z",
+      "finished_at": "2026-09-14T15:00:00Z",
+      "fitted_params": null,
+      "metrics": {
+        "validation": {"seasons": [2016, 2023], "win_pct": 0.544},
+        "accuracy": {"mae": 12.8, "closing_mae": 12.6}
+      }
+    },
+    {
+      "version": "v1.2-dev",
+      "status": "running",
+      "requested_at": "2026-10-10T18:05:00Z",
+      "started_at": "2026-10-10T18:06:00Z",
+      "finished_at": null,
+      "fitted_params": null,
+      "metrics": null
+    }
+  ],
+  "ratings": {
+    "version": "v1.0",
+    "season": 2026,
+    "weeks": [1, 2, 3, 4, 5, 6],
+    "teams": {
+      "osu": [24.0, 24.9, 25.6, 26.1, 26.8, 27.4],
+      "tex": [25.5, 26.2, 26.8, 27.0, 27.1, 25.9],
+      "ore": [22.0, 22.8, 23.5, 24.0, 24.6, 24.8],
+      "ou": [20.5, 21.0, 21.6, 22.3, 22.5, 24.4],
+      "uga": [24.5, 23.8, 23.4, 23.0, 23.3, 23.1],
+      "miss": [19.0, 19.8, 20.4, 21.0, 21.4, 22.0],
+      "nd": [22.5, 21.8, 22.6, 22.9, 23.0, 21.7],
+      "psu": [23.0, 23.4, 23.2, 23.6, 23.4, 21.0],
+      "lsu": [20.0, 20.4, 21.0, 20.8, 20.6, 19.4],
+      "utah": [12.5, 13.0, 13.9, 14.6, 15.1, 15.8],
+      "mich": [12.0, 11.6, 11.9, 12.1, 12.2, 12.3],
+      "clem": [12.2, 11.4, 11.0, 11.3, 11.6, 11.9],
+      "ksu": [9.5, 9.9, 10.4, 10.8, 11.1, 11.4],
+      "byu": [7.0, 7.9, 8.8, 9.6, 10.3, 11.0],
+      "iowa": [9.0, 9.3, 9.1, 9.6, 9.9, 10.2],
+      "bsu": [8.5, 8.8, 9.2, 9.0, 9.4, 9.6],
+      "wis": [8.0, 8.2, 7.9, 8.1, 8.4, 8.6],
+      "uw": [7.5, 7.2, 7.6, 7.4, 7.7, 7.9],
+      "uk": [6.0, 5.8, 5.5, 5.9, 5.7, 5.6],
+      "minn": [5.0, 5.3, 5.1, 4.8, 5.2, 5.0],
+      "colo": [4.0, 4.3, 4.6, 4.4, 4.5, 4.7],
+      "nw": [3.5, 3.2, 3.0, 2.8, 3.1, 3.0],
+      "rutg": [2.5, 2.8, 2.4, 2.6, 2.2, 2.3],
+      "unlv": [1.0, 1.4, 1.9, 2.0, 1.6, 1.8],
+      "stan": [-1.0, -0.6, -0.9, -0.7, -0.4, -0.5],
+      "pur": [0.5, 0.0, -0.4, -0.8, -1.2, -1.5],
+      "ohio": [-5.0, -4.6, -4.8, -4.3, -4.5, -4.2],
+      "akr": [-12.0, -12.4, -12.8, -13.1, -13.0, -13.3]
+    },
+    "units": {
+      "week": 6,
+      "teams": {
+        "osu": {"off": 14.1, "def": 13.3},
+        "tex": {"off": 16.0, "def": 9.9},
+        "ore": {"off": 15.2, "def": 9.6},
+        "ou": {"off": 12.6, "def": 11.8},
+        "uga": {"off": 11.0, "def": 12.1},
+        "miss": {"off": 13.4, "def": 8.6},
+        "nd": {"off": 12.0, "def": 9.7},
+        "psu": {"off": 10.2, "def": 10.8},
+        "lsu": {"off": 11.5, "def": 7.9},
+        "utah": {"off": 6.9, "def": 8.9}
+      }
+    }
+  },
+  "predictions": {
+    "version": "v1.0",
+    "week": 6,
+    "margin_sd": 13.8,
+    "games": [
+      {"game": "2026-w6-unlv-bsu", "pred_margin": 9.1, "home_win_prob": 0.74},
+      {"game": "2026-w6-pur-osu", "pred_margin": 31.2, "home_win_prob": 0.99, "pred_total": 54.1},
+      {"game": "2026-w6-iowa-wis", "pred_margin": -1.2, "home_win_prob": 0.47},
+      {"game": "2026-w6-fur-clem", "pred_margin": 34.0, "home_win_prob": 0.99},
+      {"game": "2026-w6-miss-lsu", "pred_margin": -1.4, "home_win_prob": 0.46},
+      {"game": "2026-w6-nd-stan", "pred_margin": -19.9, "home_win_prob": 0.08},
+      {"game": "2026-w6-mich-nw", "pred_margin": -8.4, "home_win_prob": 0.28},
+      {"game": "2026-w6-ksu-utah", "pred_margin": 4.6, "home_win_prob": 0.63},
+      {
+        "game": "2026-w6-tex-ou",
+        "pred_margin": -1.3,
+        "home_win_prob": 0.46,
+        "pred_total": 58.0,
+        "drivers": [
+          {"label": "Away pass offense vs home pass defense", "points": -3.8},
+          {"label": "Home rush offense vs away rush defense", "points": 2.4},
+          {"label": "Home pass offense vs away pass defense", "points": 1.6},
+          {"label": "Away rush offense vs home rush defense", "points": -0.9},
+          {"label": "Special teams", "points": -0.4},
+          {"label": "Pace & other", "points": -0.2},
+          {"label": "Home field (neutral site)", "points": 0.0}
+        ]
+      },
+      {"game": "2026-w6-uk-uga", "pred_margin": 19.8, "home_win_prob": 0.92},
+      {"game": "2026-w6-colo-byu", "pred_margin": 9.1, "home_win_prob": 0.74}
+    ]
+  }
+}
