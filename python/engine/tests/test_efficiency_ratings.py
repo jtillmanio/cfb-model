@@ -469,3 +469,27 @@ def test_a_final_game_missing_a_team_gives_no_stat_rows(empty_lake: LocalLake) -
     rows = [r for rs in history.stats.by_season.values() for r in rs]
     assert rows and all(r.game_id != 401757218 for r in rows)
     assert {r.game_id for r in rows} <= {g.game_id for g in history.results}
+
+
+def test_a_tier_backtest_with_an_unmapped_conference_is_refused(
+    empty_lake: LocalLake, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    import copy
+
+    import lake_fixture
+
+    fixture = copy.deepcopy(lake_fixture.FIXTURE)
+    games = fixture[lake_fixture.fixture_key("games")]["records"]
+    for g in games:
+        if g["homeTeam"] == "Western Kentucky":
+            g["homeConference"] = "Big East"  # an FBS conference the tier map doesn't know
+    monkeypatch.setattr(lake_fixture, "FIXTURE", fixture)
+    write_backtest_seasons(empty_lake, seasons=(2021, 2022, 2023))
+    rebuild(empty_lake)
+    capsys.readouterr()
+
+    argv = ["backtest", "--spec", str(SPEC_FILE), "--seasons", "2023", "--tune-from", "2022"]
+    assert engine(*argv) == 2
+
+    assert "'Big East' has no tier" in capsys.readouterr().err
+    assert not list(empty_lake.walk("backtests"))
