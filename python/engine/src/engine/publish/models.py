@@ -134,6 +134,8 @@ def _week(
             neutral_site=bool(g["neutral_site"]),
             home_classification=g["home_classification"],
             away_classification=g["away_classification"],
+            home_group=history.groups.get((season, int(g["home_source_id"]))),
+            away_group=history.groups.get((season, int(g["away_source_id"]))),
         )
         for g in staged
         if (g["season"], g["season_type"], g["week"]) == (season, SEASON_TYPE, week)

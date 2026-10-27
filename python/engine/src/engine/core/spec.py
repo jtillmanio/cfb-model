@@ -38,6 +38,9 @@ from engine.core.inputs import INPUT_IDS
 
 SPEC_SCHEMA_VERSION = 1
 
+# Fields added to v1 since it was fixed, with the default that keeps the old behaviour (D-137).
+ADDED_DEFAULTS: dict[str, Any] = {"shrink_toward": "zero"}
+
 # Strict: "6" and true aren't numbers.
 Number = Annotated[float, Strict(), Field(allow_inf_nan=False)]
 
@@ -192,6 +195,16 @@ class ModelSpec(_Frozen):
         if len(set(stats)) != len(stats):
             raise ValueError("an input is listed twice")
         return inputs
+
+    def canonical(self) -> dict[str, Any]:
+        """The spec as JSON data for hashing: a field added after v1 is left out while it holds
+        the default that reproduces the old behaviour, so a spec written before the field keeps
+        its hash (and its backtests' `run.json` still match it)."""
+        data = self.model_dump(mode="json")
+        for name, default in ADDED_DEFAULTS.items():
+            if data.get(name) == default:
+                del data[name]
+        return data
 
     def tunables(self) -> dict[str, tuple[float, ...]]:
         """Every tuned setting's candidates, by dotted path (`picks.tiers.A`)."""

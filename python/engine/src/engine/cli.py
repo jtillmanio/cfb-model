@@ -171,6 +171,7 @@ def _backtest(args: argparse.Namespace, seasons: list[int]) -> None:
     from engine.core.spec import ModelSpec
     from engine.ingest.lake import open_lake
     from engine.models.efficiency import NoEarlierSeasonError
+    from engine.sports.cfb.teams import UnmappedConferenceError
     from engine.transform.features import PointInTimeError
 
     try:
@@ -202,7 +203,7 @@ def _backtest(args: argparse.Namespace, seasons: list[int]) -> None:
             else {}
         )
         versus = compare.compare(result.rows, others)  # before anything is written
-    except (harness.RefusedError, NoEarlierSeasonError) as e:
+    except (harness.RefusedError, NoEarlierSeasonError, UnmappedConferenceError) as e:
         _refuse(str(e))
     except PointInTimeError as e:
         print(f"FAIL {e}")

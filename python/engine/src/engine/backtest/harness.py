@@ -194,6 +194,9 @@ class History:
     benchmarks: tuple[Benchmark, ...] = ()
     earliest: Mapping[int, datetime] = field(default_factory=dict)  # game id -> earliest kickoff
     stats: TeamGameStats = field(default_factory=TeamGameStats)
+    # (season, team id) -> its conference that season, from staged `team_seasons`: what each
+    # game's `home_group`/`away_group` hold, for any code that builds a `GameContext` itself.
+    groups: Mapping[tuple[int, int], str] = field(default_factory=dict)
 
     def season_weeks(self, season: int) -> list[Week]:
         return [w for w in self.weeks if w.season == season]
@@ -328,13 +331,18 @@ def load(lake: Lake) -> History:
         _benchmarks(lake),
         {int(g["source_id"]): g["earliest"] for g in games if g["earliest"] is not None},
         _team_game_stats(con),
+        {
+            (r["season"], int(r["team_source_id"])): r["conference"]
+            for r in tables["team_seasons"].to_pylist()
+            if r["team_source_id"] is not None and r["conference"] is not None
+        },
     )
 
 
 def _team_game_stats(con: Any) -> TeamGameStats:
     """Each final game's offenses from staged `team_game_advanced` (garbage time excluded, the
-    only variant pulled, D-119), by season and kickoff. A team-game CFBD has no row for (D-121)
-    is simply absent."""
+    only variant pulled, D-119), by season and kickoff: the games `History.results` holds (final,
+    both teams known). A team-game CFBD has no row for (D-121) is simply absent."""
     stems = sorted({d.feature for d in INPUTS})
     columns = ", ".join(f"a.off_{s} AS {s}" for s in stems)
     rows = (
@@ -351,6 +359,7 @@ def _team_game_stats(con: Any) -> TeamGameStats:
              AND a.team_source_id IN (g.home_source_id, g.away_source_id)
             WHERE a.garbage_time_excluded AND g.status = 'final'
               AND g.home_points IS NOT NULL AND g.away_points IS NOT NULL
+              AND g.home_source_id IS NOT NULL AND g.away_source_id IS NOT NULL
             ORDER BY g.season, g.kickoff, g.source_id, a.team_source_id""")
         .arrow()
         .read_all()
@@ -608,7 +617,7 @@ def run(
 
 def spec_hash(spec: ModelSpec) -> str:
     """sha256 of the spec's canonical JSON: the same spec always hashes the same."""
-    text = json.dumps(spec.model_dump(mode="json"), sort_keys=True, separators=(",", ":"))
+    text = json.dumps(spec.canonical(), sort_keys=True, separators=(",", ":"))
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
 

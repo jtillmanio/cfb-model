@@ -418,3 +418,54 @@ def test_an_efficiency_backtest_with_no_earlier_season_is_refused(
     argv = ["backtest", "--spec", str(SPEC_FILE), "--seasons", "2023", "--tune-from", "2022"]
     assert engine(*argv) == 2
     assert not list(empty_lake.walk("backtests"))
+
+
+# engine rate (D-136) fits Rung 2 as the backtest does.
+
+
+def test_engine_rate_fits_an_efficiency_week_with_stats_and_conferences(
+    three_season_lake: LocalLake,
+) -> None:
+    from engine.publish.models import fit_week
+
+    spec = ModelSpec.model_validate(
+        {
+            "base": "efficiency",
+            "inputs": [{"stat": s} for s in STATS],
+            "hyperparameters": {"ridge_alpha": 2},
+            "shrink_toward": "tier",
+            "picks": PICKS,
+        }
+    )
+
+    # Entering 2023 week 1 no team has played and there's no prior: every team rates at its
+    # tier, which needs each team's conference, and the margin model needs 2021-2022's stats.
+    fitted = fit_week(three_season_lake, spec, {}, season=2023, week=1)
+
+    assert fitted.error is None
+    assert fitted.outputs is not None
+    ratings, predicted = fitted.outputs
+    assert {g.home_group for g, _ in predicted} >= {"Big 12", "Conference USA"}
+    hfa = ratings.params["home_field"]
+    for game, p in predicted:
+        expected = (0.0 if game.neutral_site else hfa) + p.drivers[1][1] + p.drivers[2][1]
+        assert p.pred_margin == pytest.approx(expected)
+
+
+def test_a_final_game_missing_a_team_gives_no_stat_rows(empty_lake: LocalLake) -> None:
+    """A staged final game with one team id unknown is in neither `results` nor the stats."""
+    import copy
+
+    from lake_fixture import FIXTURE, fixture_key, write_fixture
+
+    fixture = copy.deepcopy(FIXTURE)
+    (game,) = [g for g in fixture[fixture_key("games")]["records"] if g["id"] == 401757218]
+    game["awayId"] = None  # Western Kentucky-Sam Houston: Sam Houston's id unknown
+    write_fixture(empty_lake, fixture)
+    rebuild(empty_lake)
+
+    history = harness.load(empty_lake)
+
+    rows = [r for rs in history.stats.by_season.values() for r in rs]
+    assert rows and all(r.game_id != 401757218 for r in rows)
+    assert {r.game_id for r in rows} <= {g.game_id for g in history.results}
