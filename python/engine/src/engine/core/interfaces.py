@@ -9,7 +9,7 @@ what a conference or an FCS team is.
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Literal, Protocol
 
@@ -28,6 +28,10 @@ class GameContext:
     home_team: TeamId
     away_team: TeamId
     neutral_site: bool
+    # Each team's level that season, as the source labels it (CFB: "fbs", "fcs"); a model may
+    # pool the levels it can't rate one team at a time. None when the source doesn't say.
+    home_classification: str | None = field(default=None, kw_only=True)
+    away_classification: str | None = field(default=None, kw_only=True)
 
 
 @dataclass(frozen=True, slots=True)

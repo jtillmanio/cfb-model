@@ -1,7 +1,10 @@
 """The Rung 0 baselines (TASK-032; docs/04-model.md § 2, § 9.2-9.3, D-133): the simple
 predictions every real model has to beat, scored by the same harness on the same games.
 
-- `HomeField`: the home-field edge alone, fit on seasons before the one scored.
+- `FittedHomeField(model)`: the home-field edge alone, as the wrapped model fits it entering each
+  week (04 § 9.6's "home by the fitted home-field value"; registered as `home_field`).
+- `HomeField`: the mean home margin of the seasons before the one scored; the SP+/FPI baselines
+  add it.
 - `LastSeason(model)`: the wrapped model's final ratings from the season before, frozen for the
   whole season (no in-season updates, no regression toward the mean).
 - `ClosingLine`: the market's closing spread, by `closing_lines()`'s rule (consensus, else the
@@ -114,6 +117,49 @@ class HomeField:
         return _prediction(margin, sd, (("Home field", margin),))
 
 
+def _wrappable(inner: RatingModel, name: str) -> frozenset[str]:
+    """What the wrapped model reads, refusing one that reads more than games."""
+    reads: frozenset[str] = getattr(inner, "reads", frozenset({"games"}))
+    if getattr(inner, "baseline", False) or reads - {"games"}:
+        raise RefusedError(f"{name} wraps a model that fits on games alone (D-133)")
+    return reads
+
+
+class FittedHomeField:
+    """Predict only the home-field edge the wrapped model has fit entering the week, and 0 at a
+    neutral site: what rating the teams adds over home field alone. σ is the root-mean-square
+    of every earlier season's margins around that edge."""
+
+    baseline = True
+
+    def __init__(self, inner: RatingModel) -> None:
+        self.inner = inner
+        self.reads = _wrappable(inner, "home_field")
+        self._memo: dict[tuple[int, datetime], float] = {}
+
+    def fit(self, games: GameHistory, as_of: datetime) -> Ratings:
+        hfa = self.inner.fit(games, as_of).params["home_field"]
+        return Played(as_of, {}, {"home_field": hfa}, games)
+
+    def _sd(self, ratings: Played, season: int) -> float:
+        key = (season, ratings.as_of)
+        if key not in self._memo:
+            hfa = ratings.params["home_field"]
+            misses = [
+                (g.margin - (0.0 if g.neutral_site else hfa)) ** 2
+                for g in _before(ratings.games, season)
+            ]
+            # Around the edge itself, not re-centred: an edge below the mean home margin is part
+            # of what this baseline gets wrong.
+            self._memo[key] = math.sqrt(math.fsum(misses) / len(misses)) if misses else DEFAULT_SD
+        return self._memo[key]
+
+    def predict(self, game: GameContext, ratings: Ratings, as_of: datetime) -> Prediction:
+        played = _played(ratings)
+        margin = 0.0 if game.neutral_site else played.params["home_field"]
+        return _prediction(margin, self._sd(played, game.season), (("Home field", margin),))
+
+
 class LastSeason:
     """A rating model's final ratings from the season before, carried into this one unchanged.
 
@@ -126,9 +172,7 @@ class LastSeason:
 
     def __init__(self, inner: RatingModel) -> None:
         self.inner = inner
-        self.reads: frozenset[str] = getattr(inner, "reads", frozenset({"games"}))
-        if getattr(inner, "baseline", False) or self.reads - {"games"}:
-            raise RefusedError("last_season wraps a model that fits on games alone (D-133)")
+        self.reads = _wrappable(inner, "last_season")
         self._frozen: dict[int, Ratings] = {}
 
     def fit(self, games: GameHistory, as_of: datetime) -> Ratings:
