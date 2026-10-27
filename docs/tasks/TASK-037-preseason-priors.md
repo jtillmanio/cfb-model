@@ -1,7 +1,7 @@
 ---
 id: TASK-037
 title: Add preseason priors with fitted decay blending
-status: Draft
+status: Ready
 depends_on: [TASK-036]
 size: M
 model: opus

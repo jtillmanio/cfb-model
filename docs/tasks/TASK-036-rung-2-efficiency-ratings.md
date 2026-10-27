@@ -1,7 +1,7 @@
 ---
 id: TASK-036
 title: Build Rung 2 ridge efficiency ratings and the margin model
-status: Draft
+status: Ready
 depends_on: [TASK-033, TASK-035]
 size: M
 model: opus
