@@ -66,8 +66,11 @@ FROM (
         AND p.season = t.season
         AND p.team_id = t.team_id
         AND p.kickoff + interval '4 hours' <= t.as_of
+    -- The version as well as the run, so whichever index the planner picks for the opponents'
+    -- ratings, it is entered by the run's week, never scanned whole.
     LEFT JOIN team_ratings o
         ON o.model_run_id = t.model_run_id
+        AND o.model_version_id = t.model_version_id
         AND o.team_id = p.opponent_id
         AND o.season = t.season
         AND o.week = t.week
