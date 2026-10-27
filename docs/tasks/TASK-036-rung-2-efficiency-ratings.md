@@ -1,7 +1,7 @@
 ---
 id: TASK-036
 title: Build Rung 2 ridge efficiency ratings and the margin model
-status: In progress
+status: Review
 depends_on: [TASK-033, TASK-035]
 size: M
 model: opus
@@ -36,12 +36,12 @@ Every team gets an offense and a defense rating for each efficiency stat, adjust
 
 ## Acceptance criteria
 
-- [ ] AC-1: Given a noiseless fixture whose per-game stat values are generated from known offense and defense ratings and a home adjustment, a fit with `ridge_alpha` 0 recovers every rating within 0.01. With `ridge_alpha` > 0, a team with 2 games ends nearer its anchor, as a share of its alpha-0 distance, than an otherwise identical team with 8.
-- [ ] AC-2: `sports/cfb` maps each (season, conference) to Power 4, G5 or FCS: the Pac-12 is Power 4 in 2023 and its former members follow their new conference in 2024, and Notre Dame is Power 4 every season. On the local lake, every staged FBS team-season from 2014 to 2025 maps to a tier (the check prints 0 unmapped). Under `shrink_toward: tier`, a team with no games this season and no prior rates at its tier's fitted level; under `zero` it rates 0.
-- [ ] AC-3: The margin model's coefficients for season Y are fit only on games from seasons before Y, using ratings entering each game's week. On a noiseless fixture where margins are a known linear function of the rating matchups, they recover each coefficient within 0.01. A leakage test that feeds the fit a game from season Y, or an advanced-stat row whose game hadn't finished by `as_of`, fails with `PointInTimeError`.
-- [ ] AC-4: `engine backtest --spec <efficiency-v1 spec> --seasons 2016-2023 --report <dir>` (2014 warm-up, 2015 tuning) runs on the local lake, tuning each season on margin MAE over earlier seasons only. The report's Breakdowns include a conference-tier breakdown whose game counts add up to the run's eligible games. On the TASK-030 two-season fixture, the same spec's backtest matches a committed golden CSV, and a re-run gives a byte-identical `predictions.parquet`.
-- [ ] AC-5: On pooled 2016–2023 validation, the paired bootstrap (§ 9.5) compares `shrink_toward: tier` with `zero`, the spec being otherwise the same, and compares the chosen variant with Rung 1 (`engine/specs/power-v1.json`) on the same games. `efficiency-v1.json` keeps `tier` only if it beats `zero`; otherwise it uses `zero`. Both results, with their 95% intervals, are recorded in the decision row and 04 § 10.4.
-- [ ] AC-6: Against Rung 1, on the same games and with the same last-season prior: if the 95% interval of Rung 2's MAE minus Rung 1's lies entirely above zero (a clear loss), the task goes to Blocked with the report attached, and settings are never tuned on 2024–2025 to fix it. If the interval includes zero, the result is recorded and the task continues: § 9.6's Phase 3 bar is judged on all of v1 at M4.7 (owner, 2026-10-27).
+- [x] AC-1: Given a noiseless fixture whose per-game stat values are generated from known offense and defense ratings and a home adjustment, a fit with `ridge_alpha` 0 recovers every rating within 0.01. With `ridge_alpha` > 0, a team with 2 games ends nearer its anchor, as a share of its alpha-0 distance, than an otherwise identical team with 8.
+- [x] AC-2: `sports/cfb` maps each (season, conference) to Power 4, G5 or FCS: the Pac-12 is Power 4 in 2023 and its former members follow their new conference in 2024, and Notre Dame is Power 4 every season. On the local lake, every staged FBS team-season from 2014 to 2025 maps to a tier (the check prints 0 unmapped). Under `shrink_toward: tier`, a team with no games this season and no prior rates at its tier's fitted level; under `zero` it rates 0.
+- [x] AC-3: The margin model's coefficients for season Y are fit only on games from seasons before Y, using ratings entering each game's week. On a noiseless fixture where margins are a known linear function of the rating matchups, they recover each coefficient within 0.01. A leakage test that feeds the fit a game from season Y, or an advanced-stat row whose game hadn't finished by `as_of`, fails with `PointInTimeError`.
+- [x] AC-4: `engine backtest --spec <efficiency-v1 spec> --seasons 2016-2023 --report <dir>` (2014 warm-up, 2015 tuning) runs on the local lake, tuning each season on margin MAE over earlier seasons only. The report's Breakdowns include a conference-tier breakdown whose game counts add up to the run's eligible games. On the TASK-030 two-season fixture, the same spec's backtest matches a committed golden CSV, and a re-run gives a byte-identical `predictions.parquet`.
+- [x] AC-5: On pooled 2016–2023 validation, the paired bootstrap (§ 9.5) compares `shrink_toward: tier` with `zero`, the spec being otherwise the same, and compares the chosen variant with Rung 1 (`engine/specs/power-v1.json`) on the same games. `efficiency-v1.json` keeps `tier` only if it beats `zero`; otherwise it uses `zero`. Both results, with their 95% intervals, are recorded in the decision row and 04 § 10.4.
+- [x] AC-6: Against Rung 1, on the same games and with the same last-season prior: if the 95% interval of Rung 2's MAE minus Rung 1's lies entirely above zero (a clear loss), the task goes to Blocked with the report attached, and settings are never tuned on 2024–2025 to fix it. If the interval includes zero, the result is recorded and the task continues: § 9.6's Phase 3 bar is judged on all of v1 at M4.7 (owner, 2026-10-27).
 
 ## Out of scope
 
@@ -82,8 +82,12 @@ Every team gets an offense and a defense rating for each efficiency stat, adjust
 
 _Work noticed during this task and deliberately left out. Each bullet ends `→ <path> § <section>` (where it was placed) or `→ not tracked: <reason>`. See `.claude/skills/track-follow-ups/classify.md`; the PR's Follow-ups section is copied from here._
 
-- The per-stat offense and defense ratings and the margin model's `b_off`/`b_def` coefficients live inside the efficiency fit; M4.3 exposes each unit in points and writes them to `team_ratings` → docs/tasks/TASK-038-points-drivers-empirical-margin.md § Context (approved at plan)
-- Under `shrink_toward: tier` the prior regresses toward the team's tier level, not zero; fitted priors should keep that → docs/tasks/TASK-037-preseason-priors.md § Context (approved at plan)
+- The per-stat offense and defense ratings and the margin model's `b_off`/`b_def` coefficients live inside the efficiency fit; M4.3 exposes each unit in points and writes them to `team_ratings`; the six inputs overlap, so single coefficients are unstable (open question for its plan); σ is the residual RMSE until the empirical distribution → docs/tasks/TASK-038-points-drivers-empirical-margin.md § Context (approved at plan)
+- Under `shrink_toward: tier` the prior regresses toward the team's tier level, not zero; fitted priors should keep that; every season picked `prior.regression` 0.1, the grid's lower edge → docs/tasks/TASK-037-preseason-priors.md § Context (approved at plan)
+- `engine backtest --compare baselines` refuses an efficiency spec: `home_field` and `last_season` wrap only a model that fits on games alone (D-133); Rung 2 vs Rung 1 uses `engine compare` → docs/08-tasklist.md § M4.7
+- Candidate decision: Rung 2's design, the tier map, the hash rule and the 2016–2023 results → docs/decisions.md § D-137
+- Roadmap: Phase 3's "Rung 2" item stays open (the overall rating as the sum of unit contributions in points is TASK-038), and so does "Margin model … σ and empirical margin distribution" (the empirical distribution is TASK-038) → not tracked: both already covered by TASK-038's ACs
+- The test audit's base run left a half-deleted scratch folder under this session's temp scratchpad (the guard blocked removing it) → not tracked: outside the repo, no effect on it; the owner can delete it
 
 ## Plan
 
@@ -124,13 +128,17 @@ _Approved by the owner 2026-10-27, with AC-4's golden run on the fixture generat
 
 _Filled by /implement-task. One line per round._
 
+- Verify R1 PASS (611 pytest, e2e 40) | Audit R1 NOT RUN (the base revert in this checkout was blocked by the guard; static review OK) → R2 run by Claude in a base worktree, not independent: every new test fails on main; 2 strengthened (`engine compare` missing-run test passed on main via argparse's exit 2; the margin-row test compared no row) → PASS
+- Spec R1 APPROVE (3 advisories: `engine rate` with efficiency untested, every spec's hash changed, unmapped conference → traceback) | Schema R1 CHANGES (MAJOR: `rate` contexts had no conference; MAJOR: a final game with a NULL team id would crash `load()`; MINOR: `give_inputs` in rate untested) → fixed in 35707ae, each with a test failing on 3930b84 | Verify R2 PASS (614 pytest, e2e 40) | Schema R2 APPROVE | Spec R2 APPROVE (advisory: the exit-2 refusal untested → test added in e3a9b43, fails on 3930b84)
+- Manual: `engine tiers --seasons 2014-2025` 1,566 FBS team-seasons, 0 unmapped; AC-4 local run 5,954 games, tier breakdown 2659 + 788 + 2507; AC-5 tier vs zero −0.19 (−0.28 to −0.11); AC-6 vs Rung 1 −0.14 (−0.30 to +0.01), continue; 2019 week 10 top 10s look right (Ohio State, Alabama, Clemson, Oklahoma, LSU…); CFBD ledger unchanged (md5 98e4a521…)
+
 ## Blocked
 
 _Only if status is Blocked: what failed, what was tried, best hypothesis, decision needed._
 
 ## Metrics
 
-- Verify rounds:
-- Review rounds:
-- First-pass AC FAILs:
-- Plan revisions after approval:
+- Verify rounds: 2 (both PASS; the second after the review fixes)
+- Review rounds: 2 (spec), 2 (schema); audit 2 (R1 blocked, R2 by Claude in a worktree)
+- First-pass AC FAILs: 0 (schema R1's CHANGES were `rate` and `load()` robustness, not an AC)
+- Plan revisions after approval: 0 (`models/power.py` and `models/__init__.py` fell under steps 5 and 11; the grid widened once as step 10 allowed)

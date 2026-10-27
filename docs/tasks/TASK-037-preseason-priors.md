@@ -32,6 +32,7 @@ Early-season ratings start from a preseason guess built from last season's ratin
 - **Decide at the plan gate:** the per-source publication assumption (starting from the talent default above); what the prior weights are fit to (for example next season's final rating, or the in-season rating at a fixed week) and on which seasons; the decay curve's shape and its fitted parameter; recruiting's aggregation over 4 classes; what a team missing a component gets (FCS, newcomers, unmatched names); whether the tier term enters the prior; and which publish step writes `team_seasons.talent` and `returning_ppa_pct`, and how CFBD's `percentPPA` maps to `Numeric(5, 4)`.
 - *From TASK-018 (PR #62):* CFBD's talent, returning production and recruiting carry no publication date, and backfilled pulls are fetched after the season, so "published before the season" has to be assumed per source.
 - *From TASK-020 (PR #62):* Postgres `team_seasons.talent` and `returning_ppa_pct` stay NULL until this task publishes them from staging.
+- *From TASK-036 (feat/task-036-rung-2-efficiency-ratings):* Rung 2's prior is per stat and side, and under `shrink_toward: tier` (v1's setting) last season's rating regresses toward its tier's level, not zero (`engine/models/efficiency.py`, D-137); fitted priors should keep that anchor. Every 2016–2023 season picked `prior.regression` 0.1, the lower edge of the grid {0.1, 0.2}, as Rung 1 did: the fitted prior weights this task adds replace that setting.
 
 ## Acceptance criteria
 
