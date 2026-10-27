@@ -4,7 +4,8 @@ predictions to Postgres (TASK-035, D-136).
 The week is the feature week of D-127: its `as_of` is its first kickoff, and the fit is the
 backtest's (`harness.fit_games`: every final game that finished, kickoff + 4 h, by `as_of`), so a
 published week is the week the backtest scored. Its predictions are every staged regular-season
-game of the week with both teams that isn't canceled or postponed, played or not.
+game of the week with both teams that isn't canceled or postponed, played or not (the transform
+stages only `final` and `scheduled` so far, so the filter takes effect once it stages those).
 
 The lake is read and the model fit before any database transaction opens (`fit_week`); `write`
 then inserts in one short transaction. Outputs are insert-only (hard rule 2): a re-run adds a new
@@ -84,6 +85,8 @@ def settings(spec: ModelSpec, run: Mapping[str, Any] | None, season: int) -> dic
             f"the spec still tunes {', '.join(spec.tunables())}: pass --choices with the run.json "
             "of a backtest of this spec that scored the season"
         )
+    if not isinstance(run, Mapping) or not isinstance(run.get("choices", {}), Mapping):
+        raise RateRefused("--choices isn't a backtest run.json (an object with choices by season)")
     if run.get("spec_hash") != harness.spec_hash(spec):
         raise RateRefused("the backtest run in --choices was of a different spec")
     chosen = run.get("choices", {}).get(str(season))
@@ -92,7 +95,12 @@ def settings(spec: ModelSpec, run: Mapping[str, Any] | None, season: int) -> dic
             f"the backtest run in --choices didn't score {season}: run engine backtest "
             f"--seasons {season} with this spec first"
         )
-    return {path: float(value) for path, value in chosen.items()}
+    if not isinstance(chosen, Mapping):
+        raise RateRefused(f"--choices isn't a backtest run.json: choices[{season}] isn't an object")
+    try:
+        return {path: float(value) for path, value in chosen.items()}
+    except (TypeError, ValueError) as e:
+        raise RateRefused(f"a setting in --choices for {season} isn't a number: {e}") from e
 
 
 def _week(
@@ -151,10 +159,11 @@ def _fit(
     games: list[GameContext],
 ) -> tuple[Ratings, Predicted] | str:
     """The ratings entering `week` and its games' predictions, fit as the backtest fits them;
-    or, if the fit raises or gives a number the tables can't hold, the error to record."""
+    or, if the fit raises or gives a number the tables can't hold, the error to record. A
+    point-in-time violation isn't a failed fit: it raises (hard rule 4), and nothing is written."""
+    fit_on = harness.fit_games(history, week.as_of)
+    harness._check_fit(fit_on, week)
     try:
-        fit_on = harness.fit_games(history, week.as_of)
-        harness._check_fit(fit_on, week)
         ratings = model.fit(fit_on, week.as_of)
         predicted = [(g, model.predict(g, ratings, week.as_of)) for g in games]
     except Exception as e:  # a failed fit is recorded as a failed run, not raised
