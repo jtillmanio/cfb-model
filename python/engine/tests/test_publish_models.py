@@ -1,0 +1,352 @@
+"""`engine rate` (TASK-035): a model run, its ratings and its predictions, inserted for one week.
+
+The backtest fixture's 2022-2023 seasons are published into the test DB through `db_conn`
+(rolled back) as `PUBLISH`, a source no real publish uses, and rated under `NAME`, a model name
+the fixture's `power` versions don't use (D-135's live-row unique index). The CLI tests only
+refuse, so they commit nothing."""
+
+from __future__ import annotations
+
+import json
+import math
+from datetime import datetime
+from pathlib import Path
+from typing import Any
+
+import pytest
+from lake_fixture import engine, write_backtest_seasons
+from sqlalchemy import Connection, text
+
+from engine import backtest
+from engine.backtest import harness
+from engine.core.interfaces import GameContext, Prediction, Ratings
+from engine.core.spec import ModelSpec
+from engine.ingest.lake import LocalLake
+from engine.publish import models
+from engine.publish.staging import publish_lake
+from engine.transform import rebuild
+
+PUBLISH = "manual"
+NAME = "pytest-power"
+SEASON, WEEK = 2023, 5
+SPEC_FILE = Path(__file__).parents[1] / "specs" / "power-v1.json"
+SPEC = ModelSpec.model_validate_json(SPEC_FILE.read_text("utf-8"))
+# One candidate per tuned setting, as a backtest's run.json records them for a season.
+CHOICES = {path: values[0] for path, values in SPEC.tunables().items()}
+
+
+@pytest.fixture
+def published(lake: LocalLake, db_conn: Connection) -> LocalLake:
+    write_backtest_seasons(lake)
+    rebuild(lake)
+    publish_lake(lake, db_conn, PUBLISH)
+    return lake
+
+
+def _rate(lake: LocalLake, conn: Connection, **kwargs: Any) -> models.RunSummary:
+    return models.rate(
+        lake,
+        conn,
+        kwargs.pop("spec", SPEC),
+        kwargs.pop("choices", CHOICES),
+        season=SEASON,
+        week=WEEK,
+        name=NAME,
+        version="v1.0",
+        source=kwargs.pop("source", PUBLISH),
+        **kwargs,
+    )
+
+
+def _run(conn: Connection, run_id: int) -> dict[str, Any]:
+    return dict(
+        conn.execute(text("SELECT * FROM model_runs WHERE id = :r"), {"r": run_id}).one()._mapping
+    )
+
+
+def _outputs(conn: Connection, run_id: int) -> tuple[list[Any], list[Any]]:
+    ratings = conn.execute(
+        text(
+            "SELECT team_id, season, week, as_of, rating, prior_weight, created_at"
+            " FROM team_ratings WHERE model_run_id = :r ORDER BY team_id"
+        ),
+        {"r": run_id},
+    ).all()
+    predictions = conn.execute(
+        text(
+            "SELECT id, game_id, pred_margin, home_win_prob, margin_sd, drivers"
+            " FROM predictions WHERE model_run_id = :r ORDER BY game_id"
+        ),
+        {"r": run_id},
+    ).all()
+    return list(ratings), list(predictions)
+
+
+def _week(history: harness.History) -> harness.Week:
+    (week,) = [
+        w
+        for w in history.weeks
+        if (w.season, w.season_type, w.week) == (SEASON, "regular", WEEK)
+    ]
+    return week
+
+
+def _published_ids(conn: Connection, table: str, source_ids: set[str]) -> set[int]:
+    return set(
+        conn.execute(
+            text(f"SELECT id FROM {table} WHERE source = :s AND source_id = ANY(:ids)"),
+            {"s": PUBLISH, "ids": sorted(source_ids)},
+        ).scalars()
+    )
+
+
+def test_rate_inserts_a_run_and_a_rerun_inserts_another(
+    published: LocalLake, db_conn: Connection
+) -> None:
+    """AC-1."""
+    history = harness.load(published)
+    as_of = _week(history).as_of
+    played = [g for g in history.results if g.kickoff + harness._FINISHED <= as_of]
+    teams = {str(t) for g in played for t in (g.home_team, g.away_team)}
+    week_games = {
+        str(g.game_id)
+        for g in history.results
+        if (g.season, g.season_type, g.week) == (SEASON, "regular", WEEK)
+    }
+    assert teams and len(week_games) == 5
+
+    first = _rate(published, db_conn)
+
+    run = _run(db_conn, first.run_id)
+    assert (run["status"], run["run_type"]) == ("succeeded", "adhoc")
+    assert (run["season"], run["week"], run["as_of"]) == (SEASON, WEEK, as_of)
+    assert run["error"] is None
+    params = run["fitted_params"]
+    assert isinstance(params["home_field"], float) and params["home_field"] != 0
+    assert params["choices"] == CHOICES
+    ratings, predictions = _outputs(db_conn, first.run_id)
+    assert {r.team_id for r in ratings} == _published_ids(db_conn, "teams", teams)
+    assert {(r.season, r.week, r.as_of) for r in ratings} == {(SEASON, WEEK, as_of)}
+    assert {p.game_id for p in predictions} == _published_ids(db_conn, "games", week_games)
+    for p in predictions:
+        assert math.isclose(sum(d["points"] for d in p.drivers), p.pred_margin)
+        assert p.margin_sd == params["margin_sd"]
+    version = db_conn.execute(
+        text("SELECT model_version_id FROM model_runs WHERE id = :r"), {"r": first.run_id}
+    ).scalar_one()
+    assert db_conn.execute(
+        text("SELECT name, version, status, spec FROM model_versions WHERE id = :v"),
+        {"v": version},
+    ).one() == (NAME, "v1.0", "dev", SPEC.model_dump(mode="json"))
+    assert (first.ratings, first.predictions) == (len(ratings), len(predictions))
+
+    second = _rate(published, db_conn)
+
+    assert second.run_id != first.run_id
+    assert _run(db_conn, second.run_id)["model_version_id"] == version
+    assert _outputs(db_conn, first.run_id) == (ratings, predictions)
+    again, repredicted = _outputs(db_conn, second.run_id)
+    assert [(r.team_id, r.rating) for r in again] == [(r.team_id, r.rating) for r in ratings]
+    assert {p.game_id for p in repredicted} == {p.game_id for p in predictions}
+    assert not {p.id for p in repredicted} & {p.id for p in predictions}
+
+
+def test_rate_refuses_a_version_whose_spec_differs(
+    published: LocalLake, db_conn: Connection
+) -> None:
+    _rate(published, db_conn)
+    runs = db_conn.execute(text("SELECT count(*) FROM model_runs")).scalar_one()
+    other = SPEC.model_copy(update={"home_field": 3.0})
+
+    with pytest.raises(models.RateRefused, match="different spec"):
+        _rate(published, db_conn, spec=other)
+
+    assert db_conn.execute(text("SELECT count(*) FROM model_runs")).scalar_one() == runs
+
+
+def test_rate_refuses_a_week_with_no_staged_games(
+    published: LocalLake, db_conn: Connection
+) -> None:
+    with pytest.raises(models.RateRefused, match="week 30"):
+        models.rate(
+            published, db_conn, SPEC, CHOICES, season=SEASON, week=30, name=NAME, version="v1.0"
+        )
+
+
+def test_rate_refuses_teams_that_arent_published(
+    published: LocalLake, db_conn: Connection
+) -> None:
+    runs = db_conn.execute(text("SELECT count(*) FROM model_runs")).scalar_one()
+
+    with pytest.raises(models.RateRefused, match="engine publish"):
+        _rate(published, db_conn, source="cfbd-not-published")
+
+    assert db_conn.execute(text("SELECT count(*) FROM model_runs")).scalar_one() == runs
+
+
+class _Broken:
+    """A power model whose fit fails, or whose ratings or predictions aren't finite."""
+
+    reads = frozenset({"games"})
+
+    def __init__(self, inner: Any, how: str) -> None:
+        self.inner, self.how = inner, how
+
+    def fit(self, games: Any, as_of: datetime) -> Ratings:
+        if self.how == "raise":
+            raise ArithmeticError("the solve diverged")
+        ratings = self.inner.fit(games, as_of)
+        if self.how == "nan_rating":
+            team = next(iter(ratings.teams))
+            return Ratings(ratings.as_of, {**ratings.teams, team: math.nan}, ratings.params)
+        return ratings
+
+    def predict(self, game: GameContext, ratings: Ratings, as_of: datetime) -> Prediction:
+        p = self.inner.predict(game, ratings, as_of)
+        if self.how == "inf_margin":
+            return Prediction(math.inf, p.margin_sd, p.home_win_prob, p.drivers)
+        return p
+
+
+@pytest.mark.parametrize(
+    ("how", "error"),
+    [
+        ("raise", "the solve diverged"),
+        ("nan_rating", "rating"),
+        ("inf_margin", "pred_margin"),
+    ],
+)
+def test_failed_fit_records_a_failed_run_without_outputs(
+    published: LocalLake,
+    db_conn: Connection,
+    monkeypatch: pytest.MonkeyPatch,
+    how: str,
+    error: str,
+) -> None:
+    """AC-5: the run is recorded `failed` with its error; no ratings or predictions."""
+    power = backtest.MODELS["power"]
+    monkeypatch.setitem(backtest.MODELS, "power", lambda spec: _Broken(power(spec), how))
+
+    summary = _rate(published, db_conn)
+
+    run = _run(db_conn, summary.run_id)
+    assert run["status"] == "failed"
+    assert error in run["error"]
+    assert run["finished_at"] is not None
+    assert _outputs(db_conn, summary.run_id) == ([], [])
+    assert (summary.status, summary.ratings, summary.predictions) == ("failed", 0, 0)
+
+
+def _run_json(**overrides: Any) -> dict[str, Any]:
+    return {"spec_hash": harness.spec_hash(SPEC), "choices": {str(SEASON): CHOICES}} | overrides
+
+
+def test_settings_come_from_the_backtest_run_for_the_season() -> None:
+    assert models.settings(SPEC, _run_json(), SEASON) == CHOICES
+
+
+def test_settings_of_a_resolved_spec_need_no_run() -> None:
+    assert models.settings(SPEC.resolve(CHOICES), None, SEASON) == {}
+
+
+@pytest.mark.parametrize(
+    ("run", "match"),
+    [
+        (None, "--choices"),
+        (_run_json(spec_hash="0" * 64), "different spec"),
+        (_run_json(choices={"2022": CHOICES}), "2023"),
+    ],
+)
+def test_settings_refuse(run: dict[str, Any] | None, match: str) -> None:
+    with pytest.raises(models.RateRefused, match=match):
+        models.settings(SPEC, run, SEASON)
+
+
+def _refuse_postgres(monkeypatch: pytest.MonkeyPatch) -> None:
+    def refuse(*args: Any, **kwargs: Any) -> Any:
+        raise AssertionError("engine rate opened a database")
+
+    monkeypatch.setattr(models, "make_engine", refuse)
+
+
+@pytest.mark.parametrize("target", ["dev", "test"])
+def test_rate_refuses_under_live(
+    lake: LocalLake,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    target: str,
+) -> None:
+    """AC-5: LIVE=true refuses before anything is opened or written."""
+    monkeypatch.setenv("LIVE", "true")
+    _refuse_postgres(monkeypatch)
+
+    code = engine(
+        "rate", "--spec", str(SPEC_FILE), "--season", "2023", "--week", "5", "--target", target
+    )
+
+    assert code == 2
+    assert "LIVE" in capsys.readouterr().err
+
+
+def test_rate_cli_refuses_a_tuned_spec_without_choices(
+    lake: LocalLake, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    _refuse_postgres(monkeypatch)
+
+    code = engine(
+        "rate", "--spec", str(SPEC_FILE), "--season", "2023", "--week", "5", "--target", "test"
+    )
+
+    assert code == 2
+    assert "--choices" in capsys.readouterr().err
+
+
+def test_rate_cli_publishes_through_one_transaction(
+    lake: LocalLake,
+    db_conn: Connection,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """The command reads the backtest run's settings and publishes on the target's direct URL;
+    here the target's transaction is the rolled-back test connection."""
+    write_backtest_seasons(lake)
+    rebuild(lake)
+    publish_lake(lake, db_conn, PUBLISH)
+    run_file = tmp_path / "run.json"
+    run_file.write_text(json.dumps(_run_json()), "utf-8")
+    opened: list[str] = []
+
+    class _Engine:
+        def begin(self) -> Any:
+            from contextlib import nullcontext
+
+            return nullcontext(db_conn)
+
+    def make_engine(url: str) -> Any:
+        opened.append(url)
+        return _Engine()
+
+    monkeypatch.setattr(models, "make_engine", make_engine)
+    monkeypatch.setattr(models, "SOURCE", PUBLISH)
+    monkeypatch.setenv("TEST_DATABASE_URL", "postgresql://test-host/cfb_test")
+    monkeypatch.delenv("DATABASE_URL", raising=False)
+    monkeypatch.delenv("DATABASE_URL_UNPOOLED", raising=False)
+
+    code = engine(
+        "rate",
+        *("--spec", str(SPEC_FILE), "--choices", str(run_file)),
+        *("--season", "2023", "--week", "5", "--target", "test", "--name", NAME),
+    )
+
+    assert code == 0, capsys.readouterr().err
+    assert opened == ["postgresql://test-host/cfb_test"]
+    out = capsys.readouterr().out
+    assert "succeeded" in out
+    assert db_conn.execute(
+        text(
+            "SELECT count(*) FROM model_runs r JOIN model_versions v ON v.id = r.model_version_id"
+            " WHERE v.name = :n AND r.status = 'succeeded'"
+        ),
+        {"n": NAME},
+    ).scalar_one() == 1

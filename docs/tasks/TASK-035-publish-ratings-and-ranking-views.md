@@ -1,14 +1,14 @@
 ---
 id: TASK-035
 title: Publish model runs, ratings and predictions, with the team_rankings and team_schedule_strength views
-status: Ready
+status: In progress
 depends_on: [TASK-033, TASK-034]
 size: M
 model: opus
 autonomy: attended
 ui: false
-plan_status: none
-planned_at_commit:
+plan_status: approved
+planned_at_commit: a076c8c
 ---
 
 # TASK-035 — Publish model runs, ratings and predictions, with the team_rankings and team_schedule_strength views
@@ -71,9 +71,44 @@ Rung 1's ratings and predictions for any season and week land in Postgres as a n
 
 _Work noticed during this task and deliberately left out. Each bullet ends `→ <path> § <section>` (where it was placed) or `→ not tracked: <reason>`. See `.claude/skills/track-follow-ups/classify.md`; the PR's Follow-ups section is copied from here._
 
+- D-136: the rate command, `as_of`, run choice, FCS rule, SOS formula and failed-run rule; its revisit names postseason ratings, which need a `season_type` on `team_ratings` (approved at plan)
+- `docs/03-data-model.md` › Views: rows for `latest_team_ratings`, `team_rankings` and `team_schedule_strength` with the agreed rules (approved at plan)
+
 ## Plan
 
-_Written by /plan-batch or /implement-task Phase 1. Approved by the user (plan_status: approved) before any code is written._
+_Approved by the owner 2026-10-27._
+
+**Plan-gate decisions**
+1. **Command:** `engine rate --spec FILE --season Y --week N --target dev|test [--choices RUN.json] [--name NAME] [--version V]` (name defaults to the spec's `base`, version to `v1.0`). A spec with tuned settings needs `--choices`, a backtest's `run.json`, and uses `choices[Y]`; refused when the run's `spec_hash` differs or Y isn't in it. The version is found by (sport, market `spread`, name, version) or created with status `dev`; an existing one whose spec differs is refused. Under `LIVE=true` every target is refused.
+2. **`as_of`** is the D-127 feature week's `as_of` (its first kickoff), so the fit sees what the backtest sees entering that week (answers TASK-034's open question; the fixture's Sunday `as_of` is test data only).
+3. **Regular season only**: `team_ratings` has no `season_type`, so postseason week 1 would collide with regular week 1.
+4. **FCS:** a row per FCS team at the pool's rating (what predictions use); ranks and SOS ranks cover FBS teams only (`team_seasons.division = 'fbs'`).
+5. **Run a view reads:** the newest `succeeded` run per (version, season, week), by `finished_at` DESC then `id` DESC. Ties: `RANK()` (1, 2, 2, 4).
+6. **SOS:** the mean over this season's `final` games finished (kickoff + 4 h; a TBA game kicks off at the end of its Eastern date) by the run's `as_of`, of the opponent's rating in the same run, + HFA when the opponent was at home, − HFA when away, 0 at a neutral site; HFA = that run's `fitted_params.home_field`. NULL with no game played, or when an opponent or HFA is missing. SOS rank 1 = the highest SOS.
+7. **Failure:** the fit and predictions run before any transaction. A raised error or a NaN/±Infinity output records one `failed` run with its error and no ratings or predictions, exit 1.
+8. **No new index:** a one-team read ranks its whole week through `(model_version_id, season, week)`; AC-4's reads filter version, team, season and week.
+
+**Steps**
+1. Tests first (below); confirm each fails for the expected reason.
+2. `python/engine/src/engine/publish/models.py` (new): `rate_week()` loads `harness.load(lake)`, resolves the spec, finds the week's `as_of`, fits with `fit_games` + `_check_fit` + `check_reads`, predicts every staged week-N game with both teams; `publish_run()` maps CFBD source ids to `teams.id`/`games.id` (refusing unpublished ones), finds or creates the version, and inserts the run (`adhoc`, `fitted_params` = learned params + `choices`), ratings and predictions (drivers as `[{label, points}]`), refusing non-finite values.
+3. `python/engine/src/engine/cli.py`: `engine rate`.
+4. Views: `python/db/views/020_latest_team_ratings.sql` (new helper, not in "Files likely touched": the newest succeeded run's ratings with `fbs` and FBS `rank`), `030_team_rankings.sql` (`previous_rank`, `rank_change` = previous − current), `040_team_schedule_strength.sql` (`games_played`, `sos`, `sos_rank`).
+5. Docs: `python/db/views/README.md`, `docs/03-data-model.md` › Views, D-136 in `docs/decisions.md`.
+
+**Files:** the six above, `python/engine/tests/test_publish_models.py`, `python/db/tests/test_team_rankings.py`, `python/db/tests/test_team_schedule_strength.py`, `docs/03-data-model.md`, `docs/decisions.md`, this task file (12).
+
+**Test strategy**
+- AC-1 `test_publish_models.py::test_rate_inserts_a_run_and_a_rerun_inserts_another`: the season lake fixture published into `db_conn` (rolled back), week 5 of 2025 rated twice.
+- AC-5 `test_publish_models.py::test_rate_refuses_under_live` (CLI, nothing opened) and `::test_failed_fit_records_a_failed_run_without_outputs`.
+- AC-2 `test_team_rankings.py::test_seeded_week_6_order_and_change` (expected from `models.json`, FBS only) plus constructed newest-run and week-1 NULL cases.
+- AC-3 `test_team_schedule_strength.py::test_sos_adjusts_for_site` and `::test_sos_rank`.
+- AC-4 `test_team_rankings.py::test_single_team_read_uses_index`, `test_team_schedule_strength.py::test_single_team_read_uses_index` (`EXPLAIN`, `enable_seqscan = off`, every `team_ratings` node has an index condition).
+
+**Risks:** rating a week before all earlier games are final gives a different fit on a re-run (the run records what it saw); a whole-season read of the views is heavier, and no screen needs one yet.
+
+**Revisions during implementation** (both inside the plan's scope, reported in the PR)
+1. `rate()` takes the lake, not a loaded `History`: the week's unplayed games aren't in `History` (it keeps final games and eligible ones), so `rate` reads them from staged `games` itself, leaving `harness.py` unchanged.
+2. `python/db/tests/model_rows.py` (new): the constructed teams, version, runs, ratings and games both view test files share.
 
 ## Review log
 
