@@ -19,10 +19,12 @@ AS_OF = m.utc(2030, 9, 26, 16)  # entering week 4
 
 def _schedule(conn: Connection, home_field: float | None = HFA) -> dict[str, int]:
     """Team a's weeks 1-3: home to b, away at c, neutral against d (FCS); its week-4 game with
-    e kicked off three hours before `AS_OF`, so it hasn't finished. g hasn't played."""
+    e kicked off three hours before `AS_OF`, so it hasn't finished, and its game with e last
+    season is another season's. g hasn't played."""
     m.sport(conn)
     ids = {s: m.team(conn, s) for s in "abceg"}
     ids["d"] = m.team(conn, "d", "fcs")
+    m.game(conn, ids["e"], ids["a"], m.utc(2029, 9, 15, 20), week=3, season=m.SEASON - 1)
     m.game(conn, ids["a"], ids["b"], m.utc(2030, 9, 5, 20), week=1)
     m.game(conn, ids["c"], ids["a"], m.utc(2030, 9, 12, 20), week=2)
     m.game(conn, ids["a"], ids["d"], m.utc(2030, 9, 19, 20), week=3, neutral=True)

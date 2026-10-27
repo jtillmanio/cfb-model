@@ -144,3 +144,22 @@ def assert_index_reads(conn: Connection, view: str) -> None:
 def test_single_team_read_uses_index(db_conn: Connection):
     """AC-4."""
     assert_index_reads(db_conn, "team_rankings")
+
+
+def test_views_readme_lists_every_view_with_its_test():
+    """AC-4: python/db/views/README.md has a row per view file naming a test that exists."""
+    views = repo_root() / "python" / "db" / "views"
+    rows = {
+        cells[1].strip("` "): cells[3].strip("` ")
+        for line in (views / "README.md").read_text("utf-8").splitlines()
+        if (cells := line.split("|")) and len(cells) == 5 and cells[1].strip().endswith(".sql`")
+    }
+
+    assert set(rows) == {p.name for p in views.glob("*.sql")}
+    assert {
+        "020_latest_team_ratings.sql",
+        "030_team_rankings.sql",
+        "040_team_schedule_strength.sql",
+    } <= set(rows)
+    for test in rows.values():
+        assert (repo_root() / test).is_file(), test

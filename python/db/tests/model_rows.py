@@ -122,6 +122,7 @@ def game(
     neutral: bool = False,
     status: str = "final",
     game_date: str | None = None,
+    season: int = SEASON,
 ) -> int:
     final = status == "final"
     return conn.execute(
@@ -134,8 +135,8 @@ def game(
         ),
         {
             "sport": SPORT,
-            "sid": f"{home}-{away}-{week}",
-            "season": SEASON,
+            "sid": f"{home}-{away}-{season}-{week}",
+            "season": season,
             "week": week,
             "d": game_date or (kickoff_at.date().isoformat() if kickoff_at else None),
             "k": kickoff_at,
