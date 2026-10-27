@@ -194,5 +194,8 @@ def test_engine_compare_pairs_two_stored_runs_by_game(
     assert (trimmed.games, trimmed.only_a, trimmed.only_b) == (len(first) - 1, 1, 0)
 
 
-def test_engine_compare_refuses_a_missing_run(backtest_lake: LocalLake) -> None:
+def test_engine_compare_refuses_a_missing_run(
+    backtest_lake: LocalLake, capsys: pytest.CaptureFixture[str]
+) -> None:
     assert engine("compare", "backtests/nope", "backtests/nor-this") == 2
+    assert "error: backtests/nope/predictions.parquet isn't in the lake" in capsys.readouterr().err

@@ -272,18 +272,28 @@ def test_the_margin_model_is_fit_on_earlier_seasons_from_ratings_entering_each_w
     ratings = m.fit(seen, early_2023)
 
     last = [g for g in league.games if g.season == 2022]
-    assert ratings.params["margin_sd"] >= 0
     rows = m.matchup_rows({2022: last}, 2022)
     assert len(rows) == len(last)  # every 2022 game, and none of 2023's
-    for row in rows[:5]:
+    # The 2023 fit's coefficients are exactly those fit on these 2022 rows.
+    margin = m.fit_margin(rows, 2023)
+    assert ratings.params["home_field"] == pytest.approx(margin.home_field)
+    assert ratings.params["margin_sd"] == pytest.approx(margin.sd)
+    for i, stat in enumerate(STATS):
+        assert ratings.params[f"b_off_{stat}"] == pytest.approx(margin.coefficients[i])
+        assert ratings.params[f"b_def_{stat}"] == pytest.approx(margin.coefficients[2 + i])
+    # Each row's gaps are the ratings entering its week (a team not yet rated is at 0).
+    rated = 0
+    for row in rows:
         game = next(g for g in last if g.game_id == row.game_id)
         entering = m.stat_ratings([g for g in last if g.week < game.week], game.kickoff)
-        home = entering.get(game.home_team)
-        away = entering.get(game.away_team)
-        if home is None or away is None:
-            continue
+        unseen = dict.fromkeys(STATS, (0.0, 0.0))
+        home = entering.get(game.home_team, unseen)
+        away = entering.get(game.away_team, unseen)
+        rated += game.home_team in entering and game.away_team in entering
         for i, stat in enumerate(STATS):
-            assert row.gaps[i] == pytest.approx(home[stat][0] - away[stat][0])
+            assert row.gaps[i] == pytest.approx(home[stat][0] - away[stat][0], abs=1e-12)
+            assert row.gaps[2 + i] == pytest.approx(home[stat][1] - away[stat][1], abs=1e-12)
+    assert rated > len(rows) / 2
 
 
 def test_a_margin_fit_given_a_game_from_the_predicted_season_fails() -> None:
