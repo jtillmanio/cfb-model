@@ -29,8 +29,18 @@ jobs:
         if: env.HAS_TOKEN == 'true'
         with:
           fetch-depth: 1
+      # The project's hooks (.claude/settings.json) run `powershell`, which Linux doesn't have, and
+      # guard-destructive blocks on failure: every gh call was denied and the job exited green
+      # having reviewed nothing (every run from PR #45 to #97). The runner ships pwsh.
+      - name: Let the project's hooks find powershell
+        if: env.HAS_TOKEN == 'true'
+        run: sudo ln -sf "$(command -v pwsh)" /usr/local/bin/powershell
       - uses: anthropics/claude-code-action@v1
         if: env.HAS_TOKEN == 'true'
+        # The review's agents ran in the background and the job ended while the run "waited" on
+        # them, again green with nothing reviewed. Run them in the foreground.
+        env:
+          CLAUDE_CODE_DISABLE_BACKGROUND_TASKS: "1"
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           plugin_marketplaces: "https://github.com/anthropics/claude-code.git"
