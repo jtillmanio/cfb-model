@@ -194,6 +194,38 @@ def test_engine_compare_pairs_two_stored_runs_by_game(
     assert (trimmed.games, trimmed.only_a, trimmed.only_b) == (len(first) - 1, 1, 0)
 
 
+def test_engine_compare_weeks_pairs_only_those_regular_season_weeks(
+    backtest_lake: LocalLake, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """TASK-037 AC-5 compares runs on weeks 1-3 too, where the prior matters most."""
+    argv = ["--seasons", "2023", "--tune-from", "2022"]
+    assert engine("backtest", "--spec", spec_file(tmp_path), *argv) == 0
+    other = tmp_path / "home.json"
+    other.write_text(json.dumps({**SPEC, "home_field": 10.0}), "utf-8")
+    assert engine("backtest", "--spec", str(other), *argv) == 0
+    folders = sorted({k.rpartition("/")[0] for k in backtest_lake.walk("backtests")})
+    first, second = (
+        [
+            r
+            for r in pq.read_table(
+                io.BytesIO(backtest_lake.read(f"{f}/predictions.parquet"))
+            ).to_pylist()
+            if r["season_type"] == "regular" and 1 <= r["week"] <= 3
+        ]
+        for f in folders
+    )
+    capsys.readouterr()
+
+    assert engine("compare", *folders, "--weeks", "1-3") == 0
+
+    out = capsys.readouterr().out
+    expected = bootstrap.compare(first, second)
+    assert first and {r["week"] for r in first} == {1, 2, 3}
+    assert "regular-season weeks 1-3" in out
+    assert f"{len(first)} shared games" in out
+    assert f"A - B: {expected.estimate:+.3f} [{expected.low:+.3f}, {expected.high:+.3f}]" in out
+
+
 def test_engine_compare_refuses_a_missing_run(
     backtest_lake: LocalLake, capsys: pytest.CaptureFixture[str]
 ) -> None:

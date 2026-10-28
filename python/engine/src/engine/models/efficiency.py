@@ -15,10 +15,15 @@ Power 4, G5, FCS) under `tier`, whose levels the cross-tier games estimate. Ever
 design matrix, so one least-squares solve rates them all. Ratings are then shifted so FBS teams
 average zero, per stat and side: a defense rating is how much less than average it allows.
 
-**Prior.** Last season's final per-stat ratings, regressed toward the anchor by `prior.regression`
-(toward zero, or toward the tier's level last season), blended in with Rung 1's linear decay. A
-team that hasn't played keeps its prior; a team with no rating last season starts from the
-newcomer pool's prior; with no prior, an unseen team rates at its anchor.
+**Prior.** Last season's final per-stat ratings, regressed toward the anchor (zero, or the
+tier's level last season). With `components: [last_season]` the regression is the setting
+`prior.regression` (D-137); with more components (returning production, talent, recruiting)
+every weight, the regression included, is fit on earlier seasons (`priors.py`, TASK-037), and
+`prior.regression` only serves a season with no earlier one to fit on. It's blended in as
+`w·prior + (1 − w)·in_season`, `w` decaying linearly (Rung 1's) or by the fitted curve
+`k / (k + N − 1)`, whose `k` is fit with the margin model. A team that hasn't played keeps its
+prior; a team with no rating last season starts from the newcomer pool's prior; with no prior,
+an unseen team rates at its anchor.
 
 **Margin model.** Turns ratings into points:
 
@@ -26,12 +31,15 @@ newcomer pool's prior; with no prior, an unseen team rates at its anchor.
                                     + Σₖ b_defₖ·(defₖ,home − defₖ,away)
 
 fit by ordinary least squares on the FBS-vs-FBS games of every season before the one predicted,
-from the ratings entering each game's week, and refit once a season (04 § 9.2). It's symmetric,
+from the ratings entering each game's week, and refit once a season (04 § 9.2). Under fitted
+decay each candidate `k` re-blends those games' prior and in-season gaps, and the `k` whose fit
+leaves the smallest squared error is kept, with its coefficients. It's symmetric,
 so it collapses to one rating per team in points, `Σ b_off·off + b_def·def`, and a prediction is
 Rung 1's: HFA plus the home rating minus the away rating. σ is the margin model's residual RMSE.
 
 **Inputs.** Per-game stats come from the harness's `team_game_stats` input, only through
-`finished_by(as_of)`, which asserts the point-in-time rule.
+`finished_by(as_of)`, and preseason values from its `preseason` input, only through
+`for_season(season)`: each asserts the point-in-time rule.
 """
 
 from __future__ import annotations
@@ -39,7 +47,7 @@ from __future__ import annotations
 import math
 from collections import defaultdict
 from collections.abc import Callable, Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime, timedelta
 from typing import Any, Protocol
 
@@ -50,6 +58,15 @@ from engine.core.interfaces import GameContext, GameHistory, GameResult, Predict
 from engine.core.probability import NormalMargin, win_probability
 from engine.core.spec import LinearDecay, ModelSpec, fixed
 from engine.models.power import UnsupportedSpecError
+from engine.models.priors import (
+    DECAY_GRID,
+    DEFAULT_PRIOR_WEEKS,
+    PriorRow,
+    PriorWeights,
+    centred,
+    decay_weight,
+    fit_prior,
+)
 from engine.transform.features import GAME_HOURS, PointInTimeError
 
 _WEEK = timedelta(weeks=1)
@@ -95,6 +112,12 @@ class StatInput(Protocol):
     def finished_by(self, as_of: datetime, season: int) -> Sequence[StatRow]: ...
 
 
+class PreseasonInput(Protocol):
+    """`harness.Preseason`: each source's number per team for a season's prior."""
+
+    def for_season(self, season: int) -> Mapping[str, Mapping[int, float]]: ...
+
+
 @dataclass(frozen=True, slots=True)
 class _Fit:
     """Ratings entering a date: a vector per unit, each stat's offense then each stat's defense."""
@@ -105,6 +128,24 @@ class _Fit:
     prior_weight: float
     pooled: dict[int, str]  # team id -> its pool, for teams rated as one
     newcomer: np.ndarray | None  # the prior of a team the fit hasn't seen; None: no prior
+    missing: dict[str, int]  # prior component -> rated FBS teams without it (with a prior)
+    weights: PriorWeights | None  # the fitted prior's weights; None: regression by setting
+
+
+@dataclass(frozen=True, slots=True)
+class _Parts:
+    """What a fit entering a date blends: the prior and this season's in-season ratings."""
+
+    prior: dict[Unit, np.ndarray]
+    prior_levels: dict[str, np.ndarray]
+    current: dict[Unit, np.ndarray]
+    current_levels: dict[str, np.ndarray]
+    tiers: dict[Unit, str]
+    pooled: dict[int, str]
+    newcomer: np.ndarray | None
+    weeks: int  # this season's weeks played
+    missing: dict[str, int]
+    weights: PriorWeights | None
 
 
 @dataclass(frozen=True, slots=True)
@@ -114,8 +155,13 @@ class MatchupRow:
     game_id: int
     season: int
     home: float  # 1 at the home team's ground, 0 at a neutral site
-    gaps: np.ndarray  # home ratings minus away ratings
+    gaps: np.ndarray  # home ratings minus away ratings, as blended entering the week
     margin: float
+    # Under fitted decay, in a season with a prior: the gaps of the prior alone and of the
+    # in-season ratings alone, and the weeks played, so another k can re-blend them.
+    prior: np.ndarray | None = None
+    current: np.ndarray | None = None
+    weeks: int = 0
 
 
 @dataclass(frozen=True, slots=True)
@@ -124,6 +170,7 @@ class MarginModel:
     coefficients: np.ndarray  # one per rating: b_off for each stat, then b_def
     sd: float
     games: int
+    decay_k: float | None = None  # the fitted decay's k; None under linear decay
 
 
 def _unit_order(unit: Unit) -> tuple[int, int, str]:
@@ -131,8 +178,6 @@ def _unit_order(unit: Unit) -> tuple[int, int, str]:
 
 
 class EfficiencyRatings:
-    reads = frozenset({"games", "team_game_stats"})
-
     def __init__(self, spec: ModelSpec, rules: Rules) -> None:
         if spec.base != "efficiency":
             raise UnsupportedSpecError(
@@ -161,36 +206,47 @@ class EfficiencyRatings:
         )
         self.home_field = spec.home_field  # "fit" or a fixed number
         self.by_tier = spec.shrink_toward == "tier"
+        self.has_prior = spec.prior is not None
         self.regression = 0.0
-        self.zero_at_week: float | None = None  # None: no prior
+        self.zero_at_week: float | None = None  # linear decay's Z
+        self.decay_fitted = False
+        self.components: tuple[str, ...] = ()  # the prior's components besides last season
         prior = spec.prior
         if prior is not None:
-            if prior.components != ("last_season",):
-                raise UnsupportedSpecError(
-                    "Rung 2's prior is last season's rating (M4.2 adds more)"
-                )
+            if "last_season" not in prior.components:
+                raise UnsupportedSpecError("Rung 2's prior starts from last season's rating")
             if prior.weights != "fit":
-                raise UnsupportedSpecError("a one-component prior has no weights to set")
-            if not isinstance(prior.decay, LinearDecay):
-                raise UnsupportedSpecError("Rung 2's prior decays linearly (the backtest tunes Z)")
+                raise UnsupportedSpecError("Rung 2 fits the prior's weights")
+            self.components = tuple(c for c in prior.components if c != "last_season")
             self.regression = fixed(prior.regression, "prior.regression")
-            self.zero_at_week = fixed(prior.decay.zero_at_week, "prior.decay.zero_at_week")
-            if self.zero_at_week <= 1:
-                raise UnsupportedSpecError("prior.decay.zero_at_week must be after week 1")
+            if isinstance(prior.decay, LinearDecay):
+                self.zero_at_week = fixed(prior.decay.zero_at_week, "prior.decay.zero_at_week")
+                if self.zero_at_week <= 1:
+                    raise UnsupportedSpecError("prior.decay.zero_at_week must be after week 1")
+            else:
+                self.decay_fitted = True
+        reads = {"games", "team_game_stats"} | ({"preseason"} if self.components else set())
+        self.reads = frozenset(reads)
         self._zeros = np.zeros(2 * len(self.stats))
         self._stats: StatInput | None = None
+        self._preseason: PreseasonInput | None = None
         self._reset()
 
     def _reset(self) -> None:
         self._final: dict[int, _Fit | None] = {}
+        self._pure: dict[int, dict[Unit, np.ndarray] | None] = {}
+        self._prior_rows: dict[int, list[PriorRow]] = {}
+        self._weights: dict[int, PriorWeights | None] = {}
         self._rows: dict[int, list[MatchupRow]] = {}
         self._margin: dict[int, MarginModel] = {}
 
     def use(self, inputs: Mapping[str, Any]) -> None:
         """The harness's fit inputs; new ones invalidate everything learned from the old."""
         stats = inputs["team_game_stats"]
-        if stats is not self._stats:
+        preseason = inputs.get("preseason")
+        if stats is not self._stats or preseason is not self._preseason:
             self._stats = stats
+            self._preseason = preseason
             self._reset()
 
     # The pieces each AC checks.
@@ -198,8 +254,13 @@ class EfficiencyRatings:
     def capped(self, margin: float) -> float:
         return margin if self.cap is None else max(-self.cap, min(self.cap, margin))
 
-    def prior_weight(self, weeks_played: int) -> float:
-        """w(N), N = weeks_played + 1: 1 entering week 1, 0 from week Z on."""
+    def prior_weight(self, weeks_played: int, k: float | None = None) -> float:
+        """w(N), N = weeks_played + 1. Linear: 1 entering week 1, 0 from week Z on; fitted:
+        k / (k + N − 1), given the season's k."""
+        if self.decay_fitted:
+            if k is None:
+                raise ValueError("fitted decay needs the season's k")
+            return decay_weight(k, weeks_played)
         if self.zero_at_week is None:
             return 0.0
         z = self.zero_at_week
@@ -310,11 +371,11 @@ class EfficiencyRatings:
         }
         return ratings, levels, tiers
 
-    def _rate(
+    def _parts(
         self, by_season: Mapping[int, list[GameResult]], season: int, as_of: datetime
-    ) -> _Fit:
-        """The ratings entering `as_of`, a date in `season`: this season's games that finished by
-        then, blended with the prior from last season's final ratings."""
+    ) -> _Parts:
+        """What the fit entering `as_of`, a date in `season`, blends: the prior from last
+        season's final ratings, and this season's games that finished by then."""
         played = [g for g in by_season.get(season, []) if g.kickoff + _FINISHED <= as_of]
         last = self._final_of(by_season, season - 1)
 
@@ -323,11 +384,10 @@ class EfficiencyRatings:
         tiers: dict[Unit, str] = {}
         newcomer = None
         pooled: dict[int, str] = {}
-        if last is not None and self.zero_at_week is not None:
-            keep = 1.0 - self.regression
-            for u, v in last.units.items():
-                anchor = last.levels.get(last.tiers.get(u, ""), self._zeros)
-                prior[u] = anchor + keep * (v - anchor)
+        weights = None
+        values: Mapping[str, Mapping[int, float]] = {}
+        if last is not None and self.has_prior:
+            prior, weights, values = self._prior(by_season, season, last)
             prior_levels = dict(last.levels)
             tiers = dict(last.tiers)
             newcomer = prior.get(self.rules.newcomer_pool, self._zeros)
@@ -342,19 +402,161 @@ class EfficiencyRatings:
                     pooled[team] = pool
 
         weeks = len({(g.season_type, g.week) for g in played})
-        w = self.prior_weight(weeks) if prior else 0.0
-        units = dict(prior)
-        levels = dict(prior_levels)
+        current: dict[Unit, np.ndarray] = {}
+        current_levels: dict[str, np.ndarray] = {}
         solved = self._solve(season, as_of, played) if played else None
         if solved is not None:
             current, current_levels, current_tiers = solved
-            start = self._zeros if newcomer is None else newcomer
-            for u, v in current.items():
-                units[u] = w * prior.get(u, start) + (1 - w) * v if prior else v
-            for t, v in current_levels.items():
-                levels[t] = w * prior_levels[t] + (1 - w) * v if t in prior_levels else v
             tiers |= current_tiers
-        return _Fit(units, levels, tiers, w, pooled, newcomer)
+        missing: dict[str, int] = {}
+        if prior:
+            rated = [u for u in {*prior, *current} if isinstance(u, int)]
+            missing["last_season"] = sum(u not in prior for u in rated)
+            for c in self.components:
+                missing[c] = sum(u not in values.get(c, {}) for u in rated)
+        return _Parts(
+            prior,
+            prior_levels,
+            current,
+            current_levels,
+            tiers,
+            pooled,
+            newcomer,
+            weeks,
+            missing,
+            weights,
+        )
+
+    def _blend(self, parts: _Parts, w: float) -> _Fit:
+        """`w`·prior + (1 − `w`)·in-season: a unit that hasn't played keeps its prior, one with
+        no prior starts from a newcomer's."""
+        prior, prior_levels = parts.prior, parts.prior_levels
+        units = dict(prior)
+        levels = dict(prior_levels)
+        start = self._zeros if parts.newcomer is None else parts.newcomer
+        for u, v in parts.current.items():
+            units[u] = w * prior.get(u, start) + (1 - w) * v if prior else v
+        for t, v in parts.current_levels.items():
+            levels[t] = w * prior_levels[t] + (1 - w) * v if t in prior_levels else v
+        return _Fit(
+            units,
+            levels,
+            dict(parts.tiers),
+            w,
+            dict(parts.pooled),
+            parts.newcomer,
+            parts.missing,
+            parts.weights,
+        )
+
+    def _weight(self, by_season: Mapping[int, list[GameResult]], season: int, weeks: int) -> float:
+        """The prior's weight in `season` after `weeks` weeks played."""
+        if self.decay_fitted:
+            return self.prior_weight(weeks, self.decay(by_season, season))
+        return self.prior_weight(weeks)
+
+    def _rate(
+        self, by_season: Mapping[int, list[GameResult]], season: int, as_of: datetime
+    ) -> _Fit:
+        """The ratings entering `as_of`, a date in `season`: this season's games that finished by
+        then, blended with the prior from last season's final ratings."""
+        parts = self._parts(by_season, season, as_of)
+        w = self._weight(by_season, season, parts.weeks) if parts.prior else 0.0
+        return self._blend(parts, w)
+
+    # The prior.
+
+    def _anchor(self, last: _Fit, unit: Unit) -> np.ndarray:
+        return last.levels.get(last.tiers.get(unit, ""), self._zeros)
+
+    def _values(self, season: int) -> Mapping[str, Mapping[int, float]]:
+        """The preseason values `season`'s prior may read (the harness asserts when each was
+        published)."""
+        if not self.components:
+            return {}
+        if self._preseason is None:
+            raise RuntimeError("the prior was fit before the harness gave it preseason values")
+        return self._preseason.for_season(season)
+
+    def _centred(
+        self, values: Mapping[str, Mapping[int, float]], last: _Fit
+    ) -> dict[int, np.ndarray]:
+        """Each FBS team with a rating last season: its components, centred on its anchor
+        group's mean (its tier last season under `tier`, all of FBS under `zero`)."""
+        groups = {
+            u: last.tiers.get(u, "") if self.by_tier else ""
+            for u in last.units
+            if isinstance(u, int)
+        }
+        by_component = [centred(values.get(c, {}), groups) for c in self.components]
+        return {u: np.array([c[u] for c in by_component]) for u in groups}
+
+    def _prior(
+        self, by_season: Mapping[int, list[GameResult]], season: int, last: _Fit
+    ) -> tuple[dict[Unit, np.ndarray], PriorWeights | None, Mapping[str, Mapping[int, float]]]:
+        """`season`'s prior per unit, the fitted weights it used (None: regression by setting),
+        and the preseason values it read."""
+        values = self._values(season)
+        weights = self.prior_weights(by_season, season) if self.components else None
+        keep: float | np.ndarray = 1.0 - self.regression if weights is None else weights.keep
+        components = self._centred(values, last) if weights is not None else {}
+        prior: dict[Unit, np.ndarray] = {}
+        for u, v in last.units.items():
+            anchor = self._anchor(last, u)
+            prior[u] = anchor + keep * (v - anchor)
+            if weights is not None and isinstance(u, int):
+                prior[u] = prior[u] + components[u] @ weights.components
+        return prior, weights, values
+
+    def _pure_final(
+        self, by_season: Mapping[int, list[GameResult]], season: int
+    ) -> dict[Unit, np.ndarray] | None:
+        """`season`'s ratings from its own games alone after its last game: the prior's
+        target."""
+        if season not in self._pure:
+            games = by_season.get(season)
+            solved = None
+            if games:
+                end = max(g.kickoff for g in games) + _FINISHED
+                solved = self._solve(season, end, games)
+            self._pure[season] = None if solved is None else solved[0]
+        return self._pure[season]
+
+    def prior_rows(self, by_season: Mapping[int, list[GameResult]], season: int) -> list[PriorRow]:
+        """`season` as a target for the prior fit: each FBS team rated last season and this one,
+        its ratings relative to its anchor."""
+        if season not in self._prior_rows:
+            last = self._final_of(by_season, season - 1)
+            pure = self._pure_final(by_season, season)
+            rows = []
+            if last is not None and pure is not None:
+                components = self._centred(self._values(season), last)
+                for u in sorted(components):
+                    if u in pure:
+                        anchor = self._anchor(last, u)
+                        last_dev, target = last.units[u] - anchor, pure[u] - anchor
+                        rows.append(PriorRow(season, u, last_dev, components[u], target))
+            self._prior_rows[season] = rows
+        return self._prior_rows[season]
+
+    def prior_weights(
+        self, by_season: Mapping[int, list[GameResult]], season: int
+    ) -> PriorWeights | None:
+        """The prior's weights for `season`, fit on every earlier target season; None when
+        there's none (the prior regresses by `prior.regression` instead)."""
+        if season not in self._weights:
+            rows = [
+                r for s in sorted(by_season) if s < season for r in self.prior_rows(by_season, s)
+            ]
+            self._weights[season] = fit_prior(rows, season) if rows else None
+        return self._weights[season]
+
+    def decay(self, by_season: Mapping[int, list[GameResult]], season: int) -> float:
+        """The fitted decay's k for `season`, fit with its margin model."""
+        k = self._margin_for(by_season, season).decay_k
+        if k is None:
+            raise ValueError("the prior decays linearly: there's no k")
+        return k
 
     def _final_of(self, by_season: Mapping[int, list[GameResult]], season: int) -> _Fit | None:
         """The ratings after `season`'s last game (None before the first season)."""
@@ -393,7 +595,13 @@ class EfficiencyRatings:
             rows = []
             for games in sorted(weeks.values(), key=lambda gs: min(g.kickoff for g in gs)):
                 as_of = min(g.kickoff for g in games)
-                fit = self._rate(by_season, season, as_of)
+                parts = self._parts(by_season, season, as_of)
+                w = self._weight(by_season, season, parts.weeks) if parts.prior else 0.0
+                fit = self._blend(parts, w)
+                # Under fitted decay, the prior alone and the in-season ratings alone.
+                sides = ()
+                if self.decay_fitted and parts.prior:
+                    sides = (self._blend(parts, 1.0), self._blend(parts, 0.0))
                 for g in games:
                     if self.rules.pool(g.home_classification) or self.rules.pool(
                         g.away_classification
@@ -405,6 +613,11 @@ class EfficiencyRatings:
                     away = self._vector(
                         fit, season, g.away_team, g.away_classification, g.away_group
                     )
+                    gaps = [
+                        self._vector(f, season, g.home_team, g.home_classification, g.home_group)
+                        - self._vector(f, season, g.away_team, g.away_classification, g.away_group)
+                        for f in sides
+                    ]
                     rows.append(
                         MatchupRow(
                             g.game_id,
@@ -412,6 +625,8 @@ class EfficiencyRatings:
                             0.0 if g.neutral_site else 1.0,
                             home - away,
                             self.capped(g.margin),
+                            *gaps,
+                            weeks=parts.weeks,
                         )
                     )
             self._rows[season] = rows
@@ -434,6 +649,26 @@ class EfficiencyRatings:
         gaps = np.array([r.gaps for r in rows])
         home = np.array([r.home for r in rows])
         y = np.array([r.margin for r in rows])
+        if not self.decay_fitted:
+            return self._least_squares(gaps, home, y)[0]
+        # Each candidate k re-blends the rows that had a prior; the others stay as they are.
+        prior = np.array([r.gaps if r.prior is None else r.prior for r in rows])
+        current = np.array([r.gaps if r.current is None else r.current for r in rows])
+        weeks = np.array([r.weeks for r in rows], dtype=float)
+        has_prior = any(r.prior is not None for r in rows)
+        best: tuple[float, MarginModel] | None = None
+        for k in DECAY_GRID if has_prior else (DEFAULT_PRIOR_WEEKS,):
+            w = (k / (k + weeks))[:, None]
+            model, sse = self._least_squares(w * prior + (1 - w) * current, home, y)
+            if best is None or sse < best[0]:
+                best = (sse, replace(model, decay_k=k))
+        assert best is not None
+        return best[1]
+
+    def _least_squares(
+        self, gaps: np.ndarray, home: np.ndarray, y: np.ndarray
+    ) -> tuple[MarginModel, float]:
+        """The margin model fit on these gaps, and its sum of squared residuals."""
         if self.home_field == "fit":
             x = np.column_stack([home, gaps])
         else:
@@ -441,11 +676,11 @@ class EfficiencyRatings:
             y = y - float(self.home_field) * home
         coef, *_ = np.linalg.lstsq(x, y, rcond=None)
         residual = y - x @ coef
-        dof = max(len(rows) - x.shape[1], 1)
-        sd = math.sqrt(math.fsum(residual**2) / dof)
+        sse = math.fsum(residual**2)
+        sd = math.sqrt(sse / max(len(y) - x.shape[1], 1))
         if self.home_field == "fit":
-            return MarginModel(float(coef[0]), coef[1:], sd, len(rows))
-        return MarginModel(float(self.home_field), coef, sd, len(rows))
+            return MarginModel(float(coef[0]), coef[1:], sd, len(y)), sse
+        return MarginModel(float(self.home_field), coef, sd, len(y)), sse
 
     def _margin_for(self, by_season: Mapping[int, list[GameResult]], season: int) -> MarginModel:
         if season not in self._margin:
@@ -480,6 +715,17 @@ class EfficiencyRatings:
         params |= {f"tier_{t}": float(b @ v) for t, v in sorted(fit.levels.items())}
         params |= {f"b_off_{s}": float(b[i]) for i, s in enumerate(self.stats)}
         params |= {f"b_def_{s}": float(b[k + i]) for i, s in enumerate(self.stats)}
+        if margin.decay_k is not None:
+            params["decay_k"] = margin.decay_k
+        if fit.weights is not None:
+            keep = fit.weights.keep
+            params |= {f"prior_keep_off_{s}": float(keep[i]) for i, s in enumerate(self.stats)}
+            params |= {f"prior_keep_def_{s}": float(keep[k + i]) for i, s in enumerate(self.stats)}
+            params |= {
+                f"prior_points_{c}": float(b @ fit.weights.components[i])
+                for i, c in enumerate(self.components)
+            }
+        params |= {f"prior_missing_{c}": float(n) for c, n in fit.missing.items()}
         return Ratings(as_of, dict(sorted(teams.items())), params)
 
     def rating(

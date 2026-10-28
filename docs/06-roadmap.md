@@ -90,7 +90,7 @@ Phase 8  Multi-sport (NFL)
 **Goal:** a model good enough to paper-trade.
 
 - [ ] Rung 2: ridge opponent-adjusted efficiency ratings (off/def, rush/pass splits); overall rating = sum of unit contributions in points; shrinking toward the conference tier (Power 4 / G5 / FCS) tested against shrinking toward zero ([04 § 10.4](04-model.md))
-- [ ] Preseason priors (returning production, talent, recruiting) + fitted decay blending
+- [x] Preseason priors (returning production, talent, recruiting) + fitted decay blending
 - [ ] Margin model mapping efficiency to points; σ and empirical margin distribution
 - [ ] `drivers` output for explainability
 - [ ] Pick logic: thresholds, tiers, optional market shrinkage, tuned on validation seasons

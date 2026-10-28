@@ -16,7 +16,7 @@ from typing import Any
 import numpy as np
 import pyarrow.parquet as pq
 import pytest
-from lake_fixture import engine, write_backtest_seasons
+from lake_fixture import engine, write_backtest_seasons, write_preseason
 
 from engine import backtest
 from engine.backtest import harness, metrics
@@ -375,6 +375,8 @@ def render(data: bytes) -> str:
 def three_season_lake(empty_lake: LocalLake) -> LocalLake:
     # 2021 gives the margin model a season before 2022, the tuning season (option a, plan gate).
     write_backtest_seasons(empty_lake, seasons=(2021, 2022, 2023))
+    # The preseason values the v1 prior reads (TASK-037): recruiting from 2018, talent 2020-2022.
+    write_preseason(empty_lake, tuple(range(2018, 2024)))
     rebuild(empty_lake)
     return empty_lake
 

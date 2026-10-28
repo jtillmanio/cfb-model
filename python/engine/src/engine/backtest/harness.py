@@ -24,6 +24,11 @@ staged benchmark ratings: it's a bar to beat, never a fitted model, and it gets 
 `use(inputs)` too, only those it declared. Learned weights are the model's own: it's fit with
 `fit(games, as_of)` each week, and refits what it learns once a season itself.
 
+**Preseason.** A prior that reads more than last season's rating gets the `preseason` input:
+each preseason source's staged values (CFB's are `engine.sports.cfb.preseason`), handed out only
+by `Preseason.for_season`, which asserts every value it gives season Y was assumed published
+before Y's first `as_of` (04 § 9.2, TASK-037).
+
 **Groups.** Each game carries each team's conference that season from staged `team_seasons`
 (`home_group`, `away_group`), for a model that shrinks toward a team's tier and for the report's
 conference-tier breakdown (TASK-036). A season's conferences are set before it starts.
@@ -56,8 +61,9 @@ TUNE_FROM = 2015  # 2014 is warm-up only (04 § 9.1)
 # same expression as `earliest` in the features SQL (`transform/features.py`): keep them equal.
 EARLIEST = "coalesce(kickoff_at, timezone('America/New_York', CAST(game_date AS TIMESTAMP)))"
 
-# `team_game_stats`: each team-game's offense in staged `team_game_advanced` (TASK-036).
-FIT_INPUTS = frozenset({"games", "team_game_stats"})
+# `team_game_stats`: each team-game's offense in staged `team_game_advanced` (TASK-036);
+# `preseason`: talent, returning production and recruiting (TASK-037).
+FIT_INPUTS = frozenset({"games", "team_game_stats", "preseason"})
 # What only a baseline may read (D-133): the closing spread of every staged game with a line, by
 # game id, and the staged benchmark ratings. Each baseline filters them to what it may know.
 BASELINE_INPUTS = frozenset({"closing_lines", "benchmark_ratings"})
@@ -185,6 +191,59 @@ class TeamGameStats:
         return rows
 
 
+class PreseasonSource(Protocol):
+    """How a season's prior reads one source (`engine.sports.cfb.preseason.Source`)."""
+
+    @property
+    def seasons(self) -> Callable[[int], tuple[int, ...]]: ...
+    @property
+    def combine(self) -> Callable[[Sequence[float]], float]: ...
+
+
+@dataclass(frozen=True, slots=True)
+class PreseasonTable:
+    """One source's staged values: each value season's numbers by team, and when that season's
+    values are assumed published."""
+
+    by_season: Mapping[int, Mapping[int, float]]  # value season -> team id -> value
+    known_at: Mapping[int, datetime]  # value season -> its assumed publication
+
+
+@dataclass(frozen=True, slots=True)
+class Preseason:
+    """The `preseason` fit input: a model sees values only through `for_season`."""
+
+    sources: Mapping[str, PreseasonSource] = field(default_factory=dict)
+    tables: Mapping[str, PreseasonTable] = field(default_factory=dict)
+    first_as_of: Mapping[int, datetime] = field(default_factory=dict)  # season -> first `as_of`
+
+    def for_season(self, season: int) -> dict[str, dict[int, float]]:
+        """Each source's number per team for `season`'s prior, asserting every value read was
+        published strictly before the season's first `as_of` (point-in-time rule, 04 § 9.2). A team
+        with no value is absent."""
+        start = self.first_as_of.get(season)
+        if start is None:
+            raise PointInTimeError(f"season {season} has no week to place its preseason values")
+        out: dict[str, dict[int, float]] = {}
+        for name, source in self.sources.items():
+            table = self.tables.get(name, PreseasonTable({}, {}))
+            read = [s for s in source.seasons(season) if s in table.by_season]
+            late = [s for s in read if table.known_at[s] >= start]
+            if late:
+                raise PointInTimeError(
+                    f"{name} of season {late[0]} is assumed published "
+                    f"{table.known_at[late[0]].isoformat()}, after {season}'s first as_of "
+                    f"{start.isoformat()}: a prior may read only what was known before its "
+                    "season (04 § 9.2)"
+                )
+            values: dict[int, list[float]] = {}
+            for s in read:
+                for team, value in table.by_season[s].items():
+                    values.setdefault(team, []).append(value)
+            out[name] = {team: source.combine(vs) for team, vs in sorted(values.items())}
+        return out
+
+
 @dataclass(frozen=True, slots=True)
 class History:
     results: tuple[GameResult, ...]  # every final game with both teams, by kickoff
@@ -197,6 +256,7 @@ class History:
     # (season, team id) -> its conference that season, from staged `team_seasons`: what each
     # game's `home_group`/`away_group` hold, for any code that builds a `GameContext` itself.
     groups: Mapping[tuple[int, int], str] = field(default_factory=dict)
+    preseason: Preseason = field(default_factory=Preseason)
 
     def season_weeks(self, season: int) -> list[Week]:
         return [w for w in self.weeks if w.season == season]
@@ -216,11 +276,13 @@ def _read(lake: Lake, key: str) -> Any:
 
 def load(lake: Lake) -> History:
     """Staged games and lines and the feature tables, checked against the point-in-time rule."""
+    from engine.sports.cfb.preseason import SOURCES
     from engine.transform import FEATURE_TABLES, feature_key, staging_key
     from engine.transform.market import closing_lines
     from engine.transform.staging import connect
 
     staged = ("games", "lines", "team_seasons", "team_game_advanced")
+    staged += tuple(s.table for s in SOURCES.values())
     tables = {name: _read(lake, staging_key(name)) for name in staged}
     tables |= {name: _read(lake, feature_key(name)) for name in FEATURE_TABLES}
     con = connect()
@@ -336,6 +398,7 @@ def load(lake: Lake) -> History:
             for r in tables["team_seasons"].to_pylist()
             if r["team_source_id"] is not None and r["conference"] is not None
         },
+        _preseason(tables, weeks),
     )
 
 
@@ -379,6 +442,27 @@ def _team_game_stats(con: Any) -> TeamGameStats:
             )
         )
     return TeamGameStats({season: tuple(rs) for season, rs in by_season.items()})
+
+
+def _preseason(tables: Mapping[str, Any], weeks: Sequence[Week]) -> Preseason:
+    """Each preseason source's staged values (a name that matched no team dropped, so the team
+    has no value), with each value season's assumed publication time and each season's first
+    `as_of`."""
+    from engine.sports.cfb.preseason import SOURCES
+
+    out: dict[str, PreseasonTable] = {}
+    for name, source in SOURCES.items():
+        by_season: dict[int, dict[int, float]] = {}
+        for r in tables[source.table].to_pylist():
+            value = r[source.column]
+            if r["team_source_id"] is not None and value is not None and source.usable(value):
+                by_season.setdefault(r["season"], {})[int(r["team_source_id"])] = r[source.column]
+        known_at = {s: source.published(s) for s in by_season}
+        out[name] = PreseasonTable(by_season, known_at)
+    first: dict[int, datetime] = {}
+    for w in weeks:
+        first[w.season] = min(first.get(w.season, w.as_of), w.as_of)
+    return Preseason(SOURCES, out, first)
 
 
 def _benchmarks(lake: Lake) -> tuple[Benchmark, ...]:
@@ -444,6 +528,7 @@ def give_inputs(model: BacktestModel, history: History) -> None:
     them, once `check_reads` has let them through), and nothing else."""
     available: dict[str, Any] = {
         "team_game_stats": history.stats,
+        "preseason": history.preseason,
         "closing_lines": history.closing_spreads,
         "benchmark_ratings": BenchmarkInput(history.benchmarks, history.earliest),
     }

@@ -4,8 +4,9 @@ sportsbooks and line snapshots, in the caller's one transaction.
 `publish_lake` runs the data-quality checks first and raises `DataQualityFailed` before writing
 a row when any fails (docs/02-architecture.md › Data correctness). Staged columns are mapped by
 meaning: `team_seasons.classification` is Postgres's `division`, CFBD's `elevation` is meters,
-and the staging-only `closing_line_missing` and `cfbd_division` aren't published. Stats, plays
-and features stay in the lake.
+and the staging-only `closing_line_missing` and `cfbd_division` aren't published. Staged talent
+and returning production (`percent_ppa`) fill `team_seasons.talent` and `returning_ppa_pct`
+(TASK-037); other stats, plays and features stay in the lake.
 """
 
 from __future__ import annotations
@@ -15,6 +16,7 @@ import re
 from collections import Counter, defaultdict
 from collections.abc import Mapping, Sequence
 from datetime import UTC, datetime
+from decimal import ROUND_HALF_UP, Decimal
 from typing import Any
 
 from sqlalchemy import Connection
@@ -29,6 +31,7 @@ from engine.publish.reference import (
     upsert_teams,
     upsert_venues,
 )
+from engine.sports.cfb.preseason import SOURCES
 from engine.transform import quality, staging_key
 
 SPORT = "cfb"
@@ -55,6 +58,31 @@ def _read(lake: Lake, name: str) -> list[dict[str, Any]]:
     import pyarrow.parquet as pq
 
     return pq.read_table(io.BytesIO(lake.read(staging_key(name)))).to_pylist()
+
+
+# Numeric(5, 4) holds magnitudes below 10.
+RETURNING_LIMIT = Decimal(10)
+
+
+def _by_team_season(
+    rows: Sequence[Mapping[str, Any]], column: str, usable: Any = lambda _value: True
+) -> dict[tuple[str, int], Any]:
+    """A staged season table's `column` by (team source id, season); an unmatched name, or a
+    value that isn't `usable` (CFBD's talent 0: no composite), is dropped, so it publishes NULL."""
+    return {
+        (r["team_source_id"], r["season"]): r[column]
+        for r in rows
+        if r["team_source_id"] is not None and r[column] is not None and usable(r[column])
+    }
+
+
+def _scaled(value: float | None, places: int) -> Decimal | None:
+    """A staged float at a Numeric column's scale: talent to 2 places, CFBD's `percentPPA` (a
+    fraction, 0.69 for 69%, kept as sent even outside 0-1) to 4, half away from zero as
+    Postgres rounds."""
+    if value is None:
+        return None
+    return Decimal(str(value)).quantize(Decimal(1).scaleb(-places), rounding=ROUND_HALF_UP)
 
 
 def _color(value: str | None) -> str | None:
@@ -114,9 +142,33 @@ def publish_lake(
 
     staged = {
         name: _read(lake, name)
-        for name in ("teams", "team_seasons", "venues", "calendar", "games", "lines")
+        for name in (
+            "teams",
+            "team_seasons",
+            "venues",
+            "calendar",
+            "games",
+            "lines",
+            "talent",
+            "returning_production",
+        )
     }
     new: Counter[str] = Counter()
+    talent = _by_team_season(staged["talent"], "talent", SOURCES["talent"].usable)
+    returning = _by_team_season(staged["returning_production"], "percent_ppa")
+    # The ratio blows up when last season's total PPA is near zero: refuse one the column can't
+    # hold by name, before any row is written, not as a numeric overflow mid-transaction.
+    too_big = sorted(
+        (season, team, value)
+        for (team, season), value in returning.items()
+        if abs(_scaled(value, 4) or 0) >= RETURNING_LIMIT
+    )
+    if too_big:
+        shown = ", ".join(f"team {t} in {s}: {v}" for s, t, v in too_big[:10])
+        raise ValueError(
+            "staged returning_production.percent_ppa too big for team_seasons.returning_ppa_pct "
+            f"(Numeric(5, 4) holds less than {RETURNING_LIMIT}): {shown}"
+        )
 
     team_ids = upsert_teams(
         conn,
@@ -144,6 +196,8 @@ def publish_lake(
                 "season": s["season"],
                 "conference": s["conference"],
                 "division": s["classification"],
+                "talent": _scaled(talent.get((s["team_source_id"], s["season"])), 2),
+                "returning_ppa_pct": _scaled(returning.get((s["team_source_id"], s["season"])), 4),
             }
             for s in staged["team_seasons"]
         ],

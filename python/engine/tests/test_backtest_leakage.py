@@ -1,4 +1,4 @@
-"""The backtest leakage test (TASK-030, docs/02-architecture.md › Testing strategy › Model /
+"""The backtest leakage tests (TASK-030, docs/02-architecture.md › Testing strategy › Model /
 backtest): changing a game after week N can't change a prediction for week N or earlier. A week-5
 game finishes after week 5's `as_of`, so it may move week 6's predictions and no earlier ones.
 """
@@ -7,14 +7,16 @@ from __future__ import annotations
 
 import io
 import json
+from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
 import pyarrow.parquet as pq
 import pytest
-from lake_fixture import backtest_game_id, engine, write_backtest_seasons
+from lake_fixture import backtest_game_id, engine, write_backtest_seasons, write_preseason
 
 from engine.ingest.lake import LocalLake
+from engine.sports.cfb import preseason
 from engine.transform import rebuild
 
 KANSAS_GAME = "401756847"  # Kansas-Fresno State
@@ -64,3 +66,58 @@ def test_changing_a_week5_game_leaves_predictions_through_week5_unchanged(
         elif moved != predicted:
             later.append(game)
     assert backtest_game_id(2023, "regular", 6, KANSAS_GAME) in later
+
+
+# TASK-037 AC-2: every preseason value a prior reads is checked against its source's assumed
+# publication time (engine.sports.cfb.preseason) before the season's first as_of.
+
+PRIOR_SPEC = {
+    "base": "efficiency",
+    "inputs": [{"stat": "epa_per_play"}, {"stat": "success_rate"}],
+    "hyperparameters": {"ridge_alpha": 2},
+    "shrink_toward": "tier",
+    "prior": {
+        "components": ["last_season", "returning_production", "talent", "recruiting"],
+        "regression": 0.2,
+        "decay": {"type": "fitted"},
+    },
+    "picks": SPEC["picks"],
+}
+
+
+def prior_backtest(root: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> int:
+    lake = LocalLake(root)
+    write_backtest_seasons(lake, seasons=(2021, 2022, 2023))
+    write_preseason(lake, tuple(range(2017, 2025)))
+    rebuild(lake)
+    monkeypatch.setenv("LAKE_URI", str(root))
+    spec = tmp_path / "prior.json"
+    spec.write_text(json.dumps(PRIOR_SPEC), "utf-8")
+    return engine("backtest", "--spec", str(spec), "--seasons", "2023", "--tune-from", "2022")
+
+
+def test_a_backtest_with_preseason_priors_runs(
+    empty_lake: LocalLake, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    assert prior_backtest(tmp_path / "lake", tmp_path, monkeypatch) == 0
+
+
+@pytest.mark.parametrize("source", sorted(preseason.SOURCES))
+def test_a_preseason_value_published_after_the_season_starts_stops_the_run(
+    source: str,
+    empty_lake: LocalLake,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    # Loosen the rule: each season's prior also reads this source's next season, which is
+    # assumed published after the season starts.
+    loose = preseason.SOURCES[source]
+    later = replace(loose, seasons=lambda y: (*loose.seasons(y), max(loose.seasons(y)) + 1))
+    monkeypatch.setitem(preseason.SOURCES, source, later)
+
+    assert prior_backtest(tmp_path / "lake", tmp_path, monkeypatch) == 1
+
+    err = capsys.readouterr()
+    assert f"{source} of season" in err.out + err.err
+    assert not list(LocalLake(tmp_path / "lake").walk("backtests"))

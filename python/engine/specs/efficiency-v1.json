@@ -16,9 +16,9 @@
   "home_field": "fit",
   "shrink_toward": "tier",
   "prior": {
-    "components": ["last_season"],
-    "regression": {"tune": [0.1, 0.2]},
-    "decay": {"type": "linear", "zero_at_week": {"tune": [9, 12]}}
+    "components": ["last_season", "returning_production", "talent", "recruiting"],
+    "regression": 0.1,
+    "decay": {"type": "fitted"}
   },
   "distribution": "normal",
   "picks": {

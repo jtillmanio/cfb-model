@@ -244,6 +244,28 @@ def write_backtest_seasons(
                 write(lake, key, rows, params)
 
 
+# Preseason inputs (TASK-037): the fixture's 2025 talent, returning production and recruiting
+# records copied to other seasons, each value moved a little by season so a prior fit sees them
+# vary, every pull fetched long after (as the backfill's were).
+PRESEASON = {
+    "talent": ("talent", "year"),
+    "player_returning": ("percentPPA", "season"),
+    "recruiting_teams": ("points", "year"),
+}
+
+
+def write_preseason(lake: LocalLake, seasons: tuple[int, ...]) -> None:
+    pulled = datetime(2026, 10, 20, 6, tzinfo=UTC)
+    for endpoint, (field, year) in PRESEASON.items():
+        (key,) = [k for k in FIXTURE if k.startswith(f"raw/cfbd/{endpoint}/")]
+        for season in seasons:
+            records = []
+            for i, r in enumerate(FIXTURE[key]["records"]):
+                step = ((season + i) % 5 - 2) / 100  # -2% to +2% of the 2025 value
+                records.append({**copy.deepcopy(r), year: season, field: r[field] * (1 + step)})
+            write(lake, raw_key(raw_folder(endpoint, season), pulled), records, {"year": season})
+
+
 # Benchmark ratings (TASK-032): for each backtest season, an SP+ and an FPI pull in mid-season
 # (known_at set, before the season's calendar ends) and one after the season (season-final).
 BENCHMARK_TEAMS = (
