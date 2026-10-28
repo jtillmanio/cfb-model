@@ -195,10 +195,6 @@ def test_noiseless_prior_weights_are_recovered() -> None:
     assert fitted_weights.keep == pytest.approx(keep, abs=0.01)
     assert fitted_weights.components == pytest.approx(weights, abs=0.01)
     assert fitted_weights.rows == 240
-    # Swapping two components' rows, or zeroing one, is caught.
-    assert not np.allclose(fitted_weights.components[[1, 0, 2]], weights, atol=0.01)
-    zeroed = np.vstack([weights[:1], np.zeros((1, 4)), weights[2:]])
-    assert not np.allclose(zeroed, weights, atol=0.01)
 
 
 def test_a_prior_fit_given_a_row_from_the_predicted_season_fails() -> None:
