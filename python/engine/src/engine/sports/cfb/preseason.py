@@ -19,7 +19,8 @@ lake can't prove when they were known; the backtest asserts against these assump
   missing, not a value, here and in Postgres.
 - **Recruiting**: the class signed for season S, assumed published February 15 of S (after
   National Signing Day). Season Y reads the mean `points` of classes Y − 3 to Y, those the team
-  has.
+  has. Unlike talent, a class's `points` 0 is kept as sent: it can be a real, empty class (UAB
+  2015, the season after it dropped football).
 """
 
 from __future__ import annotations

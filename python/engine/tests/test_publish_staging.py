@@ -160,6 +160,19 @@ def test_a_talent_of_zero_publishes_null(lake: LocalLake, db_conn: Connection) -
     assert _preseason(db_conn)["24"] == (None, Decimal("0.1890"))  # Stanford
 
 
+def test_a_value_halfway_between_steps_rounds_away_from_zero(
+    lake: LocalLake, db_conn: Connection
+) -> None:
+    """Postgres rounds numeric half away from zero; Python's `round` on a Decimal rounds half to
+    even, which would store 650.12 (schema review R2)."""
+    _repull(lake, "talent", "Stanford", "talent", 650.125)  # exact in binary: no float noise
+    rebuild(lake)
+
+    publish_lake(lake, db_conn, PUBLISH)
+
+    assert _preseason(db_conn)["24"][0] == Decimal("650.13")
+
+
 def test_a_returning_share_too_big_for_its_column_is_refused_before_any_write(
     lake: LocalLake, db_conn: Connection
 ) -> None:
