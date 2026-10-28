@@ -37,6 +37,15 @@ leaves the smallest squared error is kept, with its coefficients. It's symmetric
 so it collapses to one rating per team in points, `Σ b_off·off + b_def·def`, and a prediction is
 Rung 1's: HFA plus the home rating minus the away rating. σ is the margin model's residual RMSE.
 
+**Units in points** (TASK-038, 04 § 10.2). A team's offense is `Σ b_off·off` and its defense
+`Σ b_def·def`, one pair per input, and they sum to its rating in every week: the prior is blended
+per stat and side, so prior-heavy weeks split the same way. A prediction's drivers are home field
+and, per input, the home offense against the away defense (`b_off·off_home − b_def·def_away`)
+and the away offense against the home defense (`b_def·def_home − b_off·off_away`); they sum to
+the predicted margin. Under `distribution: empirical` the season's key-number weights
+(`core.probability.EmpiricalMargin`) are fit on the margin model's own games, each at its fitted
+margin, and give the win probability.
+
 **Inputs.** Per-game stats come from the harness's `team_game_stats` input, only through
 `finished_by(as_of)`, and preseason values from its `preseason` input, only through
 `for_season(season)`: each asserts the point-in-time rule.
@@ -55,7 +64,12 @@ import numpy as np
 
 from engine.core.inputs import INPUTS
 from engine.core.interfaces import GameContext, GameHistory, GameResult, Prediction, Ratings
-from engine.core.probability import NormalMargin, win_probability
+from engine.core.probability import (
+    EmpiricalMargin,
+    MarginDistribution,
+    NormalMargin,
+    win_probability,
+)
 from engine.core.spec import LinearDecay, ModelSpec, fixed
 from engine.models.power import UnsupportedSpecError
 from engine.models.priors import (
@@ -72,6 +86,7 @@ from engine.transform.features import GAME_HOURS, PointInTimeError
 _WEEK = timedelta(weeks=1)
 _FINISHED = timedelta(hours=GAME_HOURS)
 _FEATURES = {d.id: d.feature for d in INPUTS}
+_LABELS = {d.id: d.label for d in INPUTS}
 
 Unit = int | str  # what's rated: a team id, or a pool's name
 
@@ -162,6 +177,7 @@ class MatchupRow:
     prior: np.ndarray | None = None
     current: np.ndarray | None = None
     weeks: int = 0
+    actual: float | None = None  # the margin before `margin_cap`; None: `margin`
 
 
 @dataclass(frozen=True, slots=True)
@@ -205,6 +221,7 @@ class EfficiencyRatings:
             else fixed(hp.recency_half_life_weeks, "recency_half_life_weeks")
         )
         self.home_field = spec.home_field  # "fit" or a fixed number
+        self.empirical = spec.distribution == "empirical"
         self.by_tier = spec.shrink_toward == "tier"
         self.has_prior = spec.prior is not None
         self.regression = 0.0
@@ -239,6 +256,7 @@ class EfficiencyRatings:
         self._weights: dict[int, PriorWeights | None] = {}
         self._rows: dict[int, list[MatchupRow]] = {}
         self._margin: dict[int, MarginModel] = {}
+        self._dist: dict[int, EmpiricalMargin] = {}
 
     def use(self, inputs: Mapping[str, Any]) -> None:
         """The harness's fit inputs; new ones invalidate everything learned from the old."""
@@ -627,6 +645,7 @@ class EfficiencyRatings:
                             self.capped(g.margin),
                             *gaps,
                             weeks=parts.weeks,
+                            actual=g.margin,
                         )
                     )
             self._rows[season] = rows
@@ -682,13 +701,43 @@ class EfficiencyRatings:
             return MarginModel(float(coef[0]), coef[1:], sd, len(y)), sse
         return MarginModel(float(self.home_field), coef, sd, len(y)), sse
 
+    def _margin_rows(
+        self, by_season: Mapping[int, list[GameResult]], season: int
+    ) -> list[MatchupRow]:
+        return [r for s in sorted(by_season) if s < season for r in self.matchup_rows(by_season, s)]
+
     def _margin_for(self, by_season: Mapping[int, list[GameResult]], season: int) -> MarginModel:
         if season not in self._margin:
-            rows = [
-                r for s in sorted(by_season) if s < season for r in self.matchup_rows(by_season, s)
-            ]
-            self._margin[season] = self.fit_margin(rows, season)
+            self._margin[season] = self.fit_margin(self._margin_rows(by_season, season), season)
         return self._margin[season]
+
+    def fitted_margins(self, rows: Sequence[MatchupRow], margin: MarginModel) -> np.ndarray:
+        """The margin model's prediction of each of its rows, re-blended at its decay's k."""
+        gaps = np.array([r.gaps for r in rows])
+        if margin.decay_k is not None:
+            prior = np.array([r.gaps if r.prior is None else r.prior for r in rows])
+            current = np.array([r.gaps if r.current is None else r.current for r in rows])
+            k = margin.decay_k
+            w = (k / (k + np.array([r.weeks for r in rows], dtype=float)))[:, None]
+            gaps = w * prior + (1 - w) * current
+        home = np.array([r.home for r in rows])
+        return margin.home_field * home + gaps @ margin.coefficients
+
+    def distribution(
+        self, by_season: Mapping[int, list[GameResult]], season: int
+    ) -> EmpiricalMargin:
+        """`season`'s empirical margin distribution: key-number weights from the games its margin
+        model was fit on, each at its fitted margin, around that model's σ."""
+        if season not in self._dist:
+            margin = self._margin_for(by_season, season)
+            rows = self._margin_rows(by_season, season)
+            predicted = self.fitted_margins(rows, margin)
+            games = [
+                (r.season, float(p), r.margin if r.actual is None else r.actual)
+                for r, p in zip(rows, predicted, strict=True)
+            ]
+            self._dist[season] = EmpiricalMargin.fit(games, season, margin.sd)
+        return self._dist[season]
 
     # The model interface.
 
@@ -698,21 +747,37 @@ class EfficiencyRatings:
         margin = self._margin_for(by_season, season)
         fit = self._rate(by_season, season, as_of)
         b = margin.coefficients
+        k = len(self.stats)
+
+        def in_points(v: np.ndarray) -> dict[str, tuple[float, float]]:
+            return {
+                s: (float(b[i] * v[i]), float(b[k + i] * v[k + i]))
+                for i, s in enumerate(self.stats)
+            }
+
         points = {u: float(b @ v) for u, v in fit.units.items()}
         teams = {u: r for u, r in points.items() if isinstance(u, int)}
+        units = {u: in_points(v) for u, v in fit.units.items()}
         for team, pool in fit.pooled.items():
             if team not in teams and pool in points:
                 teams[team] = points[pool]
-        k = len(self.stats)
+                units[team] = units[pool]
         params = {
             "home_field": margin.home_field,
             "margin_sd": margin.sd,
             "prior_weight": fit.prior_weight,
         }
+        # Who stands in for a team the fit didn't rate on its own, in total and per unit.
+        stand_ins: dict[str, np.ndarray] = {}
         if fit.newcomer is not None:
-            params["new_team"] = float(b @ fit.newcomer)
-        params |= {f"pool_{u}": r for u, r in points.items() if isinstance(u, str)}
-        params |= {f"tier_{t}": float(b @ v) for t, v in sorted(fit.levels.items())}
+            stand_ins["new_team"] = fit.newcomer
+        stand_ins |= {f"pool_{u}": v for u, v in fit.units.items() if isinstance(u, str)}
+        stand_ins |= {f"tier_{t}": v for t, v in sorted(fit.levels.items())}
+        for name, v in stand_ins.items():
+            params[name] = float(b @ v)
+            for s, (off, dfn) in in_points(v).items():
+                params[f"{name}_off_{s}"] = off
+                params[f"{name}_def_{s}"] = dfn
         params |= {f"b_off_{s}": float(b[i]) for i, s in enumerate(self.stats)}
         params |= {f"b_def_{s}": float(b[k + i]) for i, s in enumerate(self.stats)}
         if margin.decay_k is not None:
@@ -726,35 +791,68 @@ class EfficiencyRatings:
                 for i, c in enumerate(self.components)
             }
         params |= {f"prior_missing_{c}": float(n) for c, n in fit.missing.items()}
-        return Ratings(as_of, dict(sorted(teams.items())), params)
+        if self.empirical:
+            params |= self.distribution(by_season, season).params()
+        ordered = sorted(teams)
+        return Ratings(
+            as_of, {t: teams[t] for t in ordered}, params, {t: units[t] for t in ordered}
+        )
+
+    def _stand_in(
+        self, ratings: Ratings, season: int, team: int, cls: str | None, group: str | None
+    ) -> int | str | None:
+        """Whose rating a team gets: its own (its id), a stand-in's params name (its pool, an
+        unseen team, its tier's level), or None for the average team."""
+        unit = self.unit(team, cls)
+        if isinstance(unit, str) and f"pool_{unit}" in ratings.params:
+            return f"pool_{unit}"
+        if isinstance(unit, int) and unit in ratings.teams:
+            return unit
+        if "new_team" in ratings.params:
+            return "new_team"
+        if self.by_tier:
+            name = f"tier_{self.tier(season, unit, group, cls)}"
+            return name if name in ratings.params else None
+        return None
 
     def rating(
         self, ratings: Ratings, season: int, team: int, cls: str | None, group: str | None
     ) -> float:
         """A team's rating in points: its pool's, its own, or an unseen team's."""
-        unit = self.unit(team, cls)
-        if isinstance(unit, str) and f"pool_{unit}" in ratings.params:
-            return ratings.params[f"pool_{unit}"]
-        if isinstance(unit, int) and unit in ratings.teams:
-            return ratings.teams[unit]
-        if "new_team" in ratings.params:
-            return ratings.params["new_team"]
-        if self.by_tier:
-            return ratings.params.get(f"tier_{self.tier(season, unit, group, cls)}", 0.0)
-        return 0.0
+        who = self._stand_in(ratings, season, team, cls, group)
+        if who is None:
+            return 0.0
+        return ratings.teams[who] if isinstance(who, int) else ratings.params[who]
+
+    def units(
+        self, ratings: Ratings, season: int, team: int, cls: str | None, group: str | None
+    ) -> dict[str, tuple[float, float]]:
+        """A team's (offense, defense) in points per input, from the same source as `rating`."""
+        who = self._stand_in(ratings, season, team, cls, group)
+        if isinstance(who, int):
+            return dict(ratings.units[who])
+        if who is None:
+            return {s: (0.0, 0.0) for s in self.stats}
+        p = ratings.params
+        return {s: (p[f"{who}_off_{s}"], p[f"{who}_def_{s}"]) for s in self.stats}
 
     def predict(self, game: GameContext, ratings: Ratings, as_of: datetime) -> Prediction:
         hfa = 0.0 if game.neutral_site else ratings.params["home_field"]
-        home = self.rating(
-            ratings, game.season, game.home_team, game.home_classification, game.home_group
+        sides = (
+            (game.home_team, game.home_classification, game.home_group),
+            (game.away_team, game.away_classification, game.away_group),
         )
-        away = self.rating(
-            ratings, game.season, game.away_team, game.away_classification, game.away_group
-        )
+        home, away = (self.rating(ratings, game.season, *side) for side in sides)
+        home_units, away_units = (self.units(ratings, game.season, *side) for side in sides)
         sd = ratings.params["margin_sd"]
         margin = hfa + home - away
-        drivers = (("Home field", hfa), ("Home rating", home), ("Away rating", -away))
-        return Prediction(margin, sd, win_probability(margin, NormalMargin(sd)), drivers)
+        drivers: list[tuple[str, float]] = [("Home field", hfa)]
+        for s in self.stats:
+            (home_off, home_def), (away_off, away_def) = home_units[s], away_units[s]
+            drivers.append((f"{_LABELS[s]}: home offense vs away defense", home_off - away_def))
+            drivers.append((f"{_LABELS[s]}: away offense vs home defense", home_def - away_off))
+        dist: MarginDistribution = EmpiricalMargin.from_params(ratings.params) or NormalMargin(sd)
+        return Prediction(margin, sd, win_probability(margin, dist), tuple(drivers))
 
 
 def _by_season(games: GameHistory) -> dict[int, list[GameResult]]:

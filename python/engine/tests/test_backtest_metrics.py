@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import math
 from collections.abc import Callable
+from typing import Any
 
 import pytest
 
@@ -284,3 +285,136 @@ def test_the_tier_breakdown_counts_add_up_to_the_games() -> None:
     assert vs_g5.mae == pytest.approx((abs(10.0 - 7) + abs(-4.0 - 7)) / 2)
     # Without the sport's labeller there's no tier breakdown.
     assert m.TIER_BREAKDOWN not in [b.name for b in m.compute(rows, spec, {}).breakdowns]
+
+
+# TASK-038 AC-4: under `distribution: empirical` each row is graded with its own distribution.
+
+KEYED = tuple(8.0 if n == 3 else 5.0 if n == 7 else 0.0 if n == 0 else 1.0 for n in range(51))
+PICKY = {"min_edge_pts": 0.5, "min_prob": 0.56, "tiers": {"A": 5.0, "B": 3.5, "C": 2.5}}
+
+
+def graded_spec(distribution: str) -> Any:
+    from engine.core.spec import ModelSpec
+
+    return ModelSpec.model_validate(
+        {
+            "base": "efficiency",
+            "inputs": [{"stat": "epa_per_play"}],
+            "distribution": distribution,
+            "picks": PICKY,
+        }
+    )
+
+
+def keyed_row(game: str, pred: float, spread: float, margin: int) -> dict[str, Any]:
+    """A 2023 week-1 game, its distribution's key-number weights on the row."""
+    return {
+        "season": 2023,
+        "season_type": "regular",
+        "week": 1,
+        "game_source_id": game,
+        "pred_margin": pred,
+        "margin_sd": 14.0,
+        "home_win_prob": 0.6,
+        "margin_weights": list(KEYED),
+        "spread_home": spread,
+        "spread_home_open": None,
+        "spread_home_open_close": None,
+        "margin": margin,
+    }
+
+
+# Picked so the two curves disagree: A changes side, probability, pick and bin; B changes bin;
+# the week's top 4 by cover probability drops A for E.
+KEYED_ROWS = [
+    keyed_row("A", 6.5, -3.5, 10),
+    keyed_row("B", 1.0, -3.5, -7),
+    keyed_row("C", 5.5, -2.5, 3),
+    keyed_row("D", 3.0, -0.5, 7),
+    keyed_row("E", 10.0, -7.5, 14),
+]
+
+
+def test_an_empirical_spec_grades_each_row_with_its_own_distribution() -> None:
+    from engine.core.picks import pick
+    from engine.core.probability import EmpiricalMargin, NormalMargin, cover_probability
+
+    empirical = {
+        g.game_source_id: g for g in m.grade_rows(KEYED_ROWS, graded_spec("empirical"), {})
+    }
+    normal = {g.game_source_id: g for g in m.grade_rows(KEYED_ROWS, graded_spec("normal"), {})}
+    rules = graded_spec("empirical").picks
+
+    for r in KEYED_ROWS:
+        dist = EmpiricalMargin(14.0, KEYED)
+        cover = cover_probability(r["pred_margin"], r["spread_home"], dist)
+        g = empirical[r["game_source_id"]]
+        assert (g.side, g.prob) == (cover.side, cover.prob)
+        assert g.result == m.grade(cover.side, r["margin"], r["spread_home"])
+        assert g.pick == pick(r["pred_margin"], r["spread_home"], rules, dist)
+        bell = cover_probability(r["pred_margin"], r["spread_home"], NormalMargin(14.0))
+        assert normal[r["game_source_id"]].prob == bell.prob
+
+    # A: home at 58.5% and a pick on a bell curve; away at 53.8% and no pick empirically.
+    assert (normal["A"].side, normal["A"].pick is not None) == ("home", True)
+    assert (empirical["A"].side, empirical["A"].pick) == ("away", None)
+
+
+def bin_of(calibration: m.Calibration, game: m.Graded) -> int:
+    return next(
+        i
+        for i, b in enumerate(calibration.bins)
+        if b.low <= game.prob + 1e-9 and (b.high is None or game.prob < b.high - 1e-9)
+    )
+
+
+def test_calibration_and_the_contest_top_n_follow_the_empirical_distribution() -> None:
+    games = m.grade_rows(KEYED_ROWS, graded_spec("empirical"), {})
+    bells = m.grade_rows(KEYED_ROWS, graded_spec("normal"), {})
+    by_id = {g.game_source_id: g for g in games}
+    scored = m.compute(KEYED_ROWS, graded_spec("empirical"), {})
+
+    counts = [0] * len(scored.calibration.bins)
+    for g in games:
+        if g.result != "P":
+            counts[bin_of(scored.calibration, g)] += 1
+    assert [b.count for b in scored.calibration.bins] == counts
+    # B sits in the 65%+ bin empirically and 55-57.5% on a bell curve.
+    assert bin_of(scored.calibration, by_id["B"]) == len(m.CALIBRATION_BINS) - 1
+    assert bin_of(scored.calibration, {g.game_source_id: g for g in bells}["B"]) == 2
+
+    top = sorted(games, key=lambda g: (-g.prob, g.game_source_id))[: m.CONTEST_PICKS]
+    assert {g.game_source_id for g in top} == {"B", "C", "D", "E"}
+    graded = [g for g in top if g.result != "P"]
+    assert scored.contest.mean_prob == pytest.approx(
+        math.fsum(g.prob for g in graded) / len(graded)
+    )
+    assert m.compute(KEYED_ROWS, graded_spec("normal"), {}).contest.mean_prob != pytest.approx(
+        scored.contest.mean_prob
+    )
+
+
+def test_the_market_win_probability_uses_the_rows_distribution() -> None:
+    from engine.core.probability import EmpiricalMargin, win_probability
+
+    games = m.grade_rows(KEYED_ROWS, graded_spec("empirical"), {})
+    scored = m.win_probability_score(games)
+    dist = EmpiricalMargin(14.0, KEYED)
+    market = [win_probability(-r["spread_home"], dist) for r in KEYED_ROWS]
+    won = [1.0 if r["margin"] > 0 else 0.0 for r in KEYED_ROWS]
+    expected = math.fsum((p - w) ** 2 for p, w in zip(market, won, strict=True)) / len(won)
+    assert scored.market_brier == pytest.approx(expected)
+
+
+def test_the_cover_brier_score_leaves_pushes_out() -> None:
+    games = m.grade_rows(KEYED_ROWS, graded_spec("empirical"), {})
+    graded = [g for g in games if g.result != "P"]
+    expected = math.fsum((g.prob - (g.result == "W")) ** 2 for g in graded) / len(graded)
+
+    assert m.cover_brier(games) == pytest.approx(expected)
+
+
+def test_an_empirical_spec_refuses_a_row_without_its_distribution() -> None:
+    row = {k: v for k, v in KEYED_ROWS[0].items() if k != "margin_weights"}
+    with pytest.raises(ValueError, match="margin_weights"):
+        m.grade_rows([row], graded_spec("empirical"), {})

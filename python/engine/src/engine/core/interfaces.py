@@ -60,6 +60,9 @@ class Ratings:
     as_of: datetime
     teams: Mapping[TeamId, float]
     params: Mapping[str, float]  # e.g. home_field, margin_sd; stored as model_runs.fitted_params
+    # Each team's units in points, by input-registry id: (offense, defense), summing to its
+    # rating (04 § 10.2). Empty for a model that rates a team as one number.
+    units: Mapping[TeamId, Mapping[str, tuple[float, float]]] = field(default_factory=dict)
 
 
 Driver = tuple[str, float]  # ("Home pass offense vs away pass defense", 3.1)

@@ -14,6 +14,7 @@ from engine.core.interfaces import (
 from engine.core.picks import Pick, pick
 from engine.core.probability import (
     Cover,
+    EmpiricalMargin,
     MarginDistribution,
     NormalMargin,
     blended_margin,
@@ -30,6 +31,7 @@ __all__ = [
     "INPUT_IDS",
     "SPEC_SCHEMA_VERSION",
     "Cover",
+    "EmpiricalMargin",
     "GameContext",
     "GameHistory",
     "GamePredictor",

@@ -1,14 +1,14 @@
 ---
 id: TASK-038
 title: Rate units in points, with drivers and the empirical margin distribution
-status: Ready
+status: In progress
 depends_on: [TASK-036, TASK-037]
 size: M
 model: opus
 autonomy: attended
 ui: false
-plan_status: none
-planned_at_commit:
+plan_status: approved
+planned_at_commit: b1d04a8
 ---
 
 # TASK-038 — Rate units in points, with drivers and the empirical margin distribution
@@ -79,9 +79,53 @@ Every prediction explains itself: its drivers (each unit matchup, plus home fiel
 
 _Work noticed during this task and deliberately left out. Each bullet ends `→ <path> § <section>` (where it was placed) or `→ not tracked: <reason>`. See `.claude/skills/track-follow-ups/classify.md`; the PR's Follow-ups section is copied from here._
 
+- The six inputs overlap heavily, so single per-input drivers may be large and offsetting (they still sum exactly); grouped units (one rushing, one passing) or a constrained margin fit would read more cleanly (approved at plan) → docs/08-tasklist.md § M19.1
+- M7.6 (`/games/{id}`) evaluates σ and the distribution with `EmpiricalMargin.from_params(fitted_params)`; drivers are labelled home/away for the UI to fill in, and there's no special-teams entry until M18.3 rates it (approved at plan) → docs/08-tasklist.md § M7.6
+- Candidate decision: the empirical distribution, push handling, the drivers and the unit split (approved at plan) → docs/decisions.md
+
 ## Plan
 
-_Written by /plan-batch or /implement-task Phase 1. Approved by the user (plan_status: approved) before any code is written._
+Approved 2026-10-28 by the owner.
+
+**Decisions.**
+
+- **Units in points (AC-2):** offense = Σₖ b_offₖ·offₖ, defense = Σₖ b_defₖ·defₖ, from the blended per-stat vector the model already builds; the prior is per stat and side, so the split is exact in every week, prior-heavy ones included.
+- **Drivers (AC-1):** home field, plus per input `"<registry label>: home offense vs away defense"` = b_off·off_home − b_def·def_away and `"<registry label>: away offense vs home defense"` = b_def·def_home − b_off·off_away. 13 entries for v1; they sum exactly with no remainder. No special-teams entry until M18.3.
+- **Empirical distribution (AC-3):** a pmf on whole-number margins: Normal(pred, σ) density × a key-number weight per |margin| 0–50 (1 beyond), renormalized. Weights are fit (iterative proportional fitting) so the expected count at each whole margin matches the observed count on the margin model's own earlier-season games at the chosen k, shrunk toward 1 by 25 pseudo-games. Stored in `fitted_params` as `margin_weight_<n>`, evaluated in `engine.core` with the stdlib; the fit imports numpy lazily. No scipy.
+- **Pushes:** `MarginDistribution` gains `prob_at` (push mass; `NormalMargin` returns exactly 0). The displayed cover probability is P(cover | no push), what ATS win % and calibration measure (pushes out); `Cover` gains `push`. Win probability likewise. Under `normal` every number is bit-identical.
+- **Market win probability** in the report uses the row's own distribution.
+- **`components`:** `{input_id: {"off": pts, "def": pts}}`.
+
+**Steps.**
+
+1. `core/probability.py`: `EmpiricalMargin` (pmf, `prob_above`/`prob_below`/`prob_at`, `from_params`/`params`, `fit` raising on a row of the predicted season or later), `prob_at` on the protocol and `NormalMargin`, `Cover.push`, conditional cover and win probabilities.
+2. `core/interfaces.py`: `Ratings.units: {team: {stat: (off_pts, def_pts)}}`, empty by default.
+3. `models/efficiency.py`: `fit` fills `units`; stand-ins (pools, newcomer, tier levels) get per-stat params; `predict` builds the drivers; under `empirical` the weights are fit once per season into the params and drive `home_win_prob`. `models/power.py` refuses `empirical`.
+4. `backtest/harness.py`: a `margin_weights` list column, in the schema only for an empirical spec, so normal runs stay byte-identical.
+5. `backtest/metrics.py`, `report.py`: `grade_rows` grades with `EmpiricalMargin(row σ, row weights)` under `empirical`; a Brier score on cover probability (pushes out) and its report row; the market's win probability on the row's distribution.
+6. `backtest/compare.py`, `cli.py`: `engine compare A B` also prints each run's cover Brier and calibration bins on the shared games (AC-5).
+7. `publish/models.py`: write `off_rating`, `def_rating`, `components`; NULL for power.
+8. AC-5 on the local lake: 2016–2023 under `normal` and `empirical`; set `efficiency-v1.json` by the result; regenerate the efficiency golden if it changes.
+9. Docs: 04 § 3 and § 10.2, 03 › Backtests and › Models & outputs, a D-### row.
+
+**Files.** `core/probability.py`, `core/interfaces.py`, `models/efficiency.py`, `models/power.py`*, `backtest/harness.py`, `backtest/metrics.py`, `backtest/report.py`, `backtest/compare.py`*, `cli.py`*, `publish/models.py`, `specs/efficiency-v1.json`, `tests/fixtures/backtest_efficiency_golden.csv` (if v1 switches), `tests/test_core_probability.py`, `tests/test_efficiency_ratings.py`, `tests/test_backtest_metrics.py`, `tests/test_publish_models.py`, `tests/test_power_ratings.py`*, `docs/04-model.md`, `docs/03-data-model.md`, `docs/decisions.md`. (* not in Files likely touched.) No schema change; `pyproject.toml`/`uv.lock` untouched.
+
+**Test strategy.**
+
+- AC-1: `test_efficiency_ratings.py` — drivers sum to `pred_margin` on every fixture prediction, labels from the registry; at a neutral site home field is 0 and swapping home and away negates every entry.
+- AC-2: `test_efficiency_ratings.py` — off + def = rating for every team entering every fixture week; `units` keys = the spec's inputs.
+- AC-3: `test_core_probability.py` — synthetic residuals lumped at 3 and 7: above + below + push = 1 with push > 0 at a whole line, push 0 at a half line, more mass in (2.5, 3.5) than `NormalMargin` at the same σ; a season-Y row raises; `test_core_imports.py` passes.
+- AC-4: `test_backtest_metrics.py` — a row where the two distributions disagree: probability, calibration bin, pick and contest top N follow the empirical one; existing goldens unchanged under `normal`.
+- AC-5: manual on the local lake, read with the owner.
+- AC-6: `test_publish_models.py` — efficiency rate on the test DB; power rows keep NULLs.
+
+**Risks.** Overlapping inputs make single drivers large and offsetting (follow-up to M19.1). The empirical fit uses the margin model's in-sample fitted values: negligible bias at ~13 params on thousands of games, and the weights describe only the whole-number lattice. AC-5 runs take local-lake time.
+
+**Revisions after approval.**
+
+1. *The side the model likes* (owner, 2026-10-28): near a key number the edge's side can cover under 50% (home by 2.4 against −2.5 when home by 3 is common), which the calibration bins refuse. `cover_probability` keeps the edge's side unless the other side is likelier to cover; under a normal margin the edge's side is always at least 50%, so nothing changes there. Test: `test_core_probability.py::test_near_a_key_number_the_liked_side_is_the_one_more_likely_to_cover`.
+2. *Where the cover Brier score shows:* adding it to `Metrics` would change the report golden under `normal` (it serializes every field), against AC-4. It's `metrics.cover_brier(games)`, printed by `engine compare` with the calibration bins (step 6); the backtest report's facts name the run's cover curve instead.
+3. Smaller: the key-number weights are one ratio per margin size against the plain normal's expected count, not iterative fitting (simpler to read, and `Σ observed = Σ expected` keeps it near calibrated); `backtest/baselines.py` passes `games` by keyword because `Ratings` gained a field; with home/away labels, swapping the teams moves each matchup to the other side's label (negated), which is how AC-1's swap is tested.
 
 ## Review log
 

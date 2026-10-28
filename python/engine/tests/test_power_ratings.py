@@ -276,6 +276,7 @@ def test_a_fixed_home_field_is_used_as_given() -> None:
             "last season",
         ),
         ({"prior": {**PRIOR, "decay": {"type": "linear", "zero_at_week": 1}}}, "after week 1"),
+        ({"distribution": "empirical"}, "empirical"),  # TASK-038: Rung 2's
     ],
 )
 def test_what_rung_1_doesnt_do_is_refused(spec: dict[str, Any], message: str) -> None:

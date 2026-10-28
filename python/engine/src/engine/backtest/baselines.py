@@ -97,7 +97,7 @@ class HomeField:
         self._memo: dict[tuple[int, datetime], tuple[float, float]] = {}
 
     def fit(self, games: GameHistory, as_of: datetime) -> Ratings:
-        return Played(as_of, {}, {}, games)
+        return Played(as_of, {}, {}, games=games)
 
     def edge(self, ratings: Ratings, season: int) -> tuple[float, float]:
         """The edge fit before `season` and the σ of margins around it."""
@@ -139,7 +139,7 @@ class FittedHomeField:
 
     def fit(self, games: GameHistory, as_of: datetime) -> Ratings:
         hfa = self.inner.fit(games, as_of).params["home_field"]
-        return Played(as_of, {}, {"home_field": hfa}, games)
+        return Played(as_of, {}, {"home_field": hfa}, games=games)
 
     def _sd(self, ratings: Played, season: int) -> float:
         key = (season, ratings.as_of)
@@ -176,7 +176,7 @@ class LastSeason:
         self._frozen: dict[int, Ratings] = {}
 
     def fit(self, games: GameHistory, as_of: datetime) -> Ratings:
-        return Played(as_of, {}, {}, games)
+        return Played(as_of, {}, {}, games=games)
 
     def _final(self, ratings: Ratings, season: int) -> Ratings:
         # Every game before `season` has finished by its first week, so the fit is the same
@@ -218,7 +218,7 @@ class ClosingLine:
         self._spreads = inputs["closing_lines"]
 
     def fit(self, games: GameHistory, as_of: datetime) -> Ratings:
-        return Played(as_of, {}, {}, games)
+        return Played(as_of, {}, {}, games=games)
 
     def _sd(self, ratings: Ratings, season: int) -> float:
         played = _played(ratings)

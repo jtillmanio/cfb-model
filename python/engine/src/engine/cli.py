@@ -252,7 +252,12 @@ def _backtest(args: argparse.Namespace, seasons: list[int]) -> None:
 
         tier = (backtest.matchup_tier, backtest.TIER_MATCHUPS)
         scored = metrics.compute(result.rows, spec, result.choices, holdout=opened, tier=tier)
-        run = {"model": name, "spec_hash": harness.spec_hash(spec), "tune_from": args.tune_from}
+        run = {
+            "model": name,
+            "spec_hash": harness.spec_hash(spec),
+            "spec": spec.model_dump(mode="json"),
+            "tune_from": args.tune_from,
+        }
         md, page = report.write(Path(args.report), scored, {**run, "folder": folder}, versus)
         for gate_name, gate in scored.gates:  # the details hold − and ≤, which cp1252 lacks
             print(f"  {gate.status.upper():4} {gate_name}")
@@ -263,18 +268,22 @@ def _compare_runs(first: str, second: str, weeks: list[int] | None = None) -> No
     """Pair two stored backtest runs by game, only regular-season `weeks` if given; exit 2 if
     either is missing or they share none."""
     import io
+    import json
 
     import pyarrow.parquet as pq
 
     from engine.backtest import compare
+    from engine.core.spec import ModelSpec
     from engine.ingest.lake import open_lake
 
     lake = open_lake()
     rows = []
+    runs = []
     for folder in (first, second):
         key = f"{folder.rstrip('/')}/predictions.parquet"
         if key not in lake.list(folder.rstrip("/")):
             _refuse(f"{key} isn't in the lake")
+        runs.append(json.loads(lake.read(key.replace("predictions.parquet", "run.json"))))
         table = pq.read_table(io.BytesIO(lake.read(key))).to_pylist()
         if weeks is not None:
             table = [r for r in table if r["season_type"] == "regular" and r["week"] in weeks]
@@ -291,6 +300,22 @@ def _compare_runs(first: str, second: str, weeks: list[int] | None = None) -> No
     print(f"{v.games} shared games ({v.only_a} only in A, {v.only_b} only in B left out)")
     print(f"A - B: {d.estimate:+.3f} [{d.low:+.3f}, {d.high:+.3f}] (95%, weeks resampled)")
     print(v.verdict)
+    shared = {r["game_source_id"] for r in rows[0]} & {r["game_source_id"] for r in rows[1]}
+    print("Cover probabilities on the shared games, each graded by its own spec, pushes left out:")
+    for label, table, run in zip("AB", rows, runs, strict=True):
+        s = compare.cover_scores(
+            [r for r in table if r["game_source_id"] in shared],
+            ModelSpec.model_validate(run["spec"]),
+            {int(season): c for season, c in run["choices"].items()},
+        )
+        brier = "n/a" if s.brier is None else f"{s.brier:.4f}"
+        print(f"{label} ({s.distribution}): cover Brier {brier}")
+        for b in s.calibration.bins:
+            if b.mean_prob is not None and b.hit_rate is not None:
+                print(
+                    f"  {label} {compare.bin_label(b)}: {b.count} games, predicted "
+                    f"{b.mean_prob * 100:.1f}%, actual {b.hit_rate * 100:.1f}%"
+                )
 
 
 def _tiers(seasons: list[int]) -> None:

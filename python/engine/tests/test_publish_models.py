@@ -19,6 +19,7 @@ from sqlalchemy import Connection, text
 
 from engine import backtest
 from engine.backtest import harness
+from engine.core.inputs import INPUT_IDS
 from engine.core.interfaces import GameContext, Prediction, Ratings
 from engine.core.spec import ModelSpec
 from engine.ingest.lake import LocalLake
@@ -452,3 +453,77 @@ def test_rate_cli_publishes_through_one_transaction(
         ),
         {"n": NAME},
     ).scalar_one() == 1
+
+
+# TASK-038 AC-6: an efficiency run writes each team's units in points; a power run doesn't.
+
+EFFICIENCY = ModelSpec.model_validate(
+    {
+        "base": "efficiency",
+        "inputs": [{"stat": s} for s in INPUT_IDS],
+        "hyperparameters": {"ridge_alpha": 2, "recency_half_life_weeks": 16},
+        "shrink_toward": "tier",
+        "prior": {"components": ["last_season"], "regression": 0.1, "decay": {"type": "fitted"}},
+        "distribution": "empirical",
+        "picks": {"min_edge_pts": 3.0, "min_prob": 0.55, "tiers": {"A": 5.0, "B": 3.5, "C": 2.5}},
+    }
+)
+
+
+def _units(conn: Connection, run_id: int) -> list[Any]:
+    return list(
+        conn.execute(
+            text(
+                "SELECT rating, off_rating, def_rating, st_rating, components"
+                " FROM team_ratings WHERE model_run_id = :r ORDER BY team_id"
+            ),
+            {"r": run_id},
+        ).all()
+    )
+
+
+def test_an_efficiency_run_writes_offense_and_defense_in_points(
+    published: LocalLake, db_conn: Connection
+) -> None:
+    summary = models.rate(
+        published,
+        db_conn,
+        EFFICIENCY,
+        {},
+        season=SEASON,
+        week=WEEK,
+        name="pytest-efficiency",
+        version="v1.0",
+        source=PUBLISH,
+    )
+
+    assert summary.status == "succeeded", summary.error
+    rows = _units(db_conn, summary.run_id)
+    assert len(rows) == summary.ratings > 0
+    for r in rows:
+        assert r.st_rating is None
+        assert r.off_rating + r.def_rating == pytest.approx(r.rating, abs=1e-9)
+        assert set(r.components) == set(INPUT_IDS)  # jsonb keeps no key order
+        assert all(set(unit) == {"off", "def"} for unit in r.components.values())
+        assert math.fsum(u["off"] for u in r.components.values()) == pytest.approx(
+            r.off_rating, abs=1e-9
+        )
+        assert math.fsum(u["def"] for u in r.components.values()) == pytest.approx(
+            r.def_rating, abs=1e-9
+        )
+    _, predictions = _outputs(db_conn, summary.run_id)
+    assert len(predictions) == summary.predictions > 0
+    for p in predictions:
+        assert len(p.drivers) == 1 + 2 * len(INPUT_IDS)
+        assert math.fsum(d["points"] for d in p.drivers) == pytest.approx(p.pred_margin, abs=1e-9)
+    assert "margin_weight_3" in _run(db_conn, summary.run_id)["fitted_params"]
+
+
+def test_a_power_run_leaves_the_units_null(published: LocalLake, db_conn: Connection) -> None:
+    summary = _rate(published, db_conn)
+
+    rows = _units(db_conn, summary.run_id)
+    assert rows
+    assert {(r.off_rating, r.def_rating, r.st_rating, r.components) for r in rows} == {
+        (None, None, None, None)
+    }

@@ -15,6 +15,11 @@ with its error and nothing else; a refusal (an unstaged week, an unpublished tea
 another spec) writes nothing. The model's team and game ids are CFBD's; they're mapped to
 `teams.id` and `games.id` by `(source, source_id)`. Regular season only: `team_ratings` has no
 season type, so postseason week 1 would collide with regular week 1.
+
+A model that rates units (Rung 2, TASK-038) also writes each team's `off_rating` and `def_rating`
+in points, summing to `rating`, and `components`, `{input id: {"off": pts, "def": pts}}`;
+`st_rating` stays NULL until special teams is rated. A model that rates a team as one number
+(Rung 1) leaves all four NULL.
 """
 
 from __future__ import annotations
@@ -324,6 +329,17 @@ def _insert_run(
     ).scalar_one()
 
 
+def _units(units: Mapping[str, tuple[float, float]] | None) -> dict[str, Any]:
+    """A team's `off_rating`, `def_rating` and `components`, or NULLs if it has no units."""
+    if not units:
+        return {"off": None, "def": None, "components": None}
+    return {
+        "off": math.fsum(off for off, _ in units.values()),
+        "def": math.fsum(dfn for _, dfn in units.values()),
+        "components": json.dumps({s: {"off": off, "def": dfn} for s, (off, dfn) in units.items()}),
+    }
+
+
 def write(
     conn: Connection,
     fitted: FittedWeek,
@@ -356,6 +372,7 @@ def write(
             "as_of": fitted.as_of,
             "rating": rating,
             "prior_weight": ratings.params.get("prior_weight"),
+            **_units(ratings.units.get(team)),
         }
         for team, rating in ratings.teams.items()
     ]
@@ -375,8 +392,9 @@ def write(
         conn.execute(
             text(
                 "INSERT INTO team_ratings (model_run_id, model_version_id, team_id, season, week,"
-                " as_of, rating, prior_weight)"
-                " VALUES (:run, :v, :team, :season, :week, :as_of, :rating, :prior_weight)"
+                " as_of, rating, off_rating, def_rating, prior_weight, components)"
+                " VALUES (:run, :v, :team, :season, :week, :as_of, :rating, :off, :def,"
+                " :prior_weight, CAST(:components AS jsonb))"
             ),
             rating_rows,
         )

@@ -50,6 +50,7 @@ from typing import Any, Literal, Protocol, cast
 from engine.backtest.holdout import HOLDOUT_SEASONS
 from engine.core.inputs import INPUTS
 from engine.core.interfaces import GameContext, GamePredictor, GameResult, RatingModel
+from engine.core.probability import EmpiricalMargin
 from engine.core.spec import ModelSpec
 from engine.ingest.lake import Lake
 from engine.transform.features import GAME_HOURS, KICKOFF, PointInTimeError, check_point_in_time
@@ -549,6 +550,8 @@ def predict_season(model: BacktestModel, history: History, season: int) -> list[
         games = fit_games(history, week.as_of)
         _check_fit(games, week)
         ratings = model.fit(games, week.as_of)
+        dist = EmpiricalMargin.from_params(ratings.params)
+        weights = None if dist is None else list(dist.weights)
         for e in week.games:
             p = model.predict(e.context, ratings, week.as_of)
             rows.append(
@@ -567,6 +570,7 @@ def predict_season(model: BacktestModel, history: History, season: int) -> list[
                     "pred_margin": p.pred_margin,
                     "margin_sd": p.margin_sd,
                     "home_win_prob": p.home_win_prob,
+                    "margin_weights": weights,
                     "note": note(e.context, ratings) if note else None,
                     "spread_home": e.spread_home,
                     "spread_home_open": e.spread_home_open,
@@ -706,10 +710,13 @@ def spec_hash(spec: ModelSpec) -> str:
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
 
-def schema() -> Any:
+def schema(distribution: str = "normal") -> Any:
+    """The `predictions.parquet` columns; an empirical spec's rows add `margin_weights`, so a
+    normal run's file is unchanged (TASK-038)."""
     import pyarrow as pa
 
     stamp = pa.timestamp("us", tz="UTC")
+    weights = [("margin_weights", pa.list_(pa.float64()))] if distribution == "empirical" else []
     return pa.schema(
         [
             ("season", pa.int32()),
@@ -726,6 +733,7 @@ def schema() -> Any:
             ("pred_margin", pa.float64()),
             ("margin_sd", pa.float64()),
             ("home_win_prob", pa.float64()),
+            *weights,  # key-number weights of |margin| 0-50 the row's season predicted with
             ("note", pa.string()),  # a baseline's remark (hindsight benchmark, unseen team)
             ("spread_home", pa.float64()),  # the closing line
             # The opener and the close of the books that quoted both (CLV); NULL if none did.
@@ -762,7 +770,7 @@ def write(
         n += 1
         folder = f"{base}-{n}"
     buffer = io.BytesIO()
-    pq.write_table(pa.Table.from_pylist(list(result.rows), schema()), buffer)
+    pq.write_table(pa.Table.from_pylist(list(result.rows), schema(spec.distribution)), buffer)
     lake.write_new(f"{folder}/predictions.parquet", buffer.getvalue())
     meta = {
         "created_at": at.astimezone(UTC).isoformat(),
