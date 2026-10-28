@@ -4,8 +4,9 @@ sportsbooks and line snapshots, in the caller's one transaction.
 `publish_lake` runs the data-quality checks first and raises `DataQualityFailed` before writing
 a row when any fails (docs/02-architecture.md › Data correctness). Staged columns are mapped by
 meaning: `team_seasons.classification` is Postgres's `division`, CFBD's `elevation` is meters,
-and the staging-only `closing_line_missing` and `cfbd_division` aren't published. Stats, plays
-and features stay in the lake.
+and the staging-only `closing_line_missing` and `cfbd_division` aren't published. Staged talent
+and returning production (`percent_ppa`) fill `team_seasons.talent` and `returning_ppa_pct`
+(TASK-037); other stats, plays and features stay in the lake.
 """
 
 from __future__ import annotations
@@ -15,6 +16,7 @@ import re
 from collections import Counter, defaultdict
 from collections.abc import Mapping, Sequence
 from datetime import UTC, datetime
+from decimal import Decimal
 from typing import Any
 
 from sqlalchemy import Connection
@@ -55,6 +57,21 @@ def _read(lake: Lake, name: str) -> list[dict[str, Any]]:
     import pyarrow.parquet as pq
 
     return pq.read_table(io.BytesIO(lake.read(staging_key(name)))).to_pylist()
+
+
+def _by_team_season(rows: Sequence[Mapping[str, Any]], column: str) -> dict[tuple[str, int], Any]:
+    """A staged season table's `column` by (team source id, season); unmatched names dropped."""
+    return {
+        (r["team_source_id"], r["season"]): r[column]
+        for r in rows
+        if r["team_source_id"] is not None and r[column] is not None
+    }
+
+
+def _scaled(value: float | None, places: int) -> Decimal | None:
+    """A staged float at a Numeric column's scale: talent to 2 places, CFBD's `percentPPA` (a
+    fraction, 0.69 for 69%, kept as sent even outside 0-1) to 4."""
+    return None if value is None else round(Decimal(str(value)), places)
 
 
 def _color(value: str | None) -> str | None:
@@ -114,9 +131,20 @@ def publish_lake(
 
     staged = {
         name: _read(lake, name)
-        for name in ("teams", "team_seasons", "venues", "calendar", "games", "lines")
+        for name in (
+            "teams",
+            "team_seasons",
+            "venues",
+            "calendar",
+            "games",
+            "lines",
+            "talent",
+            "returning_production",
+        )
     }
     new: Counter[str] = Counter()
+    talent = _by_team_season(staged["talent"], "talent")
+    returning = _by_team_season(staged["returning_production"], "percent_ppa")
 
     team_ids = upsert_teams(
         conn,
@@ -144,6 +172,8 @@ def publish_lake(
                 "season": s["season"],
                 "conference": s["conference"],
                 "division": s["classification"],
+                "talent": _scaled(talent.get((s["team_source_id"], s["season"])), 2),
+                "returning_ppa_pct": _scaled(returning.get((s["team_source_id"], s["season"])), 4),
             }
             for s in staged["team_seasons"]
         ],

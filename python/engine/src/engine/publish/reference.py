@@ -83,12 +83,17 @@ def upsert_teams(
 def upsert_team_seasons(
     conn: Connection, rows: Sequence[Mapping[str, Any]], new: Counter[str] | None = None
 ) -> None:
-    """Rows carry team_id, season, conference, division."""
+    """Rows carry team_id, season, conference, division, and may carry talent and
+    returning_ppa_pct (the staged publish does, the /games publish doesn't). An update sets only
+    the columns the rows carry, so a /games publish never blanks the preseason columns."""
+    if not rows:
+        return
+    keys = _keys(rows)
     for chunk in _chunks(rows):
         stmt = insert(TeamSeason).values(list(chunk))
         stmt = stmt.on_conflict_do_update(
             index_elements=["team_id", "season"],
-            set_={"conference": stmt.excluded.conference, "division": stmt.excluded.division},
+            set_={k: stmt.excluded[k] for k in keys if k not in ("team_id", "season")},
         ).returning(INSERTED)
         _count(new, "team_seasons", sum(conn.execute(stmt).scalars()))
 

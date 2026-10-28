@@ -1,14 +1,14 @@
 ---
 id: TASK-037
 title: Add preseason priors with fitted decay blending
-status: Ready
+status: In progress
 depends_on: [TASK-036]
 size: M
 model: opus
 autonomy: attended
 ui: false
-plan_status: none
-planned_at_commit:
+plan_status: approved
+planned_at_commit: 10e933e
 ---
 
 # TASK-037 — Add preseason priors with fitted decay blending
@@ -77,9 +77,37 @@ Early-season ratings start from a preseason guess built from last season's ratin
 
 _Work noticed during this task and deliberately left out. Each bullet ends `→ <path> § <section>` (where it was placed) or `→ not tracked: <reason>`. See `.claude/skills/track-follow-ups/classify.md`; the PR's Follow-ups section is copied from here._
 
+- Returning production could change how far last season's rating regresses (an interaction term) instead of only adding to it; test it as an M19.1 input (approved at plan) → docs/06-roadmap.md § M19.1
+- CFBD's returning production is offense-only, so defensive ratings get no roster-turnover signal (approved at plan) → not tracked: noted in docs/04-model.md § 2 Preseason priors
+- Check the assumed publication dates against real pre-season pulls from 2027 on (approved at plan) → Owner checklist
+
 ## Plan
 
 _Written by /plan-batch or /implement-task Phase 1. Approved by the user (plan_status: approved) before any code is written._
+
+Approved 2026-10-28.
+
+**Decisions**
+1. **Publication assumptions** (`engine/sports/cfb/preseason.py`): a recruiting class for season Y is known Feb 15 of Y; returning production for Y Jul 1 of Y; talent of season S Feb 1 of S+1, so season Y reads Y−1's talent (owner default). The backtest asserts every preseason value handed to season Y was known before Y's first `as_of`. The same-season-talent leak check is a one-off scratch run with that assumption loosened; its result goes in the decision row.
+2. **Components:** returning production is `percent_ppa` clipped to [0, 1] (32 of 1,691 staged rows fall outside it, where last season's total PPA is near zero or negative); recruiting is the mean `points` of the classes Y−3..Y the team has.
+3. **Prior:** per stat and side (12 regressions), `prior − anchor = a·(last season's final − anchor) + b·RP + c·talent + d·recruiting`, no intercept. The anchor is the team's tier level last season (D-137), so the tier term enters only through the anchor. Each component is centred on the mean of the team's anchor group that season (its tier under `tier`, all FBS under `zero`), so a team missing one counts as that group's average (AC-4).
+4. **Target:** each team's pure in-season rating after its season's last game (the ridge solve with no prior blended in), fit on every target season before Y (04 § 9.2). A multi-component prior with `weights: fit` learns `a`, replacing `prior.regression`, which is then only the fallback for a season with no earlier season to fit on (2015). `components: [last_season]` keeps D-134/D-137's regression and linear decay unchanged, so v1 and its golden file don't move.
+5. **Decay:** `w(N) = k/(k + N − 1)` (the prior is worth k weeks of games), so it lies in [0, 1] and never rises. `k` is fit jointly with the margin model on earlier seasons' games: each candidate on a log grid 0.1–10 gets its own OLS margin fit and the lowest squared error wins. Matchup rows store each game's prior and in-season gaps separately. With no earlier row that had a prior, `k` is `DEFAULT_PRIOR_WEEKS = 1.0` (the `DEFAULT_SD` precedent).
+6. **Gaps:** newcomers and the FCS pool keep D-134's newcomer and pool priors (the pool gets `a`, no components). `fitted_params` adds `prior_missing_<component>` (rated teams lacking it that season), `decay_k`, the 12 last-season weights `prior_keep_<side>_<stat>`, and each other component's effect in points per unit `prior_points_<component>`.
+7. **Postgres:** `publish_lake` writes `team_seasons.talent` (rounded to 2 dp) and `returning_ppa_pct` (raw `percent_ppa` fraction, rounded to 4 dp) from staging by (team, season). `upsert_team_seasons` sets only the columns a row carries, so the results job's `/games` publish never blanks them.
+
+**Steps**
+1. Tests first, failing: AC-1 and AC-3 on synthetic leagues, AC-4, the AC-2 leakage test parametrized by source, AC-6.
+2. `sports/cfb/preseason.py` → the harness `preseason` fit input with the publication check → `models/priors.py` → `efficiency.py` blend and joint `k` fit → publish.
+3. `engine compare A B --weeks 1-3` (`cli.py`, `compare.py`) for AC-5's weeks 1–3.
+4. AC-5 on the local lake, 2016–2023: four components with fitted `k` against v1, pooled and weeks 1–3; also last season alone with fitted `k` (to separate the curve from the components) and the talent leak check. `efficiency-v1.json` changes only if the four components win.
+5. Docs: 04 § 2 Preseason priors, 03 › team_seasons, a D-### row.
+
+**Files:** `models/priors.py` (new), `models/efficiency.py`, `backtest/harness.py`, `sports/cfb/preseason.py` (new), `backtest/compare.py` and `cli.py` (not in Files likely touched: `--weeks`), `publish/reference.py`, `publish/staging.py`, `specs/efficiency-v1.json`, `tests/test_preseason_priors.py` (new), `tests/test_backtest_leakage.py`, `tests/test_publish_staging.py`, `tests/lake_fixture.py`, the efficiency golden CSV if the spec changes, `docs/04-model.md`, `docs/03-data-model.md`, `docs/decisions.md`.
+
+**Test strategy:** AC-1 `test_preseason_priors.py` (weights recovered within 0.01; a row from Y or later raises); AC-2 `test_backtest_leakage.py` (each source's assumption loosened in turn raises `PointInTimeError`); AC-3 and AC-4 `test_preseason_priors.py`; AC-5 manual (the runs, recorded in the decision row and 04 § 2), `--weeks` in `test_backtest_compare.py`; AC-6 `test_publish_staging.py`.
+
+**Risks:** 48 weights fit on one early season are noisy (2016's prior is fit on 2015 alone); joint `k` fitting adds runtime, offset by dropping the Z grid.
 
 ## Review log
 

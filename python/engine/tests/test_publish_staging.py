@@ -9,6 +9,7 @@ so it commits nothing."""
 from __future__ import annotations
 
 from datetime import UTC, date, datetime
+from decimal import Decimal
 from typing import Any
 
 import pytest
@@ -97,6 +98,65 @@ def test_publish_maps_staged_columns_by_meaning(lake: LocalLake, db_conn: Connec
         {"p": PUBLISH},
     ).scalar_one()
     assert float(elevation) == 274.9
+
+
+def _preseason(conn: Connection) -> dict[str, tuple[Any, Any]]:
+    """2025 team_seasons.talent and returning_ppa_pct by team source id, as PUBLISH wrote them."""
+    rows = conn.execute(
+        text(
+            "SELECT t.source_id, ts.talent, ts.returning_ppa_pct FROM team_seasons ts"
+            " JOIN teams t ON t.id = ts.team_id WHERE t.source = :p AND ts.season = 2025"
+        ),
+        {"p": PUBLISH},
+    )
+    return {source_id: (talent, returning) for source_id, talent, returning in rows}
+
+
+def test_publish_writes_talent_and_returning_production(
+    lake: LocalLake, db_conn: Connection
+) -> None:
+    """TASK-037 AC-6: staged talent and returning production reach team_seasons at the columns'
+    scale; a team-season with neither staged keeps NULL; re-publishing changes no row."""
+    rebuild(lake)
+    publish_lake(lake, db_conn, PUBLISH)
+    first = _preseason(db_conn)
+
+    talent = {r["team_source_id"]: r["talent"] for r in staged(lake, "talent").to_pylist()}
+    returning = {
+        r["team_source_id"]: r["percent_ppa"]
+        for r in staged(lake, "returning_production").to_pylist()
+    }
+    assert first["2306"] == (Decimal("705.85"), Decimal("0.6900"))  # Kansas State
+    assert first["304"] == (None, None)  # Idaho State: no talent or returning production row
+
+    def scaled(value: float | None, places: int) -> Decimal | None:
+        return None if value is None else round(Decimal(str(value)), places)
+
+    for source_id, (t, r) in first.items():
+        assert (t, r) == (scaled(talent.get(source_id), 2), scaled(returning.get(source_id), 4))
+
+    publish_lake(lake, db_conn, PUBLISH)
+    assert _preseason(db_conn) == first
+
+
+def test_a_games_publish_keeps_talent_and_returning_production(
+    lake: LocalLake, db_conn: Connection
+) -> None:
+    """The results job's /games upsert carries no preseason columns, so it mustn't blank them."""
+    from engine.publish.reference import upsert_team_seasons
+
+    rebuild(lake)
+    publish_lake(lake, db_conn, PUBLISH)
+    first = _preseason(db_conn)
+    team_id = db_conn.execute(
+        text("SELECT id FROM teams WHERE source = :p AND source_id = '2306'"), {"p": PUBLISH}
+    ).scalar_one()
+
+    upsert_team_seasons(
+        db_conn, [{"team_id": team_id, "season": 2025, "conference": "Big 12", "division": "fbs"}]
+    )
+
+    assert _preseason(db_conn)["2306"] == first["2306"] != (None, None)
 
 
 def _final_without_score(lake: LocalLake) -> None:

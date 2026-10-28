@@ -156,7 +156,7 @@ erDiagram
 
 **teams**: `id PK`, `sport_id`, `source`, `source_id`, `school`, `mascot`, `abbreviation`, `color`, `alt_color`, `logo_url` · UQ `(sport_id, source, source_id)`
 
-**team_seasons**: `team_id`, `season`, `conference`, `division` (`fbs`/`fcs`/…), `talent`, `returning_ppa_pct` · PK `(team_id, season)`. *Conference realignment means conference is a per-season fact, not a team attribute.*
+**team_seasons**: `team_id`, `season`, `conference`, `division` (`fbs`/`fcs`/…), `talent`, `returning_ppa_pct` · PK `(team_id, season)`. *Conference realignment means conference is a per-season fact, not a team attribute.* `engine publish` (`publish_lake`) fills `talent` from staged `talent` (rounded to 2 places) and `returning_ppa_pct` from staged `returning_production.percent_ppa` (CFBD's `percentPPA`, the share of last season's offensive PPA returning as a fraction, 0.69 for 69%, kept as sent even outside 0-1, rounded to 4 places), each for the same team and season; a team-season with no staged row keeps NULL. The results job's `/games` upsert sets only `conference` and `division`, so it never blanks them (TASK-037).
 
 **team_aliases**: `id PK`, `team_id`, `source` (whose spelling: `cfbd`, `splash`, `manual`, `fixture`, …; no CHECK, since each new platform adds one), `alias` · UQ `(source, alias)` · IDX `(team_id)`
 

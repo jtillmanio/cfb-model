@@ -148,6 +148,17 @@ def _job(kind: Kind, target: str, summary_path: str | None) -> None:
         sys.exit(code)
 
 
+def _week_range(parser: argparse.ArgumentParser, text: str) -> list[int]:
+    first, sep, last = text.partition("-")
+    try:
+        weeks = list(range(int(first), int(last if sep else first) + 1))
+    except ValueError:
+        parser.error(f"--weeks takes WEEK or FIRST-LAST, not {text!r}")
+    if not weeks:
+        parser.error(f"--weeks {text}: the first week is after the last")
+    return weeks
+
+
 def _season_range(parser: argparse.ArgumentParser, text: str) -> list[int]:
     first, sep, last = text.partition("-")
     try:
@@ -248,8 +259,9 @@ def _backtest(args: argparse.Namespace, seasons: list[int]) -> None:
         print(f"Wrote {md} and {page}")
 
 
-def _compare_runs(first: str, second: str) -> None:
-    """Pair two stored backtest runs by game; exit 2 if either is missing or they share none."""
+def _compare_runs(first: str, second: str, weeks: list[int] | None = None) -> None:
+    """Pair two stored backtest runs by game, only regular-season `weeks` if given; exit 2 if
+    either is missing or they share none."""
     import io
 
     import pyarrow.parquet as pq
@@ -263,7 +275,12 @@ def _compare_runs(first: str, second: str) -> None:
         key = f"{folder.rstrip('/')}/predictions.parquet"
         if key not in lake.list(folder.rstrip("/")):
             _refuse(f"{key} isn't in the lake")
-        rows.append(pq.read_table(io.BytesIO(lake.read(key))).to_pylist())
+        table = pq.read_table(io.BytesIO(lake.read(key))).to_pylist()
+        if weeks is not None:
+            table = [r for r in table if r["season_type"] == "regular" and r["week"] in weeks]
+        rows.append(table)
+    if weeks is not None:
+        print(f"Only regular-season weeks {weeks[0]}-{weeks[-1]}")
     try:
         v = compare.runs(*rows)
     except ValueError as e:
@@ -522,6 +539,11 @@ def main(argv: list[str] | None = None) -> None:
     )
     cmp.add_argument("first", metavar="RUN_A", help="e.g. backtests/20261027T120000000000Z-abc")
     cmp.add_argument("second", metavar="RUN_B")
+    cmp.add_argument(
+        "--weeks",
+        metavar="FIRST-LAST",
+        help="Only these regular-season weeks, e.g. 1-3 (where the preseason prior matters most)",
+    )
 
     tiers = commands.add_parser(
         "tiers",
@@ -620,8 +642,9 @@ def main(argv: list[str] | None = None) -> None:
         load_env()
         _backtest(args, seasons)
     elif args.command == "compare":
+        weeks = None if args.weeks is None else _week_range(cmp, args.weeks)
         load_env()
-        _compare_runs(args.first, args.second)
+        _compare_runs(args.first, args.second, weeks)
     elif args.command == "tiers":
         seasons = _season_range(tiers, args.seasons)
         load_env()
