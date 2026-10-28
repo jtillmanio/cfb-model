@@ -1,7 +1,7 @@
 ---
 id: TASK-037
 title: Add preseason priors with fitted decay blending
-status: In progress
+status: Review
 depends_on: [TASK-036]
 size: M
 model: opus
@@ -36,12 +36,12 @@ Early-season ratings start from a preseason guess built from last season's ratin
 
 ## Acceptance criteria
 
-- [ ] AC-1: Given a fixture where each team's target rating for season Y is a known linear combination of last season's regressed rating, returning production, talent and 4-class recruiting, the prior fit recovers each weight within 0.01. The fit for season Y reads only seasons before Y: given a row from season Y or later, it raises.
-- [ ] AC-2: Each preseason source has an assumed publication time in `sports/cfb` code, recorded in the decision row. Given a preseason row whose assumed publication time is after its season's first `as_of`, the backtest raises `PointInTimeError`. The leakage test loosens the rule to prove the check runs on every preseason input.
-- [ ] AC-3: With `decay: {type: fitted}`, the blend weight `w(N)` for season Y lies in [0, 1] and never increases as N grows. It's fit only on seasons before Y: changing a game in season Y leaves Y's curve unchanged, and changing a game in Y−1 can change it.
-- [ ] AC-4: A team missing a component (no staged row, or a name that didn't match) gets the prior the plan defines from the components it has. `fitted_params` reports, per component, how many rated teams had it missing that season.
-- [ ] AC-5: On the local lake, `engine backtest --spec <efficiency-v1 spec with all four components, weights fit, decay fitted> --seasons 2016-2023 --report <dir>` is compared with the same spec using `components: [last_season]` and linear decay, by the paired bootstrap (§ 9.5) on the same games, pooled and for weeks 1–3. `efficiency-v1.json` keeps the four components only if they beat last season alone; both results are recorded in the decision row and 04 § 2 Preseason priors.
-- [ ] AC-6: After publishing the fixture lake to the test database, a team-season with staged talent and returning production has `team_seasons.talent` and `returning_ppa_pct` equal to the staged values at the columns' scale, and a team-season with no staged row keeps NULL. Re-publishing changes no row (upserted by `(team_id, season)`, hard rule 3).
+- [x] AC-1: Given a fixture where each team's target rating for season Y is a known linear combination of last season's regressed rating, returning production, talent and 4-class recruiting, the prior fit recovers each weight within 0.01. The fit for season Y reads only seasons before Y: given a row from season Y or later, it raises.
+- [x] AC-2: Each preseason source has an assumed publication time in `sports/cfb` code, recorded in the decision row. Given a preseason row whose assumed publication time is after its season's first `as_of`, the backtest raises `PointInTimeError`. The leakage test loosens the rule to prove the check runs on every preseason input.
+- [x] AC-3: With `decay: {type: fitted}`, the blend weight `w(N)` for season Y lies in [0, 1] and never increases as N grows. It's fit only on seasons before Y: changing a game in season Y leaves Y's curve unchanged, and changing a game in Y−1 can change it.
+- [x] AC-4: A team missing a component (no staged row, or a name that didn't match) gets the prior the plan defines from the components it has. `fitted_params` reports, per component, how many rated teams had it missing that season.
+- [x] AC-5: On the local lake, `engine backtest --spec <efficiency-v1 spec with all four components, weights fit, decay fitted> --seasons 2016-2023 --report <dir>` is compared with the same spec using `components: [last_season]` and linear decay, by the paired bootstrap (§ 9.5) on the same games, pooled and for weeks 1–3. `efficiency-v1.json` keeps the four components only if they beat last season alone; both results are recorded in the decision row and 04 § 2 Preseason priors.
+- [x] AC-6: After publishing the fixture lake to the test database, a team-season with staged talent and returning production has `team_seasons.talent` and `returning_ppa_pct` equal to the staged values at the columns' scale, and a team-season with no staged row keeps NULL. Re-publishing changes no row (upserted by `(team_id, season)`, hard rule 3).
 
 ## Out of scope
 
@@ -77,9 +77,13 @@ Early-season ratings start from a preseason guess built from last season's ratin
 
 _Work noticed during this task and deliberately left out. Each bullet ends `→ <path> § <section>` (where it was placed) or `→ not tracked: <reason>`. See `.claude/skills/track-follow-ups/classify.md`; the PR's Follow-ups section is copied from here._
 
-- Returning production could change how far last season's rating regresses (an interaction term) instead of only adding to it; test it as an M19.1 input (approved at plan) → docs/06-roadmap.md § M19.1
+- Returning production could change how far last season's rating regresses (an interaction term) instead of only adding to it; test it as an M19.1 input (approved at plan; the plan named docs/06-roadmap.md, but the M19.1 item lives in the task list) → docs/08-tasklist.md § M19.1
 - CFBD's returning production is offense-only, so defensive ratings get no roster-turnover signal (approved at plan) → not tracked: noted in docs/04-model.md § 2 Preseason priors
-- Check the assumed publication dates against real pre-season pulls from 2027 on (approved at plan) → Owner checklist
+- Check the assumed publication dates against real pre-season pulls from 2027 on (approved at plan) → docs/owner-checklist.md § Actions
+- Every 2016–2023 season picked `ridge_alpha` 2, the top of v1's grid, and the four components don't yet beat last season alone with the fitted decay; widen the grid and recheck before promotion → docs/08-tasklist.md § M4.7
+- Under fitted decay the margin model is fit jointly with `k`, so TASK-038's empirical distribution should use the residuals at the chosen `k` → docs/tasks/TASK-038-points-drivers-empirical-margin.md § Context
+- Candidate decision: the fitted prior, fitted decay, the publication assumptions and the AC-5 result → docs/decisions.md § D-138
+- `efficiency-v1.json`'s spec hash changed, so an `efficiency` version already rated in a database with the old spec is refused by `engine rate` (D-136) → not tracked: recorded in D-138; no such version is in production
 
 ## Plan
 
@@ -113,13 +117,16 @@ Approved 2026-10-28.
 
 _Filled by /implement-task. One line per round._
 
+- Verify R1 PASS → R2 PASS (after the review fixes) | Audit R1 PASS → R2 PASS (the fix tests, against 2b53dc4) | Spec R1 CHANGES (talent 0 in the model; AC-1's test tolerance; follow-up paths) → R2 APPROVE | Schema R1 CHANGES (talent 0 publishes 0; percent_ppa overflow; `>` vs `>=`; rounding) → R2 APPROVE (two minors, done)
+- Manual: AC-5 runs on the local lake (`backtests/20261028T053912664046Z-d21f7e229ea7`, v1 `…051600247091Z-d3f68cadbeae`, last season with fitted decay `…051600258121Z-f778b86ac22e`, same-season talent `…053912641371Z-d21f7e229ea7`), results in D-138; the 2023 fitted weights and curve read as plausible (D-138); the local lake published to the dev DB, and 2023's Ohio State 974.79 / 0.6440, Boise State 579.88 / 0.9210 and Navy NULL (CFBD sent 0) / 0.6110 match staging; `data/cfbd_calls.json` unchanged since 2026-10-20. Checking those values against CFBD's website is left to the owner.
+
 ## Blocked
 
 _Only if status is Blocked: what failed, what was tried, best hypothesis, decision needed._
 
 ## Metrics
 
-- Verify rounds:
-- Review rounds:
-- First-pass AC FAILs:
-- Plan revisions after approval:
+- Verify rounds: 2 (both PASS; the second after the review fixes)
+- Review rounds: 2 (spec), 2 (schema); audit 2
+- First-pass AC FAILs: 0 (spec R1's CHANGES were the talent-0 defect, a test's tolerance and follow-up paths, not an AC failure)
+- Plan revisions after approval: 0
