@@ -8,7 +8,9 @@ from __future__ import annotations
 
 import io
 import json
+import math
 import os
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
@@ -21,7 +23,8 @@ from lake_fixture import engine, write_backtest_seasons, write_preseason
 from engine import backtest
 from engine.backtest import harness, metrics
 from engine.backtest.harness import TeamGameStat, TeamGameStats
-from engine.core.interfaces import GameResult
+from engine.core.inputs import INPUT_IDS, INPUTS
+from engine.core.interfaces import GameContext, GameResult, Ratings
 from engine.core.spec import ModelSpec
 from engine.ingest.lake import LocalLake
 from engine.models.efficiency import EfficiencyRatings, MatchupRow, NoEarlierSeasonError
@@ -450,7 +453,8 @@ def test_engine_rate_fits_an_efficiency_week_with_stats_and_conferences(
     assert {g.home_group for g, _ in predicted} >= {"Big 12", "Conference USA"}
     hfa = ratings.params["home_field"]
     for game, p in predicted:
-        expected = (0.0 if game.neutral_site else hfa) + p.drivers[1][1] + p.drivers[2][1]
+        assert p.drivers[0] == ("Home field", 0.0 if game.neutral_site else hfa)
+        expected = math.fsum(pts for _, pts in p.drivers)
         assert p.pred_margin == pytest.approx(expected)
 
 
@@ -495,3 +499,182 @@ def test_a_tier_backtest_with_an_unmapped_conference_is_refused(
 
     assert "'Big East' has no tier" in capsys.readouterr().err
     assert not list(empty_lake.walk("backtests"))
+
+
+# TASK-038 AC-1 and AC-2: every unit in points, and drivers that add up, on the two-season
+# backtest fixture (2023's weeks; 2022 is the margin model's season before).
+
+LABELS = {d.id: d.label for d in INPUTS}
+UNIT_SPEC = {
+    "base": "efficiency",
+    "inputs": [{"stat": s} for s in INPUT_IDS],
+    "hyperparameters": {"ridge_alpha": 2, "recency_half_life_weeks": 16},
+    "shrink_toward": "tier",
+    "prior": {"components": ["last_season"], "regression": 0.1, "decay": {"type": "fitted"}},
+    "picks": PICKS,
+}
+
+Fitted = list[tuple[Ratings, list[GameContext]]]
+
+
+@pytest.fixture
+def week_fits(empty_lake: LocalLake) -> tuple[EfficiencyRatings, Fitted]:
+    """The ratings entering every 2023 week of the fixture, and each week's games."""
+    write_backtest_seasons(empty_lake)
+    rebuild(empty_lake)
+    history = harness.load(empty_lake)
+    m = EfficiencyRatings(ModelSpec.model_validate(UNIT_SPEC), EFFICIENCY_RULES)
+    harness.give_inputs(m, history)
+    fits = []
+    for week in history.season_weeks(2023):
+        ratings = m.fit(harness.fit_games(history, week.as_of), week.as_of)
+        fits.append((ratings, [e.context for e in week.games]))
+    return m, fits
+
+
+def test_drivers_are_home_field_and_each_unit_matchup_and_sum_to_the_margin(
+    week_fits: tuple[EfficiencyRatings, Fitted],
+) -> None:
+    m, fits = week_fits
+    labels = ["Home field"] + [
+        f"{LABELS[s]}: {side}"
+        for s in INPUT_IDS
+        for side in ("home offense vs away defense", "away offense vs home defense")
+    ]
+    predicted = 0
+    for ratings, games in fits:
+        for game in games:
+            p = m.predict(game, ratings, ratings.as_of)
+            assert [label for label, _ in p.drivers] == labels
+            assert math.fsum(pts for _, pts in p.drivers) == pytest.approx(p.pred_margin, abs=1e-9)
+            predicted += 1
+    assert predicted > 20
+
+
+def test_at_a_neutral_site_home_field_is_zero_and_swapping_sides_negates_every_driver(
+    week_fits: tuple[EfficiencyRatings, Fitted],
+) -> None:
+    m, fits = week_fits
+    ratings, games = fits[len(fits) // 2]
+    for game in games:
+        neutral = replace(game, neutral_site=True)
+        swapped = replace(
+            neutral,
+            home_team=game.away_team,
+            away_team=game.home_team,
+            home_classification=game.away_classification,
+            away_classification=game.home_classification,
+            home_group=game.away_group,
+            away_group=game.home_group,
+        )
+        there = dict(m.predict(neutral, ratings, ratings.as_of).drivers)
+        back = dict(m.predict(swapped, ratings, ratings.as_of).drivers)
+        assert there["Home field"] == back["Home field"] == 0.0
+        assert any(pts != 0 for pts in there.values())
+        # An entry is a matchup, one team's offense against the other's defense; swapped, the
+        # same matchup sits under the other side's label, home − away now away − home.
+        for s in INPUT_IDS:
+            ours, theirs = (
+                f"{LABELS[s]}: {side}"
+                for side in ("home offense vs away defense", "away offense vs home defense")
+            )
+            assert back[ours] == pytest.approx(-there[theirs], abs=1e-12)
+            assert back[theirs] == pytest.approx(-there[ours], abs=1e-12)
+
+
+def test_every_teams_offense_and_defense_in_points_sum_to_its_rating_every_week(
+    week_fits: tuple[EfficiencyRatings, Fitted],
+) -> None:
+    _, fits = week_fits
+    checked = 0
+    for ratings, _ in fits:
+        assert ratings.units.keys() == ratings.teams.keys()
+        for team, rating in ratings.teams.items():
+            units = ratings.units[team]
+            assert tuple(units) == INPUT_IDS
+            offense = math.fsum(off for off, _ in units.values())
+            defense = math.fsum(dfn for _, dfn in units.values())
+            assert offense + defense == pytest.approx(rating, abs=1e-9)
+            checked += 1
+    # Prior-heavy week 1 counts too: the prior is blended per stat and side.
+    assert fits[0][0].params["prior_weight"] == 1.0
+    assert checked > 50
+
+
+# TASK-038 AC-4: an empirical backtest's rows carry the distribution each season predicted with.
+
+
+def test_an_empirical_backtest_writes_each_rows_key_number_weights(
+    three_season_lake: LocalLake, tmp_path: Path
+) -> None:
+    from engine.core.probability import KEY_RANGE, EmpiricalMargin, win_probability
+
+    spec = json.loads(SPEC_FILE.read_text("utf-8")) | {"distribution": "empirical"}
+    path = tmp_path / "spec.json"
+    path.write_text(json.dumps(spec), "utf-8")
+
+    argv = ["backtest", "--spec", str(path), "--seasons", "2023", "--tune-from", "2022"]
+    assert engine(*argv, "--report", str(tmp_path / "report")) == 0
+    md = (tmp_path / "report" / "report.md").read_text("utf-8")
+    assert "- **Cover probabilities:** empirical margin" in md
+
+    (key,) = [k for k in three_season_lake.walk("backtests") if k.endswith("/predictions.parquet")]
+    rows = pq.read_table(io.BytesIO(three_season_lake.read(key))).to_pylist()
+    assert rows
+    for r in rows:
+        assert len(r["margin_weights"]) == KEY_RANGE + 1
+        dist = EmpiricalMargin(r["margin_sd"], tuple(r["margin_weights"]))
+        assert r["home_win_prob"] == pytest.approx(win_probability(r["pred_margin"], dist))
+    assert len({tuple(r["margin_weights"]) for r in rows}) == 1  # one season, one fit
+    run = json.loads(three_season_lake.read(key.replace("predictions.parquet", "run.json")))
+    graded = metrics.grade_rows(
+        rows, ModelSpec.model_validate(run["spec"]), {int(s): c for s, c in run["choices"].items()}
+    )
+    assert all(g.margin_weights is not None for g in graded)
+
+
+# TASK-038 AC-5: `engine compare` scores each run's cover probabilities on the shared games.
+
+
+def test_engine_compare_gives_each_runs_cover_brier_and_calibration(
+    three_season_lake: LocalLake, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    argv = ["--seasons", "2023", "--tune-from", "2022"]
+    folders = []
+    for distribution in ("empirical", "normal"):
+        path = tmp_path / f"{distribution}.json"
+        spec = json.loads(SPEC_FILE.read_text("utf-8")) | {"distribution": distribution}
+        path.write_text(json.dumps(spec), "utf-8")
+        before = set(three_season_lake.walk("backtests"))
+        assert engine("backtest", "--spec", str(path), *argv) == 0
+        (new,) = {k.rpartition("/")[0] for k in set(three_season_lake.walk("backtests")) - before}
+        folders.append(new)
+    capsys.readouterr()
+
+    assert engine("compare", *folders) == 0
+
+    out = capsys.readouterr().out
+    for label, folder in zip("AB", folders, strict=True):
+        rows = pq.read_table(
+            io.BytesIO(three_season_lake.read(f"{folder}/predictions.parquet"))
+        ).to_pylist()
+        run = json.loads(three_season_lake.read(f"{folder}/run.json"))
+        games = metrics.grade_rows(
+            rows,
+            ModelSpec.model_validate(run["spec"]),
+            {int(s): c for s, c in run["choices"].items()},
+        )
+        brier = metrics.cover_brier(games)
+        assert brier is not None
+        assert f"{label} ({run['spec']['distribution']}): cover Brier {brier:.4f}" in out
+        calibration = metrics.calibration((g.prob, g.result) for g in games)
+        filled = [b for b in calibration.bins if b.count]
+        assert filled
+        for b in filled:
+            assert f"{label} {_bin(b)}: {b.count} games" in out
+    out.encode("cp1252")  # a Windows console prints it
+
+
+def _bin(b: metrics.CalibrationBin) -> str:
+    low = f"{b.low * 100:g}"
+    return f"{low}%+" if b.high is None else f"{low}-{b.high * 100:g}%"

@@ -13,7 +13,9 @@ for Rung 1 are home field only and last season carried over; the closing line an
 reported alongside.
 
 `runs` pairs any two stored runs the same way (`engine compare`), e.g. Rung 2 against Rung 1 or
-`shrink_toward: tier` against `zero` (TASK-036).
+`shrink_toward: tier` against `zero` (TASK-036), and scores each one's cover probabilities on
+the shared games, graded as its own spec says: the Brier score and the calibration bins, so
+`distribution: empirical` can be judged against `normal` on the same games (TASK-038).
 """
 
 from __future__ import annotations
@@ -25,6 +27,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from engine.backtest import bootstrap, harness
+from engine.backtest import metrics as m
 from engine.backtest.baselines import HINDSIGHT, UNRATED, UNSEEN, comparable
 from engine.backtest.harness import BacktestRun, Choices, History, Row
 from engine.core.spec import ModelSpec
@@ -139,3 +142,26 @@ def runs(a: Sequence[Mapping[str, Any]], b: Sequence[Mapping[str, Any]]) -> RunV
         mae_b=_mae(theirs),
         difference=bootstrap.compare(mine, theirs),
     )
+
+
+@dataclass(frozen=True, slots=True)
+class CoverScores:
+    """One run's cover probabilities, graded with its own spec, pushes left out."""
+
+    distribution: str
+    brier: float | None
+    calibration: m.Calibration
+
+
+def cover_scores(
+    rows: Sequence[Mapping[str, Any]], spec: ModelSpec, choices: Mapping[int, Choices]
+) -> CoverScores:
+    games = m.grade_rows(rows, spec, choices)
+    calibration = m.calibration((g.prob, g.result) for g in games)
+    return CoverScores(spec.distribution, m.cover_brier(games), calibration)
+
+
+def bin_label(b: m.CalibrationBin) -> str:
+    """ASCII, for a cp1252 console: `50-52.5%`, `65%+`."""
+    low = f"{b.low * 100:g}"
+    return f"{low}%+" if b.high is None else f"{low}-{b.high * 100:g}%"

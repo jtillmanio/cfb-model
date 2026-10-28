@@ -4,7 +4,9 @@ D-076, D-077, D-091).
 Each results row is graded once (`grade_rows`): the model's margin is shrunk toward the market
 by the season's `market_shrinkage_k`, the side it likes against the close gets the cover
 probability the app would display, and `core.picks.pick()` applies the season's pick rules, both
-at the close and at the opener. Probabilities use a normal margin with the row's `margin_sd`.
+at the close and at the opener. Probabilities use the row's own distribution: a normal margin
+with its `margin_sd`, or under `distribution: empirical` (TASK-038) the key-number weights its
+season predicted with (`margin_weights`) around that σ.
 
 **Grading** (04 § 9.3). A push counts in a record (W-L-P), is left out of win %, and earns
 nothing. At −110 a win is +1.0u and a loss −1.1u; a push is refunded, so it isn't risked, and
@@ -28,6 +30,8 @@ from engine.backtest.bootstrap import Interval, WeekKey, mean_difference
 from engine.core.contest_rules import SPLASH_PRESET
 from engine.core.picks import Pick, pick
 from engine.core.probability import (
+    EmpiricalMargin,
+    MarginDistribution,
     NormalMargin,
     Side,
     blended_margin,
@@ -390,6 +394,7 @@ class Graded:
     pick: Pick | None  # the pick rules' call at the close
     open_pick: Pick | None  # and at the opener
     open_result: Result | None  # the opener pick, graded against the opener
+    margin_weights: tuple[float, ...] | None = None  # under `empirical`; None: a normal margin
 
     @property
     def season(self) -> int:
@@ -398,6 +403,13 @@ class Graded:
     @property
     def postseason(self) -> bool:
         return self.week[1] == "postseason"
+
+    @property
+    def distribution(self) -> MarginDistribution:
+        """The margin distribution the row was graded with."""
+        if self.margin_weights is None:
+            return NormalMargin(self.margin_sd)
+        return EmpiricalMargin(self.margin_sd, self.margin_weights)
 
     @property
     def clv(self) -> float | None:
@@ -409,10 +421,23 @@ class Graded:
         return moved if self.open_pick.side == "home" else -moved
 
 
+def _weights(row: Mapping[str, Any], spec: ModelSpec) -> tuple[float, ...] | None:
+    """The row's key-number weights under an empirical spec; None under a normal one."""
+    if spec.distribution == "normal":
+        return None
+    weights = row.get("margin_weights")
+    if weights is None:
+        raise ValueError(
+            f"game {row['game_source_id']} has no margin_weights: an empirical spec grades each "
+            "row with the distribution its season predicted with"
+        )
+    return tuple(weights)
+
+
 def grade_rows(
     rows: Iterable[Mapping[str, Any]], spec: ModelSpec, choices: Mapping[int, Choices]
 ) -> list[Graded]:
-    """Grade each row with its season's resolved pick rules."""
+    """Grade each row with its season's resolved pick rules and its own distribution."""
     resolved: dict[int, ModelSpec] = {}
     out = []
     for row in rows:
@@ -421,7 +446,12 @@ def grade_rows(
             resolved[season] = spec.resolve(choices.get(season, {}))
         rules = resolved[season].picks
         k = fixed(rules.market_shrinkage_k, "picks.market_shrinkage_k")
-        dist = NormalMargin(row["margin_sd"])
+        weights = _weights(row, spec)
+        dist: MarginDistribution = (
+            NormalMargin(row["margin_sd"])
+            if weights is None
+            else EmpiricalMargin(row["margin_sd"], weights)
+        )
         close, opener = row["spread_home"], row.get("spread_home_open")
         cover = cover_probability(blended_margin(row["pred_margin"], close, k), close, dist)
         at_open = None if opener is None else pick(row["pred_margin"], opener, rules, dist)
@@ -447,9 +477,19 @@ def grade_rows(
                     if at_open is None or opener is None
                     else grade(at_open.side, row["margin"], opener)
                 ),
+                margin_weights=weights,
             )
         )
     return out
+
+
+def cover_brier(games: Sequence[Graded]) -> float | None:
+    """The Brier score of the displayed cover probability against whether the side covered,
+    pushes left out (lower is better); None when every game pushed."""
+    graded = [g for g in games if g.result != "P"]
+    if not graded:
+        return None
+    return math.fsum((g.prob - (g.result == "W")) ** 2 for g in graded) / len(graded)
 
 
 # The rest of § 9.4
@@ -484,7 +524,7 @@ class Contest:
 class WinProbability:
     games: int
     brier: float  # of home_win_prob
-    market_brier: float  # of Φ(−spread_home / margin_sd): the line at the model's spread
+    market_brier: float  # the line's win probability on each row's own distribution
 
 
 @dataclass(frozen=True, slots=True)
@@ -565,7 +605,7 @@ def win_probability_score(games: Sequence[Graded]) -> WinProbability:
     def won(g: Graded) -> float:
         return 1.0 if g.margin > 0 else 0.0
 
-    market = [win_probability(-g.spread_home, NormalMargin(g.margin_sd)) for g in games]
+    market = [win_probability(-g.spread_home, g.distribution) for g in games]
     return WinProbability(
         len(games),
         math.fsum((g.home_win_prob - won(g)) ** 2 for g in games) / len(games),

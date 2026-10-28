@@ -234,7 +234,7 @@ def _win_probability(w: m.WinProbability) -> Section:
         "Win probability",
         (
             "The Brier score of `home_win_prob` (lower is better), beside the closing line's "
-            "implied probability at the same σ.",
+            "implied probability on each game's own distribution.",
         ),
         (Table(("Metric", "Value"), rows),),
     )
@@ -338,6 +338,20 @@ def _postseason(s: m.Summary) -> Section:
     )
 
 
+COVER_CURVES = {
+    "normal": "normal margin with each game's σ (margin_sd)",
+    "empirical": (
+        "empirical margin: each game's σ (margin_sd) and its season's key-number weights "
+        "(margin_weights), pushes left out"
+    ),
+}
+
+
+def _distribution(run: Mapping[str, Any]) -> str:
+    spec = run.get("spec")
+    return str(spec.get("distribution", "normal")) if isinstance(spec, Mapping) else "normal"
+
+
 def build(
     metrics: m.Metrics, run: Mapping[str, Any], comparison: Sequence[Versus] = ()
 ) -> Document:
@@ -352,7 +366,7 @@ def build(
         ("Games", str(metrics.games)),
         ("Holdout opened", "yes" if metrics.holdout else "no"),
         ("Results", f"{run['folder']}/predictions.parquet" if "folder" in run else DASH),
-        ("Cover probabilities", "normal margin with each game's σ (margin_sd)"),
+        ("Cover probabilities", COVER_CURVES[_distribution(run)]),
     )
     sections = [
         *([_comparison(comparison, str(run.get("model", "Model")))] if comparison else []),
