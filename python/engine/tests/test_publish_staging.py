@@ -9,7 +9,7 @@ so it commits nothing."""
 from __future__ import annotations
 
 from datetime import UTC, date, datetime
-from decimal import Decimal
+from decimal import ROUND_HALF_UP, Decimal
 from typing import Any
 
 import pytest
@@ -130,13 +130,50 @@ def test_publish_writes_talent_and_returning_production(
     assert first["304"] == (None, None)  # Idaho State: no talent or returning production row
 
     def scaled(value: float | None, places: int) -> Decimal | None:
-        return None if value is None else round(Decimal(str(value)), places)
+        if value is None:
+            return None
+        return Decimal(str(value)).quantize(Decimal(1).scaleb(-places), rounding=ROUND_HALF_UP)
 
     for source_id, (t, r) in first.items():
         assert (t, r) == (scaled(talent.get(source_id), 2), scaled(returning.get(source_id), 4))
 
     publish_lake(lake, db_conn, PUBLISH)
     assert _preseason(db_conn) == first
+
+
+def _repull(lake: LocalLake, endpoint: str, team: str, field: str, value: float) -> None:
+    """A later pull of a 2025 preseason endpoint with one team's `field` set to `value`."""
+    (key,) = [k for k in FIXTURE if k.startswith(f"raw/cfbd/{endpoint}/")]
+    records = [{**r, field: value} if r["team"] == team else r for r in FIXTURE[key]["records"]]
+    later = key.replace("fetched_at=2026-10-20", "fetched_at=2026-10-21")
+    write(lake, later, records, FIXTURE[key]["params"])
+
+
+def test_a_talent_of_zero_publishes_null(lake: LocalLake, db_conn: Connection) -> None:
+    """CFBD sends talent 0 for a team it has no composite for (Air Force, Army and Navy in
+    2022-2024): that's unknown, so NULL, not 0 (schema review R1)."""
+    _repull(lake, "talent", "Stanford", "talent", 0.0)
+    rebuild(lake)
+
+    publish_lake(lake, db_conn, PUBLISH)
+
+    assert _preseason(db_conn)["24"] == (None, Decimal("0.1890"))  # Stanford
+
+
+def test_a_returning_share_too_big_for_its_column_is_refused_before_any_write(
+    lake: LocalLake, db_conn: Connection
+) -> None:
+    """`percentPPA` is a ratio that blows up when last season's total PPA is near zero;
+    Numeric(5, 4) holds less than 10 either way, so a bigger one is refused by name before a row
+    is written, not left to fail mid-transaction (schema review R1)."""
+    _repull(lake, "player_returning", "Fresno State", "percentPPA", 12.5)
+    rebuild(lake)
+    before = _state(db_conn)
+
+    with pytest.raises(ValueError, match=r"278 in 2025: 12\.5"):
+        publish_lake(lake, db_conn, PUBLISH)
+
+    assert _state(db_conn) == before
 
 
 def test_a_games_publish_keeps_talent_and_returning_production(

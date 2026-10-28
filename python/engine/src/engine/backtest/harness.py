@@ -219,7 +219,7 @@ class Preseason:
 
     def for_season(self, season: int) -> dict[str, dict[int, float]]:
         """Each source's number per team for `season`'s prior, asserting every value read was
-        published before the season's first `as_of` (point-in-time rule, 04 § 9.2). A team
+        published strictly before the season's first `as_of` (point-in-time rule, 04 § 9.2). A team
         with no value is absent."""
         start = self.first_as_of.get(season)
         if start is None:
@@ -228,7 +228,7 @@ class Preseason:
         for name, source in self.sources.items():
             table = self.tables.get(name, PreseasonTable({}, {}))
             read = [s for s in source.seasons(season) if s in table.by_season]
-            late = [s for s in read if table.known_at[s] > start]
+            late = [s for s in read if table.known_at[s] >= start]
             if late:
                 raise PointInTimeError(
                     f"{name} of season {late[0]} is assumed published "
@@ -454,7 +454,8 @@ def _preseason(tables: Mapping[str, Any], weeks: Sequence[Week]) -> Preseason:
     for name, source in SOURCES.items():
         by_season: dict[int, dict[int, float]] = {}
         for r in tables[source.table].to_pylist():
-            if r["team_source_id"] is not None and r[source.column] is not None:
+            value = r[source.column]
+            if r["team_source_id"] is not None and value is not None and source.usable(value):
                 by_season.setdefault(r["season"], {})[int(r["team_source_id"])] = r[source.column]
         known_at = {s: source.published(s) for s in by_season}
         out[name] = PreseasonTable(by_season, known_at)

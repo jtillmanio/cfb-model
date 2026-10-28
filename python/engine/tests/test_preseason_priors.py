@@ -179,13 +179,14 @@ def fitted(league: League, components: list[str] = COMPONENTS) -> EfficiencyRati
 def test_noiseless_prior_weights_are_recovered() -> None:
     rng = np.random.default_rng(1)
     keep = np.array([0.7, 0.55, 0.62, 0.48])  # a, per rating
-    weights = np.array(  # b, c, d per rating: returning production, talent, recruiting
-        [[0.05, 0.02, 0.04, 0.01], [0.0004, 0.0001, -0.0003, 0.0002], [0.001, 0.0, 0.0005, 0.0003]]
-    )
+    # b, c, d per rating (returning production, talent, recruiting), in the units of the
+    # components below: each distinct and at least 0.05 from zero and from the others, so a
+    # weight fit as 0, or two swapped, misses the 0.01 tolerance (spec review R1).
+    weights = np.array([[0.5, 0.3, -0.4, 0.2], [0.25, -0.15, 0.35, 0.1], [-0.2, 0.45, 0.15, -0.3]])
     rows = []
     for i in range(240):
-        last = rng.normal(0, 0.1, 4)
-        components = np.array([rng.uniform(-0.3, 0.3), rng.normal(0, 80), rng.normal(0, 40)])
+        last = rng.normal(0, 1.0, 4)
+        components = rng.normal(0, 1.0, 3)  # centred components, each on a unit scale
         target = keep * last + components @ weights
         rows.append(PriorRow(2020 + i % 3, i, last, components, target))
 
@@ -194,6 +195,10 @@ def test_noiseless_prior_weights_are_recovered() -> None:
     assert fitted_weights.keep == pytest.approx(keep, abs=0.01)
     assert fitted_weights.components == pytest.approx(weights, abs=0.01)
     assert fitted_weights.rows == 240
+    # Swapping two components' rows, or zeroing one, is caught.
+    assert not np.allclose(fitted_weights.components[[1, 0, 2]], weights, atol=0.01)
+    zeroed = np.vstack([weights[:1], np.zeros((1, 4)), weights[2:]])
+    assert not np.allclose(zeroed, weights, atol=0.01)
 
 
 def test_a_prior_fit_given_a_row_from_the_predicted_season_fails() -> None:
@@ -336,3 +341,48 @@ def test_an_unmatched_name_is_a_missing_component() -> None:
     preseason = _preseason(tables, [])
 
     assert preseason.tables["talent"].by_season == {2022: {8: 650.0}}
+
+
+def test_a_talent_of_zero_is_a_missing_component() -> None:
+    """CFBD sends talent 0 for a team it has no composite for (Air Force, Army and Navy in
+    2022-2024): the prior counts it as missing, its tier's average, not a value hundreds of
+    points below it (schema and spec review R1)."""
+    from engine.backtest.harness import _preseason
+
+    class Table:
+        def __init__(self, rows: list[dict[str, Any]]) -> None:
+            self.rows = rows
+
+        def to_pylist(self) -> list[dict[str, Any]]:
+            return self.rows
+
+    rows = [
+        {"season": 2022, "team_source_id": "8", "talent": 650.0},
+        {"season": 2022, "team_source_id": "9", "talent": 0.0},  # Navy: no composite
+    ]
+    tables = {s.table: Table([]) for s in SOURCES.values()} | {"talent": Table(rows)}
+
+    preseason = _preseason(tables, [])
+
+    assert preseason.tables["talent"].by_season == {2022: {8: 650.0}}
+
+
+def test_a_value_published_at_the_seasons_first_as_of_is_refused() -> None:
+    """Strictly before: a value assumed published at the first `as_of` itself isn't known
+    entering that week (schema review R1)."""
+    start = kickoff(2023, 1)
+    table = PreseasonTable({2023: {1: 0.5}}, {2023: start})
+    preseason = Preseason(
+        {"returning_production": SOURCES["returning_production"]},
+        {"returning_production": table},
+        {2023: start},
+    )
+    with pytest.raises(PointInTimeError, match="returning_production of season 2023"):
+        preseason.for_season(2023)
+
+    early = Preseason(
+        preseason.sources,
+        {"returning_production": PreseasonTable({2023: {1: 0.5}}, {2023: start - timedelta(1)})},
+        {2023: start},
+    )
+    assert early.for_season(2023) == {"returning_production": {1: 0.5}}

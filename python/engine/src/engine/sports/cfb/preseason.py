@@ -14,7 +14,9 @@ lake can't prove when they were known; the backtest asserts against these assump
   nothing as a share.
 - **Talent** of season S: the 247 composite of S's roster, which CFBD can't date and may reflect
   the season itself, so it's assumed published only after S, on February 1 of S + 1. Season Y
-  therefore reads Y − 1's talent; the four recruiting classes cover the incoming freshmen.
+  therefore reads Y − 1's talent; the four recruiting classes cover the incoming freshmen. CFBD
+  sends 0 for a team it has no composite for (Air Force, Army and Navy in 2022-2024): that's
+  missing, not a value, here and in Postgres.
 - **Recruiting**: the class signed for season S, assumed published February 15 of S (after
   National Signing Day). Season Y reads the mean `points` of classes Y − 3 to Y, those the team
   has.
@@ -34,6 +36,8 @@ class Source:
     seasons: Callable[[int], tuple[int, ...]]  # season Y -> the value seasons Y's prior reads
     published: Callable[[int], datetime]  # a value's season -> when it's assumed published
     combine: Callable[[Sequence[float]], float]  # a team's values for Y -> one number
+    # Whether a staged value is a real one; one that isn't counts as missing.
+    usable: Callable[[float], bool] = lambda _value: True
 
 
 def _mean(values: Sequence[float]) -> float:
@@ -58,6 +62,7 @@ SOURCES: dict[str, Source] = {
         lambda y: (y - 1,),
         lambda s: datetime(s + 1, 2, 1, tzinfo=UTC),
         lambda values: values[0],
+        lambda value: value > 0,  # CFBD sends 0 for a team it has no composite for
     ),
     "recruiting": Source(
         "recruiting",
