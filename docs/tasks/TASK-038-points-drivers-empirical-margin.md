@@ -1,7 +1,7 @@
 ---
 id: TASK-038
 title: Rate units in points, with drivers and the empirical margin distribution
-status: In progress
+status: Review
 depends_on: [TASK-036, TASK-037]
 size: M
 model: opus
@@ -35,12 +35,12 @@ Every prediction explains itself: its drivers (each unit matchup, plus home fiel
 
 ## Acceptance criteria
 
-- [ ] AC-1: For every prediction the efficiency model makes on the two-season backtest fixture, `drivers` holds a home-field entry and one entry per rated unit matchup, labeled from the input registry, and the points sum to `pred_margin` within 1e-9. At a neutral site the home-field entry is 0, and swapping home and away negates every entry.
-- [ ] AC-2: For every team the efficiency model rates entering every fixture week, its offense and defense contributions in points (special teams 0) sum to its overall rating within 1e-9. `components` holds one offense and one defense value per input-registry id the spec rates.
-- [ ] AC-3: Given earlier-season residuals with more mass at 3 and 7 than at their neighbours, `EmpiricalMargin` in `engine.core`: at a whole-number threshold, `prob_above`, `prob_below` and the push mass sum to 1 with push mass > 0; at a half-point threshold the push mass is 0; and the margin lands in (2.5, 3.5) more often than under `NormalMargin` with the same σ. It's fit only on seasons before the one predicted (a fit for season Y given a season-Y residual raises), and `test_core_imports.py` still passes.
-- [ ] AC-4: With `distribution: empirical`, `grade_rows` grades each row with that row's own distribution, not `NormalMargin(margin_sd)`. A test where the two give different cover probabilities shows the cover probability, calibration bin, pick and contest top N follow the empirical one. With `distribution: normal`, every existing golden file is unchanged.
-- [ ] AC-5: On the local lake, pooled 2016–2023, the report gives the Brier score on cover probability and the calibration bins for `empirical` against `normal`, the spec being otherwise the same, on the same games. `efficiency-v1.json` uses `empirical` only if its Brier score is no worse than `normal`'s. Otherwise it keeps `normal`, and the decision row says why (D-053 revisited). The result is recorded in 04 § 3.
-- [ ] AC-6: `engine rate --spec <efficiency spec> --season Y --week N --target test` on the fixture lake writes every `team_ratings` row with `off_rating` and `def_rating` in points, `rating` = `off_rating` + `def_rating` within 1e-9, `st_rating` NULL and `components` keyed by input-registry id; each `predictions` row's `drivers` sum to its `pred_margin` within 1e-9. A `power` spec's rows keep `off_rating`, `def_rating` and `components` NULL.
+- [x] AC-1: For every prediction the efficiency model makes on the two-season backtest fixture, `drivers` holds a home-field entry and one entry per rated unit matchup, labeled from the input registry, and the points sum to `pred_margin` within 1e-9. At a neutral site the home-field entry is 0, and swapping home and away negates every entry.
+- [x] AC-2: For every team the efficiency model rates entering every fixture week, its offense and defense contributions in points (special teams 0) sum to its overall rating within 1e-9. `components` holds one offense and one defense value per input-registry id the spec rates.
+- [x] AC-3: Given earlier-season residuals with more mass at 3 and 7 than at their neighbours, `EmpiricalMargin` in `engine.core`: at a whole-number threshold, `prob_above`, `prob_below` and the push mass sum to 1 with push mass > 0; at a half-point threshold the push mass is 0; and the margin lands in (2.5, 3.5) more often than under `NormalMargin` with the same σ. It's fit only on seasons before the one predicted (a fit for season Y given a season-Y residual raises), and `test_core_imports.py` still passes.
+- [x] AC-4: With `distribution: empirical`, `grade_rows` grades each row with that row's own distribution, not `NormalMargin(margin_sd)`. A test where the two give different cover probabilities shows the cover probability, calibration bin, pick and contest top N follow the empirical one. With `distribution: normal`, every existing golden file is unchanged.
+- [x] AC-5: On the local lake, pooled 2016–2023, the report gives the Brier score on cover probability and the calibration bins for `empirical` against `normal`, the spec being otherwise the same, on the same games. `efficiency-v1.json` uses `empirical` only if its Brier score is no worse than `normal`'s. Otherwise it keeps `normal`, and the decision row says why (D-053 revisited). The result is recorded in 04 § 3.
+- [x] AC-6: `engine rate --spec <efficiency spec> --season Y --week N --target test` on the fixture lake writes every `team_ratings` row with `off_rating` and `def_rating` in points, `rating` = `off_rating` + `def_rating` within 1e-9, `st_rating` NULL and `components` keyed by input-registry id; each `predictions` row's `drivers` sum to its `pred_margin` within 1e-9. A `power` spec's rows keep `off_rating`, `def_rating` and `components` NULL.
 
 ## Out of scope
 
@@ -125,12 +125,18 @@ Approved 2026-10-28 by the owner.
 **Revisions after approval.**
 
 1. *The side the model likes* (owner, 2026-10-28): near a key number the edge's side can cover under 50% (home by 2.4 against −2.5 when home by 3 is common), which the calibration bins refuse. `cover_probability` keeps the edge's side unless the other side is likelier to cover; under a normal margin the edge's side is always at least 50%, so nothing changes there. Test: `test_core_probability.py::test_near_a_key_number_the_liked_side_is_the_one_more_likely_to_cover`.
-2. *Where the cover Brier score shows:* adding it to `Metrics` would change the report golden under `normal` (it serializes every field), against AC-4. It's `metrics.cover_brier(games)`, printed by `engine compare` with the calibration bins (step 6); the backtest report's facts name the run's cover curve instead.
-3. Smaller: the key-number weights are one ratio per margin size against the plain normal's expected count, not iterative fitting (simpler to read, and `Σ observed = Σ expected` keeps it near calibrated); `backtest/baselines.py` passes `games` by keyword because `Ratings` gained a field; with home/away labels, swapping the teams moves each matchup to the other side's label (negated), which is how AC-1's swap is tested.
+2. *Where the cover Brier score shows* (owner confirmed at close-out, 2026-10-28): adding it to `Metrics` would change the report golden under `normal` (it serializes every field), against AC-4. It's `metrics.cover_brier(games)`, printed by `engine compare` with the calibration bins (step 6); the backtest report's facts name the run's cover curve instead.
+3. Smaller: the key-number weights are one ratio per margin size against the plain normal's expected count, not iterative fitting (simpler to read, and `Σ observed = Σ expected` keeps it near calibrated); `backtest/baselines.py` passes `games` by keyword because `Ratings` gained a field; with home/away labels, swapping the teams moves each matchup to the other side's label (negated), which is how AC-1's swap is tested (owner confirmed this reading at close-out, 2026-10-28).
 
 ## Review log
 
 _Filled by /implement-task. One line per round._
+
+- Verify R1 PASS (full: typecheck, lint, db:check, test, build, e2e)
+- Audit R1 PASS (every automated AC proven against main; two guard tests pass on main by design)
+- Spec R1 CHANGES (a follow-up without its § section; ACs all PASS) | Schema R1 APPROVE (2 minors: non-finite units reached the jsonb cast; 03 didn't say higher off/def is better, both fixed)
+- Verify R2 PASS (after the review fixes)
+- Spec R2 APPROVE
 
 ## Blocked
 
@@ -138,7 +144,7 @@ _Only if status is Blocked: what failed, what was tried, best hypothesis, decisi
 
 ## Metrics
 
-- Verify rounds:
-- Review rounds:
-- First-pass AC FAILs:
-- Plan revisions after approval:
+- Verify rounds: 2 (both PASS; the second after the review fixes)
+- Review rounds: 2 (spec), 1 (schema); audit 1
+- First-pass AC FAILs: 0 (spec R1's CHANGES was a follow-up destination, not an AC)
+- Plan revisions after approval: 3 (the liked side, the owner's choice; the cover Brier in `engine compare`; small ones, see Plan)

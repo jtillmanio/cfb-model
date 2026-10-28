@@ -89,10 +89,10 @@ Phase 8  Multi-sport (NFL)
 ## Phase 3 — Core model v1 + picks
 **Goal:** a model good enough to paper-trade.
 
-- [ ] Rung 2: ridge opponent-adjusted efficiency ratings (off/def, rush/pass splits); overall rating = sum of unit contributions in points; shrinking toward the conference tier (Power 4 / G5 / FCS) tested against shrinking toward zero ([04 § 10.4](04-model.md))
+- [x] Rung 2: ridge opponent-adjusted efficiency ratings (off/def, rush/pass splits); overall rating = sum of unit contributions in points; shrinking toward the conference tier (Power 4 / G5 / FCS) tested against shrinking toward zero ([04 § 10.4](04-model.md))
 - [x] Preseason priors (returning production, talent, recruiting) + fitted decay blending
-- [ ] Margin model mapping efficiency to points; σ and empirical margin distribution
-- [ ] `drivers` output for explainability
+- [x] Margin model mapping efficiency to points; σ and empirical margin distribution
+- [x] `drivers` output for explainability
 - [ ] Pick logic: thresholds, tiers, optional market shrinkage, tuned on validation seasons
 - [ ] `picks` table + views: `game_market`, `current_picks`, `pick_outcomes`, `model_record`, `team_rankings`, `team_schedule_strength` (SOS, [04 § 10.5](04-model.md))
 - [ ] Holdout evaluation on 2024–2025, then go/no-go per [04-model.md §5](04-model.md)
