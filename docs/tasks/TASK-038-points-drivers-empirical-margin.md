@@ -80,8 +80,9 @@ Every prediction explains itself: its drivers (each unit matchup, plus home fiel
 _Work noticed during this task and deliberately left out. Each bullet ends `→ <path> § <section>` (where it was placed) or `→ not tracked: <reason>`. See `.claude/skills/track-follow-ups/classify.md`; the PR's Follow-ups section is copied from here._
 
 - The six inputs overlap heavily, so single per-input drivers may be large and offsetting (they still sum exactly); grouped units (one rushing, one passing) or a constrained margin fit would read more cleanly (approved at plan) → docs/08-tasklist.md § M19.1
-- M7.6 (`/games/{id}`) evaluates σ and the distribution with `EmpiricalMargin.from_params(fitted_params)`; drivers are labelled home/away for the UI to fill in, and there's no special-teams entry until M18.3 rates it (approved at plan) → docs/08-tasklist.md § M7.6
-- Candidate decision: the empirical distribution, push handling, the drivers and the unit split (approved at plan) → docs/decisions.md
+- M7.6 (`/games/{id}`) evaluates the run's distribution with `EmpiricalMargin.from_params(fitted_params)`, falling back to `NormalMargin(margin_sd)` when it returns None (every v1 run, which keeps `normal`); drivers are labelled home/away for the UI to fill in, and there's no special-teams entry until M18.3 rates it (approved at plan) → docs/08-tasklist.md § M7.6
+- Candidate decision: the empirical distribution, push handling, the drivers and the unit split (approved at plan) → docs/decisions.md § D-139
+- Under an empirical distribution, when a key number makes the liked side the one the edge leans against, `core.picks.pick` still qualifies and tiers the pick on `abs(edge)`, so it can pick a side its own margin disagrees with (spec review R1); pick rules should pass such a game or measure the edge for the liked side. Moot while v1 is `normal` → docs/08-tasklist.md § M4.4
 
 ## Plan
 

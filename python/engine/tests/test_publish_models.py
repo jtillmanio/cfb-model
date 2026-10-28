@@ -201,6 +201,10 @@ class _Broken:
         if self.how == "nan_rating":
             team = next(iter(ratings.teams))
             return Ratings(ratings.as_of, {**ratings.teams, team: math.nan}, ratings.params)
+        if self.how == "nan_unit":  # TASK-038: a unit `components` (jsonb) can't hold
+            team = next(iter(ratings.teams))
+            units = {team: {"epa_per_play": (math.nan, 0.0)}}
+            return Ratings(ratings.as_of, ratings.teams, ratings.params, units)
         if self.how == "prior_weight_above_one":  # finite, but prior_weight's CHECK refuses it
             return Ratings(ratings.as_of, ratings.teams, {**ratings.params, "prior_weight": 1.5})
         return ratings
@@ -221,6 +225,7 @@ class _Broken:
     [
         ("raise", "the solve diverged"),
         ("nan_rating", "rating"),
+        ("nan_unit", "epa_per_play"),
         ("inf_margin", "pred_margin"),
         ("zero_sd", "margin_sd"),
         ("prob_above_one", "home_win_prob"),

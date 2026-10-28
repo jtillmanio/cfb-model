@@ -189,6 +189,10 @@ def _unstorable(ratings: Ratings, predictions: Predicted) -> str | None:
     for team, value in ratings.teams.items():
         if not math.isfinite(value):
             return f"rating of team {team} is {value}"
+    for team, units in ratings.units.items():
+        for stat, (off, dfn) in units.items():
+            if not (math.isfinite(off) and math.isfinite(dfn)):
+                return f"{stat} unit of team {team} is ({off}, {dfn})"
     for game, p in predictions:
         for name in ("pred_margin", "margin_sd", "home_win_prob"):
             value = getattr(p, name)
@@ -336,7 +340,9 @@ def _units(units: Mapping[str, tuple[float, float]] | None) -> dict[str, Any]:
     return {
         "off": math.fsum(off for off, _ in units.values()),
         "def": math.fsum(dfn for _, dfn in units.values()),
-        "components": json.dumps({s: {"off": off, "def": dfn} for s, (off, dfn) in units.items()}),
+        "components": json.dumps(
+            {s: {"off": off, "def": dfn} for s, (off, dfn) in units.items()}, allow_nan=False
+        ),
     }
 
 
