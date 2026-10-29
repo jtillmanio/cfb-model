@@ -1,7 +1,7 @@
 ---
 id: TASK-040
 title: Add the picks table
-status: Review
+status: Done
 depends_on: [TASK-034]
 size: M
 model: opus
