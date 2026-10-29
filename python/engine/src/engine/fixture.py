@@ -3,8 +3,9 @@
 Refuses any target but TEST_DATABASE_URL (through the one guard) and refuses under LIVE=true.
 Every reference row has source = 'fixture', so it can never collide with a real CFBD row. The
 model registry has no source column; its rows are found by sport, market, name and version.
-Re-seeding changes nothing: reference rows are upserted, line snapshots, ratings and predictions
-skip a key already stored, and a version or run that exists is reused.
+Re-seeding changes nothing: reference rows are upserted, line snapshots, ratings, predictions and
+picks skip a key already stored, and a version or run that exists is reused. picks.json is written
+by its generator, generate_picks.py, beside it (TASK-040).
 """
 
 from __future__ import annotations
@@ -66,11 +67,66 @@ def _seed_teams(conn: Connection, data: dict[str, Any]) -> dict[str, int]:
     return ids
 
 
+def _upsert_games(
+    conn: Connection,
+    season: int,
+    games: list[dict[str, Any]],
+    team_ids: dict[str, int],
+    venue_ids: dict[str, int],
+) -> dict[str, int]:
+    """Games of `season`; a game with no `week` is week 6's. Returns ids by source id."""
+    return upsert_games(
+        conn,
+        SPORT,
+        SOURCE,
+        [
+            {
+                "source_id": g["source_id"],
+                "season": season,
+                "week": g.get("week", WEEK),
+                "season_type": "regular",
+                "game_date": date.fromisoformat(g["game_date"]),
+                "kickoff_at": datetime.fromisoformat(g["kickoff_at"]),
+                "neutral_site": g["neutral_site"],
+                "conference_game": g["conference_game"],
+                "venue_id": None if g.get("venue") is None else venue_ids[g["venue"]],
+                "home_team_id": team_ids[g["home"]],
+                "away_team_id": team_ids[g["away"]],
+                "home_points": g["home_points"],
+                "away_points": g["away_points"],
+                "status": g["status"],
+            }
+            for g in games
+        ],
+    )
+
+
+def _insert_lines(
+    conn: Connection, games: list[dict[str, Any]], game_ids: dict[str, int], book_id: int
+) -> int:
+    """The games' line snapshots from the one fixture book. Returns how many were new."""
+    return insert_line_snapshots(
+        conn,
+        SOURCE,
+        [
+            {
+                "game_id": game_ids[g["source_id"]],
+                "book_id": book_id,
+                "kind": line["kind"],
+                "captured_at": _ts(line["captured_at"]),
+                "spread_home": line["spread_home"],
+            }
+            for g in games
+            for line in g["lines"]
+        ],
+    )
+
+
 def _seed_week(
     conn: Connection, data: dict[str, Any], team_ids: dict[str, int]
-) -> tuple[dict[str, int], int]:
+) -> tuple[dict[str, int], int, int]:
     """Week 6: the season row, the book, the venue, the slate games and their lines. Returns
-    the game ids by source id and the number of new line snapshots."""
+    the game ids by source id, the number of new line snapshots and the book's id."""
     season = data["season"]
     upsert_season(
         conn,
@@ -84,50 +140,10 @@ def _seed_week(
             "weeks": season["weeks"],
         },
     )
-    book_ids = upsert_sportsbooks(conn, SOURCE, data["sportsbooks"])
+    book_id = upsert_sportsbooks(conn, SOURCE, data["sportsbooks"])[BOOK]
     venue_ids = upsert_venues(conn, SOURCE, data["venues"])
-    games = data["games"]
-    game_ids = upsert_games(
-        conn,
-        SPORT,
-        SOURCE,
-        [
-            {
-                "source_id": g["source_id"],
-                "season": season["year"],
-                "week": WEEK,
-                "season_type": "regular",
-                "game_date": date.fromisoformat(g["game_date"]),
-                "kickoff_at": datetime.fromisoformat(g["kickoff_at"]),
-                "neutral_site": g["neutral_site"],
-                "conference_game": g["conference_game"],
-                "venue_id": None if g["venue"] is None else venue_ids[g["venue"]],
-                "home_team_id": team_ids[g["home"]],
-                "away_team_id": team_ids[g["away"]],
-                "home_points": g["home_points"],
-                "away_points": g["away_points"],
-                "status": g["status"],
-            }
-            for g in games
-        ],
-    )
-    return game_ids, insert_line_snapshots(
-        conn,
-        SOURCE,
-        [
-            {
-                "game_id": game_ids[g["source_id"]],
-                "book_id": book_ids[BOOK],
-                "kind": line["kind"],
-                "captured_at": None
-                if line["captured_at"] is None
-                else datetime.fromisoformat(line["captured_at"]),
-                "spread_home": line["spread_home"],
-            }
-            for g in games
-            for line in g["lines"]
-        ],
-    )
+    game_ids = _upsert_games(conn, season["year"], data["games"], team_ids, venue_ids)
+    return game_ids, _insert_lines(conn, data["games"], game_ids, book_id), book_id
 
 
 # A scheduled run starts just before 6:00 AM ET on the Sunday its week begins and finishes at
@@ -252,9 +268,9 @@ def _seed_models(
     week_data: dict[str, Any],
     team_ids: dict[str, int],
     game_ids: dict[str, int],
-) -> tuple[int, int]:
+) -> tuple[int, int, dict[str, int]]:
     """The registry, its backtests, the weekly ratings and the week-6 predictions. Returns the
-    number of new ratings and predictions."""
+    number of new ratings and predictions, and the version ids by version."""
     version_ids = _seed_versions(conn, data)
     for b in data["backtests"]:
         _seed_run(
@@ -340,7 +356,104 @@ def _seed_models(
             for p in preds["games"]
         ],
     ).rowcount
-    return new_ratings, new_predictions
+    return new_ratings, new_predictions, version_ids
+
+
+def _seed_picks(
+    conn: Connection,
+    data: dict[str, Any],
+    week_data: dict[str, Any],
+    team_ids: dict[str, int],
+    game_ids: dict[str, int],
+    book_id: int,
+    version_id: int,
+) -> tuple[int, int, int]:
+    """picks.json: the weeks 1-5 games and the week-6 games the slate doesn't show, their lines
+    and the version's predictions under its weekly runs, then every pick at the snapshot it was
+    made at. Returns the number of new line snapshots, predictions and picks."""
+    season = data["season"]
+    game_ids = {**game_ids, **_upsert_games(conn, season, data["games"], team_ids, {})}
+    new_lines = _insert_lines(conn, data["games"], game_ids, book_id)
+
+    starts = _week_starts(week_data)
+    runs = {
+        week: _scheduled_run(conn, version_id, season, week, starts[week])
+        for week in sorted({p["week"] for p in data["predictions"] + data["picks"]})
+    }
+    new_predictions = conn.execute(
+        text(
+            "INSERT INTO predictions (model_run_id, model_version_id, game_id, created_at,"
+            " pred_margin, home_win_prob, margin_sd)"
+            " VALUES (:run_id, :version_id, :game_id, :created_at, :pred_margin, :home_win_prob,"
+            " :margin_sd) ON CONFLICT (model_run_id, game_id) DO NOTHING"
+        ),
+        [
+            {
+                "run_id": runs[p["week"]][0],
+                "version_id": version_id,
+                "game_id": game_ids[p["game"]],
+                "created_at": runs[p["week"]][1],
+                "pred_margin": p["pred_margin"],
+                "home_win_prob": p["home_win_prob"],
+                "margin_sd": data["margin_sd"],
+            }
+            for p in data["predictions"]
+        ],
+    ).rowcount
+
+    picked = [game_ids[p["game"]] for p in data["picks"]]
+    prediction_ids = {
+        (r.model_run_id, r.game_id): r.id
+        for r in conn.execute(
+            text(
+                "SELECT id, model_run_id, game_id FROM predictions"
+                " WHERE model_version_id = :v AND game_id = ANY(:games)"
+            ),
+            {"v": version_id, "games": picked},
+        )
+    }
+    snapshot_ids = {
+        (r.game_id, r.captured_at): r.id
+        for r in conn.execute(
+            text(
+                "SELECT id, game_id, captured_at FROM line_snapshots"
+                " WHERE source = :source AND book_id = :book AND kind = 'snapshot'"
+                " AND game_id = ANY(:games)"
+            ),
+            {"source": SOURCE, "book": book_id, "games": picked},
+        )
+    }
+    rows = []
+    for p in data["picks"]:
+        game_id = game_ids[p["game"]]
+        rows.append(
+            {
+                "prediction_id": prediction_ids[(runs[p["week"]][0], game_id)],
+                "version_id": version_id,
+                "game_id": game_id,
+                "snapshot_id": snapshot_ids[(game_id, _ts(p["snapshot"]["captured_at"]))],
+                **{
+                    k: p[k]
+                    for k in (
+                        "market", "side", "line", "price", "model_prob", "edge_pts",
+                        "expected_value", "tier", "stake_units",
+                    )
+                },  # fmt: skip
+                "created_at": _ts(p["created_at"]),
+            }
+        )
+    new_picks = conn.execute(
+        text(
+            "INSERT INTO picks (prediction_id, model_version_id, game_id, line_snapshot_id,"
+            " market, side, line, price, model_prob, edge_pts, expected_value, tier,"
+            " stake_units, created_at)"
+            " VALUES (:prediction_id, :version_id, :game_id, :snapshot_id, :market, :side, :line,"
+            " :price, :model_prob, :edge_pts, :expected_value, :tier, :stake_units, :created_at)"
+            " ON CONFLICT (prediction_id, market, line_snapshot_id) DO NOTHING"
+        ),
+        rows,
+    ).rowcount
+    return new_lines, new_predictions, new_picks
 
 
 def seed_fixture() -> None:
@@ -349,13 +462,18 @@ def seed_fixture() -> None:
     teams = load_teams()
     week = _load("week6.json")
     models = _load("models.json")
+    picks = _load("picks.json")
     with make_engine(url).begin() as conn:
         team_ids = _seed_teams(conn, teams)
-        game_ids, lines = _seed_week(conn, week, team_ids)
-        ratings, predictions = _seed_models(conn, models, week, team_ids, game_ids)
+        game_ids, lines, book_id = _seed_week(conn, week, team_ids)
+        ratings, predictions, version_ids = _seed_models(conn, models, week, team_ids, game_ids)
+        more_lines, more_predictions, new_picks = _seed_picks(
+            conn, picks, week, team_ids, game_ids, book_id, version_ids[picks["version"]]
+        )
     print(
         f"Seeded {len(teams['teams'])} fixture teams for {teams['season']}, "
-        f"{len(week['games'])} week {WEEK} games and {lines} new line snapshots, "
-        f"{len(models['versions'])} model versions, {ratings} new ratings and "
-        f"{predictions} new predictions into the test DB."
+        f"{len(week['games']) + len(picks['games'])} games and {lines + more_lines} new line"
+        f" snapshots, {len(models['versions'])} model versions, {ratings} new ratings,"
+        f" {predictions + more_predictions} new predictions and {new_picks} new picks into the"
+        " test DB."
     )

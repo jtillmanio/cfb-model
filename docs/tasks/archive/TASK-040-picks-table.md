@@ -1,14 +1,14 @@
 ---
 id: TASK-040
 title: Add the picks table
-status: Ready
+status: Done
 depends_on: [TASK-034]
 size: M
 model: opus
 autonomy: attended
 ui: false
-plan_status: none
-planned_at_commit:
+plan_status: approved
+planned_at_commit: 4ad9060
 ---
 
 # TASK-040 — Add the picks table
@@ -40,11 +40,11 @@ The serving database can hold every pick the model makes, each locked to the exa
 
 ## Acceptance criteria
 
-- [ ] AC-1: After `pnpm db:migrate:test`, `picks` exists with the columns in 03 › Models & outputs as amended at the plan gate, `pnpm db:check` reports one head with the models matching, and the migration runs up → down → up cleanly.
-- [ ] AC-2: A pick with both a line-snapshot and a contest line, or with neither, is refused, as are a `market`, `side` or `tier` outside their allowed values and a `model_prob` outside 0–1 (each a separate test; the allowed combination is the one the plan settles for `contest_line_id`).
-- [ ] AC-3: UPDATE, DELETE and TRUNCATE on `picks` each raise an error and leave the rows unchanged; deleting a prediction or line snapshot a pick references is refused; inserting a second pick for the same prediction at a new line snapshot succeeds.
-- [ ] AC-4: On the seeded test DB, v1.0 holds 9 week-6 picks, one per game the fixture's This Week picks name, none on Furman @ Clemson; Ole Miss @ LSU's is side away at the LSU −2.5 snapshot captured Sun 6:00 AM ET, created Sun 6:10 AM ET, tier B. For every seeded pick, `line` equals its snapshot's `spread_home`, `side` is the side its `edge_pts` favours, and `tier` is the one v1.0's tier cutoffs give `abs(edge_pts)`.
-- [ ] AC-5: On the seeded test DB, v1.0's weeks 1–5 picks are 56, every one on a final FBS-vs-FBS game with a closing line, and grading each in a test (the line it was picked at against the final margin, a push at 0, a win +1.0u and a loss −1.1u) gives 31-24-1, +4.6u, tiers A 7-3, B 12-9-1, C 12-12, cumulative units +1.8, +0.5, +2.9, +2.2, +4.6 by week, and an average CLV of +0.9 against the closing line (the sign as D-132 defines it).
+- [x] AC-1: After `pnpm db:migrate:test`, `picks` exists with the columns in 03 › Models & outputs as amended at the plan gate, `pnpm db:check` reports one head with the models matching, and the migration runs up → down → up cleanly.
+- [x] AC-2: A pick with both a line-snapshot and a contest line, or with neither, is refused, as are a `market`, `side` or `tier` outside their allowed values and a `model_prob` outside 0–1 (each a separate test; the allowed combination is the one the plan settles for `contest_line_id`).
+- [x] AC-3: UPDATE, DELETE and TRUNCATE on `picks` each raise an error and leave the rows unchanged; deleting a prediction or line snapshot a pick references is refused; inserting a second pick for the same prediction at a new line snapshot succeeds.
+- [x] AC-4: On the seeded test DB, v1.0 holds 9 week-6 picks, one per game the fixture's This Week picks name, none on Furman @ Clemson; Ole Miss @ LSU's is side away at the LSU −2.5 snapshot captured Sun 6:00 AM ET, created Sun 6:10 AM ET, tier B. For every seeded pick, `line` equals its snapshot's `spread_home`, `side` is the side its `edge_pts` favours, and `tier` is the one v1.0's tier cutoffs give `abs(edge_pts)`.
+- [x] AC-5: On the seeded test DB, v1.0's weeks 1–5 picks are 56, every one on a final FBS-vs-FBS game with a closing line, and grading each in a test (the line it was picked at against the final margin, a push at 0, a win +1.0u and a loss −1.1u) gives 31-24-1, +4.6u, tiers A 7-3, B 12-9-1, C 12-12, cumulative units +1.8, +0.5, +2.9, +2.2, +4.6 by week, and an average CLV of +0.9 against the closing line (the sign as D-132 defines it).
 
 ## Out of scope
 
@@ -76,13 +76,32 @@ The serving database can hold every pick the model makes, each locked to the exa
 
 _Work noticed during this task and deliberately left out. Each bullet ends `→ <path> § <section>` (where it was placed) or `→ not tracked: <reason>`. See `.claude/skills/track-follow-ups/classify.md`; the PR's Follow-ups section is copied from here._
 
+- Add `contest_line_id` (with its FK), make `line_snapshot_id` nullable and add the exactly-one CHECK; `price` NULL then means a no-vig contest pick (approved at plan) → docs/08-tasklist.md § M6.1
+- Pass rows (`side` NULL, `tier` NULL, `stake_units` 0) mean "no pick": `current_picks` and the record views must treat them so (approved at plan; M4.6 has a task file, so the note went to its Context rather than the task-list row) → docs/tasks/TASK-041-pick-views.md § Context
+- The writer inserts a row only when the side or tier differs from the current pick (pass included), so Ole Miss keeps "Picked at −2.5"; `edge_pts` is on the blended margin (approved at plan) → docs/08-tasklist.md § M4.8
+- From the schema review: nothing forces `line` to be NULL only for a moneyline pick; a CHECK would be a schema change, so M4.8's writer considers it → docs/08-tasklist.md § M4.8
+- The conference and favorite/underdog splits in `picks-data.js` (`byConf`, `byFav`) are not constrained by this fixture (approved at plan) → docs/08-tasklist.md § M7.4
+- The design's picked-at times for OSU and ND (Sun 6:10 AM) conflict with their opening lines, and Ole Miss's CLV sign in sample-data §1; recorded in the decision row, with the added Monday OU and Tuesday Iowa snapshots (approved at plan) → docs/decisions.md § D-140
+- M5.5 now adds 40 Week 6 games, not 43 (approved at plan) → docs/08-tasklist.md § M5.5
+- From the schema review: the weeks 1–5 final games give their teams a `team_schedule_strength` entering week 6, so the fixture's SOS ranks won't match sample-data § 4 → docs/08-tasklist.md § M8.1
+
 ## Plan
 
 _Written by /plan-batch or /implement-task Phase 1. Approved by the user (plan_status: approved) before any code is written._
 
+1. Migration `0004_picks` (DDL as approved at the plan gate): `picks` with CHECKs (market, side-for-market, tier, `model_prob` 0–1, pass-or-stake), composite FKs `(prediction_id, model_version_id, game_id)` → `predictions` and `(line_snapshot_id, game_id)` → `line_snapshots` (both RESTRICT), UQ `(prediction_id, market, line_snapshot_id)`, UQ `(id, model_version_id, game_id)` on `predictions` and `(id, game_id)` on `line_snapshots`, the two read indexes, `forbid_model_output_changes()` triggers. `contest_line_id` waits for M6.1.
+2. `db/models.py`: the `Pick` model and the two new unique constraints, so `pnpm db:check` stays clean.
+3. Fixture: `seeds/fixture/generate_picks.py` (fixed seed, hand-set tier mix per week) writes `picks.json`; 24 new FBS teams in `teams.json` with generated ratings (below Utah) in `models.json`; 2 added snapshots in `week6.json` (OU Mon 9:40 AM at 6.5, Iowa Tue 11:20 AM at −1.5). Weeks 1–5: 56 final FBS games, opening / Sun 6:00 AM snapshot / closing lines, v1.0 predictions under the weekly runs, picks created 6:10 AM; week 5 is the 15 design rows. Week 6: three games (Tulane, Iowa State, Arizona State) and the 9 picks; OSU and ND at the Thu 9:02 PM snapshots. Unshrunk edges.
+4. `engine/fixture.py`: seed the new teams, games, lines, predictions and picks (idempotent; picks `ON CONFLICT DO NOTHING`).
+5. Tests first, then code: `db/tests/test_picks_schema.py` (AC-1 to AC-5, generator-matches-JSON); update `test_model_schema.py` counts (FBS teams, week 6 games).
+6. Docs: 03 › Models & outputs, 02 › Seed data, 08 (M5.5, M6.1, M4.6, M4.8, M7.4), a decisions row.
+Risks: rankings / e2e tests may count teams; fix what the full suite flags.
+
 ## Review log
 
 _Filled by /implement-task. One line per round._
+
+- Verify R1 PASS | Audit R1 PASS | Spec R1 APPROVE (optional: 03's new unique keys, done) | Schema R1 APPROVE (6 MINOR: 4 fixed, 2 placed as follow-ups) | Verify R2 PASS (after the review fixes)
 
 ## Blocked
 
@@ -90,7 +109,7 @@ _Only if status is Blocked: what failed, what was tried, best hypothesis, decisi
 
 ## Metrics
 
-- Verify rounds:
-- Review rounds:
-- First-pass AC FAILs:
-- Plan revisions after approval:
+- Verify rounds: 2 (both PASS; the second re-ran after the review fixes)
+- Review rounds: 1
+- First-pass AC FAILs: 0
+- Plan revisions after approval: 0

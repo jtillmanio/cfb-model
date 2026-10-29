@@ -1,5 +1,5 @@
 {
-  "_source": "design/sample-data.md §1 (the 11 Week 6 slate rows: statuses, scores, opened and market lines), §2 (Texas vs Oklahoma line movement) and the BYU alert (Wed 7:04 PM). spread_home is from the home team's side (negative = home favored). Kickoffs and capture times are Eastern converted to UTC; the opener is captured Sun 6:00 AM ET and the current line Thu 9:02 PM ET ('Updated Thu 9:02 PM ET'). Snapshot times are invented for the fixture (TASK-016). Test DB only (D-089).",
+  "_source": "design/sample-data.md §1 (the 11 Week 6 slate rows: statuses, scores, opened and market lines), §2 (Texas vs Oklahoma line movement) and the BYU alert (Wed 7:04 PM). spread_home is from the home team's side (negative = home favored). Kickoffs and capture times are Eastern converted to UTC; the opener is captured Sun 6:00 AM ET and the current line Thu 9:02 PM ET ('Updated Thu 9:02 PM ET'). Snapshot times are invented for the fixture (TASK-016), except the two the This Week picks were made at (design/handoff/designs/picks-data.js): Oklahoma +6.5 Mon 9:40 AM and Iowa +1.5 Tue 11:20 AM (TASK-040). Test DB only (D-089).",
   "season": {
     "year": 2026,
     "current_week": 6,
@@ -40,6 +40,7 @@
     { "source_id": "2026-w6-iowa-wis", "game_date": "2026-10-10", "kickoff_at": "2026-10-10T16:00:00Z", "neutral_site": false, "conference_game": true, "venue": null, "away": "iowa", "home": "wis", "away_points": 10, "home_points": 7, "status": "in_progress", "lines": [
         {"kind": "opening", "captured_at": null, "spread_home": -2.5},
         {"kind": "snapshot", "captured_at": "2026-10-04T10:00:00Z", "spread_home": -2.5},
+        {"kind": "snapshot", "captured_at": "2026-10-06T15:20:00Z", "spread_home": -1.5},
         {"kind": "snapshot", "captured_at": "2026-10-09T01:02:00Z", "spread_home": -1.5}
       ] },
     { "source_id": "2026-w6-fur-clem", "game_date": "2026-10-10", "kickoff_at": "2026-10-10T16:00:00Z", "neutral_site": false, "conference_game": false, "venue": null, "away": "fur", "home": "clem", "away_points": null, "home_points": null, "status": "scheduled", "lines": [] },
@@ -66,6 +67,7 @@
     { "source_id": "2026-w6-tex-ou", "game_date": "2026-10-10", "kickoff_at": "2026-10-10T23:30:00Z", "neutral_site": true, "conference_game": true, "venue": "cotton-bowl", "away": "tex", "home": "ou", "away_points": null, "home_points": null, "status": "scheduled", "lines": [
         {"kind": "opening", "captured_at": null, "spread_home": 7},
         {"kind": "snapshot", "captured_at": "2026-10-04T10:00:00Z", "spread_home": 7},
+        {"kind": "snapshot", "captured_at": "2026-10-05T13:40:00Z", "spread_home": 6.5},
         {"kind": "snapshot", "captured_at": "2026-10-06T16:00:00Z", "spread_home": 6.5},
         {"kind": "snapshot", "captured_at": "2026-10-09T01:02:00Z", "spread_home": 6},
         {"kind": "snapshot", "captured_at": "2026-10-10T13:00:00Z", "spread_home": 6.5}
