@@ -1,5 +1,5 @@
 {
-  "_source": "design/sample-data.md §1 and §4, with team colors from design/handoff/designs/rankings-data.js and this-week-data.js. Test DB only (D-089).",
+  "_source": "design/sample-data.md §1 and §4, with team colors from design/handoff/designs/rankings-data.js and this-week-data.js. From Tulane on: the teams of the week 5 and week 6 picks in design/handoff/designs/picks-data.js (colors from its C map where it has one, else the school's own), which picks.json's weeks 1-4 games also draw on (TASK-040). Test DB only (D-089).",
   "season": 2026,
   "teams": [
     { "source_id": "osu", "school": "Ohio State", "abbreviation": "OSU", "color": "#BB0000", "conference": "Big Ten", "division": "fbs" },
@@ -30,6 +30,30 @@
     { "source_id": "mich", "school": "Michigan", "abbreviation": "MICH", "color": "#00274C", "conference": "Big Ten", "division": "fbs" },
     { "source_id": "nw", "school": "Northwestern", "abbreviation": "NW", "color": "#4E2A84", "conference": "Big Ten", "division": "fbs" },
     { "source_id": "colo", "school": "Colorado", "abbreviation": "COLO", "color": "#CFB87C", "conference": "Big 12", "division": "fbs" },
-    { "source_id": "byu", "school": "BYU", "abbreviation": "BYU", "color": "#002E5D", "conference": "Big 12", "division": "fbs" }
+    { "source_id": "byu", "school": "BYU", "abbreviation": "BYU", "color": "#002E5D", "conference": "Big 12", "division": "fbs" },
+    { "source_id": "tuln", "school": "Tulane", "abbreviation": "TULN", "color": "#006747", "conference": "American", "division": "fbs" },
+    { "source_id": "mem", "school": "Memphis", "abbreviation": "MEM", "color": "#003087", "conference": "American", "division": "fbs" },
+    { "source_id": "isu", "school": "Iowa State", "abbreviation": "ISU", "color": "#C8102E", "conference": "Big 12", "division": "fbs" },
+    { "source_id": "cin", "school": "Cincinnati", "abbreviation": "CIN", "color": "#E00122", "conference": "Big 12", "division": "fbs" },
+    { "source_id": "asu", "school": "Arizona State", "abbreviation": "ASU", "color": "#8C1D40", "conference": "Big 12", "division": "fbs" },
+    { "source_id": "bay", "school": "Baylor", "abbreviation": "BAY", "color": "#154734", "conference": "Big 12", "division": "fbs" },
+    { "source_id": "aub", "school": "Auburn", "abbreviation": "AUB", "color": "#0C2340", "conference": "SEC", "division": "fbs" },
+    { "source_id": "lou", "school": "Louisville", "abbreviation": "LOU", "color": "#AD0000", "conference": "ACC", "division": "fbs" },
+    { "source_id": "ariz", "school": "Arizona", "abbreviation": "ARIZ", "color": "#CC0033", "conference": "Big 12", "division": "fbs" },
+    { "source_id": "miz", "school": "Missouri", "abbreviation": "MIZ", "color": "#F1B82D", "conference": "SEC", "division": "fbs" },
+    { "source_id": "tcu", "school": "TCU", "abbreviation": "TCU", "color": "#4D1979", "conference": "Big 12", "division": "fbs" },
+    { "source_id": "ncst", "school": "NC State", "abbreviation": "NCST", "color": "#CC0000", "conference": "ACC", "division": "fbs" },
+    { "source_id": "wake", "school": "Wake Forest", "abbreviation": "WAKE", "color": "#9E7E38", "conference": "ACC", "division": "fbs" },
+    { "source_id": "mia", "school": "Miami", "abbreviation": "MIA", "color": "#F47321", "conference": "ACC", "division": "fbs" },
+    { "source_id": "ucf", "school": "UCF", "abbreviation": "UCF", "color": "#BA9B37", "conference": "Big 12", "division": "fbs" },
+    { "source_id": "army", "school": "Army", "abbreviation": "ARMY", "color": "#D3BC8D", "conference": "American", "division": "fbs" },
+    { "source_id": "tlsa", "school": "Tulsa", "abbreviation": "TLSA", "color": "#002D72", "conference": "American", "division": "fbs" },
+    { "source_id": "wsu", "school": "Washington State", "abbreviation": "WSU", "color": "#981E32", "conference": "Pac-12", "division": "fbs" },
+    { "source_id": "fres", "school": "Fresno State", "abbreviation": "FRES", "color": "#DB0032", "conference": "Pac-12", "division": "fbs" },
+    { "source_id": "smu", "school": "SMU", "abbreviation": "SMU", "color": "#0033A0", "conference": "ACC", "division": "fbs" },
+    { "source_id": "duke", "school": "Duke", "abbreviation": "DUKE", "color": "#003087", "conference": "ACC", "division": "fbs" },
+    { "source_id": "ttu", "school": "Texas Tech", "abbreviation": "TTU", "color": "#CC0000", "conference": "Big 12", "division": "fbs" },
+    { "source_id": "hou", "school": "Houston", "abbreviation": "HOU", "color": "#C8102E", "conference": "Big 12", "division": "fbs" },
+    { "source_id": "navy", "school": "Navy", "abbreviation": "NAVY", "color": "#00205B", "conference": "American", "division": "fbs" }
   ]
 }

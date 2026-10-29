@@ -252,7 +252,9 @@ def test_outputs_cannot_be_updated_deleted_or_truncated(db_conn: Connection):
         for sql in (
             f"UPDATE {table} SET {column} = 0 WHERE model_run_id = :r",
             f"DELETE FROM {table} WHERE model_run_id = :r",
-            f"TRUNCATE {table}",
+            # picks references predictions (TASK-040), so a plain TRUNCATE fails on the foreign
+            # key before the trigger runs; CASCADE is the form that would otherwise get through.
+            f"TRUNCATE {table} CASCADE",
         ):
             with pytest.raises(DBAPIError) as err, db_conn.begin_nested():
                 db_conn.execute(text(sql), {"r": run_id})
@@ -409,7 +411,7 @@ def test_every_fbs_team_is_rated_entering_weeks_5_and_6(db_conn: Connection):
             )
         ).scalars()
     )
-    assert len(fbs) == 28
+    assert len(fbs) == 52  # 28 from the slate and rankings, 24 more for the picks (TASK-040)
     for week in (5, 6):
         assert set(_ranks(db_conn, week)) == fbs
 
@@ -455,7 +457,7 @@ def test_each_week_6_game_has_one_v1_prediction(db_conn: Connection):
             " GROUP BY g.source_id"
         )
     ).all()
-    assert len(rows) == 11
+    assert len(rows) == 14  # the 11 slate games and the 3 picks.json adds (TASK-040)
     assert {r.source_id: r.n for r in rows} == {r.source_id: 1 for r in rows}
     for r in rows:
         assert r.created_at < r.kickoff  # made before the game

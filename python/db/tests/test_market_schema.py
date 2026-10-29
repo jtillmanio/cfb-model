@@ -176,7 +176,9 @@ def test_snapshots_cannot_be_updated_deleted_or_truncated(db_conn: Connection):
     for sql in (
         "UPDATE line_snapshots SET spread_home = -7 WHERE game_id = :g",
         "DELETE FROM line_snapshots WHERE game_id = :g",
-        "TRUNCATE line_snapshots",
+        # picks references it (TASK-040), so a plain TRUNCATE fails on the foreign key before
+        # the trigger runs; CASCADE is the form that would otherwise get through.
+        "TRUNCATE line_snapshots CASCADE",
     ):
         with pytest.raises(DBAPIError) as err, db_conn.begin_nested():
             db_conn.execute(text(sql), {"g": game_id})
@@ -217,7 +219,10 @@ def test_the_seeded_season_and_texas_oklahoma_lines(db_conn: Connection):
         ),
         {"g": game_id},
     ).scalars()
-    assert list(spreads) == [Decimal("7"), Decimal("6.5"), Decimal("6"), Decimal("6.5")]
+    # Sun −7 → Mon 9:40 AM −6.5 (where the OU pick was made, TASK-040) → Tue −6.5 → Thu −6 → Sat.
+    assert list(spreads) == [
+        Decimal("7"), Decimal("6.5"), Decimal("6.5"), Decimal("6"), Decimal("6.5"),
+    ]  # fmt: skip
 
     assert _count(db_conn, _fixture_game(db_conn, away="fur", home="clem")) == 0
 

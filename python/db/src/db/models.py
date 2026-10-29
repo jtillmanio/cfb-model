@@ -44,6 +44,8 @@ MODEL_STATUSES = ("dev", "candidate", "production", "retired")
 MODEL_CREATORS = ("system", "user")
 RUN_TYPES = ("backtest", "scheduled", "adhoc")
 RUN_STATUSES = ("queued", "running", "succeeded", "failed")
+PICK_MARKETS = ("spread", "total", "moneyline")
+PICK_TIERS = ("A", "B", "C")
 DOUBLE = Float(precision=53)
 
 
@@ -214,6 +216,7 @@ class LineSnapshot(Base):
             postgresql_nulls_not_distinct=True,
         ),
         Index(None, "game_id", "captured_at"),
+        UniqueConstraint("id", "game_id"),  # a pick's snapshot is of the pick's game
         CheckConstraint(f"source IN {LINE_SOURCES!r}", name="source"),
         CheckConstraint(f"kind IN {LINE_KINDS!r}", name="kind"),
         CheckConstraint(
@@ -370,6 +373,7 @@ class Prediction(Base):
     __table_args__ = (
         _run_fk(),
         UniqueConstraint("model_run_id", "game_id"),
+        UniqueConstraint("id", "model_version_id", "game_id"),  # the picks' composite foreign key
         CheckConstraint("home_win_prob BETWEEN 0 AND 1", name="home_win_prob_share"),
         CheckConstraint("margin_sd > 0", name="margin_sd_positive"),
     )
@@ -392,4 +396,65 @@ Index(
     Prediction.game_id,
     Prediction.model_version_id,
     Prediction.created_at.desc(),
+)
+
+
+class Pick(Base):
+    """Insert-only (hard rule 2): a recommendation locked to the line snapshot it was made at. A
+    new line makes a new row, and a re-evaluation that drops the pick is a pass row (no side or
+    tier, 0 units), so the latest row per game, version and market is the current pick (a view).
+    `edge_pts` is `pred_margin + spread_home`: > 0 likes home. `contest_line_id` waits for M6.1."""
+
+    __tablename__ = "picks"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["prediction_id", "model_version_id", "game_id"],
+            ["predictions.id", "predictions.model_version_id", "predictions.game_id"],
+            ondelete="RESTRICT",
+        ),
+        ForeignKeyConstraint(
+            ["line_snapshot_id", "game_id"],
+            ["line_snapshots.id", "line_snapshots.game_id"],
+            ondelete="RESTRICT",
+        ),
+        UniqueConstraint("prediction_id", "market", "line_snapshot_id"),
+        Index(None, "model_version_id", "game_id"),
+        CheckConstraint(f"market IN {PICK_MARKETS!r}", name="market"),
+        CheckConstraint(
+            "side IS NULL"
+            " OR (market IN ('spread', 'moneyline') AND side IN ('home', 'away'))"
+            " OR (market = 'total' AND side IN ('over', 'under'))",
+            name="side_for_market",
+        ),
+        CheckConstraint(f"tier IN {PICK_TIERS!r}", name="tier"),
+        CheckConstraint("model_prob BETWEEN 0 AND 1", name="model_prob_share"),
+        CheckConstraint(
+            "(side IS NULL AND tier IS NULL AND stake_units = 0)"
+            " OR (side IS NOT NULL AND stake_units > 0)",
+            name="pass_or_stake",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(BigInteger, Identity(), primary_key=True)
+    prediction_id: Mapped[int] = mapped_column(BigInteger)
+    model_version_id: Mapped[int] = mapped_column(BigInteger)
+    game_id: Mapped[int] = mapped_column(BigInteger)
+    line_snapshot_id: Mapped[int] = mapped_column(BigInteger)
+    market: Mapped[str] = mapped_column(Text)
+    side: Mapped[str | None] = mapped_column(Text)  # NULL: a pass
+    line: Mapped[Decimal | None] = mapped_column(Numeric(4, 1))  # NULL for a moneyline
+    price: Mapped[int]
+    model_prob: Mapped[float] = mapped_column(DOUBLE)
+    edge_pts: Mapped[float] = mapped_column(DOUBLE)
+    expected_value: Mapped[float] = mapped_column(DOUBLE)
+    tier: Mapped[str | None] = mapped_column(Text)
+    stake_units: Mapped[float] = mapped_column(DOUBLE)
+    created_at: Mapped[datetime] = _created_at()
+
+
+Index(
+    "ix_picks_game_id_model_version_id_created_at",
+    Pick.game_id,
+    Pick.model_version_id,
+    Pick.created_at.desc(),
 )
