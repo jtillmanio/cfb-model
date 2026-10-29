@@ -367,11 +367,13 @@ def test_a_second_pick_for_the_prediction_at_a_new_snapshot_is_stored(db_conn: C
 
 SEEDED = """
     SELECT p.*, g.source_id AS game, g.week, g.status, g.home_points, g.away_points,
+           g.kickoff_at, pr.created_at AS predicted_at,
            s.kind AS snapshot_kind, s.captured_at AS snapshot_at, s.spread_home AS snapshot_spread,
            gm.closing_spread_home, hs.division AS home_division, aws.division AS away_division
     FROM picks p
     JOIN model_versions v ON v.id = p.model_version_id
     JOIN games g ON g.id = p.game_id
+    JOIN predictions pr ON pr.id = p.prediction_id
     JOIN line_snapshots s ON s.id = p.line_snapshot_id
     JOIN game_market gm ON gm.game_id = g.id
     LEFT JOIN team_seasons hs ON hs.team_id = g.home_team_id AND hs.season = g.season
@@ -433,7 +435,9 @@ def test_every_seeded_pick_is_at_its_snapshot_on_its_edges_side_and_tier(db_conn
         assert r.side == ("home" if r.edge_pts > 0 else "away"), r.game
         size = abs(r.edge_pts)
         assert r.tier == next((t for t, at in cutoffs if size >= at), None), r.game
+        # Point in time: the line and the prediction came before the pick, the pick before kickoff.
         assert r.snapshot_at is not None and r.snapshot_at <= r.created_at, r.game
+        assert r.predicted_at <= r.created_at < r.kickoff_at, r.game
 
 
 def _graded(r: Row[Any]) -> tuple[str, int, Decimal]:

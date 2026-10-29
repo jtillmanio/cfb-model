@@ -403,7 +403,8 @@ class Pick(Base):
     """Insert-only (hard rule 2): a recommendation locked to the line snapshot it was made at. A
     new line makes a new row, and a re-evaluation that drops the pick is a pass row (no side or
     tier, 0 units), so the latest row per game, version and market is the current pick (a view).
-    `edge_pts` is `pred_margin + spread_home`: > 0 likes home. `contest_line_id` waits for M6.1."""
+    `edge_pts` is the shrunk margin + `spread_home` (> 0 likes home); a pass's numbers describe
+    the side its edge favours. `contest_line_id` waits for M6.1 (D-140)."""
 
     __tablename__ = "picks"
     __table_args__ = (
