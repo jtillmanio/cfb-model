@@ -239,12 +239,14 @@ def test_a_tba_kickoff_freezes_at_the_end_of_its_eastern_day(db_conn: Connection
 
 def test_current_picks_are_pick_outcomes_current_rows(db_conn: Connection):
     """The window is written in both views (050, 060): they must pick the same rows, on the
-    seed and on a game with a superseded pick, a pass and rows after kickoff."""
+    seed, on a game with a superseded pick and a pass before kickoff and a pick after the pass,
+    and on one with a pass and a flipped side after kickoff."""
+    test_a_pass_as_the_latest_row_means_no_pick(db_conn)
     test_a_row_written_after_kickoff_changes_nothing(db_conn)
     current = set(db_conn.execute(text("SELECT id FROM current_picks")).scalars())
     outcomes = set(
         db_conn.execute(text("SELECT pick_id FROM pick_outcomes WHERE is_current")).scalars()
     )
 
-    assert len(current) >= 66
+    assert len(current) >= 67
     assert current == outcomes
