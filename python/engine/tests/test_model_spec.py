@@ -1,6 +1,7 @@
 """`ModelSpec` v1 (TASK-029, D-050): a model's settings as validated data, its inputs from the
 registry, its tuned settings readable by the backtest (docs/04-model.md § 6)."""
 
+from pathlib import Path
 from typing import Any
 
 import pytest
@@ -192,8 +193,31 @@ def test_a_spec_at_shrink_toward_zero_keeps_its_hash() -> None:
 
     spec = ModelSpec.model_validate(POWER)
     before = {k: v for k, v in spec.model_dump(mode="json").items() if k != "shrink_toward"}
+    # The JSON as written before either added field (TASK-042's display_shrinkage_k too).
+    before["picks"] = {k: v for k, v in before["picks"].items() if k != "display_shrinkage_k"}
     text = json.dumps(before, sort_keys=True, separators=(",", ":"))
 
     assert spec_hash(spec) == hashlib.sha256(text.encode("utf-8")).hexdigest()
     tier = ModelSpec.model_validate(SKETCH | {"shrink_toward": "tier"})
     assert spec_hash(tier) != spec_hash(ModelSpec.model_validate(SKETCH))
+
+
+SPECS = Path(__file__).parents[1] / "specs"
+
+
+def test_a_spec_without_the_display_shrinkage_keeps_its_hash() -> None:
+    """TASK-042 AC-4: `picks.display_shrinkage_k` at its default (1, the model alone) is left out
+    of the hash (D-137), so `power-v1.json` and every run.json written before keep matching."""
+    import json
+
+    from engine.backtest.harness import spec_hash
+
+    power = json.loads((SPECS / "power-v1.json").read_text("utf-8"))
+    at_one = power | {"picks": power["picks"] | {"display_shrinkage_k": 1.0}}
+    shrunk = power | {"picks": power["picks"] | {"display_shrinkage_k": 0.5}}
+
+    before = "064e84947bdf7b0595f91981e3301094ae57b7e075b3000d344e885555916415"
+    assert spec_hash(ModelSpec.model_validate(power)) == before
+    assert spec_hash(ModelSpec.model_validate(at_one)) == before
+    assert spec_hash(ModelSpec.model_validate(shrunk)) != before
+    assert ModelSpec.model_validate(power).picks.display_shrinkage_k == 1.0

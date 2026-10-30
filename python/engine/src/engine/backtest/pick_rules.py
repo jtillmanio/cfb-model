@@ -17,6 +17,10 @@ season's rules never read its own games).
   pooled over the tuning seasons; a tie goes to more picks, then to grid order. With no
   candidate at `FLOOR`, the one with the most picks is chosen and flagged. A tier never changes
   which games are picked, so a tuned tier takes the first valid candidate in grid order.
+- **`display_shrinkage_k`** (TASK-042) is chosen last, at the season's other pick rules: the
+  candidate with the lowest cover Brier, a tie to the larger. It shrinks only the probability
+  shown, so it never changes a pick; k and the thresholds above are chosen with it at 1, as if
+  the field weren't there.
 """
 
 from __future__ import annotations
@@ -34,6 +38,7 @@ from engine.core.spec import ModelSpec
 
 PICKS = "picks."
 SHRINKAGE = "picks.market_shrinkage_k"
+DISPLAY = "picks.display_shrinkage_k"
 FLOOR = 200  # graded picks a threshold's ATS must rest on (04 § 9.2)
 
 Choices = Mapping[str, float]
@@ -67,24 +72,29 @@ def tune(
     if not tunables:
         return None
     rows = [r for season in tuning for r in evaluate(model, season)]
+    unshown = _without_display(spec)
 
-    def grade(candidate: Choices) -> list[metrics.Graded]:
+    def grade(candidate: Choices, graded: ModelSpec = unshown) -> list[metrics.Graded]:
         choices = {**model, **candidate}
-        return metrics.grade_rows(rows, spec, {season: choices for season in tuning})
+        return metrics.grade_rows(rows, graded, {season: choices for season in tuning})
 
-    rest = {p: c for p, c in tunables.items() if p != SHRINKAGE}
+    def lowest_brier(path: str, at: Choices, graded: ModelSpec = unshown) -> float:
+        """The candidate of `path` with the lowest cover Brier at `at`, a tie to the larger."""
+
+        def brier(k: float) -> float:
+            score = metrics.cover_brier(grade({**at, path: k}, graded))
+            return math.inf if score is None else score
+
+        return min(tunables[path], key=lambda k: (brier(k), -k))
+
+    rest = {p: c for p, c in tunables.items() if p not in (SHRINKAGE, DISPLAY)}
     valid = [c for c in _combinations(rest) if _valid(spec, {**model, **c})]
     if not valid:
         raise NoValidRulesError(f"no combination of {', '.join(rest)} is a valid set of pick rules")
     chosen: dict[str, float] = {}
     if SHRINKAGE in tunables:
-        first = valid[0]  # the cover Brier doesn't depend on the other pick fields
-
-        def brier(k: float) -> float:
-            score = metrics.cover_brier(grade({**first, SHRINKAGE: k}))
-            return math.inf if score is None else score
-
-        chosen[SHRINKAGE] = min(tunables[SHRINKAGE], key=lambda k: (brier(k), -k))
+        # The cover Brier doesn't depend on the other pick fields.
+        chosen[SHRINKAGE] = lowest_brier(SHRINKAGE, valid[0])
 
     best: tuple[tuple[float, int], dict[str, float], int] | None = None
     most: tuple[int, dict[str, float]] | None = None
@@ -99,8 +109,20 @@ def tune(
                 best = (score, candidate, record.graded)
     assert most is not None
     if best is not None:
-        return PickTuning(best[1], best[2], True)
-    return PickTuning(most[1], most[0], False)
+        choices, picks, floor_met = best[1], best[2], True
+    else:
+        choices, picks, floor_met = most[1], most[0], False
+    if DISPLAY in tunables:
+        choices = {**choices, DISPLAY: lowest_brier(DISPLAY, choices, spec)}
+    return PickTuning(choices, picks, floor_met)
+
+
+def _without_display(spec: ModelSpec) -> ModelSpec:
+    """The spec with the probability shown left as the blended margin's own (display shrinkage
+    1), for choosing the rules that pick: none of them may depend on what's displayed."""
+    data = spec.model_dump()
+    data["picks"]["display_shrinkage_k"] = 1.0
+    return ModelSpec.model_validate(data)
 
 
 def _combinations(rest: Mapping[str, Sequence[float]]) -> list[dict[str, float]]:

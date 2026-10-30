@@ -1,11 +1,14 @@
-"""Pick and tier rules read from a spec's `picks` (TASK-029, docs/04-model.md § 4)."""
+"""Pick and tier rules read from a spec's `picks` (TASK-029, docs/04-model.md § 4), and the cover
+probability shown with a pick (TASK-042)."""
 
 from datetime import UTC, datetime
+from statistics import NormalDist
 
 import pytest
+from pydantic import ValidationError
 
 from engine.core.interfaces import GameContext
-from engine.core.picks import UnresolvedSettingError, pick, pick_game
+from engine.core.picks import UnresolvedSettingError, displayed_prob, pick, pick_game
 from engine.core.probability import (
     KEY_RANGE,
     EmpiricalMargin,
@@ -134,3 +137,59 @@ def test_under_an_empirical_margin_a_liked_side_the_edge_agrees_with_is_picked()
 
     assert made is not None
     assert made.side == "home"
+
+
+# TASK-042: the displayed probability is calibrated on its own; which games are picked isn't.
+
+
+def shown(display_k: float, **rules: float) -> PickRules:
+    return PickRules.model_validate(RULES.model_dump() | rules | {"display_shrinkage_k": display_k})
+
+
+def test_the_display_shrinkage_moves_the_probability_and_nothing_else() -> None:
+    raw = pick(8.0, SPREAD, RULES, SIGMA)  # edge 5 at σ 16
+    made = pick(8.0, SPREAD, shown(0.25, min_prob=0.5), SIGMA)
+
+    assert raw is not None and made is not None
+    assert (made.side, made.edge, made.tier, made.blended_margin) == (
+        raw.side,
+        raw.edge,
+        raw.tier,
+        raw.blended_margin,
+    )
+    assert raw.prob == pytest.approx(NormalDist().cdf(5.0 / 16.0))
+    assert made.prob == pytest.approx(NormalDist().cdf(0.25 * 5.0 / 16.0))
+
+
+def test_min_prob_reads_the_raw_probability() -> None:
+    # Edge 3 at σ 16: raw Φ(3/16) ≈ 0.574 clears min_prob 0.55; shown at 0.25, Φ(0.047) ≈ 0.519.
+    made = pick(0.0, SPREAD, shown(0.25), SIGMA)
+
+    assert made is not None
+    assert made.prob == pytest.approx(NormalDist().cdf(0.25 * 3.0 / 16.0))
+    assert made.prob < 0.55 == RULES.min_prob
+
+
+def test_the_display_shrinkage_stacks_on_market_shrinkage() -> None:
+    made = pick(-9.0, 3.0, shown(0.5, market_shrinkage_k=0.5), SIGMA)  # raw edge -6, blended -3
+
+    assert made is not None
+    assert (made.side, made.edge, made.tier) == ("away", -3.0, "C")
+    assert made.prob == pytest.approx(NormalDist().cdf(0.5 * 0.5 * 6.0 / 16.0))
+    assert displayed_prob(-9.0, 3.0, "away", shown(0.5, market_shrinkage_k=0.5), SIGMA) == (
+        made.prob
+    )
+
+
+def test_the_displayed_probability_is_the_named_side_s() -> None:
+    dist = EmpiricalMargin(4.0, key_number_weights())
+    liked = cover_probability(2.4, -2.5, dist)  # home, though the edge leans away (D-139)
+
+    assert displayed_prob(2.4, -2.5, liked.side, RULES, dist) == liked.prob
+    assert displayed_prob(2.4, -2.5, "away", RULES, dist) == pytest.approx(1 - liked.prob)
+
+
+def test_display_shrinkage_defaults_to_the_model_alone() -> None:
+    assert RULES.display_shrinkage_k == 1.0
+    with pytest.raises(ValidationError, match="display_shrinkage_k"):
+        PickRules.model_validate(RULES.model_dump() | {"display_shrinkage_k": 0.0})

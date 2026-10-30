@@ -3,10 +3,11 @@ D-076, D-077, D-091).
 
 Each results row is graded once (`grade_rows`): the model's margin is shrunk toward the market
 by the season's `market_shrinkage_k`, the side it likes against the close gets the cover
-probability the app would display, and `core.picks.pick()` applies the season's pick rules, both
-at the close and at the opener. Probabilities use the row's own distribution: a normal margin
-with its `margin_sd`, or under `distribution: empirical` (TASK-038) the key-number weights its
-season predicted with (`margin_weights`) around that σ.
+probability the app would display (after the season's `display_shrinkage_k`, TASK-042: what the
+calibration gate bins and the cover Brier reads), and `core.picks.pick()` applies the season's
+pick rules, both at the close and at the opener. Probabilities use the row's own distribution: a
+normal margin with its `margin_sd`, or under `distribution: empirical` (TASK-038) the key-number
+weights its season predicted with (`margin_weights`) around that σ.
 
 **Grading** (04 § 9.3). A push counts in a record (W-L-P), is left out of win %, and earns
 nothing. At −110 a win is +1.0u and a loss −1.1u; a push is refunded, so it isn't risked, and
@@ -28,7 +29,7 @@ from typing import Any, Literal
 
 from engine.backtest.bootstrap import Interval, WeekKey, mean_difference
 from engine.core.contest_rules import SPLASH_PRESET
-from engine.core.picks import Pick, pick
+from engine.core.picks import Pick, displayed_prob, pick
 from engine.core.probability import (
     EmpiricalMargin,
     MarginDistribution,
@@ -389,7 +390,7 @@ class Graded:
     margin: int
     edge: float  # on the blended margin, against the close
     side: Side  # the side the edge likes
-    prob: float  # P(side covers): the displayed cover probability
+    prob: float  # P(side covers) as displayed: after the display shrinkage (TASK-042)
     result: Result  # the side, graded against the close
     pick: Pick | None  # the pick rules' call at the close
     open_pick: Pick | None  # and at the opener
@@ -468,7 +469,7 @@ def grade_rows(
                 margin=row["margin"],
                 edge=cover.edge,
                 side=cover.side,
-                prob=cover.prob,
+                prob=displayed_prob(row["pred_margin"], close, cover.side, rules, dist),
                 result=grade(cover.side, row["margin"], close),
                 pick=pick(row["pred_margin"], close, rules, dist),
                 open_pick=at_open,
