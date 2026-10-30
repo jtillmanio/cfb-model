@@ -50,6 +50,10 @@ class PickTuning:
 PickTuner = Callable[[ModelSpec, Choices, Sequence[int], Evaluate], PickTuning | None]
 
 
+class NoValidRulesError(ValueError):
+    """No combination of the tuned pick candidates is a valid set of pick rules."""
+
+
 def is_pick_setting(path: str) -> bool:
     return path.startswith(PICKS)
 
@@ -69,9 +73,12 @@ def tune(
         return metrics.grade_rows(rows, spec, {season: choices for season in tuning})
 
     rest = {p: c for p, c in tunables.items() if p != SHRINKAGE}
+    valid = [c for c in _combinations(rest) if _valid(spec, {**model, **c})]
+    if not valid:
+        raise NoValidRulesError(f"no combination of {', '.join(rest)} is a valid set of pick rules")
     chosen: dict[str, float] = {}
     if SHRINKAGE in tunables:
-        first = {p: c[0] for p, c in rest.items()}
+        first = valid[0]  # the cover Brier doesn't depend on the other pick fields
 
         def brier(k: float) -> float:
             score = metrics.cover_brier(grade({**first, SHRINKAGE: k}))
@@ -81,20 +88,30 @@ def tune(
 
     best: tuple[tuple[float, int], dict[str, float], int] | None = None
     most: tuple[int, dict[str, float]] | None = None
-    for values in itertools.product(*rest.values()):
-        candidate = {**chosen, **dict(zip(rest, values, strict=True))}
-        try:
-            record = metrics.Record.of(g.result for g in grade(candidate) if g.pick is not None)
-        except ValidationError:
-            continue  # tiers out of order (A ≥ B ≥ C)
+    for combination in valid:
+        candidate = {**chosen, **combination}
+        record = metrics.Record.of(g.result for g in grade(candidate) if g.pick is not None)
         if most is None or record.graded > most[0]:
             most = (record.graded, candidate)
         if record.graded >= FLOOR and record.win_pct is not None:
             score = (record.win_pct, record.graded)
             if best is None or score > best[0]:
                 best = (score, candidate, record.graded)
-    if most is None:
-        raise ValueError(f"no combination of {', '.join(rest)} is a valid set of pick rules")
+    assert most is not None
     if best is not None:
         return PickTuning(best[1], best[2], True)
     return PickTuning(most[1], most[0], False)
+
+
+def _combinations(rest: Mapping[str, Sequence[float]]) -> list[dict[str, float]]:
+    """Every combination of the candidates, in grid order (one empty one with none)."""
+    return [dict(zip(rest, values, strict=True)) for values in itertools.product(*rest.values())]
+
+
+def _valid(spec: ModelSpec, choices: Choices) -> bool:
+    """Whether the choices make a valid spec: tiers out of order (A ≥ B ≥ C) don't."""
+    try:
+        spec.resolve(choices)
+    except ValidationError:
+        return False
+    return True

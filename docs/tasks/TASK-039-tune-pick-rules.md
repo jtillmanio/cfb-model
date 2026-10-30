@@ -72,9 +72,9 @@ The model's pick rules (minimum edge, minimum cover probability, tier cutoffs an
 
 _Work noticed during this task and deliberately left out. Each bullet ends `→ <path> § <section>` (where it was placed) or `→ not tracked: <reason>`. See `.claude/skills/track-follow-ups/classify.md`; the PR's Follow-ups section is copied from here._
 
-- The weekly pick writer must call `core.picks.pick_game` with the sport's `pickable`, so D-047 holds live (approved at plan)
-- The early-season rule (04 § 4 "skip early-season games where the prior still dominates") isn't added here: read the week-of-season breakdown of the final v1 run before the go/no-go (approved at plan)
-- Market shrinkage was dropped on the § 9.6 ATS bar, yet it's what made the displayed cover probability honest (cover Brier 0.2500 against 0.2611; one calibration bin off against six), so at k = 1 the calibration gate fails: the go/no-go needs a way to calibrate the displayed probability without moving the pick threshold (a display-only shrinkage, or M19.2's per-game σ)
+- The weekly pick writer must call `core.picks.pick_game` with the sport's `pickable`, so D-047 holds live → docs/08-tasklist.md § M4: Model v1 and paper trading › M4.8 (approved at plan)
+- The early-season rule (04 § 4 "skip early-season games where the prior still dominates") isn't added here: read the week-of-season breakdown of the final v1 run before the go/no-go → docs/08-tasklist.md § M4: Model v1 and paper trading › M4.7 (approved at plan)
+- Market shrinkage was dropped on the § 9.6 ATS bar, yet it's what made the displayed cover probability honest (cover Brier 0.2500 against 0.2611; one calibration bin off against six), so at k = 1 the calibration gate fails: the go/no-go needs a way to calibrate the displayed probability without moving the pick threshold (a display-only shrinkage, or M19.2's per-game σ) → docs/08-tasklist.md § M4: Model v1 and paper trading › M4.7
 
 ## Plan
 
@@ -91,7 +91,7 @@ Approved by the owner 2026-10-30 with two choices: **k is chosen on cover Brier,
 5. `backtest/compare.py` + `cli.py` `_compare_runs`: per run on the shared games, ATS record, win % with its 95% interval, picks, ROI and the calibration gate (AC-4's comparison).
 6. Lake runs: efficiency-v1 with k tuned, and a k = 1 variant (same model grid) → `engine compare`; if shrinkage stays, the empirical variant with it → AC-5. Settle `efficiency-v1.json` `picks` (k grid or 1, the `min_edge_pts` grid, `min_prob` 0.5, tiers fixed from the run's blended-edge spread); record the results in 04 § 3, § 4 and § 9.2's tuning-target wording, and one D-### row.
 
-**Files:** `core/picks.py`, `sports/cfb/teams.py`, `backtest/harness.py`, `backtest/pick_rules.py` (new, not in Files likely touched), `backtest/report.py`, `backtest/compare.py`, `cli.py` (not listed), `specs/efficiency-v1.json`, `docs/04-model.md`, `docs/decisions.md`; tests `test_core_picks.py`, `test_pick_tuning.py` (new), `test_backtest_report.py`, `test_backtest_compare.py`, `test_publish_models.py`, `test_conference_tiers.py` (`pickable`). `metrics.py` and `publish/models.py` are expected unchanged (reused as is).
+**Files:** `core/picks.py`, `sports/cfb/teams.py`, `backtest/harness.py`, `backtest/pick_rules.py` (new, not in Files likely touched), `backtest/report.py`, `backtest/compare.py`, `cli.py` (not listed), `specs/efficiency-v1.json`, `docs/04-model.md`, `docs/decisions.md`; tests `test_core_picks.py`, `test_pick_tuning.py` (new), `test_backtest_report.py`, `test_backtest_compare.py`, `test_publish_models.py`, `test_conference_tiers.py` (`pickable`). `metrics.py` and `publish/models.py` are expected unchanged (reused as is). *As built:* the `models.settings` round trip is in `test_pick_tuning.py` and `pickable` in `test_core_picks.py`, so `test_publish_models.py` and `test_conference_tiers.py` are unchanged, and the FCS backtest row is the existing `test_backtest_harness.py` check; step 2's `tuning_picks` is named `pick_tuning` in the code and D-141; `docs/08-tasklist.md` carries the two approved follow-ups and the shrinkage note.
 
 **Test strategy**
 

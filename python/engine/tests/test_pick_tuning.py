@@ -170,6 +170,25 @@ def test_tier_candidates_out_of_order_are_skipped() -> None:
     assert tuned.choices == {"picks.tiers.A": 6.0}  # A 3.0 is below B
 
 
+def test_k_is_tuned_when_the_first_tier_candidate_is_out_of_order() -> None:
+    both = spec({**SHRINK, "tiers": {"A": {"tune": [3.0, 6.0]}, "B": 4.0, "C": 2.5}})
+    games = rows(2015, 8.0, 500, 500)
+
+    tuned = pick_rules.tune(both, {}, (2015,), evaluating({2015: games}))
+
+    assert tuned is not None
+    assert tuned.choices == {"picks.market_shrinkage_k": 0.25, "picks.tiers.A": 6.0}
+
+
+def test_pick_rules_with_no_valid_combination_are_refused(lake: LocalLake) -> None:
+    bad = spec({"tiers": {"A": {"tune": [2.0, 3.0]}, "B": 4.0, "C": 2.5}}, MODEL_GRID)
+
+    with pytest.raises(pick_rules.NoValidRulesError, match=r"picks\.tiers\.A"):
+        pick_rules.tune(bad, {}, (2015,), evaluating({2015: big_edges(200)}))
+    with pytest.raises(harness.RefusedError, match="valid set of pick rules"):
+        harness.run(bad, MeanMargin, harness.load(lake), [2023], 2022)
+
+
 # Through the harness, on the fixture lake.
 
 

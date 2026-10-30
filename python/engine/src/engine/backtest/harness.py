@@ -646,7 +646,8 @@ def prepare(
                 f"tuning season {missing[0]} (for {season}) has no eligible games in the lake"
             )
         plan[season] = tuning
-    first = spec.resolve({path: candidates[0] for path, candidates in tuned.items()})
+    # The model the run builds: its settings at their first candidates (pick rules never reach it).
+    first = spec.resolve({path: candidates[0] for path, candidates in model_tunables(spec).items()})
     check_reads(factory(first))
     return plan
 
@@ -711,7 +712,10 @@ def run(
         if choices is None:
             guarded = shown_only(season, tuning)
             picked = dict(tuner(spec, tuning, guarded))
-            tuned = pick_tuner(spec, picked, tuning, guarded)
+            try:
+                tuned = pick_tuner(spec, picked, tuning, guarded)
+            except pick_rules.NoValidRulesError as e:
+                raise RefusedError(str(e)) from e
             if tuned is not None:
                 picked |= tuned.choices
                 pick_tuning[season] = tuned
