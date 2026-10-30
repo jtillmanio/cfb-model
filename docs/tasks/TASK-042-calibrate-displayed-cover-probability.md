@@ -1,7 +1,7 @@
 ---
 id: TASK-042
 title: Calibrate the displayed cover probability without moving the pick threshold
-status: In progress
+status: Review
 depends_on: [TASK-039]
 size: M
 model: opus
@@ -29,11 +29,11 @@ The cover probability the app shows for a game matches how often such games actu
 
 ## Acceptance criteria
 
-- [ ] AC-1: Given `efficiency-v1.json` with the display calibration on and the same spec with it off (k = 1 as today), every eligible 2016–2023 validation game gets the same pick (side and tier, or none) under both, so pooled W-L-P, ATS and ROI are equal; a test on the fixture lake compares the two runs' pick columns row by row and finds no difference.
-- [ ] AC-2: The probability the calibration gate bins, the cover Brier score reads and `core.picks` returns as `model_prob` is the calibrated one; season Y's calibration is fit only on its tuning seasons (2015 to Y−1, never a holdout season), and a test that changes a season-Y row's result leaves season Y's fitted calibration unchanged.
-- [ ] AC-3: Each season's fitted calibration is written to `run.json` `choices[Y]`, `engine rate --choices <that run.json>` resolves the same value for that season (round-trip test), and the report's "Pick rules by season" section lists it per season.
-- [ ] AC-4: A spec without the new setting keeps its `spec_hash` and its results: `power-v1.json` and the backtest golden files are unchanged (`test_backtest_golden.py` passes with no golden edited).
-- [ ] AC-5: On the local lake, pooled 2016–2023, the report gives cover Brier and the calibration gate (pass/fail, and each bin's predicted and actual rate with its count) for `efficiency-v1.json` with and without the display calibration on the same games; the result is recorded in 04 § 4 and in a decision row, whether or not the gate now passes.
+- [x] AC-1: Given `efficiency-v1.json` with the display calibration on and the same spec with it off (k = 1 as today), every eligible 2016–2023 validation game gets the same pick (side and tier, or none) under both, so pooled W-L-P, ATS and ROI are equal; a test on the fixture lake compares the two runs' pick columns row by row and finds no difference.
+- [x] AC-2: The probability the calibration gate bins, the cover Brier score reads and `core.picks` returns as `model_prob` is the calibrated one; season Y's calibration is fit only on its tuning seasons (2015 to Y−1, never a holdout season), and a test that changes a season-Y row's result leaves season Y's fitted calibration unchanged.
+- [x] AC-3: Each season's fitted calibration is written to `run.json` `choices[Y]`, `engine rate --choices <that run.json>` resolves the same value for that season (round-trip test), and the report's "Pick rules by season" section lists it per season.
+- [x] AC-4: A spec without the new setting keeps its `spec_hash` and its results: `power-v1.json` and the backtest golden files are unchanged (`test_backtest_golden.py` passes with no golden edited).
+- [x] AC-5: On the local lake, pooled 2016–2023, the report gives cover Brier and the calibration gate (pass/fail, and each bin's predicted and actual rate with its count) for `efficiency-v1.json` with and without the display calibration on the same games; the result is recorded in 04 § 4 and in a decision row, whether or not the gate now passes.
 
 ## Out of scope
 
@@ -63,6 +63,12 @@ The cover probability the app shows for a game matches how often such games actu
 ## Follow-ups
 
 _Work noticed during this task and deliberately left out. Each bullet ends `→ <path> § <section>` (where it was placed) or `→ not tracked: <reason>`. See `.claude/skills/track-follow-ups/classify.md`; the PR's Follow-ups section is copied from here._
+
+- `picks.model_prob` is now the displayed probability (`Pick.prob`, D-143), while TASK-040's note says it's on the blended margin; rows are insert-only, so the writer must store the right one. Open question for its plan: whether `expected_value` reads the displayed or the raw probability, since at v1's display shrinkage a pick at edge 8 shows 52–53%, about −110's break-even; and the run.json to rate from after the hash change (schema review R1) → docs/tasks/TASK-045-write-picks-from-a-model-run.md § Context
+- The calibration gate still fails in one bin (55–57.5% shown, 46.6% covered, 131 games), and a bin of ~130 games has a standard error of about 4.4 points against § 9.4's ±3 tolerance. Open question for the go/no-go's plan: read it as a fail, or revisit the tolerance or minimum bin size → docs/tasks/TASK-043-holdout-and-go-no-go-v1.md § Context
+- `docs/03-data-model.md` defines `picks.model_prob` only as "P(side covers)"; it should say it's the displayed probability, after `display_shrinkage_k` (D-143) (schema review R1; approved by the owner at close-out) → docs/03-data-model.md § Models & outputs › picks
+- Candidate decision: the display shrinkage's method, tuning order, `min_prob` reading the raw probability, `Pick.prob` as displayed, and the AC-5 result; amends D-140 and D-141 → docs/decisions.md § D-143
+- `db/seeds/fixture/generate_picks.py` computes the fixture's `model_prob` from the raw cover probability → not tracked: the fixture's spec has no display shrinkage, so at k_d 1 the two are identical, and the fixture is illustrative (D-140)
 
 ## Plan
 
@@ -100,13 +106,15 @@ Approved by the owner 2026-10-30.
 
 _Filled by /implement-task. One line per round._
 
+- Verify R1 PASS | Audit R1 CHANGES (AC-1 v1 test non-discriminating against a pick leak: the fixture tunes display k 1) → Verify R2 PASS → Audit R2 PASS | Spec R1 APPROVE (3 notes, applied) | Schema R1 CHANGES (TASK-045's `model_prob` meaning; 03, 04 formula, D-143 hash) → R2 APPROVE (03 edit pending owner approval)
+
 ## Blocked
 
 _Only if status is Blocked: what failed, what was tried, best hypothesis, decision needed._
 
 ## Metrics
 
-- Verify rounds:
-- Review rounds:
-- First-pass AC FAILs:
-- Plan revisions after approval:
+- Verify rounds: 2 (both PASS; the second after the audit fix)
+- Review rounds: 1 (spec), 2 (schema); audit 2
+- First-pass AC FAILs: 0 (audit R1 found AC-1's test unproven, not the code; schema R1's MAJOR was another task's Context)
+- Plan revisions after approval: 0

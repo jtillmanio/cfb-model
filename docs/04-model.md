@@ -165,12 +165,12 @@ aggregate → expected wins, P(8+ wins), P(conference title), …
 
 ```
 edge_pts   = pred_margin + spread_home          # >0 → like home, <0 → like away
-raw_prob   = Φ(|edge_pts| / σ)                  # what the pick rules read (min_prob)
-model_prob = Φ(k_d × |edge_pts| / σ)            # prob our side covers, as displayed and stored
+raw_prob   = Φ(k × |edge_pts| / σ)              # what the pick rules read (min_prob)
+model_prob = Φ(k_d × k × |edge_pts| / σ)        # prob our side covers, as displayed and stored
 EV         = model_prob × payout − (1 − model_prob)
 ```
 
-`k_d` is the display shrinkage (TASK-042, below): it calibrates the probability shown without moving which games are picked. At `k_d = 1` the two probabilities are the same.
+`k` is the market shrinkage and `k_d` the display shrinkage (both below; v1's k is 1). `k_d` calibrates the probability shown without moving which games are picked. At `k_d = 1` the two probabilities are the same.
 
 Pick rules (tuned in backtest, not guessed):
 - Recommend when `|edge_pts| ≥ threshold` **and** `raw_prob ≥ min_prob`. Within a season every game has the same σ, so `model_prob` rises with `|edge_pts|` and the two are one dial; v1 tunes the threshold and leaves `min_prob` at 0.5 (inactive). **v1 (TASK-039):** the threshold is tuned per season from {2, 3, …, 8} points, and 2016–2023 chose 6, 7, 7 and then 8 (the result is below).
