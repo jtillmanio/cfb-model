@@ -1,7 +1,7 @@
 ---
 id: TASK-042
 title: Calibrate the displayed cover probability without moving the pick threshold
-status: Review
+status: Done
 depends_on: [TASK-039]
 size: M
 model: opus
