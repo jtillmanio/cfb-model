@@ -1,7 +1,7 @@
 ---
 id: TASK-039
 title: Tune pick rules: thresholds, tiers and market shrinkage
-status: In progress
+status: Review
 depends_on: [TASK-038]
 size: M
 model: opus
@@ -31,12 +31,12 @@ The model's pick rules (minimum edge, minimum cover probability, tier cutoffs an
 
 ## Acceptance criteria
 
-- [ ] AC-1: Given a spec whose `picks` fields are `{"tune": [...]}`, the backtest chooses validation season Y's pick rules from its tuning seasons only (2015 to Y−1, never a holdout season): `market_shrinkage_k` by the lowest cover-probability Brier score on those seasons' eligible games, then the pick thresholds by ATS win % against the closing line pooled over those seasons, among candidates with at least 200 picks there (*amended at the plan gate, owner 2026-10-30: k on ATS is the same dial as `min_edge_pts`*); a test on synthetic rows where the candidate with the best ATS has 199 picks shows the next-best candidate with ≥ 200 chosen instead, and a test that changes a season-Y row's result leaves season Y's choice unchanged.
-- [ ] AC-2: The chosen pick rules for each scored season are written to `run.json` `choices` alongside the model's settings, grading uses them (D-132), and `engine rate --choices <that run.json>` resolves the same pick rules for that season; the model settings chosen on margin MAE are the same as a run with fixed pick rules (the pick tuner never changes them).
-- [ ] AC-3: No pick is made on a game with an FCS team in the backtest or in the pick path `engine rate` and the weekly job will use (a test with an FBS-vs-FCS game and an edge above every threshold gets no pick), and under `distribution: empirical` a game whose liked side is the one the edge leans against gets no pick or a pick measured for the liked side, as the plan settles (a test builds that case; under `normal` every existing pick test and golden file is unchanged).
-- [ ] AC-4: On the local lake, pooled 2016–2023, the report compares the tuned `market_shrinkage_k` against k = 1 (ATS win % with its 95% interval, picks, ROI, and the calibration gate) on the same games with the same model settings; `efficiency-v1.json` keeps a shrinkage grid only if validation ATS with it is at least k = 1's, otherwise k is fixed at 1, and the decision row says which and why. The result is recorded in 04 § 4.
-- [ ] AC-5: If AC-4 keeps shrinkage, the empirical-against-normal comparison from TASK-038's AC-5 (cover Brier, calibration bins) is re-run with it on the same games and its result recorded in 04 § 3 (D-139 › Revisit if); `distribution` changes only if empirical's cover Brier is no worse. If AC-4 drops shrinkage, 04 § 3 says the comparison stands.
-- [ ] AC-6: `efficiency-v1.json`'s `picks` holds the grids (or fixed values) AC-1 to AC-4 settled, the report lists each validation season's chosen pick rules and its tuning-season pick count, and the backtest golden files change only in a commit that says why.
+- [x] AC-1: Given a spec whose `picks` fields are `{"tune": [...]}`, the backtest chooses validation season Y's pick rules from its tuning seasons only (2015 to Y−1, never a holdout season): `market_shrinkage_k` by the lowest cover-probability Brier score on those seasons' eligible games, then the pick thresholds by ATS win % against the closing line pooled over those seasons, among candidates with at least 200 picks there (*amended at the plan gate, owner 2026-10-30: k on ATS is the same dial as `min_edge_pts`*); a test on synthetic rows where the candidate with the best ATS has 199 picks shows the next-best candidate with ≥ 200 chosen instead, and a test that changes a season-Y row's result leaves season Y's choice unchanged.
+- [x] AC-2: The chosen pick rules for each scored season are written to `run.json` `choices` alongside the model's settings, grading uses them (D-132), and `engine rate --choices <that run.json>` resolves the same pick rules for that season; the model settings chosen on margin MAE are the same as a run with fixed pick rules (the pick tuner never changes them).
+- [x] AC-3: No pick is made on a game with an FCS team in the backtest or in the pick path `engine rate` and the weekly job will use (a test with an FBS-vs-FCS game and an edge above every threshold gets no pick), and under `distribution: empirical` a game whose liked side is the one the edge leans against gets no pick or a pick measured for the liked side, as the plan settles (a test builds that case; under `normal` every existing pick test and golden file is unchanged).
+- [x] AC-4: On the local lake, pooled 2016–2023, the report compares the tuned `market_shrinkage_k` against k = 1 (ATS win % with its 95% interval, picks, ROI, and the calibration gate) on the same games with the same model settings; `efficiency-v1.json` keeps a shrinkage grid only if validation ATS with it is at least k = 1's, otherwise k is fixed at 1, and the decision row says which and why. The result is recorded in 04 § 4.
+- [x] AC-5: If AC-4 keeps shrinkage, the empirical-against-normal comparison from TASK-038's AC-5 (cover Brier, calibration bins) is re-run with it on the same games and its result recorded in 04 § 3 (D-139 › Revisit if); `distribution` changes only if empirical's cover Brier is no worse. If AC-4 drops shrinkage, 04 § 3 says the comparison stands.
+- [x] AC-6: `efficiency-v1.json`'s `picks` holds the grids (or fixed values) AC-1 to AC-4 settled, the report lists each validation season's chosen pick rules and its tuning-season pick count, and the backtest golden files change only in a commit that says why.
 
 ## Out of scope
 
@@ -106,13 +106,17 @@ Approved by the owner 2026-10-30 with two choices: **k is chosen on cover Brier,
 
 _Filled by /implement-task. One line per round._
 
+- Verify R1 PASS (verify.full) | Audit R1 PASS | Spec R1 CHANGES (three Follow-ups bullets had no destination) | Schema R1 APPROVE with three minors (Brier stage crashed on an out-of-order first tier candidate; no valid pick combination reached the CLI as a traceback; D-141 silent on re-reporting empirical runs), all fixed
+- Verify R2 PASS (verify.full, after the review fixes) | Spec R2 APPROVE | Schema R2 APPROVE
+- Lake runs (AC-4, AC-5; `data/cfbd_calls.json` unchanged): k tuned on Brier `backtests/20261030T045310568525Z-f4ea8c933850` (53.7% on 868), k = 1 `backtests/20261030T045311120925Z-6792465f74a7` (55.1% on 906), widened edge grid `backtests/20261030T045631158096Z-396367340f14` (54.2% on 699, not kept), settled v1 `backtests/20261030T050421351617Z-3a4c7b16873a` (= the k = 1 run)
+
 ## Blocked
 
 _Only if status is Blocked: what failed, what was tried, best hypothesis, decision needed._
 
 ## Metrics
 
-- Verify rounds:
-- Review rounds:
-- First-pass AC FAILs:
-- Plan revisions after approval:
+- Verify rounds: 2 (both PASS; the second after the review fixes)
+- Review rounds: 2 (spec), 2 (schema); audit 1
+- First-pass AC FAILs: 0 (spec R1's CHANGES were follow-up destinations, not an AC)
+- Plan revisions after approval: 1 (the owner chose the edge grid {2..8} over the widened {2..12} after the lake runs; the AC-1 wording was amended at the plan gate itself)
