@@ -434,11 +434,28 @@ def test_the_display_calibration_never_changes_a_v1_pick(
         assert called(a, at_open=True) == called(b, at_open=True)
     picked_on = metrics.Record.of(g.result for g in with_on if g.pick is not None)
     picked_off = metrics.Record.of(g.result for g in with_off if g.pick is not None)
+    assert picked_off.graded > 0
     assert (str(picked_on), picked_on.units, picked_on.roi) == (
         str(picked_off),
         picked_off.units,
         picked_off.roi,
     )
+
+    # The fixture's one tuning season may choose 1 (it does), so grade the run at every display
+    # shrinkage v1 could choose: each picks exactly the games, sides and tiers it picks without,
+    # while what's shown moves.
+    v1 = ModelSpec.model_validate(on["spec"])
+    grid = v1.tunables()["picks.display_shrinkage_k"]
+    assert min(grid) < 1
+    for display in grid:
+        choices = {2023: {**on["choices"]["2023"], "picks.display_shrinkage_k": display}}
+        shown = metrics.grade_rows(on_rows, v1, choices)
+        assert [called(g) for g in shown] == [called(g) for g in with_off]
+        assert [called(g, at_open=True) for g in shown] == [
+            called(g, at_open=True) for g in with_off
+        ]
+        if display < 1:
+            assert all(a.prob < b.prob for a, b in zip(shown, with_off, strict=True) if b.edge)
 
 
 def called(g: metrics.Graded, *, at_open: bool = False) -> tuple[str, float, str | None] | None:
