@@ -1,7 +1,7 @@
 ---
 id: TASK-039
 title: Tune pick rules: thresholds, tiers and market shrinkage
-status: Review
+status: Done
 depends_on: [TASK-038]
 size: M
 model: opus
