@@ -38,8 +38,12 @@ from engine.core.inputs import INPUT_IDS
 
 SPEC_SCHEMA_VERSION = 1
 
-# Fields added to v1 since it was fixed, with the default that keeps the old behaviour (D-137).
-ADDED_DEFAULTS: dict[str, Any] = {"shrink_toward": "zero"}
+# Fields added to v1 since it was fixed, by dotted path, with the default that keeps the old
+# behaviour (D-137).
+ADDED_DEFAULTS: dict[str, Any] = {
+    "shrink_toward": "zero",
+    "picks.display_shrinkage_k": 1.0,  # TASK-042
+}
 
 # Strict: "6" and true aren't numbers.
 Number = Annotated[float, Strict(), Field(allow_inf_nan=False)]
@@ -94,6 +98,7 @@ def _within(lo: float, hi: float | None = None, *, above: bool = False) -> After
 Positive = Annotated[Tunable, _within(0, above=True)]
 NonNegative = Annotated[Tunable, _within(0)]
 Share = Annotated[Tunable, _within(0, 1)]
+PositiveShare = Annotated[Tunable, _within(0, 1, above=True)]
 CoverProb = Annotated[Tunable, _within(0.5, 1)]
 
 Weight = Literal["fit"] | Number
@@ -167,6 +172,9 @@ class PickRules(_Frozen):
     min_edge_pts: NonNegative
     min_prob: CoverProb
     market_shrinkage_k: Share = 1.0  # 1: the model alone
+    # Shrinks only the cover probability shown, on top of market_shrinkage_k: the pick, its side,
+    # edge, tier and the min_prob cut read the margin before it (TASK-042). 1: no change.
+    display_shrinkage_k: PositiveShare = 1.0
     tiers: Tiers
 
 
@@ -201,9 +209,13 @@ class ModelSpec(_Frozen):
         the default that reproduces the old behaviour, so a spec written before the field keeps
         its hash (and its backtests' `run.json` still match it)."""
         data = self.model_dump(mode="json")
-        for name, default in ADDED_DEFAULTS.items():
-            if data.get(name) == default:
-                del data[name]
+        for path, default in ADDED_DEFAULTS.items():
+            *parents, leaf = path.split(".")
+            node = data
+            for key in parents:
+                node = node.get(key) or {}
+            if leaf in node and node[leaf] == default:
+                del node[leaf]
         return data
 
     def tunables(self) -> dict[str, tuple[float, ...]]:

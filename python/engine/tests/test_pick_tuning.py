@@ -3,19 +3,24 @@
 AC-1: season Y's `market_shrinkage_k` is the lowest cover Brier on its tuning seasons, and its
 thresholds the best ATS win % among candidates with 200+ graded picks there. AC-2: the model's
 settings are tuned as before, both land in `run.json` `choices`, and grading and `engine rate`
-read the pick rules from there.
+read the pick rules from there. TASK-042: `display_shrinkage_k` calibrates the displayed cover
+probability, tuned on cover Brier after the thresholds, and never changes which games are picked.
 """
 
 from __future__ import annotations
 
+import io
 import json
 from collections.abc import Mapping, Sequence
 from dataclasses import replace
 from datetime import UTC, datetime
+from pathlib import Path
+from statistics import NormalDist
 from typing import Any
 
+import pyarrow.parquet as pq
 import pytest
-from lake_fixture import write_backtest_seasons
+from lake_fixture import engine, write_backtest_seasons, write_preseason
 
 from engine.backtest import harness, metrics, pick_rules
 from engine.backtest.stub import MeanMargin
@@ -301,3 +306,142 @@ def test_a_spec_with_fixed_pick_rules_writes_no_pick_tuning(lake: LocalLake) -> 
 
     assert result.pick_tuning == {}
     assert "pick_tuning" not in json.loads(lake.read(f"{folder}/run.json"))
+
+
+# TASK-042: the display shrinkage is tuned on cover Brier and never moves a pick.
+
+DISPLAY = {"display_shrinkage_k": {"tune": [0.25, 0.5, 1.0]}}
+DISPLAY_PICKS = {**TUNED_PICKS, **DISPLAY}
+
+
+@pytest.mark.parametrize(("hit", "k"), [(0.5, 0.25), (0.6, 0.5), (1.0, 1.0)])
+def test_display_k_is_the_lowest_cover_brier_and_thresholds_read_the_raw_edge(
+    hit: float, k: float
+) -> None:
+    # As for market k: Φ(8k/16) is 0.55, 0.6 and 0.69. Threshold 3 picks all 1000 games on the
+    # raw edge of 8; it would pick none on an edge shrunk to 2.
+    games = rows(2015, 8.0, round(1000 * hit), 1000 - round(1000 * hit))
+    both = spec({**DISPLAY, "min_edge_pts": {"tune": [9.0, 3.0]}})
+
+    tuned = pick_rules.tune(both, {}, (2015,), evaluating({2015: games}))
+
+    assert tuned is not None
+    assert tuned.choices == {"picks.display_shrinkage_k": k, "picks.min_edge_pts": 3.0}
+    assert (tuned.picks, tuned.floor_met) == (1000, True)
+
+
+def test_market_k_is_tuned_with_the_display_shrinkage_at_one() -> None:
+    # Hit 60% at edge 8: market k 0.5 shows 0.6 on its own (D-141 unchanged); then the display
+    # shrinkage on top of it has nothing left to correct.
+    games = rows(2015, 8.0, 600, 400)
+
+    tuned = pick_rules.tune(spec({**SHRINK, **DISPLAY}), {}, (2015,), evaluating({2015: games}))
+
+    assert tuned is not None
+    assert tuned.choices == {
+        "picks.market_shrinkage_k": 0.5,
+        "picks.display_shrinkage_k": 1.0,
+    }
+
+
+def test_a_season_s_display_shrinkage_never_reads_its_own_results(lake: LocalLake) -> None:
+    """AC-2: flipping every 2023 result leaves 2023's fitted display shrinkage as it was."""
+    tuned = spec(DISPLAY_PICKS, MODEL_GRID)
+    history = harness.load(lake)
+    before = harness.run(tuned, MeanMargin, history, [2023], 2022)
+
+    flipped = []
+    for week in history.weeks:
+        games = week.games
+        if week.season == 2023:
+            games = tuple(
+                replace(g, home_points=g.away_points, away_points=g.home_points) for g in games
+            )
+        flipped.append(replace(week, games=games))
+    after = harness.run(tuned, MeanMargin, replace(history, weeks=tuple(flipped)), [2023], 2022)
+
+    assert [r["margin"] for r in after.rows] == [-r["margin"] for r in before.rows]
+    assert "picks.display_shrinkage_k" in before.choices[2023]
+    assert after.choices == before.choices
+
+
+def test_run_json_carries_the_display_shrinkage_that_grading_and_engine_rate_use(
+    lake: LocalLake,
+) -> None:
+    """AC-3: choices[Y] holds the season's display shrinkage, and `engine rate --choices` resolves
+    the same value."""
+    tuned = spec(DISPLAY_PICKS, MODEL_GRID)
+    result = harness.run(tuned, MeanMargin, harness.load(lake), [2023], 2022)
+    at = datetime(2026, 10, 30, tzinfo=UTC)
+    folder = harness.write(
+        lake, result, spec=tuned, model="stub", tune_from=2022, holdout=False, at=at
+    )
+    run = json.loads(lake.read(f"{folder}/run.json"))
+    chosen = result.choices[2023]
+    display = chosen["picks.display_shrinkage_k"]
+
+    assert run["choices"]["2023"]["picks.display_shrinkage_k"] == display
+    rules = tuned.resolve(models.settings(tuned, run, 2023)).picks
+    assert rules.display_shrinkage_k == display
+    k = fixed(rules.market_shrinkage_k, "k")
+    for g in metrics.grade_rows(result.rows, tuned, {2023: chosen}):
+        shown = NormalDist().cdf(display * abs(g.edge) / g.margin_sd)
+        assert g.prob == pytest.approx(shown)
+        assert g.edge == pytest.approx(k * (g.pred_margin + g.spread_home))
+
+
+# AC-1: efficiency-v1.json with the display calibration on and off picks the same games.
+
+V1 = Path(__file__).parents[1] / "specs" / "efficiency-v1.json"
+
+
+def test_the_display_calibration_never_changes_a_v1_pick(
+    empty_lake: LocalLake, tmp_path: Path
+) -> None:
+    write_backtest_seasons(empty_lake, (2021, 2022, 2023))
+    write_preseason(empty_lake, tuple(range(2018, 2024)))
+    rebuild(empty_lake)
+    data = json.loads(V1.read_text("utf-8"))
+    assert "display_shrinkage_k" in data["picks"]
+    off = tmp_path / "efficiency-v1-off.json"
+    data["picks"] = {k: v for k, v in data["picks"].items() if k != "display_shrinkage_k"}
+    off.write_text(json.dumps(data), "utf-8")
+
+    seen: set[str] = set()
+    runs = {}
+    for name, path in (("on", V1), ("off", off)):
+        argv = ["backtest", "--spec", str(path), "--seasons", "2023", "--tune-from", "2022"]
+        assert engine(*argv) == 0
+        (folder,) = {k.rpartition("/")[0] for k in empty_lake.walk("backtests")} - seen
+        seen.add(folder)
+        run = json.loads(empty_lake.read(f"{folder}/run.json"))
+        rows = pq.read_table(io.BytesIO(empty_lake.read(f"{folder}/predictions.parquet")))
+        runs[name] = (run, rows.to_pylist())
+
+    (on, on_rows), (off_run, off_rows) = runs["on"], runs["off"]
+    assert "picks.display_shrinkage_k" in on["choices"]["2023"]
+    assert on_rows == off_rows
+
+    def graded(run: dict[str, Any], rows: list[dict[str, Any]]) -> list[metrics.Graded]:
+        choices = {int(s): c for s, c in run["choices"].items()}
+        return metrics.grade_rows(rows, ModelSpec.model_validate(run["spec"]), choices)
+
+    with_on, with_off = graded(on, on_rows), graded(off_run, off_rows)
+    assert len(with_on) == len(off_rows) > 0
+    for a, b in zip(with_on, with_off, strict=True):
+        assert a.game_source_id == b.game_source_id
+        assert called(a) == called(b)
+        assert called(a, at_open=True) == called(b, at_open=True)
+    picked_on = metrics.Record.of(g.result for g in with_on if g.pick is not None)
+    picked_off = metrics.Record.of(g.result for g in with_off if g.pick is not None)
+    assert (str(picked_on), picked_on.units, picked_on.roi) == (
+        str(picked_off),
+        picked_off.units,
+        picked_off.roi,
+    )
+
+
+def called(g: metrics.Graded, *, at_open: bool = False) -> tuple[str, float, str | None] | None:
+    """The pick's side, edge and tier: everything but the probability shown with it."""
+    made = g.open_pick if at_open else g.pick
+    return None if made is None else (made.side, made.edge, made.tier)

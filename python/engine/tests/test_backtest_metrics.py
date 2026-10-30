@@ -418,3 +418,74 @@ def test_an_empirical_spec_refuses_a_row_without_its_distribution() -> None:
     row = {k: v for k, v in KEYED_ROWS[0].items() if k != "margin_weights"}
     with pytest.raises(ValueError, match="margin_weights"):
         m.grade_rows([row], graded_spec("empirical"), {})
+
+
+# TASK-042 AC-2: what the calibration gate bins and the cover Brier reads is the displayed
+# probability, after the display shrinkage; the side, edge and pick stay on the blended margin.
+
+
+def display_spec(display_k: float) -> Any:
+    from engine.core.spec import ModelSpec
+
+    return ModelSpec.model_validate(
+        {
+            "base": "power",
+            "picks": {
+                "min_edge_pts": 3.0,
+                "min_prob": 0.5,
+                "display_shrinkage_k": display_k,
+                "tiers": {"A": 9.0, "B": 6.0, "C": 3.0},
+            },
+        }
+    )
+
+
+def plain_row(game: str, pred: float, margin: int) -> dict[str, Any]:
+    """A 2023 week-1 pick'em game the model has home by `pred`, at σ 16."""
+    return {
+        "season": 2023,
+        "season_type": "regular",
+        "week": 1,
+        "game_source_id": game,
+        "pred_margin": pred,
+        "margin_sd": 16.0,
+        "home_win_prob": 0.6,
+        "spread_home": 0.0,
+        "spread_home_open": None,
+        "spread_home_open_close": None,
+        "margin": margin,
+    }
+
+
+DISPLAY_ROWS = [
+    plain_row(str(n), pred, margin)
+    for n, (pred, margin) in enumerate(
+        [(12.0, 7), (12.0, -3), (8.0, 10), (-6.0, -14), (-6.0, 3), (2.0, 1), (20.0, -1)] * 20
+    )
+]
+
+
+def test_the_graded_probability_is_the_displayed_one() -> None:
+    from statistics import NormalDist
+
+    raw = m.grade_rows(DISPLAY_ROWS, display_spec(1.0), {})
+    shown = m.grade_rows(DISPLAY_ROWS, display_spec(0.2), {})
+
+    for r, s in zip(raw, shown, strict=True):
+        assert (s.side, s.edge, s.result, called(s)) == (r.side, r.edge, r.result, called(r))
+        assert r.prob == pytest.approx(NormalDist().cdf(abs(r.edge) / 16.0))
+        assert s.prob == pytest.approx(NormalDist().cdf(0.2 * abs(s.edge) / 16.0))
+    assert m.cover_brier(shown) == pytest.approx(
+        math.fsum((g.prob - (g.result == W)) ** 2 for g in shown if g.result != P)
+        / sum(g.result != P for g in shown)
+    )
+    assert m.cover_brier(shown) != pytest.approx(m.cover_brier(raw))
+    scored = m.compute(DISPLAY_ROWS, display_spec(0.2), {})
+    assert scored.calibration == m.calibration((g.prob, g.result) for g in shown)
+    assert scored.calibration != m.compute(DISPLAY_ROWS, display_spec(1.0), {}).calibration
+    assert scored.picks == m.compute(DISPLAY_ROWS, display_spec(1.0), {}).picks
+
+
+def called(g: m.Graded) -> tuple[str, float, str | None] | None:
+    """The pick's side, edge and tier: everything but the probability shown with it."""
+    return None if g.pick is None else (g.pick.side, g.pick.edge, g.pick.tier)

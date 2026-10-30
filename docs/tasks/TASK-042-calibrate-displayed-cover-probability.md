@@ -1,14 +1,14 @@
 ---
 id: TASK-042
 title: Calibrate the displayed cover probability without moving the pick threshold
-status: Ready
+status: In progress
 depends_on: [TASK-039]
 size: M
 model: opus
 autonomy: attended
 ui: false
-plan_status: none
-planned_at_commit:
+plan_status: approved
+planned_at_commit: 967324f
 ---
 
 # TASK-042 — Calibrate the displayed cover probability without moving the pick threshold
@@ -67,6 +67,34 @@ _Work noticed during this task and deliberately left out. Each bullet ends `→ 
 ## Plan
 
 _Written by /plan-batch or /implement-task Phase 1. Approved by the user (plan_status: approved) before any code is written._
+
+Approved by the owner 2026-10-30.
+
+**Decisions (plan gate):**
+- Method: a display-only shrinkage `picks.display_shrinkage_k`, tuned per season on cover Brier over a grid (ties to the larger k, as D-141). Not a fitted logistic map: `choices[Y]` holds grid candidates only (`spec.resolve`), and a one-slope map through 50% is the same curve.
+- Grid in `efficiency-v1.json`: {0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.4, 0.5, 0.75, 1}.
+- Displayed probability = Φ(k_d · k · edge / σ) for the pick's own side (k = market shrinkage; v1 k = 1). Default 1.0, with an `ADDED_DEFAULTS` entry so older specs keep their hash.
+- `min_prob` reads the raw (blended-margin) probability, so the calibration never changes a pick.
+- `Pick.prob` (so `picks.model_prob`, TASK-045) and `Graded.prob` (calibration, cover Brier, contest top-N) are the displayed probability. `predictions` stores no probability.
+
+**Steps:**
+1. `core/spec.py`: the field, bounded (0, 1]; `canonical()` drops a nested added default (`picks.display_shrinkage_k: 1.0`).
+2. `core/picks.py`: pick, side, edge, tier and the `min_prob` cut stay on the blended margin; one helper gives the displayed probability for a side, used by `pick()` and `grade_rows`.
+3. `backtest/pick_rules.py`: market k on Brier with the display shrink at 1 (D-141's choices unchanged), thresholds on ATS as today, then `display_shrinkage_k` on Brier, tuning seasons only, through the same guarded `evaluate`.
+4. `backtest/metrics.py`: `grade_rows` sets `prob` to the displayed probability.
+5. `backtest/report.py`: a "Display k" column in "Pick rules by season"; the section's note.
+6. `specs/efficiency-v1.json`: turn it on.
+7. AC-5: `engine backtest` 2016–2023 with and without, then `engine compare` (cover Brier, calibration gate and bins per run on the same games); record in 04 § 4 and § 9.4 and a D-### row amending D-141.
+
+**Tests (written first):**
+- AC-1 (`test_pick_tuning.py`): `efficiency-v1.json` on the fixture lake (2023, tuned on 2022), on vs off: identical rows, picks (side, tier) row by row, pooled W-L-P, units, ROI.
+- AC-2: `test_core_picks.py` (`Pick.prob` = Φ(k_d·edge/σ); side, tier and the `min_prob` cut read the raw probability); `test_pick_tuning.py` (k_d is the lowest-Brier candidate; flipping 2023's results leaves 2023's k_d unchanged); `test_backtest_metrics.py` (`Graded.prob`, `cover_brier`, `calibration` read the displayed probability).
+- AC-3: `test_pick_tuning.py` (`run.json` `choices` → `models.settings` resolves the same k_d) and `test_backtest_report.py` (the row shows it).
+- AC-4: `test_model_spec.py` (`power-v1.json`'s hash unchanged with the field absent or 1.0); the golden tests pass with no golden edited.
+
+**Files:** `core/spec.py`, `core/picks.py`, `backtest/pick_rules.py`, `backtest/metrics.py`, `backtest/report.py`, `specs/efficiency-v1.json`; tests `test_core_picks.py`, `test_pick_tuning.py`, `test_backtest_metrics.py` (not in Files likely touched), `test_backtest_report.py`, `test_model_spec.py` (not in Files likely touched); `docs/04-model.md`, `docs/decisions.md`. `publish/models.py` likely unchanged (`settings()` is generic).
+
+**Risks:** per-season k_d may land at 0.25–0.3 and fail one bin, as TASK-039's did; AC-5 records the result either way. Calibrated probabilities sit near 50–55% for nearly every game, so a pick at edge 8+ shows about 53% against its ~55% hit rate; TASK-043 should know.
 
 ## Review log
 

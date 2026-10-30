@@ -134,6 +134,7 @@ def _pick_rules(run: Mapping[str, Any]) -> Section | None:
                 str(season),
                 f"{tuned_on[0]}–{tuned_on[-1]}" if tuned_on else DASH,
                 f"{fixed(rules.market_shrinkage_k, 'k'):g}",
+                f"{fixed(rules.display_shrinkage_k, 'display k'):g}",
                 f"{fixed(rules.min_edge_pts, 'min_edge_pts'):g}",
                 pct(fixed(rules.min_prob, "min_prob")),
                 " / ".join(
@@ -149,7 +150,9 @@ def _pick_rules(run: Mapping[str, Any]) -> Section | None:
             "Each season's pick rules, chosen on its tuning seasons only (04 § 9.1): "
             "market shrinkage k by the lowest cover Brier score, then the thresholds by ATS win % "
             f"among choices with at least {FLOOR} graded picks there; with none, the choice with "
-            "the most picks (TASK-039). Edges and tiers are on the blended margin.",
+            "the most picks (TASK-039). Edges and tiers are on the blended margin. Display k "
+            "shrinks only the cover probability shown, chosen last by the lowest cover Brier: it "
+            "never changes a pick (TASK-042).",
         ),
         (
             Table(
@@ -157,6 +160,7 @@ def _pick_rules(run: Mapping[str, Any]) -> Section | None:
                     "Season",
                     "Tuned on",
                     "Shrinkage k",
+                    "Display k",
                     "Min edge (pts)",
                     "Min cover",
                     "Tiers A / B / C (pts)",
@@ -214,8 +218,9 @@ def _calibration(c: m.Calibration) -> Section:
         (
             f"Gate: {mark(gate)}. {gate.detail}.",
             "The cover probability the app displays for the side the model likes, after market "
-            f"shrinkage, on every eligible game. Bins of {m.CALIBRATION_MIN_PICKS}+ must be "
-            f"within ±{m.CALIBRATION_TOLERANCE:g} points; above zero is overconfident.",
+            "and display shrinkage, on every eligible game. "
+            f"Bins of {m.CALIBRATION_MIN_PICKS}+ must be within ±{m.CALIBRATION_TOLERANCE:g} "
+            "points; above zero is overconfident.",
         ),
         (Table(("Predicted", "Games", "Mean predicted", "Actual", "Off (pts)"), rows),),
     )

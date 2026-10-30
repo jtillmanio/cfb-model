@@ -8,6 +8,11 @@ empirical margin the side the model likes can be the one the edge leans against 
 against −2.5, when home by 3 is common, D-139): the edge for that side is negative, so it's a
 pass. A game is picked through `pick_game`, which asks the sport whether it may be picked at all
 (CFB: no game with an FCS team, D-047).
+
+The probability shown with a pick is calibrated on its own (TASK-042): `displayed_prob` shrinks
+the blended margin further toward the line by `display_shrinkage_k`, and reads the pick's side
+there. The pick, its side, edge and tier and the `min_prob` cut don't read it, so calibrating
+what's shown never changes which games are picked.
 """
 
 from __future__ import annotations
@@ -20,7 +25,7 @@ from engine.core.interfaces import GameContext
 from engine.core.probability import MarginDistribution, Side, blended_margin, cover_probability
 from engine.core.spec import PickRules, UnresolvedSettingError, fixed
 
-__all__ = ["Pick", "Tier", "UnresolvedSettingError", "pick", "pick_game"]
+__all__ = ["Pick", "Tier", "UnresolvedSettingError", "displayed_prob", "pick", "pick_game"]
 
 Tier = Literal["A", "B", "C"]
 
@@ -29,7 +34,7 @@ Tier = Literal["A", "B", "C"]
 class Pick:
     side: Side
     edge: float  # on the blended margin
-    prob: float  # P(side covers), on the blended margin
+    prob: float  # P(side covers) as displayed: after the display shrinkage (TASK-042)
     tier: Tier | None  # None: the edge clears min_edge_pts but not tier C
     blended_margin: float
 
@@ -56,7 +61,21 @@ def pick(
     if size == 0 or size < min_edge or cover.prob < min_prob:
         return None
     reached: list[Tier] = [t for t, at in thresholds if size >= at]
-    return Pick(cover.side, cover.edge, cover.prob, reached[0] if reached else None, margin)
+    shown = displayed_prob(pred_margin, spread_home, cover.side, rules, dist)
+    return Pick(cover.side, cover.edge, shown, reached[0] if reached else None, margin)
+
+
+def displayed_prob(
+    pred_margin: float, spread_home: float, side: Side, rules: PickRules, dist: MarginDistribution
+) -> float:
+    """P(`side` covers) as the app shows it, the push left out: on the margin shrunk toward the
+    line by `market_shrinkage_k × display_shrinkage_k` (TASK-042). At a display shrinkage of 1
+    it's the blended margin's own probability."""
+    k = fixed(rules.market_shrinkage_k, "picks.market_shrinkage_k")
+    display = fixed(rules.display_shrinkage_k, "picks.display_shrinkage_k")
+    shrunk = blended_margin(pred_margin, spread_home, k * display)
+    cover = cover_probability(shrunk, spread_home, dist)
+    return cover.prob if cover.side == side else 1 - cover.prob
 
 
 def pick_game(
