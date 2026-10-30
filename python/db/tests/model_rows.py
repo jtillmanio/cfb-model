@@ -5,8 +5,10 @@ fixture's `cfb` versions never interfere. Every test that uses them rolls back (
 from __future__ import annotations
 
 import json
+import uuid
 from collections.abc import Mapping
 from datetime import UTC, datetime, timedelta
+from typing import Any
 
 from sqlalchemy import Connection, text
 
@@ -35,9 +37,7 @@ def team(conn: Connection, source_id: str, division: str | None = "fbs") -> int:
     ).scalar_one()
     if division is not None:
         conn.execute(
-            text(
-                "INSERT INTO team_seasons (team_id, season, division) VALUES (:t, :season, :d)"
-            ),
+            text("INSERT INTO team_seasons (team_id, season, division) VALUES (:t, :season, :d)"),
             {"t": team_id, "season": SEASON, "d": division},
         )
     return team_id
@@ -125,7 +125,9 @@ def game(
     status: str = "final",
     game_date: str | None = None,
     season: int = SEASON,
+    points: tuple[int, int] = (30, 20),
 ) -> int:
+    """`points` is (home, away), kept only for a final game."""
     final = status == "final"
     return conn.execute(
         text(
@@ -145,8 +147,102 @@ def game(
             "n": neutral,
             "h": home,
             "a": away,
-            "hp": 30 if final else None,
-            "ap": 20 if final else None,
+            "hp": points[0] if final else None,
+            "ap": points[1] if final else None,
             "status": status,
         },
     ).scalar_one()
+
+
+def book(conn: Connection) -> int:
+    return conn.execute(
+        text(
+            "INSERT INTO sportsbooks (source, source_id, name)"
+            " VALUES ('pytest', :sid, 'Pytest') RETURNING id"
+        ),
+        {"sid": uuid.uuid4().hex},
+    ).scalar_one()
+
+
+def line(
+    conn: Connection,
+    game_id: int,
+    book_id: int,
+    captured_at: datetime | None,
+    spread_home: float,
+    kind: str = "snapshot",
+) -> int:
+    """One book's line for a game; an untimed (`captured_at` None) `closing` row is CFBD's close."""
+    return conn.execute(
+        text(
+            "INSERT INTO line_snapshots (game_id, book_id, source, kind, captured_at, spread_home)"
+            " VALUES (:g, :b, 'manual', :kind, :c, :s) RETURNING id"
+        ),
+        {"g": game_id, "b": book_id, "kind": kind, "c": captured_at, "s": spread_home},
+    ).scalar_one()
+
+
+def prediction(conn: Connection, run_id: int, version_id: int, game_id: int) -> int:
+    return conn.execute(
+        text(
+            "INSERT INTO predictions (model_run_id, model_version_id, game_id, pred_margin,"
+            " home_win_prob, margin_sd) VALUES (:r, :v, :g, 4.5, 0.63, 13.8) RETURNING id"
+        ),
+        {"r": run_id, "v": version_id, "g": game_id},
+    ).scalar_one()
+
+
+def pick(
+    conn: Connection,
+    prediction_id: int,
+    version_id: int,
+    game_id: int,
+    snapshot_id: int,
+    created_at: datetime,
+    *,
+    side: str | None,
+    line: float,
+    edge_pts: float = 3.5,
+    tier: str | None = "B",
+    **override: Any,
+) -> int:
+    """A spread pick at −110 for 1 unit, or a pass (`side` None: no tier, 0 units)."""
+    values: dict[str, Any] = {
+        "prediction_id": prediction_id,
+        "model_version_id": version_id,
+        "game_id": game_id,
+        "line_snapshot_id": snapshot_id,
+        "market": "spread",
+        "side": side,
+        "line": line,
+        "price": -110,
+        "model_prob": 0.6,
+        "edge_pts": edge_pts,
+        "expected_value": 0.145,
+        "tier": tier if side is not None else None,
+        "stake_units": 1.0 if side is not None else 0.0,
+        "created_at": created_at,
+        **override,
+    }
+    return conn.execute(
+        text(
+            f"INSERT INTO picks ({', '.join(values)})"
+            f" VALUES ({', '.join(':' + c for c in values)}) RETURNING id"
+        ),
+        values,
+    ).scalar_one()
+
+
+def scans(plan: dict[str, Any], relation: str) -> list[dict[str, Any]]:
+    """Every node of an `EXPLAIN (FORMAT JSON)` plan that reads `relation`."""
+    found = [plan] if plan.get("Relation Name") == relation else []
+    for child in plan.get("Plans", []):
+        found += scans(child, relation)
+    return found
+
+
+def explain(conn: Connection, sql: str, params: Mapping[str, Any]) -> dict[str, Any]:
+    """The plan of `sql` with sequential scans priced out, so any that remain are forced."""
+    conn.execute(text("SET LOCAL enable_seqscan = off"))
+    raw = conn.execute(text(f"EXPLAIN (FORMAT JSON) {sql}"), params).scalar_one()
+    return (json.loads(raw) if isinstance(raw, str) else raw)[0]["Plan"]

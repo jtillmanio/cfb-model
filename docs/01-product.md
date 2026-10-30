@@ -199,7 +199,7 @@ Also from the same list: **conference-tier shrinkage** ("opponent adjusted but a
 
 **F-02 Pick recommendations**
 1. A game is a pick only when its edge and cover probability clear the active model version's pick rules. v1.0's spec gives min edge 2.5, min cover 55% and tiers A ≥ 5.0 · B ≥ 3.5 · C ≥ 2.5. The UI reads these from the spec, never from constants. Texas vs Oklahoma is tier A, Ole Miss @ LSU is B, Notre Dame @ Stanford is C, and the week has 9 picks.
-2. Picks › "Week 6 · 9" lists picks sorted by tier, then edge. Each row shows Picked at, Now, CLV, Edge now and Cover. For example: "MISS +2.5 · Picked at +2.5, Sun 6:10 AM · Now ↔ +3.5 moved · CLV +1.0 so far · +4.9 MISS, at pick +3.9 MISS · 62%, was 60%".
+2. Picks › "Week 6 · 9" lists picks sorted by tier, then edge. Each row shows Picked at, Now, CLV, Edge now and Cover. For example: "MISS +2.5 · Picked at +2.5, Sun 6:10 AM · Now ↔ +3.5 moved · CLV −1.0 so far · +4.9 MISS, at pick +3.9 MISS · 62%, was 60%".
 3. Picks are immutable. When a line moves, the original pick keeps its "Picked at" line, and any re-evaluation is stored as a new pick row.
 
 **F-03 Contest mode**
@@ -232,7 +232,7 @@ Also from the same list: **conference-tier shrinkage** ("opponent adjusted but a
 3. Breakdown tables show tier, week, conference and favorite/underdog. For example, tier C reads "12-12 · 50.0% · −1.2u". Results come from the `pick_outcomes` and `model_record` views; there is no grading job.
 
 **F-10 Closing line value**
-1. Every pick shows CLV in points against the line it was picked at. Ole Miss reads "Picked at −2.5 → now −3.5 · CLV +1.0 · moved our way". Before kickoff it's labeled "so far"; after kickoff it's final, against the closing line.
+1. Every pick shows CLV in points against the line it was picked at. Ole Miss, picked at +2.5 with LSU −2.5 that has moved to −3.5, reads "Picked at −2.5 → now −3.5 · CLV −1.0 · moved against us": the close offers Ole Miss +3.5, a better number than the one the pick got (D-132; the design's +1.0 has the sign backwards, D-140). Before kickoff it's labeled "so far"; after kickoff it's final, against the closing line.
 2. Performance shows "Avg CLV +0.9 pts · vs the closing line", and the sidebar card shows "CLV +0.9".
 
 **F-17 Power rankings**

@@ -244,7 +244,7 @@ From the first design pass (handoff of 2026-10-06; see [Design source](#design-s
 | Totals "secondary, can be hidden at first" | A Spread / Total / Both segmented control on This Week, Spread by default | `01-this-week-desktop.png`; `This Week.dc.html` |
 | Best lines is a Picks tab | Also a second view on This Week (Slate \| Best lines), written as the bet ("MISS +3.5"); the Picks tab remains | `This Week.dc.html` 1b; `01-this-week-desktop.png` |
 | Market cell: line + opening + sparkline | Opening line and sparkline sit muted *before* the current line inside the Market column; the separate Move column from the first hi-fi pass was removed | `This Week.dc.html` turn 2; `01-this-week-desktop.png` |
-| "picked at −13.5, now −15" | Pick history goes on a second line ("Picked at −2.5 → now −3.5 · CLV +1.0") so the current number never shifts column | `Components.dc.html`; `01-this-week-desktop.png` (Ole Miss row) |
+| "picked at −13.5, now −15" | Pick history goes on a second line ("Picked at −2.5 → now −3.5 · CLV −1.0"; the design's +1.0 has the sign backwards, D-132, D-142) so the current number never shifts column | `Components.dc.html`; `01-this-week-desktop.png` (Ole Miss row) |
 | Unit profile: "radar or percentile bars" | Percentile bars (no radar) | `Team Desktop.dc.html`; `09-team-desktop.png` |
 | Drag-to-reorder list for confidence points | Kept as a component, but Splash scores 1 pt per pick, so order means priority; the list takes a points column only if a contest needs it | `Components.dc.html` |
 | Waterfall drivers (color unspecified) | All driver bars neutral (`--chart-5`); direction comes from position and sign plus "Helps OU / Helps TEX" chips | `Charts.dc.html`; `05-game-detail-desktop.png` |
