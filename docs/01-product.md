@@ -232,7 +232,7 @@ Also from the same list: **conference-tier shrinkage** ("opponent adjusted but a
 3. Breakdown tables show tier, week, conference and favorite/underdog. For example, tier C reads "12-12 · 50.0% · −1.2u". Results come from the `pick_outcomes` and `model_record` views; there is no grading job.
 
 **F-10 Closing line value**
-1. Every pick shows CLV in points against the line it was picked at. Ole Miss reads "Picked at −2.5 → now −3.5 · CLV +1.0 · moved our way". Before kickoff it's labeled "so far"; after kickoff it's final, against the closing line.
+1. Every pick shows CLV in points against the line it was picked at. Ole Miss, picked at +2.5 with LSU −2.5 that has moved to −3.5, reads "Picked at −2.5 → now −3.5 · CLV −1.0 · moved against us": the close offers Ole Miss +3.5, a better number than the one the pick got (D-132; the design's +1.0 has the sign backwards, D-140). Before kickoff it's labeled "so far"; after kickoff it's final, against the closing line.
 2. Performance shows "Avg CLV +0.9 pts · vs the closing line", and the sidebar card shows "CLV +0.9".
 
 **F-17 Power rankings**

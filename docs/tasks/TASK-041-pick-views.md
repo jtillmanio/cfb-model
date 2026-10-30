@@ -1,14 +1,14 @@
 ---
 id: TASK-041
 title: Add the current_picks, pick_outcomes and model_record views
-status: Ready
+status: In progress
 depends_on: [TASK-040]
 size: M
 model: opus
 autonomy: attended
 ui: false
-plan_status: none
-planned_at_commit:
+plan_status: approved
+planned_at_commit: 8d9e183
 ---
 
 # TASK-041 — Add the current_picks, pick_outcomes and model_record views
@@ -61,15 +61,49 @@ The database answers "what is the model's pick on this game now", "did each pick
 ## Verification
 
 - Automated: the three new test files; `pnpm db:check`; `pnpm test`.
-- Manual: `pnpm db:migrate:test`, `pnpm db:seed`, then in `psql` → `SELECT * FROM model_record WHERE season = 2026` shows 31-24-1 and +4.6u for weeks 1–5; `SELECT result, clv FROM pick_outcomes` for Ole Miss @ LSU is `pending` with NULL CLV.
+- Manual: `pnpm db:migrate:test`, `pnpm db:seed`, then in `psql` → `SELECT * FROM model_record WHERE season = 2026` shows 31-24-1 and +4.6u for weeks 1–5; `SELECT result, clv FROM pick_outcomes` for Ole Miss @ LSU is `pending` with CLV −1.0 (its kickoff has passed, so `game_market` closes it at Thursday's LSU −3.5; the fixture leaves the game `scheduled`).
 
 ## Follow-ups
 
 _Work noticed during this task and deliberately left out. Each bullet ends `→ <path> § <section>` (where it was placed) or `→ not tracked: <reason>`. See `.claude/skills/track-follow-ups/classify.md`; the PR's Follow-ups section is copied from here._
 
+- (approved at plan) F-10's Ole Miss CLV example in `docs/01-product.md` becomes −1.0, "moved against us" (D-132), fixed in this PR.
+- (approved at plan) Grading total and moneyline picks in the three views: nothing writes them yet; the views grade spread only.
+
 ## Plan
 
 _Written by /plan-batch or /implement-task Phase 1. Approved by the user (plan_status: approved) before any code is written._
+
+Approved 2026-10-30 with every recommended decision: D-132's CLV sign (Ole Miss picked at +2.5, closing +3.5, is −1.0, "moved against us"); market picks only; spread only for now; canceled and postponed games `void`, out of W-L-P, win % and ROI.
+
+### Steps
+
+1. `050_current_picks.sql`: the newest row per (game, version, market, line source) by `created_at`, then `id`; a pass as the newest row means the game has no row (no pick). `line_source` is `'market'` while `line_snapshot_id` is set (M6.1 adds `'contest'`). Spread only.
+2. `060_pick_outcomes.sql`: one row per non-pass spread pick with `is_current` (it is the row `current_picks` would show), the game's season, season type and week, `result` (`won|lost|push` on final scores against the line picked at, `pending` for `scheduled`/`in_progress`, `void` for `canceled`/`postponed`), `units` from `price` and `stake_units` (−110: +1.0u, −1.1u, push and void 0, pending NULL) and `risked`, `closing_spread_home` and `current_spread_home` from `game_market`, `clv` (against the close, D-132's sign, NULL while the close is NULL), `clv_so_far` (against the current line), `edge_bucket` from `abs(edge_pts)` (`2.5–3.5`, `3.5–5.0`, `5.0–7.0`, `7.0+`, `<2.5` for a tierless side).
+3. `070_model_record.sql` (revised in Phase 2, revision 1, owner's choice 2026-10-30: AC-4's season, tier and bucket numbers are weeks 1–5, but the seed has a final week-6 game): every row carries the week it runs through (`season_type`, `week`), with a `breakdown` column: `week` (that week alone), `to_date` (the season's start through that week), `tier` and `bucket` (through that week, by tier or by edge bucket); reading the newest week gives the season so far. Current market picks only, so a superseded pick counts once; wins, losses, pushes, voids, pending, win % (pushes and voids out), units, ROI = units ÷ risked on wins and losses, avg CLV (every non-void pick with a closing line). `GROUPING SETS` for the through-week rows, `UNION ALL` the week rows.
+4. Tests first, failing; then the views.
+5. Docs: views README rows, 03 › Views rows, a D-### row for the rules, F-10's Ole Miss example in 01, this task's manual step (Ole Miss is past kickoff, so its CLV reads −1.0 against Thursday's −3.5, not NULL).
+
+### Files
+
+- `python/db/views/050_current_picks.sql`, `060_pick_outcomes.sql`, `070_model_record.sql` (new)
+- `python/db/tests/test_current_picks.py`, `test_pick_outcomes.py`, `test_model_record.py` (new)
+- `python/db/tests/model_rows.py`: the shared `scans()` plan walker (not in Files likely touched)
+- `python/db/tests/test_team_rankings.py`: use the shared walker (not in Files likely touched)
+- `python/db/views/README.md`, `docs/03-data-model.md`, `docs/decisions.md`, `docs/01-product.md`, this task file
+
+### Test strategy
+
+- AC-1 `test_current_picks.py`: `test_a_later_pick_replaces_the_earlier_one`, `test_each_version_has_its_own_current_pick`, `test_a_pass_as_the_latest_row_means_no_pick`, `test_seeded_week_6_has_nine_current_picks`
+- AC-2 `test_pick_outcomes.py`: `test_a_home_pick_at_minus_3_wins_pushes_and_loses`, `test_an_away_pick_mirrors_it`, `test_unplayed_games_are_pending_and_canceled_ones_void`
+- AC-3 `test_pick_outcomes.py`: `test_clv_has_d132s_sign`, `test_clv_is_null_until_the_close`
+- AC-4 `test_model_record.py`: `test_seeded_season_record`, `test_seeded_tiers`, `test_seeded_weeks`, `test_seeded_buckets_count_their_picks`
+- AC-5 `test_model_record.py`: `test_a_superseded_pick_counts_once`
+- AC-6: `test_single_game_reads_use_an_index` (both pick views), `test_one_season_record_uses_an_index`, and `test_views_readme_lists_every_view_with_its_test` (existing)
+
+**Risks:** `GROUPING SETS` pushdown (fallback above); `now()` decides `game_market`'s close, so the NULL-close tests use a kickoff in the future.
+
+**Size:** 13 files, no schema change, no UI.
 
 ## Review log
 
@@ -84,4 +118,4 @@ _Only if status is Blocked: what failed, what was tried, best hypothesis, decisi
 - Verify rounds:
 - Review rounds:
 - First-pass AC FAILs:
-- Plan revisions after approval:
+- Plan revisions after approval: 1 (model_record runs through each week, AC-4 gap)

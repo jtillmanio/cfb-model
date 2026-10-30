@@ -123,13 +123,6 @@ def test_seeded_week_6_order_and_change(db_conn: Connection):
     assert sorted(week6, key=week6.__getitem__)[:3] == ["osu", "tex", "ore"]
 
 
-def _scans(plan: dict[str, Any], relation: str) -> list[dict[str, Any]]:
-    found = [plan] if plan.get("Relation Name") == relation else []
-    for child in plan.get("Plans", []):
-        found += _scans(child, relation)
-    return found
-
-
 def assert_index_reads(conn: Connection, view: str) -> None:
     """Every read of team_ratings for one team's week is an index lookup by its version or its run,
     and the week's own ratings are entered by week (AC-4). With sequential scans priced out, a
@@ -144,17 +137,14 @@ def assert_index_reads(conn: Connection, view: str) -> None:
             " AND r.season = 2026 AND r.week = 6 LIMIT 1"
         )
     ).one()
-    conn.execute(text("SET LOCAL enable_seqscan = off"))
-    raw = conn.execute(
-        text(
-            f"EXPLAIN (FORMAT JSON) SELECT * FROM {view} WHERE model_version_id = :v"
-            " AND team_id = :t AND season = 2026 AND week = 6"
-        ),
+    plan = m.explain(
+        conn,
+        f"SELECT * FROM {view} WHERE model_version_id = :v"
+        " AND team_id = :t AND season = 2026 AND week = 6",
         {"v": version_id, "t": team_id},
-    ).scalar_one()
-    plan = (json.loads(raw) if isinstance(raw, str) else raw)[0]["Plan"]
+    )
 
-    scans = _scans(plan, "team_ratings")
+    scans = m.scans(plan, "team_ratings")
     assert scans
     conds = []
     for node in scans:
