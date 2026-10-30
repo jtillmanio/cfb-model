@@ -151,6 +151,7 @@ class CoverScores:
     distribution: str
     brier: float | None
     calibration: m.Calibration
+    picks: m.Record  # qualifying picks against the close, under each season's pick rules
 
 
 def cover_scores(
@@ -158,7 +159,8 @@ def cover_scores(
 ) -> CoverScores:
     games = m.grade_rows(rows, spec, choices)
     calibration = m.calibration((g.prob, g.result) for g in games)
-    return CoverScores(spec.distribution, m.cover_brier(games), calibration)
+    picks = m.Record.of(g.result for g in games if g.pick is not None)
+    return CoverScores(spec.distribution, m.cover_brier(games), calibration, picks)
 
 
 def bin_label(b: m.CalibrationBin) -> str:

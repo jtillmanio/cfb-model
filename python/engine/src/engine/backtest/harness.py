@@ -6,10 +6,11 @@ game, this season's and earlier ones', that finished (kickoff + `GAME_HOURS`) by
 harness asserts it did; then it predicts each of the week's eligible games once: FBS vs FBS,
 final, with a closing line (04 § 9.3, D-121's `closing_lines()`).
 
-**Settings.** Scored season Y's tuned settings are chosen by a `Tuner` from seasons `tune_from`
-to Y-1, never a holdout season (04 § 9.1); the default grid-searches `spec.tunables()` on pooled
-margin MAE (§ 9.2). Each (choices, season) walk-forward runs once, shared by the tuning of later
-seasons and the scoring.
+**Settings.** Scored season Y's tuned settings are chosen from seasons `tune_from` to Y-1, never
+a holdout season (04 § 9.1), in two stages: a `Tuner` chooses the model's settings (the default
+grid-searches them on pooled margin MAE, § 9.2), then a pick tuner chooses the pick rules on the
+rows those settings produce (`pick_rules`, TASK-039). Each (model settings, season) walk-forward
+runs once, shared by the tuning of later seasons, every pick candidate and the scoring.
 
 **Postseason.** CFBD files every bowl and CFP round under postseason week 1, so it's one week
 with one `as_of`, the first bowl's kickoff: a later CFP round is predicted from the ratings
@@ -47,6 +48,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from typing import Any, Literal, Protocol, cast
 
+from engine.backtest import pick_rules
 from engine.backtest.holdout import HOLDOUT_SEASONS
 from engine.core.inputs import INPUTS
 from engine.core.interfaces import GameContext, GamePredictor, GameResult, RatingModel
@@ -95,7 +97,8 @@ Evaluate = Callable[[Choices, int], Sequence[Row]]  # a season's walk-forward un
 
 class Tuner(Protocol):
     def __call__(self, spec: ModelSpec, tuning: Sequence[int], evaluate: Evaluate) -> Choices:
-        """One candidate for each of `spec.tunables()`, chosen on the `tuning` seasons."""
+        """One candidate for each of the model settings (`model_tunables`), chosen on the `tuning`
+        seasons."""
         ...
 
 
@@ -585,10 +588,16 @@ def predict_season(model: BacktestModel, history: History, season: int) -> list[
     return rows
 
 
+def model_tunables(spec: ModelSpec) -> dict[str, tuple[float, ...]]:
+    """The tuned settings that change a prediction: every one but the pick rules."""
+    return {p: c for p, c in spec.tunables().items() if not pick_rules.is_pick_setting(p)}
+
+
 def grid_tuner(spec: ModelSpec, tuning: Sequence[int], evaluate: Evaluate) -> Choices:
-    """Every combination of the candidates, scored by margin MAE pooled over the tuning
-    seasons' eligible games; a tie goes to the first in grid order."""
-    tunables = spec.tunables()
+    """Every combination of the model settings' candidates, scored by margin MAE pooled over the
+    tuning seasons' eligible games; a tie goes to the first in grid order. The pick rules don't
+    move the MAE, so they're left to the pick tuner."""
+    tunables = model_tunables(spec)
     if not tunables:
         return {}
     best: tuple[float, dict[str, float]] | None = None
@@ -637,7 +646,8 @@ def prepare(
                 f"tuning season {missing[0]} (for {season}) has no eligible games in the lake"
             )
         plan[season] = tuning
-    first = spec.resolve({path: candidates[0] for path, candidates in tuned.items()})
+    # The model the run builds: its settings at their first candidates (pick rules never reach it).
+    first = spec.resolve({path: candidates[0] for path, candidates in model_tunables(spec).items()})
     check_reads(factory(first))
     return plan
 
@@ -647,6 +657,9 @@ class BacktestRun:
     rows: tuple[Row, ...]  # every scored season's predictions, in run order
     choices: Mapping[int, Choices]  # scored season -> the settings it ran with
     tuned_on: Mapping[int, tuple[int, ...]]  # scored season -> the seasons they were chosen on
+    # Scored season -> how its pick rules were tuned; empty when the spec tunes none, or when
+    # the settings were replayed.
+    pick_tuning: Mapping[int, pick_rules.PickTuning] = field(default_factory=dict)
 
 
 def run(
@@ -657,10 +670,12 @@ def run(
     tune_from: int = TUNE_FROM,
     tuner: Tuner = grid_tuner,
     choices: Mapping[int, Choices] | None = None,
+    pick_tuner: pick_rules.PickTuner = pick_rules.tune,
 ) -> BacktestRun:
-    """Walk each season forward with its tuned settings. `choices` replays settings another run
-    chose (season -> choices) instead of tuning, so a model compared with that run is scored
-    with the same settings (TASK-033's `--compare baselines`)."""
+    """Walk each season forward with its tuned settings: the model's by `tuner`, then the pick
+    rules by `pick_tuner` on the rows those produce (TASK-039). `choices` replays settings
+    another run chose (season -> choices) instead of tuning, so a model compared with that run
+    is scored with the same settings (TASK-033's `--compare baselines`)."""
     plan = prepare(spec, factory, history, seasons, tune_from)
     if choices is not None:
         missing = [s for s in plan if s not in choices]
@@ -669,9 +684,12 @@ def run(
     cache: dict[tuple[tuple[tuple[str, float], ...], int], list[Row]] = {}
 
     def evaluate(choices: Choices, season: int) -> list[Row]:
-        key = (tuple(sorted(choices.items())), season)
+        """The season's walk-forward under the model settings in `choices` (the pick rules
+        don't change a prediction, so they're left out of the fit and the cache key)."""
+        model = {p: v for p, v in choices.items() if not pick_rules.is_pick_setting(p)}
+        key = (tuple(sorted(model.items())), season)
         if key not in cache:
-            cache[key] = predict_season(factory(spec.resolve(choices)), history, season)
+            cache[key] = predict_season(factory(spec.resolve(model)), history, season)
         return cache[key]
 
     def shown_only(season: int, tuning: tuple[int, ...]) -> Evaluate:
@@ -689,9 +707,18 @@ def run(
 
     rows: list[Row] = []
     chosen: dict[int, Choices] = {}
+    pick_tuning: dict[int, pick_rules.PickTuning] = {}
     for season, tuning in plan.items():
         if choices is None:
-            picked = dict(tuner(spec, tuning, shown_only(season, tuning)))
+            guarded = shown_only(season, tuning)
+            picked = dict(tuner(spec, tuning, guarded))
+            try:
+                tuned = pick_tuner(spec, picked, tuning, guarded)
+            except pick_rules.NoValidRulesError as e:
+                raise RefusedError(str(e)) from e
+            if tuned is not None:
+                picked |= tuned.choices
+                pick_tuning[season] = tuned
         else:
             picked = dict(choices[season])
         if not spec.resolve(picked).is_resolved:
@@ -701,7 +728,7 @@ def run(
             )
         chosen[season] = picked
         rows += evaluate(picked, season)
-    return BacktestRun(tuple(rows), chosen, plan)
+    return BacktestRun(tuple(rows), chosen, plan, pick_tuning)
 
 
 def spec_hash(spec: ModelSpec) -> str:
@@ -784,5 +811,10 @@ def write(
         "tuned_on": {str(s): list(t) for s, t in result.tuned_on.items()},
         "games": len(result.rows),
     }
+    if result.pick_tuning:  # only a spec that tunes its pick rules: other run.json are unchanged
+        meta["pick_tuning"] = {
+            str(s): {"picks": t.picks, "floor_met": t.floor_met}
+            for s, t in result.pick_tuning.items()
+        }
     lake.write_new(f"{folder}/run.json", json.dumps(meta, indent=2).encode("utf-8"))
     return folder

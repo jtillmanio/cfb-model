@@ -100,7 +100,38 @@ def test_the_report_has_every_row_and_marks_every_gate(
         (line,) = [row for row in md.splitlines() if row.startswith(f"| {gate} |")]
         assert re.match(rf"\| {re.escape(gate)} \| (PASS|FAIL|n/a) \| ", line), line
     assert "| Holdout |" not in md  # a gate only when the run opened the holdout
+    assert "Pick rules by season" not in md  # only when the spec tunes its pick rules
     assert page.startswith("<!doctype html>")
+
+
+def test_the_report_lists_each_season_s_tuned_pick_rules(
+    empty_lake: LocalLake, tmp_path: Path
+) -> None:
+    """AC-6 (TASK-039): each scored season's chosen pick rules and its tuning-season picks."""
+    write_backtest_seasons(empty_lake, (2021, 2022, 2023))
+    rebuild(empty_lake)
+    picks = {
+        **SPEC["picks"],
+        "market_shrinkage_k": {"tune": [0.5, 1.0]},
+        "min_edge_pts": {"tune": [1.0, 3.0]},
+    }
+    spec = tmp_path / "spec.json"
+    spec.write_text(json.dumps({**SPEC, "picks": picks}), "utf-8")
+    out = tmp_path / "report"
+    argv = ["backtest", "--spec", str(spec), "--seasons", "2022-2023", "--tune-from", "2021"]
+
+    assert engine(*argv, "--model", "stub", "--report", str(out)) == 0
+
+    md = (out / "report.md").read_text("utf-8")
+    (folder,) = {k.rpartition("/")[0] for k in empty_lake.walk("backtests")}
+    run = json.loads(empty_lake.read(f"{folder}/run.json"))
+    assert "## Pick rules by season" in md
+    for season, tuned_on in (("2022", "2021–2021"), ("2023", "2021–2022")):
+        choices, tuning = run["choices"][season], run["pick_tuning"][season]
+        k, edge = choices["picks.market_shrinkage_k"], choices["picks.min_edge_pts"]
+        floor = "yes" if tuning["floor_met"] else "no"
+        line = f"| {season} | {tuned_on} | {k:g} | {edge:g} | 55.0% | 5 / 3.5 / 2.5 | "
+        assert f"{line}{tuning['picks']} | {floor} |" in md
 
 
 def test_the_report_summary_prints_on_a_windows_console(

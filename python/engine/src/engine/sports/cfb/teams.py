@@ -21,6 +21,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
+from engine.core.interfaces import GameContext
 from engine.models import efficiency, power
 
 FCS = "fcs"
@@ -53,6 +54,12 @@ class UnmappedConferenceError(ValueError):
 def pool_of(classification: str | None) -> str | None:
     """The pool a team is rated in, or None for a team rated on its own."""
     return None if classification == "fbs" else FCS
+
+
+def pickable(game: GameContext) -> bool:
+    """Whether a game may be picked: both teams FBS. A game with an FCS (or unlabelled) team is
+    rated but never picked (D-047)."""
+    return pool_of(game.home_classification) is None and pool_of(game.away_classification) is None
 
 
 def season_of(as_of: datetime) -> int:
