@@ -94,7 +94,7 @@ Phase 8  Multi-sport (NFL)
 - [x] Margin model mapping efficiency to points; σ and empirical margin distribution
 - [x] `drivers` output for explainability
 - [x] Pick logic: thresholds, tiers, optional market shrinkage, tuned on validation seasons
-- [ ] `picks` table + views: `game_market`, `current_picks`, `pick_outcomes`, `model_record`, `team_rankings`, `team_schedule_strength` (SOS, [04 § 10.5](04-model.md))
+- [x] `picks` table + views: `game_market`, `current_picks`, `pick_outcomes`, `model_record`, `team_rankings`, `team_schedule_strength` (SOS, [04 § 10.5](04-model.md))
 - [ ] Holdout evaluation on 2024–2025, then go/no-go per [04-model.md §5](04-model.md)
 - [ ] Production weekly cycle live: rate → predict → pick (paper trading 2026)
 

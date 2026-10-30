@@ -1,7 +1,7 @@
 ---
 id: TASK-041
 title: Add the current_picks, pick_outcomes and model_record views
-status: In progress
+status: Review
 depends_on: [TASK-040]
 size: M
 model: opus
@@ -34,12 +34,12 @@ The database answers "what is the model's pick on this game now", "did each pick
 
 ## Acceptance criteria
 
-- [ ] AC-1: Given a game with two v1.0 market picks, the second made later at a new line snapshot, `current_picks` returns only the second for (game, v1.0, spread, market); a second version's pick on the same game is its own row; on the seeded test DB v1.0 has 9 current picks for 2026 week 6.
-- [ ] AC-2: `pick_outcomes` grades each pick against the line it was made at: given test picks on final games, a home pick at −3 wins on a margin of 4, pushes on 3 and loses on 2 (units +1.0, 0, −1.1), an away pick mirrors it, a pick on a `scheduled` or `in_progress` game is `pending` with NULL units, and one on a `canceled` or `postponed` game is `void` with 0 units.
-- [ ] AC-3: `pick_outcomes` CLV is the line picked at against `game_market`'s closing line with D-132's sign (a home pick at −2.5 closing at −3.5 is +1.0; an away pick at −2.5 closing at −3.5 is −1.0), and NULL while the closing line is NULL.
-- [ ] AC-4: On the seeded test DB, `model_record` for v1.0, 2026, weeks 1–5 reads 31-24-1, win % 56.4 (pushes left out), +4.6u, ROI +7.6% and avg CLV +0.9; by tier A 7-3, B 12-9-1, C 12-12 with C at −1.2u; by week, units summing to +1.8, +0.5, +2.9, +2.2, +4.6 cumulatively; for week 6, 1-0 with 8 pending and +1.0u. Each pick bucket (2.5–3.5, 3.5–5.0, 5.0–7.0, 7.0+) counts exactly the weeks 1–5 picks whose `abs(edge_pts)` falls in it.
-- [ ] AC-5: A game whose pick was superseded before kickoff counts once in `model_record`, graded at the current pick's line (a test inserts the two picks and reads the record).
-- [ ] AC-6: Reading `current_picks` or `pick_outcomes` for one game, and `model_record` for one model version and season, uses an index on `picks` (the `EXPLAIN` check from `test_team_rankings.py` finds no sequential scan on `picks`), and all three views are listed in `python/db/views/README.md` with their tests.
+- [x] AC-1: Given a game with two v1.0 market picks, the second made later at a new line snapshot, `current_picks` returns only the second for (game, v1.0, spread, market); a second version's pick on the same game is its own row; on the seeded test DB v1.0 has 9 current picks for 2026 week 6.
+- [x] AC-2: `pick_outcomes` grades each pick against the line it was made at: given test picks on final games, a home pick at −3 wins on a margin of 4, pushes on 3 and loses on 2 (units +1.0, 0, −1.1), an away pick mirrors it, a pick on a `scheduled` or `in_progress` game is `pending` with NULL units, and one on a `canceled` or `postponed` game is `void` with 0 units.
+- [x] AC-3: `pick_outcomes` CLV is the line picked at against `game_market`'s closing line with D-132's sign (a home pick at −2.5 closing at −3.5 is +1.0; an away pick at −2.5 closing at −3.5 is −1.0), and NULL while the closing line is NULL.
+- [x] AC-4: On the seeded test DB, `model_record` for v1.0, 2026, weeks 1–5 reads 31-24-1, win % 56.4 (pushes left out), +4.6u, ROI +7.6% and avg CLV +0.9; by tier A 7-3, B 12-9-1, C 12-12 with C at −1.2u; by week, units summing to +1.8, +0.5, +2.9, +2.2, +4.6 cumulatively; for week 6, 1-0 with 8 pending and +1.0u. Each pick bucket (2.5–3.5, 3.5–5.0, 5.0–7.0, 7.0+) counts exactly the weeks 1–5 picks whose `abs(edge_pts)` falls in it.
+- [x] AC-5: A game whose pick was superseded before kickoff counts once in `model_record`, graded at the current pick's line (a test inserts the two picks and reads the record).
+- [x] AC-6: Reading `current_picks` or `pick_outcomes` for one game, and `model_record` for one model version and season, uses an index on `picks` (the `EXPLAIN` check from `test_team_rankings.py` finds no sequential scan on `picks`), and all three views are listed in `python/db/views/README.md` with their tests.
 
 ## Out of scope
 
@@ -61,14 +61,21 @@ The database answers "what is the model's pick on this game now", "did each pick
 ## Verification
 
 - Automated: the three new test files; `pnpm db:check`; `pnpm test`.
-- Manual: `pnpm db:migrate:test`, `pnpm db:seed`, then in `psql` → `SELECT * FROM model_record WHERE season = 2026` shows 31-24-1 and +4.6u for weeks 1–5; `SELECT result, clv FROM pick_outcomes` for Ole Miss @ LSU is `pending` with CLV −1.0 (its kickoff has passed, so `game_market` closes it at Thursday's LSU −3.5; the fixture leaves the game `scheduled`).
+- Manual: `pnpm db:migrate:test`, `pnpm db:seed`, then in `psql` → `SELECT * FROM model_record WHERE season = 2026 AND breakdown = 'to_date'` shows 31-24-1 and +4.6u through week 5 (and 32-24-1, 8 pending, through week 6); `SELECT result, clv FROM pick_outcomes` for Ole Miss @ LSU is `pending` with CLV −1.0 (its kickoff has passed, so `game_market` closes it at Thursday's LSU −3.5; the fixture leaves the game `scheduled`).
 
 ## Follow-ups
 
 _Work noticed during this task and deliberately left out. Each bullet ends `→ <path> § <section>` (where it was placed) or `→ not tracked: <reason>`. See `.claude/skills/track-follow-ups/classify.md`; the PR's Follow-ups section is copied from here._
 
-- (approved at plan) F-10's Ole Miss CLV example in `docs/01-product.md` becomes −1.0, "moved against us" (D-132), fixed in this PR.
-- (approved at plan) Grading total and moneyline picks in the three views: nothing writes them yet; the views grade spread only.
+- (approved at plan) F-10's and F-02's Ole Miss CLV examples become −1.0, "moved against us" (D-132, D-142) → docs/01-product.md § F-02, F-10 (fixed in this PR)
+- (approved at plan) Grading total and moneyline picks: nothing writes them yet, so the views grade spread only; with it, the writer refusing a pick at or after kickoff (the views ignore one) and an optional `price` CHECK (schema change, from the schema review) → docs/08-tasklist.md § M4.8
+- When M6.1 makes `line_snapshot_id` nullable, contest picks need `line_source` 'contest' and to stay out of the market grading (schema review) → docs/08-tasklist.md § M6.1
+- How `/performance` reads `model_record`'s through-week rows (season KPIs from the newest `to_date` row) → docs/08-tasklist.md § M7.4
+- `/slate` reads the frozen current pick and `clv_so_far` for the "so far" label → docs/08-tasklist.md § M5.5
+- The integration-test example's 31-24-1, +4.6u holds through week 5 (approved at close-out) → docs/02-architecture.md § Testing strategy
+- The pick-history copy example quotes Ole Miss at CLV +1.0 (approved at close-out) → docs/05-ui-design-brief.md § Changes from the brief
+- How the views grade and roll up picks, including the kickoff freeze and the through-week record → docs/decisions.md § D-142
+- `design/sample-data.md` § 1 and `picks-data.js` still show Ole Miss at CLV +1.0; `design/**` is protected and the numbers follow 04 and the decisions log → not tracked: already recorded in D-140 and D-142
 
 ## Plan
 
@@ -109,13 +116,16 @@ Approved 2026-10-30 with every recommended decision: D-132's CLV sign (Ole Miss 
 
 _Filled by /implement-task. One line per round._
 
+- Verify R1 PASS | Audit R1 PASS (mutants: push as win, CLV sign, no is_current, GROUPING SETS) | Spec R1 CHANGES (F-02 example, index comments, follow-up destinations) | Schema R1 CHANGES (MAJOR: no kickoff cutoff; minor: game_market read twice, duplicated window, index comments, `<2.5` wording, M6.1)
+- Verify R2 PASS | Spec R2 APPROVE | Schema R2 APPROVE (optional nit taken: the views-agree test covers a superseded pick and a pass)
+
 ## Blocked
 
 _Only if status is Blocked: what failed, what was tried, best hypothesis, decision needed._
 
 ## Metrics
 
-- Verify rounds:
-- Review rounds:
-- First-pass AC FAILs:
+- Verify rounds: 2 (both PASS; the second after the review fixes)
+- Review rounds: 2 (spec), 2 (schema); audit 1
+- First-pass AC FAILs: 0 (schema R1's MAJOR was the plan gate's kickoff rule, not an AC)
 - Plan revisions after approval: 1 (model_record runs through each week, AC-4 gap)
