@@ -11,7 +11,7 @@ from engine.core.interfaces import (
     RatingModel,
     Ratings,
 )
-from engine.core.picks import Pick, pick
+from engine.core.picks import Pick, pick, pick_game
 from engine.core.probability import (
     Cover,
     EmpiricalMargin,
@@ -52,5 +52,6 @@ __all__ = [
     "edge",
     "expected_value",
     "pick",
+    "pick_game",
     "win_probability",
 ]

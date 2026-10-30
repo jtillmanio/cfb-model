@@ -226,6 +226,46 @@ def test_engine_compare_weeks_pairs_only_those_regular_season_weeks(
     assert f"A - B: {expected.estimate:+.3f} [{expected.low:+.3f}, {expected.high:+.3f}]" in out
 
 
+def test_engine_compare_shows_each_run_s_picks_and_calibration_gate(
+    backtest_lake: LocalLake, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """TASK-039 AC-4: a spec with market shrinkage against the same spec at k = 1, each run's
+    ATS (95% interval), picks, ROI and calibration gate on the shared games."""
+    from engine.backtest import metrics
+    from engine.core.spec import ModelSpec
+
+    argv = ["--seasons", "2023", "--tune-from", "2022"]
+    shrunk = tmp_path / "shrunk.json"
+    shrunk.write_text(
+        json.dumps({**SPEC, "picks": {**PICKS, "min_edge_pts": 1.0, "market_shrinkage_k": 0.5}}),
+        "utf-8",
+    )
+    assert engine("backtest", "--spec", str(shrunk), *argv) == 0
+    assert engine("backtest", "--spec", spec_file(tmp_path), *argv) == 0
+    folders = sorted({k.rpartition("/")[0] for k in backtest_lake.walk("backtests")})
+    capsys.readouterr()
+
+    assert engine("compare", *folders) == 0
+
+    out = capsys.readouterr().out
+    for label, folder in zip("AB", folders, strict=True):
+        run = json.loads(backtest_lake.read(f"{folder}/run.json"))
+        rows = pq.read_table(io.BytesIO(backtest_lake.read(f"{folder}/predictions.parquet")))
+        scored = metrics.compute(
+            rows.to_pylist(),
+            ModelSpec.model_validate(run["spec"]),
+            {int(s): c for s, c in run["choices"].items()},
+        )
+        r = scored.picks
+        low, high = r.interval or (0.0, 0.0)
+        assert r.win_pct is not None and r.roi is not None
+        assert (
+            f"{label} ATS vs closing: {r} on {r.graded} graded picks, win {r.win_pct * 100:.1f}% "
+            f"[{low * 100:.1f}, {high * 100:.1f}], ROI {r.roi * 100:+.1f}%, calibration gate "
+            f"{scored.calibration.gate.status}"
+        ) in out
+
+
 def test_engine_compare_refuses_a_missing_run(
     backtest_lake: LocalLake, capsys: pytest.CaptureFixture[str]
 ) -> None:

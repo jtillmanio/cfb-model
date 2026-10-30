@@ -178,7 +178,7 @@ def _backtest(args: argparse.Namespace, seasons: list[int]) -> None:
     from pydantic import ValidationError
 
     from engine import backtest, clock
-    from engine.backtest import compare, harness, holdout
+    from engine.backtest import compare, harness, holdout, pick_rules
     from engine.core.spec import ModelSpec
     from engine.ingest.lake import open_lake
     from engine.models.efficiency import NoEarlierSeasonError
@@ -232,7 +232,12 @@ def _backtest(args: argparse.Namespace, seasons: list[int]) -> None:
         if choices:
             tuning = result.tuned_on[season]
             settings = ", ".join(f"{path} = {value:g}" for path, value in choices.items())
-            print(f"  {season}: {settings} (tuned on {tuning[0]}-{tuning[-1]})")
+            picks = result.pick_tuning.get(season)
+            behind = ""
+            if picks is not None:
+                floor = "" if picks.floor_met else f", under {pick_rules.FLOOR}"
+                behind = f", {picks.picks} tuning-season picks{floor}"
+            print(f"  {season}: {settings} (tuned on {tuning[0]}-{tuning[-1]}{behind})")
     print(f"Wrote {folder}/predictions.parquet and run.json")
     if opened:
         print(f"Holdout runs so far: {holdout.count(lake)}")
@@ -248,16 +253,19 @@ def _backtest(args: argparse.Namespace, seasons: list[int]) -> None:
             f"difference {d.estimate:+.2f} [{d.low:+.2f}, {d.high:+.2f}] {verdict}"
         )
     if args.report:
+        import json
+
         from engine.backtest import metrics, report
 
         tier = (backtest.matchup_tier, backtest.TIER_MATCHUPS)
         scored = metrics.compute(result.rows, spec, result.choices, holdout=opened, tier=tier)
+        meta = json.loads(lake.read(f"{folder}/run.json"))  # the report reads what was written
         run = {
-            "model": name,
-            "spec_hash": harness.spec_hash(spec),
-            "spec": spec.model_dump(mode="json"),
-            "tune_from": args.tune_from,
+            key: meta[key]
+            for key in ("model", "spec_hash", "spec", "tune_from", "choices", "tuned_on")
         }
+        if "pick_tuning" in meta:
+            run["pick_tuning"] = meta["pick_tuning"]
         md, page = report.write(Path(args.report), scored, {**run, "folder": folder}, versus)
         for gate_name, gate in scored.gates:  # the details hold − and ≤, which cp1252 lacks
             print(f"  {gate.status.upper():4} {gate_name}")
@@ -310,6 +318,15 @@ def _compare_runs(first: str, second: str, weeks: list[int] | None = None) -> No
         )
         brier = "n/a" if s.brier is None else f"{s.brier:.4f}"
         print(f"{label} ({s.distribution}): cover Brier {brier}")
+        r = s.picks  # TASK-039 AC-4: a pick-rule variant is judged on ATS and calibration
+        win = "n/a" if r.win_pct is None else f"{r.win_pct * 100:.1f}%"
+        low, high = r.interval or (0.0, 0.0)
+        roi = "n/a" if r.roi is None else f"{r.roi * 100:+.1f}%"
+        print(
+            f"{label} ATS vs closing: {r} on {r.graded} graded picks, win {win} "
+            f"[{low * 100:.1f}, {high * 100:.1f}], ROI {roi}, calibration gate "
+            f"{s.calibration.gate.status}"
+        )
         for b in s.calibration.bins:
             if b.mean_prob is not None and b.hit_rate is not None:
                 print(

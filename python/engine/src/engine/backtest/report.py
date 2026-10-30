@@ -13,6 +13,8 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from engine.backtest import metrics as m
+from engine.backtest.pick_rules import FLOOR
+from engine.core.spec import ModelSpec, fixed
 
 if TYPE_CHECKING:
     from engine.backtest.compare import Versus
@@ -111,6 +113,59 @@ def _ats(metrics: m.Metrics) -> Section:
             "a push is refunded, so ROI is units over the 1.1u risked on each win or loss.",
         ),
         (Table(("Metric", "Value"), rows),),
+    )
+
+
+def _pick_rules(run: Mapping[str, Any]) -> Section | None:
+    """Each season's pick rules and the tuning-season picks behind them (TASK-039), for a spec
+    that tunes its pick rules: none otherwise, so a fixed spec's report is unchanged."""
+    tuning = run.get("pick_tuning")
+    if not tuning:
+        return None
+
+    spec = ModelSpec.model_validate(run["spec"])
+    rows = []
+    for season, choices in sorted(run["choices"].items(), key=lambda sc: int(sc[0])):
+        rules = spec.resolve(choices).picks
+        tuned_on = run.get("tuned_on", {}).get(season, [])
+        picked = tuning.get(season)
+        rows.append(
+            (
+                str(season),
+                f"{tuned_on[0]}–{tuned_on[-1]}" if tuned_on else DASH,
+                f"{fixed(rules.market_shrinkage_k, 'k'):g}",
+                f"{fixed(rules.min_edge_pts, 'min_edge_pts'):g}",
+                pct(fixed(rules.min_prob, "min_prob")),
+                " / ".join(
+                    f"{fixed(t, 'tier'):g}" for t in (rules.tiers.A, rules.tiers.B, rules.tiers.C)
+                ),
+                DASH if picked is None else str(picked["picks"]),
+                DASH if picked is None else ("yes" if picked["floor_met"] else "no"),
+            )
+        )
+    return Section(
+        "Pick rules by season",
+        (
+            "Each season's pick rules, chosen on its tuning seasons only (04 § 9.1): "
+            "market shrinkage k by the lowest cover Brier score, then the thresholds by ATS win % "
+            f"among choices with at least {FLOOR} graded picks there; with none, the choice with "
+            "the most picks (TASK-039). Edges and tiers are on the blended margin.",
+        ),
+        (
+            Table(
+                (
+                    "Season",
+                    "Tuned on",
+                    "Shrinkage k",
+                    "Min edge (pts)",
+                    "Min cover",
+                    "Tiers A / B / C (pts)",
+                    "Tuning-season picks",
+                    f"{FLOOR}+",
+                ),
+                tuple(rows),
+            ),
+        ),
     )
 
 
@@ -368,11 +423,13 @@ def build(
         ("Results", f"{run['folder']}/predictions.parquet" if "folder" in run else DASH),
         ("Cover probabilities", COVER_CURVES[_distribution(run)]),
     )
+    pick_rules = _pick_rules(run)
     sections = [
         *([_comparison(comparison, str(run.get("model", "Model")))] if comparison else []),
         _gates(metrics),
         _accuracy(metrics.accuracy),
         _ats(metrics),
+        *([pick_rules] if pick_rules else []),
         _edge_trend(metrics.edge_trend),
         _consistency(metrics.consistency),
         _calibration(metrics.calibration),

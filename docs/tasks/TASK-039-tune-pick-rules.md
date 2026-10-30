@@ -1,14 +1,14 @@
 ---
 id: TASK-039
 title: Tune pick rules: thresholds, tiers and market shrinkage
-status: Ready
+status: In progress
 depends_on: [TASK-038]
 size: M
 model: opus
 autonomy: attended
 ui: false
-plan_status: none
-planned_at_commit:
+plan_status: approved
+planned_at_commit: 192e48b
 ---
 
 # TASK-039 — Tune pick rules: thresholds, tiers and market shrinkage
@@ -31,7 +31,7 @@ The model's pick rules (minimum edge, minimum cover probability, tier cutoffs an
 
 ## Acceptance criteria
 
-- [ ] AC-1: Given a spec whose `picks` fields are `{"tune": [...]}`, the backtest chooses validation season Y's pick rules from its tuning seasons only (2015 to Y−1, never a holdout season), by ATS win % against the closing line pooled over those seasons, among candidates with at least 200 picks there; a test on synthetic rows where the candidate with the best ATS has 199 picks shows the next-best candidate with ≥ 200 chosen instead, and a test that changes a season-Y row's result leaves season Y's choice unchanged.
+- [ ] AC-1: Given a spec whose `picks` fields are `{"tune": [...]}`, the backtest chooses validation season Y's pick rules from its tuning seasons only (2015 to Y−1, never a holdout season): `market_shrinkage_k` by the lowest cover-probability Brier score on those seasons' eligible games, then the pick thresholds by ATS win % against the closing line pooled over those seasons, among candidates with at least 200 picks there (*amended at the plan gate, owner 2026-10-30: k on ATS is the same dial as `min_edge_pts`*); a test on synthetic rows where the candidate with the best ATS has 199 picks shows the next-best candidate with ≥ 200 chosen instead, and a test that changes a season-Y row's result leaves season Y's choice unchanged.
 - [ ] AC-2: The chosen pick rules for each scored season are written to `run.json` `choices` alongside the model's settings, grading uses them (D-132), and `engine rate --choices <that run.json>` resolves the same pick rules for that season; the model settings chosen on margin MAE are the same as a run with fixed pick rules (the pick tuner never changes them).
 - [ ] AC-3: No pick is made on a game with an FCS team in the backtest or in the pick path `engine rate` and the weekly job will use (a test with an FBS-vs-FCS game and an edge above every threshold gets no pick), and under `distribution: empirical` a game whose liked side is the one the edge leans against gets no pick or a pick measured for the liked side, as the plan settles (a test builds that case; under `normal` every existing pick test and golden file is unchanged).
 - [ ] AC-4: On the local lake, pooled 2016–2023, the report compares the tuned `market_shrinkage_k` against k = 1 (ATS win % with its 95% interval, picks, ROI, and the calibration gate) on the same games with the same model settings; `efficiency-v1.json` keeps a shrinkage grid only if validation ATS with it is at least k = 1's, otherwise k is fixed at 1, and the decision row says which and why. The result is recorded in 04 § 4.
@@ -72,9 +72,35 @@ The model's pick rules (minimum edge, minimum cover probability, tier cutoffs an
 
 _Work noticed during this task and deliberately left out. Each bullet ends `→ <path> § <section>` (where it was placed) or `→ not tracked: <reason>`. See `.claude/skills/track-follow-ups/classify.md`; the PR's Follow-ups section is copied from here._
 
+- The weekly pick writer must call `core.picks.pick_game` with the sport's `pickable`, so D-047 holds live (approved at plan)
+- The early-season rule (04 § 4 "skip early-season games where the prior still dominates") isn't added here: read the week-of-season breakdown of the final v1 run before the go/no-go (approved at plan)
+- Market shrinkage was dropped on the § 9.6 ATS bar, yet it's what made the displayed cover probability honest (cover Brier 0.2500 against 0.2611; one calibration bin off against six), so at k = 1 the calibration gate fails: the go/no-go needs a way to calibrate the displayed probability without moving the pick threshold (a display-only shrinkage, or M19.2's per-game σ)
+
 ## Plan
 
-_Written by /plan-batch or /implement-task Phase 1. Approved by the user (plan_status: approved) before any code is written._
+Approved by the owner 2026-10-30 with two choices: **k is chosen on cover Brier, the thresholds on ATS** (AC-1 amended to match), and **tiers are fixed, not tuned**.
+
+**Why k isn't tuned on ATS.** The blended edge is `k × raw edge`, so on ATS `market_shrinkage_k` and `min_edge_pts` are one dial (blended ≥ 3 at k = 0.5 picks the games raw ≥ 6 at k = 1 does). What k changes is the displayed cover probability: on the 2016–2023 efficiency-v1 run, games the model calls 65%+ cover 53%, cover Brier keeps falling as k drops to about 0.2, and at k ≈ 0.3–0.4 every bin of 100+ is inside ±3 pts. `min_prob` is the same dial as `min_edge_pts` too (one σ per season), and a fixed 0.55 at small k would block nearly every pick, so it's fixed at 0.5 (inactive).
+
+**Steps**
+
+1. `core/picks.py`: under `empirical`, a game whose liked side is the one the edge leans against is a pass (the edge measured for the liked side is negative). `pick_game(context, pred_margin, spread_home, rules, dist, pickable)` returns None when the sport's `pickable(context)` says no; `sports/cfb/teams.py` adds `pickable` (both teams FBS, D-047). `pick()` is otherwise unchanged, so normal results are byte-identical.
+2. `backtest/harness.py`: two stages. The model tuner (`grid_tuner`, margin MAE) sees only the non-`picks.*` tunables; the walk-forward cache key and the model's factory leave `picks.*` out, so a pick grid never re-fits. Then the pick tuner (new `backtest/pick_rules.py`) chooses `picks.*` on the tuning seasons' rows under that season's model choices, through the same guarded `evaluate` (04 § 9.1). `choices[Y]` holds both; `BacktestRun` and `run.json` add `tuning_picks[Y]` (graded picks behind the chosen threshold) and whether the 200 floor was met.
+3. `backtest/pick_rules.py`: (a) `market_shrinkage_k`: lowest cover Brier (`metrics.grade_rows` + `cover_brier`, every eligible tuning-season game, pushes out); ties go to the larger k. (b) the other tuned pick fields (`min_edge_pts`, `min_prob`, tiers if tuned): their grid at the chosen k, ATS win % graded by `grade_rows` (D-132), only candidates with ≥ 200 graded picks (W + L); ties go to more picks, then grid order. No candidate at 200: the one with the most picks, flagged. A tuned tier field is chosen like a threshold (it never changes ATS, so it takes grid order).
+4. `backtest/report.py` + `cli.py`: a "Pick rules by season" section (each season's chosen pick rules, tuning seasons, tuning-season picks, the 200 flag), shown only when the spec tunes a pick field, so existing report goldens are unchanged; the CLI prints the same lines.
+5. `backtest/compare.py` + `cli.py` `_compare_runs`: per run on the shared games, ATS record, win % with its 95% interval, picks, ROI and the calibration gate (AC-4's comparison).
+6. Lake runs: efficiency-v1 with k tuned, and a k = 1 variant (same model grid) → `engine compare`; if shrinkage stays, the empirical variant with it → AC-5. Settle `efficiency-v1.json` `picks` (k grid or 1, the `min_edge_pts` grid, `min_prob` 0.5, tiers fixed from the run's blended-edge spread); record the results in 04 § 3, § 4 and § 9.2's tuning-target wording, and one D-### row.
+
+**Files:** `core/picks.py`, `sports/cfb/teams.py`, `backtest/harness.py`, `backtest/pick_rules.py` (new, not in Files likely touched), `backtest/report.py`, `backtest/compare.py`, `cli.py` (not listed), `specs/efficiency-v1.json`, `docs/04-model.md`, `docs/decisions.md`; tests `test_core_picks.py`, `test_pick_tuning.py` (new), `test_backtest_report.py`, `test_backtest_compare.py`, `test_publish_models.py`, `test_conference_tiers.py` (`pickable`). `metrics.py` and `publish/models.py` are expected unchanged (reused as is).
+
+**Test strategy**
+
+- AC-1 (`test_pick_tuning.py`): synthetic rows where the best ATS threshold has 199 graded picks → the best one with ≥ 200 is chosen; k is the lowest-Brier candidate; changing a season-Y row's result leaves Y's choices unchanged; the tuner refuses a season outside its tuning seasons.
+- AC-2 (`test_pick_tuning.py`, `test_publish_models.py`): model choices with tuned picks equal those with fixed picks; `run.json` `choices` carry `picks.*` and `grade_rows` uses them; `models.settings` on that run.json resolves the same pick rules.
+- AC-3 (`test_core_picks.py`, `test_conference_tiers.py`, `test_backtest_harness.py`): an FBS-vs-FCS game with an edge over every threshold gets no pick from `pick_game` and isn't a backtest row; the empirical liked-side case passes; normal goldens unchanged.
+- AC-4, AC-5: the lake runs (manual, recorded); AC-6: a report test with tuned picks shows the per-season rules and pick counts; the golden files are unchanged.
+
+**Risks:** small k makes displayed probabilities about 51–55%, honest but modest in the UI; 2016 tunes on 2015 alone, so its threshold may fall back below 200 picks (flagged in the report).
 
 ## Review log
 
