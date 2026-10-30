@@ -1,7 +1,7 @@
 ---
 id: TASK-041
 title: Add the current_picks, pick_outcomes and model_record views
-status: Review
+status: Done
 depends_on: [TASK-040]
 size: M
 model: opus
