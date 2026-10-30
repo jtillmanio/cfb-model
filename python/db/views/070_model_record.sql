@@ -8,12 +8,14 @@
 --   breakdown 'week':    that week's games alone
 --   breakdown 'to_date': the season's start through that week (the newest week is the season)
 --   breakdown 'tier':    to date, one row per tier (tier NULL: a side stored with no tier)
---   breakdown 'bucket':  to date, one row per edge_bucket (display only, D-077)
+--   breakdown 'bucket':  to date, one row per edge_bucket (display only, D-077; '<2.5' below the
+--                        lowest bucket)
 -- Pushes count in W-L-P and earn 0; win_pct (0-100) leaves pushes and voids out; roi_pct is units
 -- ÷ risked, a push refunded (D-132); avg_clv is over every non-void pick with a closing line.
 -- One plain GROUP BY over the four breakdowns, not GROUPING SETS: Postgres pushes a filter on a
--- grouping column below a plain GROUP BY only, so a read filtered by version and season reads
--- that version's picks alone, through the (model_version_id, game_id) index.
+-- grouping column below a plain GROUP BY only, so a read filtered by version and season applies
+-- them at the picks and games scans, before anything is graded. The weeks come from
+-- current_picks and games, so game_market is read once per pick, for the graded rows.
 CREATE OR REPLACE VIEW model_record AS
 SELECT
     w.model_version_id,
@@ -35,10 +37,11 @@ SELECT
     100 * sum(o.units) / nullif(sum(o.risked), 0) AS roi_pct,
     avg(o.clv) FILTER (WHERE o.result <> 'void') AS avg_clv
 FROM (
-    -- The weeks a version has current picks in.
-    SELECT DISTINCT model_version_id, season, season_type, week
-    FROM pick_outcomes
-    WHERE is_current AND line_source = 'market'
+    -- The weeks a version has current market picks in.
+    SELECT DISTINCT c.model_version_id, g.season, g.season_type, g.week
+    FROM current_picks c
+    JOIN games g ON g.id = c.game_id
+    WHERE c.line_source = 'market'
 ) w
 CROSS JOIN (VALUES ('week'), ('to_date'), ('tier'), ('bucket')) k (breakdown)
 JOIN pick_outcomes o

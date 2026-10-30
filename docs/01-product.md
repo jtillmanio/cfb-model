@@ -199,7 +199,7 @@ Also from the same list: **conference-tier shrinkage** ("opponent adjusted but a
 
 **F-02 Pick recommendations**
 1. A game is a pick only when its edge and cover probability clear the active model version's pick rules. v1.0's spec gives min edge 2.5, min cover 55% and tiers A ≥ 5.0 · B ≥ 3.5 · C ≥ 2.5. The UI reads these from the spec, never from constants. Texas vs Oklahoma is tier A, Ole Miss @ LSU is B, Notre Dame @ Stanford is C, and the week has 9 picks.
-2. Picks › "Week 6 · 9" lists picks sorted by tier, then edge. Each row shows Picked at, Now, CLV, Edge now and Cover. For example: "MISS +2.5 · Picked at +2.5, Sun 6:10 AM · Now ↔ +3.5 moved · CLV +1.0 so far · +4.9 MISS, at pick +3.9 MISS · 62%, was 60%".
+2. Picks › "Week 6 · 9" lists picks sorted by tier, then edge. Each row shows Picked at, Now, CLV, Edge now and Cover. For example: "MISS +2.5 · Picked at +2.5, Sun 6:10 AM · Now ↔ +3.5 moved · CLV −1.0 so far · +4.9 MISS, at pick +3.9 MISS · 62%, was 60%".
 3. Picks are immutable. When a line moves, the original pick keeps its "Picked at" line, and any re-evaluation is stored as a new pick row.
 
 **F-03 Contest mode**

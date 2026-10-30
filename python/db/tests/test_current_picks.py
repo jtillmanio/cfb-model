@@ -7,6 +7,9 @@ test reads the fixture CI loads before pytest (`pnpm db:seed`, D-089)."""
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime
+from decimal import Decimal
+from typing import Any
 
 import model_rows as m
 from sqlalchemy import Connection, text
@@ -154,3 +157,94 @@ def assert_one_game_read_uses_an_index(conn: Connection, view: str) -> None:
 def test_one_game_read_uses_an_index(db_conn: Connection):
     """AC-6."""
     assert_one_game_read_uses_an_index(db_conn, "current_picks")
+
+
+def _frozen_game(conn: Connection, kickoff: datetime | None, game_date: str | None = None) -> Game:
+    m.sport(conn)
+    home, away = m.team(conn, "home-frozen"), m.team(conn, "away-frozen")
+    game_id = m.game(conn, home, away, kickoff, week=1, points=(24, 20), game_date=game_date)
+    version_id = m.version(conn, "frozen")
+    run_id = m.run(conn, version_id, 1, m.utc(2030, 9, 1, 10))
+    return Game(
+        id=game_id,
+        version_id=version_id,
+        prediction_id=m.prediction(conn, run_id, version_id, game_id),
+        book_id=m.book(conn),
+    )
+
+
+def _graded(conn: Connection, g: Game) -> tuple[list[Any], list[Any], list[Any]]:
+    """(current pick ids, pick_outcomes (id, is_current, result), to-date record rows)."""
+    current = conn.execute(
+        text("SELECT id FROM current_picks WHERE game_id = :g"), {"g": g.id}
+    ).scalars()
+    outcomes = conn.execute(
+        text(
+            "SELECT pick_id, is_current, result FROM pick_outcomes WHERE game_id = :g"
+            " ORDER BY pick_id"
+        ),
+        {"g": g.id},
+    ).all()
+    record = conn.execute(
+        text(
+            "SELECT picks, wins, losses, units FROM model_record"
+            " WHERE model_version_id = :v AND season = :s AND breakdown = 'to_date'"
+        ),
+        {"v": g.version_id, "s": m.SEASON},
+    ).all()
+    return list(current), [tuple(o) for o in outcomes], [tuple(r) for r in record]
+
+
+def test_a_row_written_after_kickoff_changes_nothing(db_conn: Connection):
+    """D-142, hard rule 4: the pick is frozen at kickoff. A pass and a flipped side written after
+    kickoff (when the result can be known) leave the current pick, the graded rows and the
+    record as they were: the home pick at −1, home by 4, a win."""
+    kickoff = m.utc(2030, 9, 7, 16)
+    g = _frozen_game(db_conn, kickoff)
+    sunday = m.line(db_conn, g.id, g.book_id, m.utc(2030, 9, 1, 10), -1.0)
+    late = m.line(db_conn, g.id, g.book_id, m.utc(2030, 9, 7, 18), -6.0)
+    pick = m.pick(db_conn, g.prediction_id, g.version_id, g.id, sunday, m.utc(2030, 9, 1, 10, 10),
+                  side="home", line=-1.0)  # fmt: skip
+    before = _graded(db_conn, g)
+    assert before == ([pick], [(pick, True, "won")], [(1, 1, 0, Decimal("1.0"))])
+
+    m.pick(db_conn, g.prediction_id, g.version_id, g.id, late, kickoff,
+           side=None, line=-6.0, edge_pts=0.5)  # fmt: skip
+    later = m.line(db_conn, g.id, g.book_id, m.utc(2030, 9, 7, 19), -6.5)
+    m.pick(db_conn, g.prediction_id, g.version_id, g.id, later, m.utc(2030, 9, 7, 19, 5),
+           side="away", line=-6.5, edge_pts=-3.0, tier="C")  # fmt: skip
+
+    assert _graded(db_conn, g) == before
+
+
+def test_a_tba_kickoff_freezes_at_the_end_of_its_eastern_day(db_conn: Connection):
+    """With no kickoff time the cutoff is the end of game_date in Eastern time (game_market's):
+    a pass at 11:30 PM ET on game day counts, a pick at 12:30 AM ET the next day doesn't."""
+    g = _frozen_game(db_conn, None, game_date="2030-09-07")
+    sunday = m.line(db_conn, g.id, g.book_id, m.utc(2030, 9, 1, 10), -1.0)
+    m.pick(db_conn, g.prediction_id, g.version_id, g.id, sunday, m.utc(2030, 9, 1, 10, 10),
+           side="home", line=-1.0)  # fmt: skip
+    night = m.line(db_conn, g.id, g.book_id, m.utc(2030, 9, 8, 3), -2.0)
+    m.pick(db_conn, g.prediction_id, g.version_id, g.id, night, m.utc(2030, 9, 8, 3, 30),
+           side=None, line=-2.0, edge_pts=0.5)  # 11:30 PM EDT on the 7th  # fmt: skip
+
+    assert _current(db_conn, g.id) == []
+
+    after = m.line(db_conn, g.id, g.book_id, m.utc(2030, 9, 8, 4, 30), -2.5)
+    m.pick(db_conn, g.prediction_id, g.version_id, g.id, after, m.utc(2030, 9, 8, 4, 30),
+           side="home", line=-2.5)  # 12:30 AM EDT on the 8th  # fmt: skip
+
+    assert _current(db_conn, g.id) == []
+
+
+def test_current_picks_are_pick_outcomes_current_rows(db_conn: Connection):
+    """The window is written in both views (050, 060): they must pick the same rows, on the
+    seed and on a game with a superseded pick, a pass and rows after kickoff."""
+    test_a_row_written_after_kickoff_changes_nothing(db_conn)
+    current = set(db_conn.execute(text("SELECT id FROM current_picks")).scalars())
+    outcomes = set(
+        db_conn.execute(text("SELECT pick_id FROM pick_outcomes WHERE is_current")).scalars()
+    )
+
+    assert len(current) >= 66
+    assert current == outcomes

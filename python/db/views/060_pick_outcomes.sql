@@ -1,9 +1,11 @@
 -- pick_outcomes: every pick graded against the line it was made at, with its CLV (TASK-041,
 -- D-132, docs/04-model.md § 9.3, docs/03-data-model.md › Views). Never stored (hard rule 1).
 --
--- One row per spread pick, superseded ones too (passes have no side to grade); is_current marks
--- the row current_picks shows, the only one model_record counts. The home side covers when
--- margin + line > 0, a push at 0.
+-- One row per spread pick made before the game's cutoff, superseded ones too (passes have no side
+-- to grade); is_current marks the row current_picks shows (ranked the same way, over the same
+-- rows: see 050_current_picks.sql), the only one model_record counts. A row written after the
+-- cutoff is left out (hard rule 4, D-142). The home side covers when margin + line > 0, a push
+-- at 0.
 --   result: won | lost | push on a final game; pending while it is scheduled or in progress;
 --           void when it is canceled or postponed.
 --   units:  priced at the pick's price for its stake (−110: a win +1.0u, a loss −1.1u); a push
@@ -13,9 +15,10 @@
 --           line − close for a home pick, close − line for an away pick, so a home pick at −2.5
 --           that closed −3.5 is +1.0 and an away pick there −1.0. NULL until the close exists
 --           (game_market's cutoff, D-120). clv_so_far is the same against the current line.
---   edge_bucket: 04 § 9.4's pick buckets on abs(edge_pts), lower bound in; display only (D-077).
--- The window partition holds game_id and model_version_id, so a read filtered by either reads
--- only those picks through an index, and game_market is read for those games alone.
+--   edge_bucket: 04 § 9.4's pick buckets on abs(edge_pts), lower bound in, '<2.5' below the
+--           lowest; display only (D-077).
+-- The window partition holds game_id and model_version_id, so a read filtered by either is
+-- applied at the picks scan, below the window, and game_market is read for those games alone.
 CREATE OR REPLACE VIEW pick_outcomes AS
 SELECT
     p.id AS pick_id,
@@ -73,10 +76,14 @@ FROM (
             ORDER BY p.created_at DESC, p.id DESC
         ) AS newest
     FROM picks p
+    JOIN games gk ON gk.id = p.game_id
     CROSS JOIN LATERAL (
         SELECT CASE WHEN p.line_snapshot_id IS NOT NULL THEN 'market' END AS line_source
     ) s
     WHERE p.market = 'spread'
+        AND p.created_at < coalesce(
+            gk.kickoff_at, (gk.game_date + 1)::timestamp AT TIME ZONE 'America/New_York'
+        )
 ) p
 JOIN games g ON g.id = p.game_id
 JOIN game_market gm ON gm.game_id = p.game_id
