@@ -6,7 +6,7 @@ a TBA kickoff, and a neutral-site game with no venue against an FCS team with no
 """
 
 import json
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 
 import pytest
@@ -67,3 +67,19 @@ def test_completed_game_without_a_score_is_rejected():
     broken = [{**SAMPLE[0], "homePoints": None}]
     with pytest.raises(ValueError, match="401752677"):
         map_games(broken)
+
+
+def test_unscored_game_a_week_past_its_start_is_canceled():
+    """TASK-044 (D-121, D-145): the transform's status rule. Unscored and uncompleted on a file
+    saved `SETTLE` (7 days) after its start is canceled; inside the window, or with no save time,
+    it stays scheduled."""
+    unplayed = {**SAMPLE[0], "completed": False, "homePoints": None, "awayPoints": None}
+    start = datetime(2025, 8, 30, 16, tzinfo=UTC)
+
+    def status(**kwargs: datetime) -> str:
+        return map_games([unplayed], **kwargs).games[0].status
+
+    assert status(saved_at=start + timedelta(days=7)) == "canceled"
+    assert status(saved_at=start + timedelta(days=6, hours=23)) == "scheduled"
+    assert status() == "scheduled"
+    assert map_games(SAMPLE, saved_at=start + timedelta(days=30)).games[0].status == "final"

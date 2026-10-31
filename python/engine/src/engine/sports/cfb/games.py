@@ -8,6 +8,8 @@ from datetime import date, datetime
 from typing import Any
 from zoneinfo import ZoneInfo
 
+from engine.ingest.endpoints import done
+
 # CFB's calendar day is the Eastern one: a 8 PM ET kickoff is 00:00Z the next day,
 # and CFBD sends a TBA kickoff as midnight Eastern.
 EASTERN = ZoneInfo("America/New_York")
@@ -63,7 +65,15 @@ def _start(raw: str) -> datetime:
     return datetime.fromisoformat(raw.replace("Z", "+00:00"))
 
 
-def _game(g: Mapping[str, Any]) -> GameRow:
+def _status(g: Mapping[str, Any], saved_at: datetime | None) -> str:
+    """The transform's rule (D-145): completed is final; unscored and uncompleted on a file saved
+    7+ days after its start is canceled (D-121's `endpoints.done`); else scheduled."""
+    if g["completed"]:
+        return "final"
+    return "canceled" if saved_at is not None and done(g, saved_at) else "scheduled"
+
+
+def _game(g: Mapping[str, Any], saved_at: datetime | None) -> GameRow:
     start = _start(g["startDate"])
     completed = bool(g["completed"])
     home_points, away_points = g.get("homePoints"), g.get("awayPoints")
@@ -83,17 +93,20 @@ def _game(g: Mapping[str, Any]) -> GameRow:
         away_source_id=str(g["awayId"]),
         home_points=home_points,
         away_points=away_points,
-        status="final" if completed else "scheduled",
+        status=_status(g, saved_at),
     )
 
 
-def map_games(payload: Iterable[Mapping[str, Any]]) -> GamesBatch:
+def map_games(
+    payload: Iterable[Mapping[str, Any]], saved_at: datetime | None = None
+) -> GamesBatch:
+    """`saved_at` is when the response's file was saved: without it no game is canceled."""
     batch = GamesBatch()
     teams: dict[str, TeamRow] = {}
     seasons: dict[tuple[str, int], TeamSeasonRow] = {}
     venues: dict[str, VenueRow] = {}
     for g in payload:
-        game = _game(g)
+        game = _game(g, saved_at)
         batch.games.append(game)
         for side in ("home", "away"):
             source_id = str(g[f"{side}Id"])

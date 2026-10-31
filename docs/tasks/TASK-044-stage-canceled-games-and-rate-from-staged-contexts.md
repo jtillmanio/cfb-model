@@ -88,6 +88,8 @@ Approved 2026-10-31 (attended).
 
 **Risks:** a canceled game still counts toward its week's `as_of` (only ever earlier, never a leak; App State–Liberty isn't its week's first kickoff, so no backtest number moves). Line pulls after a canceled game's start still publish as its close; harmless, since it grades `void`.
 
+**Revision 1** (2026-10-31, owner's OK after schema review R1): the dev-only `engine ingest games` (`map_games`) still wrote `final`/`scheduled` only, so re-ingesting a week turned a canceled dev row back to `scheduled`. `map_games(payload, saved_at)` now applies the same rule through `endpoints.done`, and `ingest/games.py` passes the saved file's time. Files added: `engine/sports/cfb/games.py`, `engine/ingest/games.py`, `tests/test_cfbd_games.py` (`test_unscored_game_a_week_past_its_start_is_canceled`), `tests/test_cfbd_client.py` (`test_ingest_games_publishes_a_game_unscored_a_week_on_as_canceled`); D-145 notes it.
+
 ## Review log
 
 _Filled by /implement-task. One line per round._
