@@ -1,7 +1,7 @@
 ---
 id: TASK-044
 title: Stage canceled and postponed games, and rate from the harness's staged contexts
-status: In progress
+status: Review
 depends_on: []
 size: M
 model: opus
@@ -29,11 +29,11 @@ A game that won't be played is marked canceled (or postponed) from the lake thro
 
 ## Acceptance criteria
 
-- [ ] AC-1: Given a lake fixture with a completed game, a future game and a game left uncompleted and unscored by a `/games` file saved 7+ days after its start, `engine transform --rebuild` stages them `final`, `scheduled` and `canceled` (or `postponed`, as the plan settles), and `engine publish --target test` writes the same three statuses to Postgres `games.status`; a second publish leaves them unchanged.
-- [ ] AC-2: Given a fixture week holding one canceled game, `engine rate` inserts a prediction for every other staged game of the week and none for the canceled one (test against the test DB).
-- [ ] AC-3: `engine rate` builds the week's games from the harness's staged contexts (`harness.load`), and `publish/models.py` no longer has `_kickoff`; a test shows a TBA game's kickoff in `engine rate` equals the one `features.KICKOFF` gives (the end of its Eastern `game_date`), and the existing `test_publish_models.py` cases pass unchanged.
-- [ ] AC-4: On the local lake, `engine transform --rebuild` for 2014–2026 passes the data-quality checks with zero CFBD calls (`data/cfbd_calls.json` unchanged); the count of staged games per status and season is printed and recorded in the decision row, and App State–Liberty 2024 is staged as not played.
-- [ ] AC-5: 03 › staging `games` lists the staged statuses and the rule that sets them, and a decision row (D-###) records the signal chosen.
+- [x] AC-1: Given a lake fixture with a completed game, a future game and a game left uncompleted and unscored by a `/games` file saved 7+ days after its start, `engine transform --rebuild` stages them `final`, `scheduled` and `canceled` (or `postponed`, as the plan settles), and `engine publish --target test` writes the same three statuses to Postgres `games.status`; a second publish leaves them unchanged.
+- [x] AC-2: Given a fixture week holding one canceled game, `engine rate` inserts a prediction for every other staged game of the week and none for the canceled one (test against the test DB).
+- [x] AC-3: `engine rate` builds the week's games from the harness's staged contexts (`harness.load`), and `publish/models.py` no longer has `_kickoff`; a test shows a TBA game's kickoff in `engine rate` equals the one `features.KICKOFF` gives (the end of its Eastern `game_date`), and the existing `test_publish_models.py` cases pass unchanged.
+- [x] AC-4: On the local lake, `engine transform --rebuild` for 2014–2026 passes the data-quality checks with zero CFBD calls (`data/cfbd_calls.json` unchanged); the count of staged games per status and season is printed and recorded in the decision row, and App State–Liberty 2024 is staged as not played.
+- [x] AC-5: 03 › staging `games` lists the staged statuses and the rule that sets them, and a decision row (D-###) records the signal chosen.
 
 ## Out of scope
 
@@ -60,6 +60,12 @@ A game that won't be played is marked canceled (or postponed) from the lake thro
 ## Follow-ups
 
 _Work noticed during this task and deliberately left out. Each bullet ends `→ <path> § <section>` (where it was placed) or `→ not tracked: <reason>`. See `.claude/skills/track-follow-ups/classify.md`; the PR's Follow-ups section is copied from here._
+
+- Candidate decision: a game unscored and uncompleted 7+ days after its start is staged `canceled`, `postponed` is never staged, and `engine rate` predicts `harness.Week.contexts` (amends D-136's "stages only final and scheduled") → docs/decisions.md § D-145
+- `engine ingest games` (`map_games`) wrote only final/scheduled, so re-ingesting a week flipped a canceled dev row back (schema review R1) → not tracked: done in this PR (plan revision 1)
+- `map_games`'s `saved_at` defaults to None, which keeps the old final/scheduled behaviour for a caller that leaves it out (schema review R2, optional) → not tracked: its one production caller, `ingest/games.py`, passes it, and the sample-file tests rely on the default
+- Line pulls after a canceled game's start still publish as its closing line in `game_market` → not tracked: the pick views grade the game `void` (D-142), so no record, ROI or CLV reads it
+- The dev DB holds 104 `cfbd` games (all 2025 regular week 1, `final`) that staging doesn't have, likely from an early `ingest:games` run; upserts never delete them → not tracked: dev-only rows unrelated to this task, which no job or release reads
 
 ## Plan
 
@@ -92,7 +98,11 @@ Approved 2026-10-31 (attended).
 
 ## Review log
 
-_Filled by /implement-task. One line per round._
+- Verify R1 PASS (verify.full) → R2 PASS after Revision 1 (752 pytest)
+- Audit R1 PASS (6 tests, all discriminating) → R2 PASS (Revision 1's 2 tests)
+- Spec R1 APPROVE → R2 APPROVE (Revision 1)
+- Schema R1 APPROVE (2 MINOR: `map_games` still wrote only final/scheduled; the staging docstring) → Revision 1 → R2 APPROVE
+- Manual: local-lake rebuild 6/6 checks, ledger hash unchanged, 2024 canceled 1 (401640992); `engine publish --target dev` → dev `games` canceled 1, final 10985, scheduled 378
 
 ## Blocked
 
@@ -100,7 +110,7 @@ _Only if status is Blocked: what failed, what was tried, best hypothesis, decisi
 
 ## Metrics
 
-- Verify rounds:
-- Review rounds:
-- First-pass AC FAILs:
-- Plan revisions after approval:
+- Verify rounds: 2 (both PASS; the second after Revision 1)
+- Review rounds: 2 (spec), 2 (schema); audit 2
+- First-pass AC FAILs: 0 (schema R1's MINORs were a second status writer and a docstring, not an AC)
+- Plan revisions after approval: 1 (the dev `ingest:games` status rule, owner's OK)
