@@ -10,7 +10,7 @@
     {"stat": "pass_success_rate", "weight": "fit"}
   ],
   "hyperparameters": {
-    "ridge_alpha": {"tune": [0.5, 1, 2]},
+    "ridge_alpha": {"tune": [1, 2, 3, 5, 8]},
     "recency_half_life_weeks": {"tune": [8, 16]}
   },
   "home_field": "fit",

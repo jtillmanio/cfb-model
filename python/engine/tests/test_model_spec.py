@@ -221,3 +221,15 @@ def test_a_spec_without_the_display_shrinkage_keeps_its_hash() -> None:
     assert spec_hash(ModelSpec.model_validate(at_one)) == before
     assert spec_hash(ModelSpec.model_validate(shrunk)) != before
     assert ModelSpec.model_validate(power).picks.display_shrinkage_k == 1.0
+
+
+def test_the_v1_spec_tunes_ridge_alpha_above_2() -> None:
+    """TASK-043 AC-1: every 2016-2023 season picked `ridge_alpha` 2, the top of {0.5, 1, 2}
+    (D-138), so v1's final grid reaches above it and an edge choice can be told from a real one."""
+    import json
+
+    v1 = ModelSpec.model_validate(json.loads((SPECS / "efficiency-v1.json").read_text("utf-8")))
+    grid = v1.tunables()["hyperparameters.ridge_alpha"]
+
+    assert max(grid) > 2
+    assert 2 in grid and min(grid) < 2  # 2 stays an inner candidate

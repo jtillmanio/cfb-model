@@ -1,14 +1,14 @@
 ---
 id: TASK-043
 title: Run the holdout evaluation and the go/no-go for v1
-status: Ready
+status: In progress
 depends_on: [TASK-042]
 size: M
 model: opus
 autonomy: attended
 ui: false
-plan_status: none
-planned_at_commit:
+plan_status: approved
+planned_at_commit: 9cdf7be
 ---
 
 # TASK-043 — Run the holdout evaluation and the go/no-go for v1
@@ -57,16 +57,36 @@ The owner gets a written go/no-go for model v1: every gate on the validation sea
 
 ## Verification
 
-- Automated: `pnpm test` (the spec still validates; the golden files are untouched, since `efficiency-v1.json` isn't a golden spec).
+- Automated: `pnpm test` (the spec still validates; `test_efficiency_ratings.py`'s golden backtest reads `efficiency-v1.json`, so the widened grid regenerates `backtest_efficiency_golden.csv`: the fixture now picks α 8).
 - Manual: the AC-1 and AC-2 runs on the local lake, then the single AC-3 holdout run → read every gate, comparison and the holdout result with the owner before the call in AC-4 is recorded; `engine backtest` refuses `--seasons 2024-2025` without `--holdout --reason`.
 
 ## Follow-ups
 
 _Work noticed during this task and deliberately left out. Each bullet ends `→ <path> § <section>` (where it was placed) or `→ not tracked: <reason>`. See `.claude/skills/track-follow-ups/classify.md`; the PR's Follow-ups section is copied from here._
 
+- TASK-046's weekly job needs the version and status the go/no-go settles (expected: v1 as `candidate`, paper-traded through 2026) (approved at plan)
+- TASK-045 shows `picks.model_prob`; it needs whether the "uncalibrated" label shows (it does while the calibration gate fails) (approved at plan)
+- The calibration gate's ±3 points is tighter than a ~130-game bin's standard error (4.4 points): a noise-aware tolerance for later versions goes in the go/no-go row's revisit column, not applied to v1 (owner, plan gate 2026-10-31) (approved at plan)
+
 ## Plan
 
-_Written by /plan-batch or /implement-task Phase 1. Approved by the user (plan_status: approved) before any code is written._
+Approved 2026-10-31. Owner's plan-gate choices: α grid {1, 2, 3, 5, 8}; the sibling spec stays committed; the calibration gate is read as written (± 3 points, bins of ≥ 100); if gates fail, the intended call is to paper-trade v1 as `candidate` (recorded only after the results are read together).
+
+**Steps:**
+
+1. Test first: `test_model_spec.py` asserts the shipped `efficiency-v1.json` validates and its `ridge_alpha` grid reaches above 2 (fails on {0.5, 1, 2}). Widen it to {1, 2, 3, 5, 8}. `test_efficiency_ratings.py`'s golden backtest reads `efficiency-v1.json`: if the fixture now picks another α, regenerate the golden file in a commit that says why (D-132) and correct this file's Verification line.
+2. Record the before state: `backtests/holdout/` record count (0) and the `data/cfbd_calls.json` SHA-256 (`2B2539…16993DB3B6`).
+3. Final validation run: `engine backtest --spec efficiency-v1.json --seasons 2016-2023 --report DIR`. If a season still picks the grid's top (8), widen once more; if one is still at the top after that, the decision row says why the edge stands.
+4. Comparisons on the same games: fresh `power-v1.json` 2016–2023 run (Rung 1), and `efficiency-v1-last-season-prior.json` (`components: [last_season]`, otherwise identical); `engine compare` each against the final run, pooled and `--weeks 1-3`. Fixed before the run: v1 switches to last season alone only if it is clearly better (its interval against the four components entirely below zero); otherwise the four stay.
+5. Record in 04 § 9.6 › Phase 3: the five § 9.4 gates with their numbers, week-of-season and conference-tier breakdowns, the run directories, both comparisons; § 2 › Preseason priors if the components lose; § 4's early-season line with weeks 1–3 ATS and pick count. Read the results with the owner; the spec is frozen.
+6. Holdout, once: `engine backtest --spec <final> --seasons 2024-2025 --holdout --reason "v1 promotion exam (TASK-043)" --report DIR`; show the record count (0 → 1) and the unchanged call-log hash. On a fail nothing changes after it (§ 9.1).
+7. Read the holdout with the owner, then the go/no-go row (ID from `next-id.ps1`): every gate and the holdout check with its number, the owner's call and date, the "uncalibrated" label; 04 § 9.6 › Phase 3 "Met" / "Not met" with the date and the ID.
+
+**Files:** `python/engine/specs/efficiency-v1.json` (α grid), `python/engine/specs/efficiency-v1-last-season-prior.json` (new, the recheck), `python/engine/tests/test_model_spec.py` (the grid test; not in Files likely touched), the efficiency golden file if it moves (not in Files likely touched), `docs/04-model.md`, `docs/decisions.md`, this task file; `docs/06-roadmap.md`'s holdout tick at close-out.
+
+**Test strategy:** AC-1's grid: `test_model_spec.py::test_the_v1_spec_tunes_ridge_alpha_above_2`; the rest of AC-1 and AC-2–AC-5 are the manual runs, their numbers recorded in 04 and the decision row, with the holdout count and call-log hash shown before and after. `pnpm test` covers the specs still validating.
+
+**Risks:** the golden backtest may move with the grid (step 1); the holdout's MAE check likely fails (2024–2025 closing-line MAE is lower on median lines), which § 9.1 reads as sending the candidate back for production, so the owner's call is recorded against it.
 
 ## Review log
 
