@@ -229,6 +229,8 @@ Three status records, one owner each: the roadmap checkbox is ticked in the task
 
 Claude never unticks, never edits an item's text or check line, and never adds marks to a doc that has none.
 
+**Task list Done column.** When the roadmap and the task list are separate docs, the roadmap gets ticked and the task list never shows progress. With `workflow.taskListDone` on, every milestone table in the task list starts with a **Done** column (`✅` when every task the row names is Done). `/implement-task` close-out and accept, and `/sync-roadmap`, fill it from the `#` cell (`M4.7 → TASK-042, TASK-043`); a row with a task still Ready or in progress stays blank and is reported as partial. A row with no task is ticked only if its Notes say it was done another way. Only the Done cell ever changes, and nothing is ever unticked. Rules: `ticks.md` § The task list's Done column.
+
 **What makes a task `unattended`:** small or medium within one layer, Sonnet-implementable, follows an existing pattern, every AC automatable, and no schema, auth, ETL, or deletion. Everything else stays `attended`.
 
 ## 7. Level 1: attended, one task at a time
@@ -364,7 +366,7 @@ The PR body is pre-filled from `.github/pull_request_template.md`. Spend your 5�
 | `/skeleton` | Build the walking skeleton: scaffold, scripts, one end-to-end slice, tests, CI |
 | `/milestones [MVP or Next]` | Break scope into demoable milestones and task stubs with a coverage check |
 | `/milestones --coverage [roadmap]` | Check an existing roadmap's coverage of features, screens, and entities; add the gaps to it as numbered items with a check line. Writes no new file |
-| `/customize-kit` | Tailor the kit to a project. Run once, and again after upgrades (it detects a 2.3.x through 2.7.x setup) |
+| `/customize-kit` | Tailor the kit to a project. Run once, and again after upgrades (it detects a 2.3.x through 2.8.x setup) |
 | `/new-task <description or path [M#] or roadmap IDs>` | Create task files with checkable ACs; bulk-convert a task list one milestone at a time, or a roadmap one sitting at a time |
 | `/verify` | Generated per project by `/customize-kit`: run `verify.full` before a push and report the actual output |
 | `/next-task [--dry-run]` | Pick the best Ready task (respecting WIP and dependencies) and implement it attended |
@@ -468,6 +470,7 @@ Every key is optional. A missing key takes the default below, which is the 2.3.1
 | `workflow.roadmap` | `null` | `{ path, idPattern, checkLabel }`: roadmap-led mode (§6) |
 | `workflow.statusDoc` | `""` | A committed status page regenerated from the roadmap |
 | `workflow.archiveDone` | `true` | Done task files move to `docs/tasks/archive/` at the next close-out or accept on a branch. `false` leaves them in `docs/tasks/` |
+| `workflow.taskListDone` | `true` in a new project; a missing key means off | The **Task list**'s milestone tables get a first **Done** column, ticked as their tasks reach Done. `/customize-kit` turns it on at upgrade when the **Task list** differs from the tick doc |
 | `workflow.followUps` | `apply` | Where work noticed and left out goes (`.claude/skills/track-follow-ups/classify.md`). `apply`: written in the close-out commit to where the work will read it (another task's Context, the roadmap, a new `Draft` task, the decisions log, an approved planning-doc edit, the Owner checklist), and the PR lists each destination. Edits that change a planning doc, and `propose` decisions, wait for the owner's approval at the plan gate or close-out, or in the Owner checklist. `review`: attended sessions show every placement and wait; unattended act as `propose`. `propose`: PR body only, each bullet naming its intended destination |
 | `testAudit.testPathPatterns` | common test globs | What counts as a test file |
 | `testAudit.run` | `""` | Runs specific test files, `{tests}`; the single-runner fallback |

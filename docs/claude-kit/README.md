@@ -8,7 +8,7 @@ A stack-agnostic `.claude/` setup that turns task files into reviewed, CI-green 
 | `ADOPTING.md` | Existing projects: docs, design, repo, CI, DB, or code already in place |
 | `USER-GUIDE.md` | Install, setup, day-to-day use, reference, troubleshooting |
 | `WORKFLOW.md` | The method: autonomy levels, review layers, guardrails, metrics |
-| `UPGRADING.md` | Upgrading a project from an earlier 2.x (2.7 → 2.8, 2.6 → 2.7, 2.5 → 2.6, 2.4 → 2.5, 2.3 → 2.4) |
+| `UPGRADING.md` | Upgrading a project from an earlier 2.x (2.8 → 2.9, 2.7 → 2.8, 2.6 → 2.7, 2.5 → 2.6, 2.4 → 2.5, 2.3 → 2.4) |
 | `CHANGELOG.md` | What changed in each version |
 
 ## Quick start
@@ -58,7 +58,7 @@ Without editing a single kit file, so `install-kit.ps1 -Upgrade` never undoes it
 | `.claude/skills/architecture/` | `/architecture`: decision options → architecture doc + seeded decisions |
 | `.claude/skills/skeleton/` | `/skeleton`: walking skeleton with every script, tests, test-database guard, migration check, and CI working |
 | `.claude/skills/milestones/` | `/milestones`: demoable milestones and task stubs, or `--coverage` of an existing roadmap |
-| `.claude/skills/customize-kit/` | `/customize-kit`: tailor everything to the project; upgrade pass for 2.3.x through 2.7.x |
+| `.claude/skills/customize-kit/` | `/customize-kit`: tailor everything to the project; upgrade pass for 2.3.x through 2.8.x |
 | `.claude/skills/new-task/` | `/new-task`: task files with checkable ACs; bulk-convert a task list or a roadmap sitting |
 | `.claude/skills/next-task/` | `/next-task`: pick the best Ready task and run it attended |
 | `.claude/skills/implement-task/` | `/implement-task`: the full loop, attended or `--unattended` |
