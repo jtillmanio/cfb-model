@@ -3,9 +3,11 @@ predictions to Postgres (TASK-035, D-136).
 
 The week is the feature week of D-127: its `as_of` is its first kickoff, and the fit is the
 backtest's (`harness.fit_games`: every final game that finished, kickoff + 4 h, by `as_of`), so a
-published week is the week the backtest scored. Its predictions are every staged regular-season
-game of the week with both teams that isn't canceled or postponed, played or not (the transform
-stages only `final` and `scheduled` so far, so the filter takes effect once it stages those).
+published week is the week the backtest scored. Its predictions are the week's staged contexts as
+`harness.load` keeps them (`Week.contexts`): every regular-season game of the week with both teams
+that isn't canceled or postponed, played or not, its TBA kickoff placed as `features.KICKOFF`
+places it. The transform stages a game `canceled` when CFBD still lists it unscored and
+uncompleted a week after its start (D-121, TASK-044).
 
 The lake is read and the model fit before any database transaction opens (`fit_week`); `write`
 then inserts in one short transaction. Outputs are insert-only (hard rule 2): a re-run adds a new
@@ -24,12 +26,11 @@ in points, summing to `rating`, and `components`, `{input id: {"off": pts, "def"
 
 from __future__ import annotations
 
-import io
 import json
 import math
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
-from datetime import UTC, datetime, time, timedelta
+from datetime import datetime
 from typing import Any, Literal
 
 from pydantic import ValidationError
@@ -41,13 +42,11 @@ from engine.backtest import MODELS, harness
 from engine.core.interfaces import GameContext, Prediction, Ratings
 from engine.core.spec import ModelSpec
 from engine.ingest.lake import Lake
-from engine.publish.lines import EASTERN
 
 SPORT = "cfb"
 MARKET = "spread"
 SOURCE = "cfbd"  # whose ids the lake's teams and games carry
 SEASON_TYPE = "regular"
-NOT_PLAYED = frozenset({"canceled", "postponed"})  # never predicted: a prediction is permanent
 
 
 class RateRefused(ValueError):
@@ -108,55 +107,19 @@ def settings(spec: ModelSpec, run: Mapping[str, Any] | None, season: int) -> dic
         raise RateRefused(f"a setting in --choices for {season} isn't a number: {e}") from e
 
 
-def _week(
-    lake: Lake, history: harness.History, season: int, week: int
-) -> tuple[datetime, list[GameContext]]:
-    """The week's `as_of` and every staged game of it with both teams that will be played."""
-    import pyarrow.parquet as pq
-
-    from engine.transform import staging_key
-
-    as_of = next(
+def _week(history: harness.History, season: int, week: int) -> harness.Week:
+    """The harness's week: its `as_of` and its staged games that will be played (`contexts`)."""
+    found = next(
         (
-            w.as_of
+            w
             for w in history.weeks
             if (w.season, w.season_type, w.week) == (season, SEASON_TYPE, week)
         ),
         None,
     )
-    if as_of is None:
+    if found is None:
         raise RateRefused(f"no staged games in {season} {SEASON_TYPE} week {week}")
-    staged = pq.read_table(io.BytesIO(lake.read(staging_key("games")))).to_pylist()
-    games = [
-        GameContext(
-            game_id=int(g["source_id"]),
-            season=season,
-            season_type=SEASON_TYPE,
-            week=week,
-            kickoff=_kickoff(g),
-            home_team=int(g["home_source_id"]),
-            away_team=int(g["away_source_id"]),
-            neutral_site=bool(g["neutral_site"]),
-            home_classification=g["home_classification"],
-            away_classification=g["away_classification"],
-            home_group=history.groups.get((season, int(g["home_source_id"]))),
-            away_group=history.groups.get((season, int(g["away_source_id"]))),
-        )
-        for g in staged
-        if (g["season"], g["season_type"], g["week"]) == (season, SEASON_TYPE, week)
-        and g["home_source_id"] is not None
-        and g["away_source_id"] is not None
-        and g["status"] not in NOT_PLAYED
-    ]
-    return as_of, sorted(games, key=lambda g: (g.kickoff, g.game_id))
-
-
-def _kickoff(game: Mapping[str, Any]) -> datetime:
-    """The kickoff, or for a TBA game the end of its Eastern date (`features.KICKOFF`)."""
-    if game["kickoff_at"] is not None:
-        return game["kickoff_at"]
-    midnight = datetime.combine(game["game_date"] + timedelta(days=1), time(), EASTERN)
-    return midnight.astimezone(UTC)
+    return found
 
 
 def _fit(
@@ -223,18 +186,18 @@ def fit_week(
     if factory is None:
         raise RateRefused(f"no model is registered as {spec.base!r}")
     history = harness.load(lake)
-    as_of, games = _week(lake, history, season, week)
+    found = _week(history, season, week)
     model = factory(resolved)
     harness.check_reads(model)
     harness.give_inputs(model, history)
 
     started = clock.now()
-    fitted = _fit(model, history, harness.Week(season, SEASON_TYPE, week, as_of, ()), games)
+    fitted = _fit(model, history, found, list(found.contexts))
     finished = clock.now()
     return FittedWeek(
         season,
         week,
-        as_of,
+        found.as_of,
         started,
         finished,
         dict(choices),

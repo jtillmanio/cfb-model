@@ -200,6 +200,19 @@ def advanced_stats(con: duckdb.DuckDBPyConnection) -> Finding:
     )
 
 
+def not_played(con: duckdb.DuckDBPyConnection) -> Finding:
+    """Each game staged `canceled` (D-121's rule, TASK-044), listed so a game CFBD left under
+    its old week while postponed is seen; never a failure."""
+    return Finding(
+        notes=_rows(
+            con,
+            f"""SELECT concat({_game()}, ': ', status, ', started ', coalesce(
+                CAST(kickoff_at AS VARCHAR), concat(game_date, ' (time TBA)')))
+            FROM games WHERE status IN ('canceled', 'postponed') ORDER BY source_id""",
+        )
+    )
+
+
 def raw_files(con: duckdb.DuckDBPyConnection) -> Finding:
     sql = "SELECT concat(key, ': ', reason) FROM skipped_raw ORDER BY key"
     return Finding(notes=_rows(con, sql))
@@ -220,6 +233,11 @@ CHECKS: list[Check] = [
         f"{BACKTEST_SEASONS[0]}-{BACKTEST_SEASONS[1]}, or once a post-kickoff pull covers its "
         "week), unless a pull 7+ days after kickoff shows CFBD has none",
         advanced_stats,
+    ),
+    Check(
+        "not_played",
+        "games that won't be played (unscored and uncompleted 7+ days after their start, D-121)",
+        not_played,
     ),
     Check("raw_files", "raw files skipped because their params don't match their key", raw_files),
 ]

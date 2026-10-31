@@ -9,12 +9,20 @@ from __future__ import annotations
 
 import json
 import math
-from datetime import datetime
+from dataclasses import replace
+from datetime import datetime, time, timedelta
 from pathlib import Path
 from typing import Any
+from zoneinfo import ZoneInfo
 
 import pytest
-from lake_fixture import engine, write_backtest_seasons
+from lake_fixture import (
+    backtest_game,
+    engine,
+    staged,
+    write_backtest_repull,
+    write_backtest_seasons,
+)
 from sqlalchemy import Connection, text
 
 from engine import backtest
@@ -26,11 +34,14 @@ from engine.ingest.lake import LocalLake
 from engine.publish import models
 from engine.publish.staging import publish_lake
 from engine.transform import rebuild
-from engine.transform.features import PointInTimeError
+from engine.transform.features import KICKOFF, PointInTimeError
+from engine.transform.staging import connect
 
 PUBLISH = "manual"
 NAME = "pytest-power"
 SEASON, WEEK = 2023, 5
+CANCELED = "401756847"  # Kansas-Fresno State's week-1 id: its week-5 copy is canceled (TASK-044)
+TBA = "401754516"  # its week-5 copy is re-pulled as TBA (TASK-044)
 SPEC_FILE = Path(__file__).parents[1] / "specs" / "power-v1.json"
 SPEC = ModelSpec.model_validate_json(SPEC_FILE.read_text("utf-8"))
 # One candidate per tuned setting, as a backtest's run.json records them for a season.
@@ -292,6 +303,100 @@ def test_canceled_and_postponed_games_are_not_predicted(
         {"r": summary.run_id},
     ).scalars()
     assert set(predicted) == {g["source_id"] for g in week} - set(off)
+
+
+def _predicted(conn: Connection, run_id: int) -> set[str]:
+    return set(
+        conn.execute(
+            text(
+                "SELECT g.source_id FROM predictions p JOIN games g ON g.id = p.game_id"
+                " WHERE p.model_run_id = :r"
+            ),
+            {"r": run_id},
+        ).scalars()
+    )
+
+
+def test_a_canceled_game_from_the_lake_is_not_predicted(
+    lake: LocalLake, db_conn: Connection
+) -> None:
+    """TASK-044 AC-2: a week-5 game CFBD still lists as uncompleted and unscored by a /games pull
+    8 days after its start is staged canceled (D-121) and gets no prediction; every other game
+    of the week gets one."""
+    write_backtest_seasons(lake)
+    game = backtest_game(SEASON, "regular", WEEK, CANCELED)
+    start = datetime.fromisoformat(game["startDate"])
+    unplayed = {**game, "completed": False, "homePoints": None, "awayPoints": None}
+    write_backtest_repull(lake, SEASON, "regular", WEEK, [unplayed], start + timedelta(days=8))
+    rebuild(lake)
+    publish_lake(lake, db_conn, PUBLISH)
+    week = [
+        g
+        for g in staged(lake, "games").to_pylist()
+        if (g["season"], g["season_type"], g["week"]) == (SEASON, "regular", WEEK)
+    ]
+    canceled = {g["source_id"] for g in week if g["status"] == "canceled"}
+    assert canceled == {str(game["id"])} and len(week) == 5
+
+    summary = _rate(lake, db_conn)
+
+    assert _predicted(db_conn, summary.run_id) == {g["source_id"] for g in week} - canceled
+
+
+def test_rate_takes_the_weeks_games_from_the_harness(
+    published: LocalLake, db_conn: Connection, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """TASK-044 AC-3: `engine rate` predicts the week's staged contexts as `harness.load` keeps
+    them, not its own read of staged games."""
+    load = harness.load
+    dropped: list[int] = []
+
+    def fewer(lake: LocalLake) -> harness.History:
+        history = load(lake)
+        weeks = []
+        for w in history.weeks:
+            if (w.season, w.season_type, w.week) == (SEASON, "regular", WEEK):
+                dropped.append(w.contexts[0].game_id)
+                w = replace(w, contexts=w.contexts[1:])
+            weeks.append(w)
+        return replace(history, weeks=tuple(weeks))
+
+    monkeypatch.setattr(harness, "load", fewer)
+    week = {str(g.game_id) for g in load(published).results if (g.season, g.week) == (SEASON, WEEK)}
+
+    summary = _rate(published, db_conn)
+
+    assert len(week) == 5 and len(dropped) == 1
+    assert _predicted(db_conn, summary.run_id) == week - {str(dropped[0])}
+
+
+def test_rate_takes_a_tba_kickoff_from_the_harness(lake: LocalLake) -> None:
+    """TASK-044 AC-3: a TBA game's kickoff in `engine rate` is `features.KICKOFF`'s, the end of
+    its Eastern `game_date`, and `publish/models.py` keeps no copy of the rule."""
+    write_backtest_seasons(lake)
+    game = backtest_game(SEASON, "regular", WEEK, TBA)
+    start = datetime.fromisoformat(game["startDate"])
+    tba = {**game, "startTimeTBD": True}
+    write_backtest_repull(lake, SEASON, "regular", WEEK, [tba], start + timedelta(days=2))
+    rebuild(lake)
+    con = connect()
+    con.register("games", staged(lake, "games"))
+    (expected,) = (
+        con.execute(f"SELECT {KICKOFF} AS k FROM games WHERE source_id = ?", [str(game["id"])])
+        .arrow()
+        .read_all()
+        .column("k")
+        .to_pylist()
+    )
+
+    fitted = models.fit_week(lake, SPEC, CHOICES, season=SEASON, week=WEEK)
+
+    assert fitted.outputs is not None
+    kickoffs = {g.game_id: g.kickoff for g, _ in fitted.outputs[1]}
+    date = start.astimezone(ZoneInfo("America/New_York")).date()
+    end_of_date = datetime.combine(date + timedelta(days=1), time(), ZoneInfo("America/New_York"))
+    assert kickoffs[game["id"]] == expected == end_of_date
+    assert not hasattr(models, "_kickoff")
 
 
 def test_rate_refuses_a_version_whose_stored_spec_is_invalid(

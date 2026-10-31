@@ -13,7 +13,7 @@ from decimal import ROUND_HALF_UP, Decimal
 from typing import Any
 
 import pytest
-from lake_fixture import FIXTURE, engine, staged, write
+from lake_fixture import FIXTURE, STATUS_GAMES, engine, staged, write, write_status_games
 from sqlalchemy import Connection, text
 
 from db.session import make_engine
@@ -78,6 +78,31 @@ def test_publish_twice_keeps_ids_and_counts(lake: LocalLake, db_conn: Connection
     assert first_new["games"] == 5
     assert first_new["line_snapshots"] == closing + opening
     assert [r.year for r in first["seasons_rows"]] == [2025]
+
+
+def test_publish_writes_canceled_status_and_a_second_publish_keeps_it(
+    lake: LocalLake, db_conn: Connection
+) -> None:
+    """TASK-044 AC-1: the staged statuses reach `games.status` as they are, and a second
+    publish changes none of them."""
+    write_status_games(lake)
+    rebuild(lake)
+
+    def statuses() -> dict[str, str]:
+        rows = db_conn.execute(
+            text("SELECT source_id, status FROM games WHERE source = :p AND source_id = ANY(:ids)"),
+            {"p": PUBLISH, "ids": list(STATUS_GAMES)},
+        )
+        return dict(rows.all())
+
+    publish_lake(lake, db_conn, PUBLISH)
+    first = _state(db_conn)
+    assert statuses() == STATUS_GAMES
+
+    second_new = publish_lake(lake, db_conn, PUBLISH)
+    assert statuses() == STATUS_GAMES
+    assert _state(db_conn) == first
+    assert second_new["games"] == 0
 
 
 def test_publish_maps_staged_columns_by_meaning(lake: LocalLake, db_conn: Connection) -> None:

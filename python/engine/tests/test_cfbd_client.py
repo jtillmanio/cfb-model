@@ -317,3 +317,31 @@ def test_ingest_games_publishes_what_it_read_back_from_parquet(
         "raw/cfbd/games/season=2025/week=01/fetched_at=2025-09-02T120000Z.parquet"
     ]
     assert published == [("conn", "cfb", "cfbd", map_games(GAMES))]
+
+
+def test_ingest_games_publishes_a_game_unscored_a_week_on_as_canceled(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """TASK-044 (D-145): the dev ingest applies the transform's status rule with the saved file's
+    time, so re-ingesting a week never turns a canceled game back to scheduled."""
+    lake = LocalLake(tmp_path)
+    published: list[Any] = []
+
+    @contextmanager
+    def begin() -> Any:
+        yield "conn"
+
+    monkeypatch.setattr(games, "make_engine", lambda _url: SimpleNamespace(begin=begin))
+    monkeypatch.setattr(
+        games,
+        "publish_games_batch",
+        lambda conn, sport, source, batch: published.append(batch) or 3,
+    )
+    # Unscored and uncompleted, started 8 days before the pull (the clock is 2025-09-02 12:00Z).
+    week_old = {**GAMES[1], "startDate": "2025-08-25T04:00:00.000Z"}
+    client, _ = fake_cfbd(lake, [GAMES[0], week_old, GAMES[2]])
+
+    games.ingest_games(2025, 1, "regular", "postgresql://dev", lake=lake, client=client)
+
+    (batch,) = published
+    assert [g.status for g in batch.games] == ["final", "canceled", "final"]

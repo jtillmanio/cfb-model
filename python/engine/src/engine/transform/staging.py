@@ -18,7 +18,7 @@ import re
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
-from engine.ingest.endpoints import query
+from engine.ingest.endpoints import SETTLE, query
 from engine.ingest.lake import Lake, fetched_at_of
 
 if TYPE_CHECKING:
@@ -226,7 +226,13 @@ def games(s: Staging) -> str:
     and `closing_line_missing`: false when a non-empty /lines pull fetched after kickoff quotes
     a spread, true when such a pull covers the game's week but quotes none, NULL when none
     covers it. An empty pull isn't coverage: CFBD can answer empty just after the games (D-114).
-    A TBA kickoff counts as the end of its Eastern `game_date`."""
+    A TBA kickoff counts as the end of its Eastern `game_date`.
+
+    `status` is `final` when CFBD marks the game completed, `canceled` when its newest record is
+    uncompleted and unscored and was pulled `SETTLE` (7 days) or more after its `startDate`
+    (D-121: CFBD lists a canceled game as uncompleted forever, with no other signal), else
+    `scheduled`. CFBD can't tell a postponed game from a canceled one, and a rescheduled game
+    keeps its id under a new date, so the next pull stages it `scheduled` again (TASK-044)."""
     latest = s.latest("games", "id")
     lines = s.raw("lines")
     return f"""
@@ -247,6 +253,8 @@ def games(s: Staging) -> str:
             {_j("homePoints", "INTEGER")} AS home_points,
             {_j("awayPoints", "INTEGER")} AS away_points,
             CASE WHEN coalesce({_j("completed", "BOOLEAN")}, false) THEN 'final'
+                 WHEN {_j("homePoints")} IS NULL AND {_j("awayPoints")} IS NULL
+                  AND fetched_at >= {_start()} + INTERVAL {SETTLE.days} DAY THEN 'canceled'
                  ELSE 'scheduled' END AS status,
             {_j("homeClassification")} AS home_classification,
             {_j("awayClassification")} AS away_classification,

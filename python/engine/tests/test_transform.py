@@ -13,7 +13,15 @@ from typing import Any
 import httpx
 import pyarrow.parquet as pq
 import pytest
-from lake_fixture import FIXTURE, by_id, engine, staged, write
+from lake_fixture import (
+    FIXTURE,
+    STATUS_GAMES,
+    by_id,
+    engine,
+    staged,
+    write,
+    write_status_games,
+)
 
 from engine.ingest import cfbd
 from engine.ingest.lake import LocalLake, fetched_at_of
@@ -155,6 +163,23 @@ def test_newest_pull_wins(lake: LocalLake) -> None:
     assert by_id(staged(lake, "games"))[BOTH_FBS]["home_points"] == 30
 
 
+def test_unscored_game_a_week_past_its_start_is_staged_canceled(
+    lake: LocalLake, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """TASK-044 AC-1: D-121's rule. A game CFBD still lists as uncompleted and unscored by a pull
+    `SETTLE` (7 days) after its start is canceled; inside the window it stays scheduled, as does
+    a game that hasn't started. The data-quality checks list it and still pass."""
+    write_status_games(lake)
+    assert engine("transform", "--rebuild") == 0
+    games = by_id(staged(lake, "games"))
+    assert {g: games[g]["status"] for g in STATUS_GAMES} == STATUS_GAMES
+    out = capsys.readouterr().out
+    assert "2025: final 5, scheduled 2, canceled 1" in out
+    assert "PASS not_played" in out
+    assert "900000060" in out.split("PASS not_played")[1]
+    assert "900000061" not in out.split("PASS not_played")[1]
+
+
 def test_rebuild_refuses_under_live_with_only_features(
     lake: LocalLake, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -193,7 +218,7 @@ def test_check_passes_on_clean_fixture(
     capsys.readouterr()
     assert engine("check") == 0
     out = capsys.readouterr().out
-    assert "5 passed, 0 failed" in out
+    assert "6 passed, 0 failed" in out
     assert "FAIL" not in out
 
 

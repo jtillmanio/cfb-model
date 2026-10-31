@@ -53,6 +53,14 @@ FEATURE_TABLES: dict[str, Callable[[], str]] = {
 
 _SEASON = re.compile(r"raw/cfbd/[^/]+/season=(\d+)/")
 
+# Each season's staged games per status, e.g. "final 919, canceled 1" (TASK-044).
+_STATUS_COUNTS = """
+    SELECT season, string_agg(concat(status, ' ', n), ', ' ORDER BY
+        CASE status WHEN 'final' THEN 0 WHEN 'scheduled' THEN 1 ELSE 2 END, status)
+    FROM (SELECT season, status, count(*) AS n FROM games GROUP BY ALL)
+    GROUP BY season ORDER BY season
+"""
+
 
 def staging_key(name: str) -> str:
     return f"staging/{name}.parquet"
@@ -129,6 +137,9 @@ def rebuild(lake: Lake) -> dict[str, int]:
 
     counts = {name: table.num_rows for name, table in (built | featured).items()} | season_counts
     print("Staged " + ", ".join(f"{n} {name}" for name, n in counts.items()) + ".")
+    print("Staged games by season and status:")
+    for season, statuses in s.con.execute(_STATUS_COUNTS).fetchall():
+        print(f"  {season}: {statuses}")
     if s.dropped_lines:
         print(f"Dropped {s.dropped_lines} line rows for games not in staged games (no FBS team).")
     if s.dropped_advanced:

@@ -10,7 +10,7 @@ from __future__ import annotations
 from db.session import make_engine
 from engine.ingest.cfbd import CfbdClient
 from engine.ingest.endpoints import pull
-from engine.ingest.lake import Lake, decode_raw, open_lake
+from engine.ingest.lake import Lake, decode_raw, fetched_at_of, open_lake
 from engine.publish.reference import publish_games_batch
 from engine.sports.cfb.games import map_games
 
@@ -25,7 +25,7 @@ def ingest_games(
 ) -> None:
     lake = lake or open_lake()
     key = pull(lake, "games", season, week, season_type, client=client)
-    batch = map_games(decode_raw(lake.read(key)))
+    batch = map_games(decode_raw(lake.read(key)), fetched_at_of(key))
     with make_engine(db_url).begin() as conn:
         count = publish_games_batch(conn, "cfb", "cfbd", batch)
     print(f"Upserted {count} games, {len(batch.teams)} teams, {len(batch.venues)} venues.")
