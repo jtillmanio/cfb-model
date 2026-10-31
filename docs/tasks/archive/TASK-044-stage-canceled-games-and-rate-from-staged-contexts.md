@@ -1,7 +1,7 @@
 ---
 id: TASK-044
 title: Stage canceled and postponed games, and rate from the harness's staged contexts
-status: Review
+status: Done
 depends_on: []
 size: M
 model: opus
