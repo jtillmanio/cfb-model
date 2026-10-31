@@ -62,8 +62,9 @@ Coverage mode: list each gap with a proposed roadmap entry: the next free number
 
 1. Show the result in under 25 lines. Plan mode: the milestone outline (name, goal, demo, task count, the riskiest item). Coverage mode: the gap table and the proposed amendments. **Stop for approval or changes.**
 2. Write:
-   - Plan mode: the **Task list**.
+   - Plan mode: the **Task list**. With `workflow.taskListDone` on, every milestone stub table starts `| Done | # | Task |`, with a blank Done cell in each new row, and the intro paragraph says what the column means; with it off (or no key), drop the column and that sentence from the template (`.claude/skills/sync-roadmap/ticks.md` § The task list's Done column).
    - Coverage mode: the approved entries and amendments, appended into the roadmap's phases. Never renumber or rewrite existing entries beyond the approved amendments.
+   - Re-running over an existing **Task list** (extending it, or writing gaps into it): keep the Done column, every existing `✅`, and every `→ TASK-###` in the `#` cells exactly as they are. New rows get a blank Done cell. Never untick or reorder rows.
 3. Commit on a `docs/<slug>` branch, never on the base branch (`docs: task list` or `docs: close roadmap coverage gaps`; stage the file by path), push it, and open a PR. If the user prefers to commit themselves, leave the change uncommitted and say so.
 
 ## Hand-off

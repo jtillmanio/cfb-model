@@ -20,10 +20,11 @@ Goal: every `{{...}}` placeholder and every empty `kit.json` value that applies 
 - Never put project text into a kit-owned file (`.claude/skills/<kit skill>/`, `.claude/hooks/`, `.claude/scripts/`, `docs/templates/`): `install-kit.ps1 -Upgrade` overwrites them. Project instructions for a kit skill or agent go in `.claude/project/<name>.md`. A project script goes in the project's own folder (e.g. `scripts/`), not in `.claude/scripts/`: the installer wouldn't overwrite it there, but it reads as a kit file and an uninstall removes it.
 - Never open an env file whole. To learn which variables exist, read `.env.example` or the code.
 
-## Phase 0: Upgrade from 2.3.x through 2.7.x (only when it applies)
+## Phase 0: Upgrade from 2.3.x through 2.8.x (only when it applies)
 
 Run this phase when `.claude/kit-version` is 2.4 or later and any of these hold; otherwise skip to Phase 1.
 
+- 2.9 (Task list Done column): `.claude/kit.json` has no `workflow.taskListDone` key and the **Task list** role is set.
 - 2.8: `.claude/rules/git.md` doesn't mention roadmap ticks, or `list-roadmap-ticks.ps1` finds roadmap items finished by Done tasks that are still open.
 - 2.7: `.claude/settings.json` doesn't register `guard-destructive.ps1`, or registers a kit hook in shell form (`"command": "powershell -NoProfile ... $CLAUDE_PROJECT_DIR ..."` instead of `"command": "powershell"` with `args`).
 - 2.6: `.claude/kit.json` has no `workflow.followUps` key.
@@ -40,7 +41,12 @@ Run this phase when `.claude/kit-version` is 2.4 or later and any of these hold;
 Then, reading `docs/claude-kit/UPGRADING.md` for the mapping:
 
 1. Merge `.kit-incoming/` first: keep the user's content, add the kit's new sections, keys, and rules. For agents, take the kit's body and keep the user's `model:` and `effort:` frontmatter. `.kit-incoming/.github/workflows/ci.yml` is the kit's unfilled template: never merge it into a filled-in `ci.yml`; only check that the project's CI keeps the parse step, `timeout-minutes`, `concurrency`, the job name, and test-database isolation. One-line summary per file.
-2. Build an upgrade table, one row per proposed change: what changes, why (the 2.4 item, or the 2.5 through 2.8 change), the exact edit, and what text it lets you delete.
+2. Build an upgrade table, one row per proposed change: what changes, why (the 2.4 item, or the 2.5 through 2.9 change), the exact edit, and what text it lets you delete.
+   - From any version where the 2.9 detection holds, the 2.9 rows (UPGRADING.md § From 2.8 to 2.9; rules in `.claude/skills/sync-roadmap/ticks.md` § The task list's Done column):
+     - `kit.json`: `workflow.taskListDone`. Set it `true` when the **Task list** role is set and differs from the tick doc (the tick doc is `workflow.roadmap.path`, else the **Roadmap (source)** role, else the **Task list**; `list-roadmap-ticks.ps1` prints which). Otherwise set it `false`, and skip the rest of this bullet. When the project has no **Task list**, don't add the key.
+     - **Task list**: add **Done** as the first column of every milestone stub table (the tables whose header starts `| # | Task |`) and nothing else; other tables (scope, coverage, mappings) stay as they are. Add one sentence to the intro paragraph: the column's `✅` means every task the row names is Done, and `/implement-task` and `/sync-roadmap` fill it. The task list is often in `largeFiles`: Grep the table headers, then Read and Edit by offset and limit; never read it whole.
+     - **Backfill**, on this branch: run `list-roadmap-ticks.ps1` and tick the Done cell of each row in its "To tick" list, which is exact (rows map to tasks through the `#` cell; a row that names no task is ticked only when its Notes say it was done another way; a moved row stays blank). Report the count ticked and every row left blank with its reason (partial: which task isn't Done; no task; moved). Never edit another cell, untick, or reorder.
+     - `.claude/rules/git.md`: the **Task list Done ticks** bullet, and "Three kinds" becomes "Four kinds". `spec-reviewer.md`: the Task list Done column check in step 3, the scope sentence in step 6, and the output blocks. Keep `model:` and `effort:`.
    - From 2.7, only the 2.8 rows apply (UPGRADING.md § From 2.7 to 2.8):
      - `.claude/rules/git.md`: the **Roadmap ticks** bullet, first of the three allowed changes to other files on a task branch ("Two kinds" becomes "Three kinds").
      - `spec-reviewer.md`: step 3 (Roadmap, with the ticks check), the scope sentence in step 6, the close-out check sentence under Inputs, the OVERREACH wording in step 11, and the two output blocks. Keep `model:` and `effort:`.
@@ -123,6 +129,7 @@ Then, reading `docs/claude-kit/UPGRADING.md` for the mapping:
 | `workflow.allowForceWithLease` | `false` unless the project's git rules allow it after a rebase |
 | `workflow.archiveDone` | `true` (default). `false` only if the user wants Done task files kept in `docs/tasks/`, e.g. because other docs link to task file paths |
 | `workflow.followUps` | `apply` (default): follow-ups are written where the work will read them, in the PR that found them. `review` if the owner wants to approve every placement in the session first; `propose` to keep them in the PR body only |
+| `workflow.taskListDone` | `true` (default for a new project) when the project has a **Task list**: each milestone table gets a first **Done** column, ticked as tasks reach Done. On upgrade, `true` only if the **Task list** differs from the tick doc; `false` otherwise, or when there is no Task list |
 | `workflow.roadmap` / `workflow.statusDoc` | Only in roadmap-led mode (`/adopt` asks): `{ path, idPattern, checkLabel }`, and the status page regenerated from the roadmap |
 | `testAudit.testPathPatterns` | Adjust to this repo's test layout |
 | `testAudit.run` | The command that runs specific test files, with `{tests}`, when there is one runner |
@@ -206,7 +213,7 @@ Run these and report each exit code:
 '{"tool_name":"PowerShell","tool_input":{"command":"git reset --hard"}}' | powershell -NoProfile -ExecutionPolicy Bypass -File .claude/hooks/guard-destructive.ps1   # expect JSON with "permissionDecision":"ask"
 '{"tool_name":"Bash","tool_input":{"command":"git status"}}' | powershell -NoProfile -ExecutionPolicy Bypass -File .claude/hooks/guard-destructive.ps1; $LASTEXITCODE         # expect 0, no output
 powershell -NoProfile -ExecutionPolicy Bypass -File .claude/scripts/build-index.ps1; $LASTEXITCODE                                                           # expect 0
-powershell -NoProfile -ExecutionPolicy Bypass -File .claude/scripts/list-roadmap-ticks.ps1; $LASTEXITCODE                                                    # expect 0 and the tick doc (or "No tick doc")
+powershell -NoProfile -ExecutionPolicy Bypass -File .claude/scripts/list-roadmap-ticks.ps1; $LASTEXITCODE                                                    # expect 0 and the tick doc (or "No tick doc"); with workflow.taskListDone on, also the Task list Done column section
 powershell -NoProfile -ExecutionPolicy Bypass -File .claude/scripts/dispatch-approved.ps1 -DryRun                                                           # expect a summary, no dispatch
 ```
 

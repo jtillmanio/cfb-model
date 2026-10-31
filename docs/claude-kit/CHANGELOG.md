@@ -1,5 +1,31 @@
 # Changelog
 
+## v2.9: Task list Done column
+
+In a project whose roadmap and task list are separate docs, the roadmap ticks (2.8) update only the roadmap, and the task list, where owners check progress by milestone, never shows what is built. A new optional **Done** column in the task list's milestone tables is filled automatically as tasks reach Done. Upgrading a 2.8.x project: `UPGRADING.md` § From 2.8 to 2.9.
+
+### Added
+
+- **`workflow.taskListDone`** (boolean, `kit.json`): `true` in a new project. On upgrade `/customize-kit` sets it `true` when the **Task list** role is set and differs from the tick doc, otherwise `false`. A missing key means off; with it off, or with no Task list, none of the below applies.
+- **The Done column**: the first column of every milestone stub table (header `| Done | # | Task |`), `✅` when every task the row's `#` cell names (`M4.7 → TASK-042, TASK-043`) is Done, including archived tasks. A row with no task is ticked only if its Notes say it was done another way ("Done in the kit 2.4 upgrade"); a moved row stays blank. Only the Done cell changes; never an untick. Scope, coverage, and mapping tables don't get it. Rules: `ticks.md` § The task list's Done column, the single home.
+- **`list-roadmap-ticks.ps1`** prints a **Task list Done column** section: rows to tick, partial rows, ticked rows whose tasks aren't all Done (report only), and the count of tables without the column yet (their rows are listed as what the upgrade would tick). It runs even when there is no tick doc or the tick doc has no marks, and `-AsJson` carries it as `TaskList`. Still read-only; PowerShell 5.1 compatible.
+- **spec-reviewer**: **TASKLIST OVERTICK** (a row ticked while a task it names isn't Done, or a `✅` removed) and, in the close-out check, **TASKLIST UNTICKED**. Both CHANGES REQUIRED. A Done-cell change is never SCOPE CREEP.
+
+### Changed
+
+- **`/implement-task`**: close-out ticks this task's row (this task, in `Review`, counts as Done) and sweeps; accept sweeps again; both report a `Task list:` line (`Task list: ticked M4.7 (TASK-042, TASK-043)`, `Task list: left M4.8 open: TASK-045, TASK-046 Ready`).
+- **`/sync-roadmap`**: the sweep includes the Done column, which catches tasks accepted by hand.
+- **`/milestones`** keeps the column and existing marks when it writes or extends the task list; new rows get a blank Done cell. **`/new-task`** writes `→ TASK-###` into the `#` cell, now the second column, and leaves Done blank.
+- **`ticks.md`**: "never add a status column" now has one exception, this column.
+- **`.claude/rules/git.md`**: task list Done ticks join the allowed changes to other files on a task branch ("Four kinds").
+- **`/customize-kit`**: the upgrade adds the column to an existing task list and backfills it on the upgrade branch, reporting the count ticked and each row left blank with its reason.
+- **Task list template** (`docs/templates/tasklist.md`) starts its stub tables with Done.
+
+### Upgrade notes
+
+- Nothing changes until `workflow.taskListDone` is set: a missing key means off. `/customize-kit` sets it on upgrade (step 2), adds the column, and backfills it on the upgrade branch (steps 3–4).
+- A project whose task list is also its tick doc (no roadmap, no **Roadmap** role) gets `false` by default; set `true` to have the column there too.
+
 ## v2.8: Roadmap ticks
 
 Up to 2.7 the roadmap was ticked only in roadmap mode, and only by the close-out of the task with that item's ID. A project whose roadmap is a plain doc role with checkboxes, the "status source of truth", got no ticks at all. In one such project, six Phase 1 items that Done tasks had finished were still unticked. Roadmap mode had a smaller gap: a task accepted by editing `status: Done` by hand got no tick until someone noticed. In 2.8 every task's close-out ticks the items it finishes, close-out and accept also catch items other Done tasks finished, and `/sync-roadmap` backfills the rest. Upgrading a 2.7.x project: `UPGRADING.md` § From 2.7 to 2.8.

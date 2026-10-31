@@ -4,11 +4,68 @@ For the owner of a project on an earlier kit 2.x, and for the Claude session tha
 
 | Project is on | Do |
 |---|---|
-| 2.7.x | [From 2.7 to 2.8](#from-27-to-28) |
-| 2.6.x | One branch, one installer run (it puts 2.8 in place directly): step 1 of [From 2.7 to 2.8](#from-27-to-28), then steps 2–4 of [From 2.6 to 2.7](#from-26-to-27), then steps 2–6 of [From 2.7 to 2.8](#from-27-to-28) |
-| 2.5.x | One branch, one installer run (it puts 2.8 in place directly): step 1 of [From 2.7 to 2.8](#from-27-to-28), then steps 2–4 of [From 2.5 to 2.6](#from-25-to-26), steps 2–4 of [From 2.6 to 2.7](#from-26-to-27), and steps 2–6 of [From 2.7 to 2.8](#from-27-to-28), and step 6 of [From 2.5 to 2.6](#from-25-to-26) after merging |
-| 2.4.x | One branch, one installer run (it puts 2.8 in place directly): step 1 of [From 2.7 to 2.8](#from-27-to-28), then steps 2–4 of [From 2.4 to 2.5](#from-24-to-25), steps 2–4 of [From 2.5 to 2.6](#from-25-to-26), steps 2–4 of [From 2.6 to 2.7](#from-26-to-27), and steps 2–6 of [From 2.7 to 2.8](#from-27-to-28), and step 6 of [From 2.5 to 2.6](#from-25-to-26) after merging |
-| 2.3.x | [From 2.3 to 2.4](#from-23-to-24) on one branch (the installer puts 2.8 in place directly; the branch name doesn't matter), then steps 3–4 of [From 2.4 to 2.5](#from-24-to-25), steps 2–4 of [From 2.5 to 2.6](#from-25-to-26), steps 2–4 of [From 2.6 to 2.7](#from-26-to-27), and steps 2–6 of [From 2.7 to 2.8](#from-27-to-28) on the same branch, and step 6 of [From 2.5 to 2.6](#from-25-to-26) after merging |
+| 2.8.x | [From 2.8 to 2.9](#from-28-to-29) |
+| 2.7.x | One branch, one installer run (it puts 2.9 in place directly): [From 2.7 to 2.8](#from-27-to-28), then steps 2–6 of [From 2.8 to 2.9](#from-28-to-29) |
+| 2.6.x | One branch, one installer run (it puts 2.9 in place directly): step 1 of [From 2.7 to 2.8](#from-27-to-28), then steps 2–4 of [From 2.6 to 2.7](#from-26-to-27), then steps 2–6 of [From 2.7 to 2.8](#from-27-to-28), and steps 2–6 of [From 2.8 to 2.9](#from-28-to-29) |
+| 2.5.x | One branch, one installer run (it puts 2.9 in place directly): step 1 of [From 2.7 to 2.8](#from-27-to-28), then steps 2–4 of [From 2.5 to 2.6](#from-25-to-26), steps 2–4 of [From 2.6 to 2.7](#from-26-to-27), steps 2–6 of [From 2.7 to 2.8](#from-27-to-28), and steps 2–6 of [From 2.8 to 2.9](#from-28-to-29), and step 6 of [From 2.5 to 2.6](#from-25-to-26) after merging |
+| 2.4.x | One branch, one installer run (it puts 2.9 in place directly): step 1 of [From 2.7 to 2.8](#from-27-to-28), then steps 2–4 of [From 2.4 to 2.5](#from-24-to-25), steps 2–4 of [From 2.5 to 2.6](#from-25-to-26), steps 2–4 of [From 2.6 to 2.7](#from-26-to-27), steps 2–6 of [From 2.7 to 2.8](#from-27-to-28), and steps 2–6 of [From 2.8 to 2.9](#from-28-to-29), and step 6 of [From 2.5 to 2.6](#from-25-to-26) after merging |
+| 2.3.x | [From 2.3 to 2.4](#from-23-to-24) on one branch (the installer puts 2.9 in place directly; the branch name doesn't matter), then steps 3–4 of [From 2.4 to 2.5](#from-24-to-25), steps 2–4 of [From 2.5 to 2.6](#from-25-to-26), steps 2–4 of [From 2.6 to 2.7](#from-26-to-27), steps 2–6 of [From 2.7 to 2.8](#from-27-to-28), and steps 2–6 of [From 2.8 to 2.9](#from-28-to-29) on the same branch, and step 6 of [From 2.5 to 2.6](#from-25-to-26) after merging |
+
+## From 2.8 to 2.9
+
+2.9 has one change: the **Task list**'s milestone tables get an optional **Done** column, ticked as tasks reach Done. Without it, a project whose roadmap and task list are separate docs ticks the roadmap and the task list never shows progress. The upgrade is one branch and one PR, and that PR also backfills the column.
+
+### Behaviour changes
+
+These apply as soon as `-Upgrade` replaces the skills and script, before you merge anything. With no `workflow.taskListDone` key the column is off, so nothing changes until step 2 sets it.
+
+| Change | What you'll see | Opt out |
+|---|---|---|
+| **Done column** | Every milestone stub table in the **Task list** (header `| # | Task |`) gets a first **Done** column; `✅` when every task the row's `#` cell names (`M4.7 → TASK-042, TASK-043`) is Done, archived tasks included. A row that names no task is ticked only if its Notes say it was done another way ("Done in the kit 2.4 upgrade"); a moved row stays blank. Scope, coverage, and mapping tables are untouched | `workflow.taskListDone: false` |
+| **Who fills it** | `/implement-task` close-out (this task's row, counting this task in `Review` as Done, then a sweep) and accept (sweep), and `/sync-roadmap`. A row with a task still Draft, Ready, In progress, or Blocked stays blank and is reported as partial. Each PR's **What** (or the accept report) gets a `Task list:` line | As above |
+| **Only the Done cell changes** | Never another cell, never an untick, never a reorder. A ticked row whose task isn't Done is reported | — |
+| **spec-reviewer** | A Done-cell change on a task branch is allowed, like a roadmap tick. `TASKLIST OVERTICK` and, in the close-out check, `TASKLIST UNTICKED` are CHANGES REQUIRED | — |
+| **`/milestones`, `/new-task`** | `/milestones` keeps the column and existing marks when it writes or extends the task list (new rows blank). `/new-task` writes `→ TASK-###` into the `#` cell, now the second column | — |
+| **`list-roadmap-ticks.ps1`** | Prints a **Task list Done column** section (rows to tick, partial, ticked-but-not-Done), even when there is no tick doc | — |
+
+### Steps
+
+1. **Run the installer** on a new branch, from the project root:
+   ```powershell
+   git switch main; git pull --ff-only; git switch -c chore/kit-2.9
+   powershell -NoProfile -ExecutionPolicy Bypass -File C:\Development\tools\claude-code-starter-kit\install-kit.ps1 -Upgrade -WhatIf
+   powershell -NoProfile -ExecutionPolicy Bypass -File C:\Development\tools\claude-code-starter-kit\install-kit.ps1 -Upgrade
+   ```
+   Expect: **Updated** for the `implement-task`, `sync-roadmap` (`SKILL.md`, `ticks.md`), `milestones`, `new-task`, and `customize-kit` skills, `.claude/scripts/list-roadmap-ticks.ps1`, `docs/templates/tasklist.md`, and the guides under `docs/claude-kit/`; nothing **Added**; **To merge** for `spec-reviewer.md` and `.claude/rules/git.md`, plus `kit.json` and `CLAUDE.md`, which list because yours are customized (the kit's `CLAUDE.md` didn't change; nothing to merge in it). Restart Claude Code.
+2. **Merge `.kit-incoming/`**, or run `/customize-kit`, which detects a project with a **Task list** and no `workflow.taskListDone` key and proposes these as rows:
+   - `kit.json`: `"taskListDone": true` in `workflow` when the **Task list** differs from the tick doc (`workflow.roadmap.path`, else the **Roadmap (source)** role, else the **Task list**; step 3 prints which). `false` when it is the tick doc and you don't want the column; leave the key out when the project has no Task list.
+   - `.claude/rules/git.md`: the **Task list Done ticks** bullet; "Three kinds" becomes "Four kinds".
+   - `spec-reviewer.md`: the Task list Done column check in step 3, the scope sentence in step 6, and the output blocks. Keep your `model:` and `effort:` lines.
+3. **Check which doc is the tick doc**:
+   ```powershell
+   powershell -NoProfile -ExecutionPolicy Bypass -File .claude/scripts/list-roadmap-ticks.ps1
+   ```
+   Its first line names the tick doc. Once `taskListDone` is `true`, it ends with a **Task list Done column** section; "N table(s) have no Done column yet" is expected before step 4.
+4. **Add the column and backfill it, in this PR.** `/customize-kit` does this as part of its table; by hand: add **Done** as the first column of each `| # | Task |` table (blank cells), add the intro sentence (what `✅` means, and that `/implement-task` and `/sync-roadmap` fill it), then tick each row in the script's "To tick" list. Rows map to tasks exactly, so the list needs no judgement. Rows left blank (partial, no task, moved) are reported with the reason. A task list in `largeFiles` is edited by offset and limit, never read whole.
+5. **Find project text that says how the task list is tracked.** `git grep -n -i -e "task list" -e "tasklist" -- CLAUDE.md .claude/project .claude/rules`. A line telling Claude to mark progress in the task list by hand now says what the kit does: delete it, or keep it if it adds a project rule (`.claude/project/*.md` wins over the kit).
+6. **Commit by path**, push, and open the PR, e.g. `chore: upgrade claude kit to 2.9`. Its **What** has a `Task list:` line with the count ticked and each row left blank.
+
+### Verification
+
+On the upgrade branch:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .claude/scripts/list-roadmap-ticks.ps1; $LASTEXITCODE   # expect 0; under Task list Done column: no "have no Done column yet" line, and "To tick (0)"
+(Get-Content .claude/kit.json -Raw | ConvertFrom-Json).workflow.taskListDone                                 # expect True (False if you opted out)
+git diff main -- <task list>                                                                                  # expect only the new Done column and ticks in it, in the milestone tables
+```
+
+The next task after merging: its close-out commit ticks its row when every task the row names is Done, the PR's **What** has a `Task list:` line, and after "accepted" the accept commit carries any row that became finished.
+
+### Rolling back
+
+- To stop ticking without rolling back: `"taskListDone": false`. The column and ticks stay; they're true. Delete the column by hand if you don't want it.
+- To return to 2.8, reinstall it with its `install-kit.ps1 -Upgrade` and revert `spec-reviewer.md` and `git.md` from git.
 
 ## From 2.7 to 2.8
 

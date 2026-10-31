@@ -1,6 +1,6 @@
 ---
 name: sync-roadmap
-description: Ticks the roadmap items that Done tasks have finished but nobody ticked (tasks accepted by hand, or finished before the kit ticked the roadmap), on a docs/ branch with one PR, or on the kit upgrade branch. Reports items only partly delivered and ticked items whose task isn't Done. Use when the user runs /sync-roadmap, after upgrading to kit 2.8, or asks to bring the roadmap's checkboxes up to date with the task files.
+description: Ticks the roadmap items, and the task list's Done column, that Done tasks have finished but nobody ticked (tasks accepted by hand, or finished before the kit ticked the roadmap), on a docs/ branch with one PR, or on the kit upgrade branch. Reports items only partly delivered and ticked items whose task isn't Done. Use when the user runs /sync-roadmap, after upgrading to kit 2.8, or asks to bring the roadmap's checkboxes up to date with the task files.
 argument-hint: "[--dry-run]"
 ---
 
@@ -8,7 +8,7 @@ argument-hint: "[--dry-run]"
 
 > **Doc roles:** names in **bold** such as **Roadmap** or **Task list** are roles in the "Project docs" table in `CLAUDE.md`. Always read and write the path the table gives for a role, including a `§ section` if it names one. Refer to sections by name, never by number.
 
-> **Project overrides:** read `.claude/kit.json` first (`workflow.roadmap`, `workflow.statusDoc`, `workflow.baseBranch`, `workflow.commitFormat`, `largeFiles`), then `.claude/project/sync-roadmap.md` if it exists. It wins where it conflicts with this file, except that it can't lower the floor: never untick, never edit an item's text or **Check:** line, never edit `workflow.statusDoc`, never commit on or push to the base branch.
+> **Project overrides:** read `.claude/kit.json` first (`workflow.roadmap`, `workflow.taskListDone`, `workflow.statusDoc`, `workflow.baseBranch`, `workflow.commitFormat`, `largeFiles`), then `.claude/project/sync-roadmap.md` if it exists. It wins where it conflicts with this file, except that it can't lower the floor: never untick, never edit an item's text or **Check:** line, never edit `workflow.statusDoc`, never commit on or push to the base branch.
 
 Which doc is ticked, what counts as finished, and the report format are in `.claude/skills/sync-roadmap/ticks.md`. Read it first and follow it; this file adds only what a backfill needs.
 
@@ -28,7 +28,7 @@ Parse `$ARGUMENTS`: `--dry-run` (report only; write nothing, create no branch).
 powershell -NoProfile -ExecutionPolicy Bypass -File .claude/scripts/list-roadmap-ticks.ps1
 ```
 
-If it finds no tick doc, or the doc has no done marks, report that and stop: nothing to tick, and marks are never added.
+If it finds no tick doc, or the doc has no done marks, there are no roadmap ticks and marks are never added; if the script also has no **Task list Done column** section, report that and stop. The Done column is swept even then.
 
 ## Phase 2: Decide
 
@@ -39,17 +39,17 @@ Show one table, under 40 rows per screen:
 
 `Line | Item | Tasks | Verdict (tick / partial / leave) | Evidence`
 
-Then the script's report-only rows (ticked items whose task isn't finished; finished tasks with no item). With `--dry-run`, stop here.
+With `workflow.taskListDone` on, add the script's **Task list Done column** rows to the same table (`Line | Row | Tasks | tick / partial`): its "To tick" list is the answer, no judgement needed (`ticks.md` § The task list's Done column). A task list table with no Done column yet is an upgrade job: say so and leave it to the `/customize-kit` upgrade. Then the script's report-only rows (ticked items whose task isn't finished; ticked task list rows whose tasks aren't all Done; finished tasks with no item). With `--dry-run`, stop here.
 
 **Stop for approval.** The owner may strike rows or tick extra ones. Ticks for items no Done task delivers (done by hand, before the task files) are the owner's call: tick them only when the owner says so, and say so in the PR.
 
 ## Phase 3: Apply
 
 1. On the base branch: `git switch -c docs/sync-roadmap-<YYYY-MM-DD>`.
-2. Change each approved item's mark and nothing else (ticks.md § What gets ticked), in the doc's own style. Re-run the script: in roadmap mode "To tick" is now empty.
-3. Stage the tick doc by path, read `git diff --staged` (only marks changed), and commit: `docs: tick roadmap items finished by done tasks` (`area`: `docs: tick roadmap items finished by done tasks`). On the upgrade branch, this can be its own commit or part of the upgrade commit.
+2. Change each approved item's mark and nothing else (ticks.md § What gets ticked), in the doc's own style. Tick each approved task list row's Done cell the same way (Edit that one row). Re-run the script: in roadmap mode "To tick" is now empty, and so is the task list's.
+3. Stage the tick doc and the task list by path, read `git diff --staged` (only marks and Done cells changed), and commit: `docs: tick roadmap items finished by done tasks` (`area`: `docs: tick roadmap items finished by done tasks`). On the upgrade branch, this can be its own commit or part of the upgrade commit.
 4. If this run made the branch: push and open the PR (`gh pr create --base <base> --title "<the subject>" --body-file <temp file outside the repo>`). Body:
-   - **What**: one line per tick, `Ticked <item> (<task IDs>)`, then the partial items, as ticks.md § Reporting says.
+   - **What**: one line per tick, `Ticked <item> (<task IDs>)`, then the partial items, as ticks.md § Reporting says, including the `Task list:` lines.
    - **Why**: the items were finished by Done tasks but left open, so the roadmap understated what's built.
    - **How it was verified**: the script's output before and after, and `git diff` showing only marks changed.
    - **Follow-ups**: none, unless the owner asked for something during Phase 2.

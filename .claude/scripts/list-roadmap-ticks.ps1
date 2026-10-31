@@ -20,6 +20,12 @@
   judgement (ticks.md), so it prints the finished tasks with their Context lines that cite the roadmap or task list and
   their Task list row, then every open item under its heading, with the task IDs the item names.
 
+  Task list Done column: when workflow.taskListDone is true and the Project docs table names a Task list, it also reads
+  every milestone table there (header "| # | Task |", with or without the leading Done column) and prints the rows to
+  tick, the partial rows (a named task isn't finished), and ticked rows whose named tasks aren't all finished. Rows map to
+  tasks exactly through the "#" cell, so no judgement is needed. This part runs even when there is no tick doc or the
+  tick doc has no marks. -Include counts a task as finished here too.
+
   Compatible with Windows PowerShell 5.1 and PowerShell 7+.
 #>
 param(
@@ -55,6 +61,141 @@ function Get-RolePath([string]$Label) {
 }
 
 $taskListPath = Get-RolePath 'Task list'
+
+# ---- Tasks (loaded first: the tick doc and the task list both need them) -----------------------------------------
+$tasks = @(Get-Tasks $root)
+$byTaskId = @{}
+foreach ($t in $tasks) { $byTaskId[$t.Id] = $t }
+function Test-Finished($t) { return ($t.Status -eq 'Done' -or $included -contains $t.Id) }
+$unfinished = @('Draft', 'Ready', 'In progress', 'Blocked')
+
+function Get-Short([string]$s, [int]$max = 160) {
+    if ($s.Length -le $max) { return $s }
+    return $s.Substring(0, $max - 3) + '...'
+}
+
+# ---- Task list Done column (ticks.md, "The task list's Done column") ----------------------------------------------
+$tickGlyph = [string][char]0x2705
+$taskListOn = [bool]($config.workflow -and $config.workflow.taskListDone -eq $true -and $taskListPath -and (Test-Path -LiteralPath (Join-Path $root $taskListPath)))
+
+function Get-TaskListReport {
+    $toTick = New-Object System.Collections.Generic.List[object]
+    $partial = New-Object System.Collections.Generic.List[object]
+    $overticked = New-Object System.Collections.Generic.List[object]
+    $moved = 0; $unlinked = 0; $rows = 0; $tables = 0; $withoutColumn = 0
+    $inFence = $false; $inTable = $false
+    $hasCol = $false; $notesIdx = -1
+    $n = 0
+    foreach ($line in (Get-Content -LiteralPath (Join-Path $root $taskListPath) -Encoding UTF8)) {
+        $n++
+        if ($line -match '^\s*(```|~~~)') { $inFence = -not $inFence; $inTable = $false; continue }
+        if ($inFence) { continue }
+        if ($line -notmatch '^\s*\|') { $inTable = $false; continue }
+        $cells = @([regex]::Split($line.Trim(), '(?<!\\)\|') | ForEach-Object { $_.Trim() })
+        # A line that starts and ends with "|" splits into an empty first and last element.
+        $cells = @($cells | Select-Object -Skip 1)
+        if ($cells.Count -gt 0) { $cells = @($cells | Select-Object -First ($cells.Count - 1)) }
+        if ($cells.Count -lt 2) { continue }
+
+        if (($cells[0] -ceq '#' -and $cells[1] -match '^Task\b') -or ($cells.Count -ge 3 -and $cells[0] -match '^Done$' -and $cells[1] -ceq '#' -and $cells[2] -match '^Task\b')) {
+            $inTable = $true; $tables++
+            $hasCol = ($cells[0] -match '^Done$')
+            if (-not $hasCol) { $withoutColumn++ }
+            $notesIdx = -1
+            for ($i = 0; $i -lt $cells.Count; $i++) { if ($cells[$i] -match '^Notes$') { $notesIdx = $i } }
+            continue
+        }
+        if (-not $inTable) { continue }
+        if ($cells[0] -match '^:?-{2,}:?$' -or ($cells[0] -eq '' -and $cells[1] -match '^:?-{2,}:?$')) { continue }
+
+        $off = $(if ($hasCol) { 1 } else { 0 })
+        $idCell = $cells[$off]
+        $rows++
+        $rowId = ''
+        $im = [regex]::Match($idCell, '^[\s*_`]*([^\s*_`,]+)')
+        if ($im.Success) { $rowId = $im.Groups[1].Value }
+        $ticked = ($hasCol -and $cells[0].Contains($tickGlyph))
+        $names = @([regex]::Matches($idCell, 'TASK-\d+') | ForEach-Object { $_.Value } | Select-Object -Unique)
+        $rest = @($cells | Select-Object -Skip ($off + 1))
+        $notes = ($rest -join ' ')
+        if ($notesIdx -ge 0 -and $notesIdx -lt $cells.Count) { $notes = $cells[$notesIdx] }
+
+        # (?<![a-z]) rather than \b: a note written in italics starts "_Moved to ...", and "_" is a word character.
+        if (($rest -join ' ') -match '(?i)(?<![a-z])moved\s+(to|into)\b' -or $idCell -match '(?i)(?<![a-z])moved\s+(to|into)\b') { $moved++; continue }
+
+        if ($names.Count -eq 0) {
+            if ($notes -match '(?i)(?<![a-z])done\s+(in|by|via|with|during|as part of|outside)\b|(?<![a-z])already\s+done\b') {
+                if (-not $ticked) { $toTick.Add([pscustomobject]@{ Line = $n; Id = $rowId; Tasks = ''; Why = 'note'; Text = (Get-Short $notes 100) }) }
+            } else { $unlinked++ }
+            continue
+        }
+
+        $states = New-Object System.Collections.Generic.List[string]
+        $allFinished = $true
+        foreach ($tid in $names) {
+            if ($byTaskId.ContainsKey($tid)) {
+                $t = $byTaskId[$tid]
+                $states.Add("$tid ($($t.Status))")
+                if (-not (Test-Finished $t)) { $allFinished = $false }
+            } else { $states.Add("$tid (no task file)"); $allFinished = $false }
+        }
+        $stateText = ($states.ToArray() -join ', ')
+        if ($allFinished -and -not $ticked) {
+            $toTick.Add([pscustomobject]@{ Line = $n; Id = $rowId; Tasks = $stateText; Why = 'tasks'; Text = '' })
+        } elseif (-not $allFinished -and $ticked) {
+            $overticked.Add([pscustomobject]@{ Line = $n; Id = $rowId; Tasks = $stateText })
+        } elseif (-not $allFinished) {
+            $partial.Add([pscustomobject]@{ Line = $n; Id = $rowId; Tasks = $stateText })
+        }
+    }
+    return [pscustomobject]@{
+        Path          = $taskListPath
+        Tables        = $tables
+        WithoutColumn = $withoutColumn
+        Rows          = $rows
+        Moved         = $moved
+        NoTask        = $unlinked
+        ToTick        = $toTick.ToArray()
+        Partial       = $partial.ToArray()
+        TickedNotDone = $overticked.ToArray()
+    }
+}
+
+$taskList = $null
+if ($taskListOn) { $taskList = Get-TaskListReport }
+
+function Write-TaskListText {
+    if (-not $taskListOn) { return }
+    Write-Host ''
+    Write-Host "Task list Done column: $($taskList.Path)"
+    if ($taskList.Tables -eq 0) { Write-Host '  No milestone tables (header "| # | Task |") found.'; return }
+    Write-Host ("  {0} tables, {1} rows ({2} moved, {3} with no task)" -f $taskList.Tables, $taskList.Rows, $taskList.Moved, $taskList.NoTask)
+    if ($taskList.WithoutColumn -gt 0) {
+        Write-Host "  $($taskList.WithoutColumn) table(s) have no Done column yet: the /customize-kit upgrade adds it. The rows below are what it would tick."
+    }
+    Write-Host "  To tick ($($taskList.ToTick.Count)):"
+    foreach ($x in $taskList.ToTick) {
+        $what = $(if ($x.Why -eq 'note') { 'note: ' + $x.Text } else { $x.Tasks })
+        Write-Host ("    line {0}  {1}  {2}" -f $x.Line, $x.Id, $what)
+    }
+    if ($taskList.Partial.Count -gt 0) {
+        Write-Host "  Partial: left open, a named task isn't finished ($($taskList.Partial.Count)):"
+        foreach ($x in $taskList.Partial) { Write-Host ("    line {0}  {1}  {2}" -f $x.Line, $x.Id, $x.Tasks) }
+    }
+    if ($taskList.TickedNotDone.Count -gt 0) {
+        Write-Host "  Ticked, but a named task isn't finished (report only; never untick) ($($taskList.TickedNotDone.Count)):"
+        foreach ($x in $taskList.TickedNotDone) { Write-Host ("    line {0}  {1}  {2}" -f $x.Line, $x.Id, $x.Tasks) }
+    }
+}
+
+# Every exit goes through here so the task list part is never skipped.
+function Exit-Run($Result, [int]$Code) {
+    if ($AsJson) {
+        $Result['TaskList'] = $taskList
+        ConvertTo-Json -InputObject ([pscustomobject]$Result) -Depth 6
+    } else { Write-TaskListText }
+    exit $Code
+}
 $source = ''
 if ($Path) { $source = '-Path' }
 elseif ($roadmap) { $Path = [string]$roadmap.path; $source = 'workflow.roadmap.path' }
@@ -65,13 +206,15 @@ else {
 }
 
 if (-not $Path) {
-    Write-Host 'No tick doc: roadmap mode is off and the Project docs table names no Roadmap or Task list path. Nothing to tick.'
-    exit 0
+    $msg = 'No tick doc: roadmap mode is off and the Project docs table names no Roadmap or Task list path. Nothing to tick.'
+    if (-not $AsJson) { Write-Host $msg }
+    Exit-Run ([ordered]@{ TickDoc = $null; Message = $msg }) 0
 }
 $full = Join-Path $root $Path
 if (-not (Test-Path -LiteralPath $full)) {
-    Write-Host "Tick doc $Path ($source) not found."
-    exit 1
+    $msg = "Tick doc $Path ($source) not found."
+    if (-not $AsJson) { Write-Host $msg }
+    Exit-Run ([ordered]@{ TickDoc = $Path; Message = $msg }) 1
 }
 
 # ---- Marks -------------------------------------------------------------------------------------------------------
@@ -118,21 +261,9 @@ foreach ($line in (Get-Content -LiteralPath $full -Encoding UTF8)) {
 $doneCount = @($items | Where-Object { $_.Done }).Count
 $openCount = $items.Count - $doneCount
 if ($items.Count -eq 0) {
-    Write-Host "Tick doc: $Path ($source)"
-    Write-Host 'No done marks in it: nothing to tick. Never add them (ticks.md).'
-    exit 0
-}
-
-# ---- Tasks -------------------------------------------------------------------------------------------------------
-$tasks = @(Get-Tasks $root)
-$byTaskId = @{}
-foreach ($t in $tasks) { $byTaskId[$t.Id] = $t }
-function Test-Finished($t) { return ($t.Status -eq 'Done' -or $included -contains $t.Id) }
-$unfinished = @('Draft', 'Ready', 'In progress', 'Blocked')
-
-function Get-Short([string]$s, [int]$max = 160) {
-    if ($s.Length -le $max) { return $s }
-    return $s.Substring(0, $max - 3) + '...'
+    $msg = 'No done marks in it: nothing to tick. Never add them (ticks.md).'
+    if (-not $AsJson) { Write-Host "Tick doc: $Path ($source)"; Write-Host $msg }
+    Exit-Run ([ordered]@{ TickDoc = $Path; Source = $source; Message = $msg }) 0
 }
 
 $result = [ordered]@{
@@ -177,7 +308,7 @@ if ($roadmap) {
     $result.TickedNotDone = $tickedNotDone.ToArray()
     $result.NoItem = $noItem.ToArray()
 
-    if ($AsJson) { ConvertTo-Json -InputObject ([pscustomobject]$result) -Depth 5; exit 0 }
+    if ($AsJson) { Exit-Run $result 0 }
 
     Write-Host "Tick doc: $Path ($source)"
     Write-Host "Marks: $doneCount done, $openCount open"
@@ -194,7 +325,7 @@ if ($roadmap) {
         Write-Host "Finished tasks with no marked item for their roadmap ID ($($noItem.Count)):"
         foreach ($x in $noItem) { Write-Host ("  {0}  {1}" -f $x.Id, $x.Tasks) }
     }
-    exit 0
+    Exit-Run $result 0
 }
 
 # ---- Judgement mode: list both sides -----------------------------------------------------------------------------
@@ -231,7 +362,7 @@ $result.FinishedTasks = $finished.ToArray()
 $result.OpenItems = @($open | ForEach-Object { [pscustomobject]@{ Line = $_.Line; Heading = $_.Heading; Text = $_.Text; Tasks = $_.Tasks } })
 $result.TickedNotDone = @($tickedNotDone | ForEach-Object { [pscustomobject]@{ Line = $_.Line; Text = $_.Text; Tasks = $_.Tasks } })
 
-if ($AsJson) { ConvertTo-Json -InputObject ([pscustomobject]$result) -Depth 5; exit 0 }
+if ($AsJson) { Exit-Run $result 0 }
 
 Write-Host "Tick doc: $Path ($source)"
 Write-Host "Marks: $doneCount done, $openCount open. Match items to tasks by the rules in .claude/skills/sync-roadmap/ticks.md."
@@ -256,3 +387,4 @@ if ($tickedNotDone.Count -gt 0) {
     Write-Host "Ticked items naming a task that isn't finished (report only; never untick) ($($tickedNotDone.Count)):"
     foreach ($it in $tickedNotDone) { Write-Host ("    {0}: {1}  [{2}]" -f $it.Line, (Get-Short $it.Text 100), ($it.Tasks -join ', ')) }
 }
+Exit-Run $result 0
