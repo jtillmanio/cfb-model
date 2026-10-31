@@ -1,7 +1,7 @@
 ---
 id: TASK-043
 title: Run the holdout evaluation and the go/no-go for v1
-status: In progress
+status: Review
 depends_on: [TASK-042]
 size: M
 model: opus
@@ -33,11 +33,11 @@ The owner gets a written go/no-go for model v1: every gate on the validation sea
 
 ## Acceptance criteria
 
-- [ ] AC-1: `efficiency-v1.json`'s `ridge_alpha` grid reaches above 2, and the final validation run (`engine backtest --spec efficiency-v1.json --seasons 2016-2023 --report DIR`, with TASK-042's calibration) chooses an α below the grid's top in every season, or the decision row says why the edge stands; the run's five § 9.4 gates (pass/fail with the number), its week-of-season and conference-tier breakdowns and its run directory are recorded in 04 § 9.6 › Phase 3.
-- [ ] AC-2: On the final v1's games, `engine compare` gives Rung 2 against Rung 1 and the four-component prior against last season alone with the fitted decay, each as an MAE difference with its 95% week-bootstrap interval, recorded in 04 § 9.6 › Phase 3 (and 04 § 2 › Preseason priors if the components lose); 04 § 4's early-season line says whether a skip rule is wanted, citing the weeks 1–3 ATS and pick count it rests on.
-- [ ] AC-3: The holdout is opened exactly once in this task: one `engine backtest --seasons 2024-2025 --holdout --reason "<why>"` run of the final spec, so `backtests/holdout/` holds exactly one more record than before (count shown before and after), and its ATS against > 50% and MAE gap against ≤ +0.5 are recorded as pass or fail with the numbers.
-- [ ] AC-4: A go/no-go decision row (D-###) lists every § 9.4 gate and the holdout check as pass or fail with its number, records the owner's call (promote v1.0, paper-trade it as `candidate`, or send it back) with the date, and says whether the "uncalibrated" label shows (it shows while the calibration gate fails); 04 § 9.6 › Phase 3 says "Met" or "Not met" with the date and that decision's ID.
-- [ ] AC-5: If the holdout fails, no setting changes after it and no second holdout run happens in this task (§ 9.1); the decision row names what goes back for the next variant. `data/cfbd_calls.json` is unchanged by every run.
+- [x] AC-1: `efficiency-v1.json`'s `ridge_alpha` grid reaches above 2, and the final validation run (`engine backtest --spec efficiency-v1.json --seasons 2016-2023 --report DIR`, with TASK-042's calibration) chooses an α below the grid's top in every season, or the decision row says why the edge stands; the run's five § 9.4 gates (pass/fail with the number), its week-of-season and conference-tier breakdowns and its run directory are recorded in 04 § 9.6 › Phase 3.
+- [x] AC-2: On the final v1's games, `engine compare` gives Rung 2 against Rung 1 and the four-component prior against last season alone with the fitted decay, each as an MAE difference with its 95% week-bootstrap interval, recorded in 04 § 9.6 › Phase 3 (and 04 § 2 › Preseason priors if the components lose); 04 § 4's early-season line says whether a skip rule is wanted, citing the weeks 1–3 ATS and pick count it rests on.
+- [x] AC-3: The holdout is opened exactly once in this task: one `engine backtest --seasons 2024-2025 --holdout --reason "<why>"` run of the final spec, so `backtests/holdout/` holds exactly one more record than before (count shown before and after), and its ATS against > 50% and MAE gap against ≤ +0.5 are recorded as pass or fail with the numbers.
+- [x] AC-4: A go/no-go decision row (D-###) lists every § 9.4 gate and the holdout check as pass or fail with its number, records the owner's call (promote v1.0, paper-trade it as `candidate`, or send it back) with the date, and says whether the "uncalibrated" label shows (it shows while the calibration gate fails); 04 § 9.6 › Phase 3 says "Met" or "Not met" with the date and that decision's ID.
+- [x] AC-5: If the holdout fails, no setting changes after it and no second holdout run happens in this task (§ 9.1); the decision row names what goes back for the next variant. `data/cfbd_calls.json` is unchanged by every run.
 
 ## Out of scope
 
@@ -64,9 +64,11 @@ The owner gets a written go/no-go for model v1: every gate on the validation sea
 
 _Work noticed during this task and deliberately left out. Each bullet ends `→ <path> § <section>` (where it was placed) or `→ not tracked: <reason>`. See `.claude/skills/track-follow-ups/classify.md`; the PR's Follow-ups section is copied from here._
 
-- TASK-046's weekly job needs the version and status the go/no-go settles (expected: v1 as `candidate`, paper-traded through 2026) (approved at plan)
-- TASK-045 shows `picks.model_prob`; it needs whether the "uncalibrated" label shows (it does while the calibration gate fails) (approved at plan)
-- The calibration gate's ±3 points is tighter than a ~130-game bin's standard error (4.4 points): a noise-aware tolerance for later versions goes in the go/no-go row's revisit column, not applied to v1 (owner, plan gate 2026-10-31) (approved at plan)
+- TASK-046's weekly job needs the version and status the go/no-go settled: v1 stays `candidate` and is paper-traded through 2026, while its Goal and AC-1 assume a `production` version, an open question for its plan; and the spec's new hash and newest run (approved at plan) → docs/tasks/TASK-046-weekly-rate-predict-pick-job.md § Context
+- TASK-045 writes `picks.model_prob`: the "uncalibrated" label shows while the calibration gate fails, and TASK-042's run no longer matches the spec's hash, so it rates from this task's run (approved at plan) → docs/tasks/TASK-045-write-picks-from-a-model-run.md § Context
+- The calibration gate's ±3 points is tighter than a ~130-game bin's standard error (4.4 points): a noise-aware tolerance for later versions, not applied to v1 (owner, plan gate 2026-10-31) (approved at plan) → docs/decisions.md § D-144
+- The widened α grid is +0.026 MAE (+0.010 to +0.044) against TASK-042's narrow-grid run; kept, since choosing the grid by validation MAE would tune on validation → not tracked: accepted as is by the owner (spec frozen with it, 2026-10-31; recorded in D-144)
+- A tuned early-season skip setting, for a later variant to test → not tracked: owner said no rule for v1 (2026-10-31); recorded in 04 § 4 and D-144
 
 ## Plan
 
@@ -90,7 +92,7 @@ Approved 2026-10-31. Owner's plan-gate choices: α grid {1, 2, 3, 5, 8}; the sib
 
 ## Review log
 
-_Filled by /implement-task. One line per round._
+Verify R1 PASS → R2 PASS (after the audit's test) | Audit R1 CHANGES (the sibling spec untested) → R2 PASS | Spec R1 CHANGES (AC-2: the prior recheck missing from 04 § 9.6 › Phase 3) → R2 APPROVE | Schema and UI reviewers not run (no schema, query or UI change)
 
 ## Blocked
 
@@ -98,7 +100,7 @@ _Only if status is Blocked: what failed, what was tried, best hypothesis, decisi
 
 ## Metrics
 
-- Verify rounds:
-- Review rounds:
-- First-pass AC FAILs:
-- Plan revisions after approval:
+- Verify rounds: 2 (both PASS; the second after the audit's test)
+- Review rounds: 2 (spec); audit 2
+- First-pass AC FAILs: 1 (AC-2: spec R1 found the prior recheck recorded in § 2 and D-144 but not § 9.6 › Phase 3)
+- Plan revisions after approval: 0
