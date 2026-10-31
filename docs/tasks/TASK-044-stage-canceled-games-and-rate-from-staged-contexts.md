@@ -1,14 +1,14 @@
 ---
 id: TASK-044
 title: Stage canceled and postponed games, and rate from the harness's staged contexts
-status: Ready
+status: In progress
 depends_on: []
 size: M
 model: opus
 autonomy: attended
 ui: false
-plan_status: none
-planned_at_commit:
+plan_status: approved
+planned_at_commit: 6ae9024
 ---
 
 # TASK-044 — Stage canceled and postponed games, and rate from the harness's staged contexts
@@ -63,7 +63,30 @@ _Work noticed during this task and deliberately left out. Each bullet ends `→ 
 
 ## Plan
 
-_Written by /plan-batch or /implement-task Phase 1. Approved by the user (plan_status: approved) before any code is written._
+Approved 2026-10-31 (attended).
+
+**Decisions:** (1) Signal: D-121's rule alone. A game is `canceled` when its newest record isn't completed, both scores are NULL, and that record's `fetched_at` is `endpoints.SETTLE` (7 days) or more after its `startDate`. CFBD's records carry no status or notes field (App State–Liberty 2024: `completed` false, `notes` null). (2) `postponed` isn't staged: CFBD doesn't distinguish it, and a rescheduled game keeps its id with a new `startDate`, so the next pull stages it `scheduled` again. (3) Inside the 7-day window a game stays `scheduled`; the views grade it `void` once it turns `canceled`. (4) A notes-only `not_played` data-quality check lists each canceled game.
+
+**Steps:**
+
+1. `transform/staging.py` `games`: the status gains the `canceled` branch (raw `startDate`, `SETTLE` from `engine.ingest.endpoints`).
+2. `transform/__init__.py` `rebuild`: print staged games per season and status (AC-4).
+3. `transform/quality.py`: add the notes-only `not_played` check.
+4. `backtest/harness.py`: `Week.contexts` (default `()`), each week's staged games with both teams whose status isn't in `NOT_PLAYED`, sorted by (kickoff, game id); `NOT_PLAYED` moves here.
+5. `publish/models.py`: `_week` takes the week's `as_of` and `contexts` from the harness; drop `_kickoff`, the staged re-read and unused imports; update the module docstring.
+6. Docs: 03 › staging `games` statuses and rule; a D-### row with the signal and the AC-4 counts.
+
+**Files:** `engine/transform/staging.py`, `engine/transform/__init__.py`, `engine/transform/quality.py`, `engine/backtest/harness.py`, `engine/publish/models.py`, `tests/lake_fixture.py` (`write_backtest_repull`), `tests/test_transform.py`, `tests/test_publish_staging.py`, `tests/test_publish_models.py`, `docs/03-data-model.md`, `docs/decisions.md`, this task file.
+
+**Test strategy:**
+
+- AC-1: `test_transform.py::test_unscored_game_a_week_past_its_start_is_staged_canceled` (final, scheduled, canceled, and a 6-day pull left scheduled); `test_publish_staging.py::test_publish_writes_canceled_status_and_a_second_publish_keeps_it`.
+- AC-2: `test_publish_models.py::test_a_canceled_game_from_the_lake_is_not_predicted` (a 2023 week-5 game unplayed, re-pulled 8 days after its start).
+- AC-3: `test_publish_models.py::test_rate_takes_a_tba_kickoff_from_the_harness` (a TBA game's `fit_week` kickoff equals `features.KICKOFF`'s); existing `test_publish_models.py` cases unchanged; `test_features.py` and `test_backtest_golden.py` unchanged.
+- AC-4: manual `engine transform --rebuild` on the local lake; `data/cfbd_calls.json` hash unchanged; counts into the decision row.
+- AC-5: doc review (spec-reviewer).
+
+**Risks:** a canceled game still counts toward its week's `as_of` (only ever earlier, never a leak; App State–Liberty isn't its week's first kickoff, so no backtest number moves). Line pulls after a canceled game's start still publish as its close; harmless, since it grades `void`.
 
 ## Review log
 

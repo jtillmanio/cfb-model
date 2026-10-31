@@ -70,6 +70,9 @@ FIT_INPUTS = frozenset({"games", "team_game_stats", "preseason"})
 # What only a baseline may read (D-133): the closing spread of every staged game with a line, by
 # game id, and the staged benchmark ratings. Each baseline filters them to what it may know.
 BASELINE_INPUTS = frozenset({"closing_lines", "benchmark_ratings"})
+# Staged statuses of games that won't be played: never in `Week.contexts`, so never given a
+# prediction, which is permanent (TASK-044; the transform stages `canceled`, D-121).
+NOT_PLAYED = frozenset({"canceled", "postponed"})
 _LINES = "market lines are targets and pick-time inputs, never fitting inputs (04 § 9.2)"
 REFUSED_INPUTS = {
     "hindsight_ratings": "hindsight ratings are computed from the whole season (D-056)",
@@ -130,7 +133,10 @@ class Week:
     season_type: str
     week: int
     as_of: datetime
-    games: tuple[Eligible, ...]
+    games: tuple[Eligible, ...]  # what the backtest scores
+    # Every staged game of the week with both teams that will be played (status not in
+    # `NOT_PLAYED`), by kickoff then game id: what `engine rate` predicts (TASK-044).
+    contexts: tuple[GameContext, ...] = ()
 
     @property
     def label(self) -> str:
@@ -328,6 +334,7 @@ def load(lake: Lake) -> History:
 
     results: list[GameResult] = []
     by_week: dict[tuple[int, str, int], tuple[datetime, list[Eligible]]] = {}
+    contexts: dict[tuple[int, str, int], list[GameContext]] = {}
     for g in games:
         teams = g["home_source_id"] is not None and g["away_source_id"] is not None
         final = g["status"] == "final" and None not in (g["home_points"], g["away_points"])
@@ -353,9 +360,10 @@ def load(lake: Lake) -> History:
                     **_fields(context), home_points=g["home_points"], away_points=g["away_points"]
                 )
             )
-        _, week_games = by_week.setdefault(
-            (g["season"], g["season_type"], g["week"]), (g["as_of"], [])
-        )
+        key = (g["season"], g["season_type"], g["week"])
+        _, week_games = by_week.setdefault(key, (g["as_of"], []))
+        if context is not None and g["status"] not in NOT_PLAYED:
+            contexts.setdefault(key, []).append(context)
         line = closing.get(g["source_id"])
         fbs = g["home_classification"] == g["away_classification"] == "fbs"
         if context is None or not final or not fbs or line is None:
@@ -380,7 +388,19 @@ def load(lake: Lake) -> History:
         )
 
     weeks = [
-        Week(season, season_type, week, as_of, tuple(sorted(eligible, key=lambda e: e.source_id)))
+        Week(
+            season,
+            season_type,
+            week,
+            as_of,
+            tuple(sorted(eligible, key=lambda e: e.source_id)),
+            tuple(
+                sorted(
+                    contexts.get((season, season_type, week), ()),
+                    key=lambda c: (c.kickoff, c.game_id),
+                )
+            ),
+        )
         for (season, season_type, week), (as_of, eligible) in by_week.items()
     ]
     weeks.sort(key=lambda w: (w.season, w.as_of, w.season_type, w.week))

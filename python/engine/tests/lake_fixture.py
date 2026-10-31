@@ -244,6 +244,55 @@ def write_backtest_seasons(
                 write(lake, key, rows, params)
 
 
+def backtest_game(season: int, season_type: str, week: int, week1_id: str) -> dict[str, Any]:
+    """The /games record `write_backtest_seasons` writes for a season's copy of a week-1 game."""
+    game_id = int(backtest_game_id(season, season_type, week, week1_id))
+    games = _backtest_week(season, season_type, week, None, None, None)["games"]
+    return next(g for g in games if g["id"] == game_id)
+
+
+def write_backtest_repull(
+    lake: LocalLake,
+    season: int,
+    season_type: str,
+    week: int,
+    records: list[dict[str, Any]],
+    pulled: datetime,
+) -> None:
+    """A later /games pull of one backtest week, holding `records`."""
+    params = {"classification": "fbs", "seasonType": season_type, "week": week, "year": season}
+    write(lake, raw_key(raw_folder("games", season, week, season_type), pulled), records, params)
+
+
+# One game per staged status (TASK-044), on top of the fixture's week 1 (Kansas-Fresno State is
+# completed): a season /games pull on 2025-09-06 19:00Z holding, unscored and uncompleted, a game
+# that started exactly `SETTLE` (7 days) before it, one that started 6 days before it, and one
+# that hasn't started. source id -> the status each is staged as.
+STATUS_PULL = "raw/cfbd/games/season=2025/fetched_at=2025-09-06T190000Z.parquet"
+STATUS_GAMES = {
+    "401756847": "final",
+    "900000060": "canceled",
+    "900000061": "scheduled",
+    "900000062": "scheduled",
+}
+
+
+def write_status_games(lake: LocalLake) -> None:
+    (kansas,) = [g for g in FIXTURE[fixture_key("games")]["records"] if g["id"] == 401756847]
+    unplayed = {**kansas, "completed": False, "homePoints": None, "awayPoints": None}
+    starts = {
+        900000060: (2, "2025-08-30T19:00:00.000Z"),
+        900000061: (2, "2025-08-31T19:00:00.000Z"),
+        900000062: (3, "2025-09-13T19:00:00.000Z"),
+    }
+    records = [
+        {**copy.deepcopy(unplayed), "id": game_id, "week": week, "startDate": start}
+        for game_id, (week, start) in starts.items()
+    ]
+    params = {"classification": "fbs", "seasonType": "regular", "year": 2025}
+    write(lake, STATUS_PULL, records, params)
+
+
 # Preseason inputs (TASK-037): the fixture's 2025 talent, returning production and recruiting
 # records copied to other seasons, each value moved a little by season so a prior fit sees them
 # vary, every pull fetched long after (as the backfill's were).
