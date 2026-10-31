@@ -1,7 +1,7 @@
 ---
 id: TASK-043
 title: Run the holdout evaluation and the go/no-go for v1
-status: Review
+status: Done
 depends_on: [TASK-042]
 size: M
 model: opus
