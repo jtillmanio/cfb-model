@@ -6,6 +6,7 @@ Personal sports-analytics app. A college football model makes game predictions, 
 
 ## Where things are
 - `docs/01`–`07`: product, architecture, data model, model, UI brief, roadmap, Claude Design playbook. Read the relevant one before starting a phase task.
+- `docs/model-guide.md`: plain-language guide to the model, the engine, the backtest and what each M2–M4 task added. Update it when a task changes the model, the spec, the pipeline or v1's status.
 - `design/`: mock sample data, Claude Design exports (the visual reference) and handoff bundles.
 - `.claude/rules/`: area rules (git always; python, database and web by path).
 - `.claude/project/`: this project's sections for the kit's agents (and skills, if any); the kit never overwrites them.
@@ -52,7 +53,7 @@ When two sources disagree, believe them in this order, and fix the loser in the 
 2. This file and `.claude/rules/`.
 3. The task file's acceptance criteria: the contract for the work.
 4. **Architecture**, **Data model** and **Domain specs** (`docs/02`–`04`): why the system is shaped this way.
-5. Narrative docs (`docs/01`, `05`, `07`): drafted earliest, the most likely to have drifted.
+5. Narrative docs (`docs/01`, `05`, `07`, `model-guide.md`): drafted earliest or summarizing others, the most likely to have drifted.
 
 On top of the order:
 - **The design rules layout and copy.** Where the design source of truth and a doc disagree (including `docs/05-ui-design-brief.md`), the design wins unless the doc notes an override or the user says otherwise. It never wins on a number: what the model computes and how numbers are defined follow `docs/04-model.md` and this file.
