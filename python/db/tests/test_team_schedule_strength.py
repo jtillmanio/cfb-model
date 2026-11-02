@@ -11,7 +11,7 @@ from typing import Any
 import model_rows as m
 import pytest
 from sqlalchemy import Connection, text
-from test_team_rankings import assert_index_reads
+from test_team_rankings import assert_index_reads, seed_postseason_week
 
 HFA = 3.0
 AS_OF = m.utc(2030, 9, 26, 16)  # entering week 4
@@ -140,3 +140,9 @@ def test_postseason_week_1_is_its_own_week(db_conn: Connection):
     assert post["games_played"] == 4
     # b and e were at a's home (− HFA), c hosted a (+ HFA), d was neutral.
     assert post["sos"] == pytest.approx(((10.0 - HFA) + (4.0 + HFA) + -2.0 + (1.0 - HFA)) / 4)
+
+
+def test_postseason_single_team_read_uses_index(db_conn: Connection):
+    """TASK-047 (D-150)."""
+    seed_postseason_week(db_conn)
+    assert_index_reads(db_conn, "team_schedule_strength", "postseason", 1)

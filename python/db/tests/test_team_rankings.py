@@ -199,25 +199,29 @@ def test_seeded_week_6_order_and_change(db_conn: Connection):
     assert sorted(week6, key=week6.__getitem__)[:3] == ["osu", "tex", "ore"]
 
 
-def assert_index_reads(conn: Connection, view: str) -> None:
+def assert_index_reads(
+    conn: Connection, view: str, season_type: str = "regular", week: int = 6
+) -> None:
     """Every read of team_ratings for one team's week is an index lookup by its version or its run,
     and the week's own ratings are entered by week (AC-4). With sequential scans priced out, a
     view that ranked every rating first would still show a Seq Scan, an index scan with no
     condition, or no read by week. The week before may be read through the version's season
-    (the planner's choice, D-136), never the version's whole history."""
+    (the planner's choice, D-136), never the version's whole history. A week is read as the app
+    reads it, by season type too (D-150)."""
     version_id, team_id = conn.execute(
         text(
             "SELECT r.model_version_id, r.team_id FROM team_ratings r"
             " JOIN model_versions v ON v.id = r.model_version_id"
             " WHERE v.sport_id = 'cfb' AND v.name = 'power' AND v.version = 'v1.0'"
-            " AND r.season = 2026 AND r.week = 6 LIMIT 1"
-        )
+            " AND r.season = 2026 AND r.season_type = :st AND r.week = :week LIMIT 1"
+        ),
+        {"st": season_type, "week": week},
     ).one()
     plan = m.explain(
         conn,
         f"SELECT * FROM {view} WHERE model_version_id = :v"
-        " AND team_id = :t AND season = 2026 AND week = 6",
-        {"v": version_id, "t": team_id},
+        " AND team_id = :t AND season = 2026 AND season_type = :st AND week = :week",
+        {"v": version_id, "t": team_id, "st": season_type, "week": week},
     )
 
     scans = m.scans(plan, "team_ratings")
@@ -235,6 +239,44 @@ def assert_index_reads(conn: Connection, view: str) -> None:
 def test_single_team_read_uses_index(db_conn: Connection):
     """AC-4."""
     assert_index_reads(db_conn, "team_rankings")
+
+
+def seed_postseason_week(conn: Connection) -> None:
+    """The seeded v1.0's week-6 ratings again, as a scheduled run entering 2026's bowls."""
+    week6 = conn.execute(
+        text(
+            "SELECT r.id, r.model_version_id FROM model_runs r"
+            " JOIN model_versions v ON v.id = r.model_version_id"
+            " WHERE v.sport_id = 'cfb' AND v.name = 'power' AND v.version = 'v1.0'"
+            " AND r.run_type = 'scheduled' AND r.season = 2026 AND r.week = 6"
+        )
+    ).one()
+    bowls = m.utc(2026, 12, 19, 17)
+    run_id = conn.execute(
+        text(
+            "INSERT INTO model_runs (model_version_id, run_type, season, season_type, week, as_of,"
+            " status, started_at, finished_at)"
+            " VALUES (:v, 'scheduled', 2026, 'postseason', 1, :as_of, 'succeeded', :as_of,"
+            " :as_of) RETURNING id"
+        ),
+        {"v": week6.model_version_id, "as_of": bowls},
+    ).scalar_one()
+    conn.execute(
+        text(
+            "INSERT INTO team_ratings (model_run_id, model_version_id, team_id, season,"
+            " season_type, week, as_of, rating)"
+            " SELECT :run, model_version_id, team_id, 2026, 'postseason', 1, :as_of, rating"
+            " FROM team_ratings WHERE model_run_id = :week6"
+        ),
+        {"run": run_id, "as_of": bowls, "week6": week6.id},
+    )
+
+
+def test_postseason_single_team_read_uses_index(db_conn: Connection):
+    """TASK-047: entering the bowls, the week before is found through the version's runs, and
+    the ratings are still read by index (D-150)."""
+    seed_postseason_week(db_conn)
+    assert_index_reads(db_conn, "team_rankings", "postseason", 1)
 
 
 def test_views_readme_lists_every_view_with_its_test():

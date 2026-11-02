@@ -64,7 +64,13 @@ def downgrade() -> None:
     # deleted (hard rule 2): refuse rather than merge them.
     postseason = (
         op.get_bind()
-        .execute(sa.text("SELECT count(*) FROM model_runs WHERE season_type = 'postseason'"))
+        .execute(
+            sa.text(
+                "SELECT count(*) FROM model_runs WHERE season_type = 'postseason'"
+                " OR id IN (SELECT model_run_id FROM team_ratings"
+                " WHERE season_type = 'postseason')"
+            )
+        )
         .scalar_one()
     )
     if postseason:

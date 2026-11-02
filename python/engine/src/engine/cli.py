@@ -614,10 +614,11 @@ def main(argv: list[str] | None = None) -> None:
         "advanced stats, plays, drives, closing lines); lines: the next week's games and lines, "
         "then each version's picks re-evaluated against them. The season is staged in a scratch "
         "lake, checked, and published in one transaction. rate-and-predict: no CFBD call; every "
-        "season rebuilt in a scratch lake and checked, the next regular week fit as the backtest "
-        "fits it, and a scheduled run, its ratings, predictions and picks inserted in one "
-        "transaction. Exits 1 if a check fails (nothing published), a fit fails or the pick "
-        "re-evaluation fails, 2 on a refusal, 3 when the CFBD budget stops it.",
+        "season rebuilt in a scratch lake and checked, the coming week (postseason week 1 is "
+        "every bowl and CFP game) fit as the backtest fits it, and a scheduled run, its ratings, "
+        "predictions and picks inserted in one transaction. Exits 1 if a check fails (nothing "
+        "published), a fit fails or the pick re-evaluation fails, 2 on a refusal, 3 when the "
+        "CFBD budget stops it.",
     )
     job.add_argument("kind", choices=["results", "lines", "rate-and-predict"])
     job.add_argument(

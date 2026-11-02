@@ -14,7 +14,7 @@ from psycopg import errors
 from sqlalchemy import Connection, inspect, make_url, text
 from sqlalchemy.exc import IntegrityError
 
-from db.migrate import alembic_config
+from db.migrate import alembic_config, apply_views
 from db.session import make_engine, sqlalchemy_url
 
 SPORT = "pytest"
@@ -149,6 +149,20 @@ def scratch_url(test_db_url: str) -> Iterator[str]:
             conn.execute(text(f'DROP SCHEMA "{schema}" CASCADE'))
 
 
+RATING_VIEWS = {"latest_team_ratings", "team_rankings", "team_schedule_strength"}
+
+
+def _scratch(url: str) -> None:
+    """Refuse to migrate unless `url` is on a scratch schema, never the shared test DB's."""
+    with make_engine(url).connect() as conn:
+        assert conn.execute(text("SELECT current_schema()")).scalar_one().startswith("pytest_")
+
+
+def _views(url: str) -> set[str]:
+    with make_engine(url).connect() as conn:
+        return set(inspect(conn).get_view_names()) & RATING_VIEWS
+
+
 def _stored(url: str) -> list[tuple]:
     """Every run's and rating's values, with the season type where the column exists."""
     with make_engine(url).connect() as conn:
@@ -173,6 +187,7 @@ def _stored(url: str) -> list[tuple]:
 
 
 def test_the_migration_backfills_and_runs_up_down_up(scratch_url: str):
+    _scratch(scratch_url)
     cfg = alembic_config(scratch_url)
     command.upgrade(cfg, "0004")
     with make_engine(scratch_url).begin() as conn:
@@ -202,6 +217,8 @@ def test_the_migration_backfills_and_runs_up_down_up(scratch_url: str):
     before = _stored(scratch_url)
 
     command.upgrade(cfg, "head")
+    apply_views(scratch_url)  # as `db migrate` does: the downgrade must drop real views
+    assert _views(scratch_url) == RATING_VIEWS
     backfilled = _stored(scratch_url)
     # The live run and its rating are regular weeks; the backtest has no week.
     assert [row[-1] for row in backfilled] == ["regular", None, "regular"]
@@ -209,11 +226,15 @@ def test_the_migration_backfills_and_runs_up_down_up(scratch_url: str):
 
     command.downgrade(cfg, "0004")
     assert _stored(scratch_url) == before
+    assert _views(scratch_url) == set()  # the older checkout re-applies its own
     command.upgrade(cfg, "head")
+    apply_views(scratch_url)
     assert _stored(scratch_url) == backfilled
+    assert _views(scratch_url) == RATING_VIEWS
 
 
 def test_the_downgrade_refuses_a_postseason_week(scratch_url: str):
+    _scratch(scratch_url)
     cfg = alembic_config(scratch_url)
     command.upgrade(cfg, "head")
     with make_engine(scratch_url).begin() as conn:
