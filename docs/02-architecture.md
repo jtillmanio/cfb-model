@@ -81,7 +81,7 @@ This distinction drives the backup and "live" rules below:
 - **models**: rating systems and game predictors, **built from declarative configs** (`ModelSpec`) behind a common interface (see [04-model.md](04-model.md)).
 - **backtest**: walk-forward evaluation harness and metrics.
 - **simulate**: Monte Carlo season simulations (records, conference titles, later CFP).
-- **publish**: upserts reference data and inserts versioned ratings, predictions and picks into Postgres.
+- **publish**: upserts reference data and inserts versioned ratings, predictions and picks into Postgres. Picks come from `engine pick` (`publish/picks.py`, D-148): it reads a version's newest run for the week and the newest line before each kickoff from Postgres alone, and inserts a pick only where the side or tier changes, so the weekly run and the `lines` job's re-evaluation share it.
 - **sports/**: sport-specific code lives behind a `Sport` plugin (`sports/cfb/`, later `sports/nfl/`). Shared code never imports a specific sport.
 - Two dependency sets: a **light core** (numpy, scipy, pydantic, which is enough to turn ratings into a prediction and validate a `ModelSpec`) and a **heavy extra** `engine[train]` (polars/pandas, duckdb, scikit-learn, lightgbm, statsmodels). The API depends only on the light core.
 

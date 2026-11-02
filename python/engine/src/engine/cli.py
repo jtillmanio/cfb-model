@@ -431,6 +431,39 @@ def _rate(args: argparse.Namespace) -> None:
         sys.exit(1)
 
 
+def _pick(args: argparse.Namespace) -> None:
+    """Pick the week from the version's newest succeeded run at the engine's clock; exit 2 on a
+    refusal (nothing written), 1 if a line isn't before a game's cutoff or the run's as_of is
+    after it."""
+    from engine import clock
+    from engine.publish import picks
+    from engine.transform.features import PointInTimeError
+
+    try:
+        refuse_if_live(f"pick on {args.target}")
+        url = direct_url(args.target)
+    except (UnsafeDatabaseError, RuntimeError) as e:
+        _refuse(str(e))  # RuntimeError: the dev URL isn't set
+    try:
+        summary = picks.publish_picks(
+            url,
+            name=args.name,
+            version=args.version,
+            season=args.season,
+            week=args.week,
+            now=clock.now(),
+        )
+    except picks.PicksRefused as e:
+        _refuse(str(e))
+    except PointInTimeError as e:
+        print(f"FAIL {e}")
+        sys.exit(1)
+    print(
+        f"Run {summary.run_id} of {args.name} {args.version}, {args.season} week {args.week} on "
+        f"{args.target}: {summary.picks} picks, {summary.passes} passes written."
+    )
+
+
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(prog="engine")
     commands = parser.add_subparsers(dest="command", required=True)
@@ -621,6 +654,21 @@ def main(argv: list[str] | None = None) -> None:
         help="The model version, created as dev if it doesn't exist (default %(default)s)",
     )
 
+    pick = commands.add_parser(
+        "pick",
+        help="Write spread picks from a model run, and re-evaluate them when lines move",
+        description="Reads the version's newest succeeded run for the regular-season week and "
+        "picks each predicted game against the newest line snapshot before its kickoff, "
+        "inserting a pick only where the side or tier changes (a pass row where a pick stops "
+        "qualifying), in one transaction on the target's direct URL. Games already kicked off "
+        "are skipped. A refusal writes nothing (exit 2). Refused under LIVE=true.",
+    )
+    pick.add_argument("--season", type=int, required=True)
+    pick.add_argument("--week", type=int, required=True, help="The regular week the run rated")
+    pick.add_argument("--target", required=True, choices=["dev", "test"])
+    pick.add_argument("--name", required=True, help="The model version's name")
+    pick.add_argument("--version", default="v1.0", help="The model version (default %(default)s)")
+
     seed = commands.add_parser("seed", help="Load seed data into the test DB")
     seed.add_argument("what", choices=["fixture"])
 
@@ -694,6 +742,9 @@ def main(argv: list[str] | None = None) -> None:
     elif args.command == "rate":
         load_env()  # before the LIVE check, so a LIVE in .env.local counts
         _rate(args)
+    elif args.command == "pick":
+        load_env()  # before the LIVE check, so a LIVE in .env.local counts
+        _pick(args)
     elif args.command == "seed":
         load_env()
         from engine.fixture import seed_fixture
