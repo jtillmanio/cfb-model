@@ -1,0 +1,15 @@
+# Placeholder for the rate-and-predict job (TASK-046). GitHub dispatches a workflow only when its file
+# exists on the default branch; with this stub on main, `gh workflow run rate-and-predict.yml --ref
+# <branch>` runs the branch's real file. TASK-046 replaces this file. It reads and changes nothing.
+name: Rate and predict
+
+on:
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  stub:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "Placeholder. The rate-and-predict job lands with TASK-046; nothing was read or written."
