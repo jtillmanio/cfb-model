@@ -1,7 +1,7 @@
 ---
 id: TASK-045
 title: Write picks from a model run, and re-evaluate them when lines move
-status: In progress
+status: Review
 depends_on: [TASK-042]
 size: M
 model: opus
@@ -34,11 +34,11 @@ After a model run predicts a week, the engine turns its predictions into spread 
 
 ## Acceptance criteria
 
-- [ ] AC-1: Given a model run's predictions for a week in the test DB and each game's line snapshots, the writer inserts, for each game `core.picks.pick_game` (with `sports.cfb.teams.pickable` and the run's resolved pick rules) picks, one spread pick on the newest snapshot before the game's cutoff: `line` that row's `spread_home`, `price` its price or −110 when it has none, `edge_pts`, `model_prob` and `tier` as `pick_game` returns them; a game with an FCS team and an edge above every threshold gets no row (test).
-- [ ] AC-2: Run again with no new snapshot, the writer inserts nothing; given a newer snapshot, it inserts a new pick when the side or tier changes (and `current_picks` then shows the new line), nothing when side and tier stay (`current_picks` keeps the old line), and a pass row when the pick no longer qualifies (`current_picks` shows no pick for the game); each case is a test that reads `current_picks`.
-- [ ] AC-3: The writer writes no row for a game at or after its cutoff (kickoff, or the end of `game_date` in Eastern time when TBA): a test with one game kicked off a minute before the writer's clock and one still to play inserts a row for the second only, and nothing it writes has `created_at` at or after its game's cutoff.
-- [ ] AC-4: When the newest pull has no consensus quote, the writer uses the book the plan settles (recorded in a decision row), shown by a test with such a pull; a game with no snapshot before its cutoff gets no pick.
-- [ ] AC-5: The writer runs in one transaction with no UPDATE or DELETE on `picks` (the insert-only trigger stays untouched), is refused under `LIVE=true` from the CLI, and a failure partway inserts no pick (test).
+- [x] AC-1: Given a model run's predictions for a week in the test DB and each game's line snapshots, the writer inserts, for each game `core.picks.pick_game` (with `sports.cfb.teams.pickable` and the run's resolved pick rules) picks, one spread pick on the newest snapshot before the game's cutoff: `line` that row's `spread_home`, `price` its price or −110 when it has none, `edge_pts`, `model_prob` and `tier` as `pick_game` returns them; a game with an FCS team and an edge above every threshold gets no row (test).
+- [x] AC-2: Run again with no new snapshot, the writer inserts nothing; given a newer snapshot, it inserts a new pick when the side or tier changes (and `current_picks` then shows the new line), nothing when side and tier stay (`current_picks` keeps the old line), and a pass row when the pick no longer qualifies (`current_picks` shows no pick for the game); each case is a test that reads `current_picks`.
+- [x] AC-3: The writer writes no row for a game at or after its cutoff (kickoff, or the end of `game_date` in Eastern time when TBA): a test with one game kicked off a minute before the writer's clock and one still to play inserts a row for the second only, and nothing it writes has `created_at` at or after its game's cutoff.
+- [x] AC-4: When the newest pull has no consensus quote, the writer uses the book the plan settles (recorded in a decision row), shown by a test with such a pull; a game with no snapshot before its cutoff gets no pick.
+- [x] AC-5: The writer runs in one transaction with no UPDATE or DELETE on `picks` (the insert-only trigger stays untouched), is refused under `LIVE=true` from the CLI, and a failure partway inserts no pick (test).
 
 ## Out of scope
 
@@ -66,8 +66,14 @@ After a model run predicts a week, the engine turns its predictions into spread 
 
 _Work noticed during this task and deliberately left out. Each bullet ends `→ <path> § <section>` (where it was placed) or `→ not tracked: <reason>`. See `.claude/skills/track-follow-ups/classify.md`; the PR's Follow-ups section is copied from here._
 
-- TASK-046 calls `publish.picks.write_picks` in its job's transaction; the writer reads the version's newest succeeded run of any non-backtest type, while TASK-046's AC-3 says "newest `scheduled` run", so its plan decides whether to filter (approved at plan)
-- Candidate decision: the book rule, the re-evaluation rule, `expected_value` on the displayed probability and the `engine pick` entry point, as one D-### row (approved at plan)
+- TASK-046 calls `publish.picks.write_picks` in its job's transaction; the writer reads the version's newest succeeded run of any non-backtest type, while TASK-046's AC-3 says "newest `scheduled` run", so its plan decides whether to filter (approved at plan) → docs/tasks/TASK-046-weekly-rate-predict-pick-job.md § Context
+- Candidate decision: the book rule, the re-evaluation rule, `expected_value` on the displayed probability and the `engine pick` entry point, as one D-### row (approved at plan) → docs/decisions.md § D-148
+- Schema review R2: the per-version lock serializes writers only under READ COMMITTED, and a `PicksRefused` or `PointInTimeError` raised partway leaves earlier inserts in the caller's transaction, so TASK-046's job keeps that isolation and rolls back on an error, never commits → docs/tasks/TASK-046-weekly-rate-predict-pick-job.md § Context
+- Schema review R1: a run with no predictions returns 0 picks and 0 passes, which reads the same as "no line moved"; TASK-046's job summary should tell them apart → docs/tasks/TASK-046-weekly-rate-predict-pick-job.md § Context
+- From TASK-041's note in Context: `pick_outcomes` grades spread picks only, so the first totals pick needs totals grading (combined points against `line`, CLV against `closing_total`) → docs/08-tasklist.md § M15 › M15.2
+- From TASK-040's and TASK-041's notes in Context: the CHECKs on `picks` (`line` NULL only for moneyline; `price` ≤ −100 or ≥ +100) weren't proposed here (no schema change); they're schema changes to raise when another market is written → docs/08-tasklist.md § M15 › M15.2
+- From TASK-041's note in Context: moneyline picks need `pick_outcomes` to grade the winner with units from `price` → docs/08-tasklist.md § Unscheduled (F-12)
+- Schema review R2: the lock casts the bigint version id to `integer`, so a version id past 2^31 − 1 would fail the transaction (safely: nothing written) → not tracked: version ids are a few dozen and won't approach it
 
 ## Plan
 
@@ -112,13 +118,18 @@ Approved 2026-11-02 at `1750be0`.
 
 _Filled by /implement-task. One line per round._
 
+- Verify R1 PASS (0cd3e70) → R2 PASS (75144ad, after the audit's test) → R3 PASS (39d5900, after the review fixes; pytest 785, Vitest 229, e2e 40)
+- Audit R1 CHANGES (AC-2 PARTIAL: a tier-only comparison survived; the side-change case also changed the tier) → R2 PASS (side-only flip at −16.5 kills it)
+- Spec R1 CHANGES (D-148 said the run's `as_of` must be before the cutoff; the code, correctly, allows equal) → R2 APPROVE
+- Schema R1 APPROVE (six MINORs; four fixed as plan Revision 1 with the owner's approval, two to TASK-046's Context) → R2 APPROVE (MINORs placed as follow-ups)
+
 ## Blocked
 
 _Only if status is Blocked: what failed, what was tried, best hypothesis, decision needed._
 
 ## Metrics
 
-- Verify rounds:
-- Review rounds:
-- First-pass AC FAILs:
-- Plan revisions after approval:
+- Verify rounds: 3 (all PASS; the second after the audit's test, the third after the review fixes)
+- Review rounds: 2 (spec), 2 (schema); audit 2
+- First-pass AC FAILs: 0 (audit R1 found AC-2's test not discriminating, not the code; spec R1's CHANGES was D-148's wording)
+- Plan revisions after approval: 1 (Revision 1: the schema review's hardening, approved by the owner)

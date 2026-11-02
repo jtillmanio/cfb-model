@@ -74,7 +74,7 @@ _Written by `/milestones` on 2026-10-08 from [06-roadmap.md](06-roadmap.md). Eac
 
 **Future entities → milestones.** `season_simulations` M9 · `manual_adjustments` M10 · weather snapshots, external benchmark ratings M10 · watchlist, `alert_rules`, alert log, `push_subscriptions` M11 · rating kind, `coaches`, `coach_tenures` M12 · `team_game_stats` and its views M18.5 · schedule-strength outputs (SOR, remaining SOS) M18.4 · per-team input values M21.1 · external ratings M22.4 (shared with M10.7) · position-group ratings M19.6 · active-version marker, if needed, M23.1.
 
-**Unscheduled** (no roadmap phase): F-12 moneyline edges, F-25 win totals vs market, F-34 bet tracker (and its `bets` table), F-41 college basketball. Add a phase if one becomes worth building.
+**Unscheduled** (no roadmap phase): F-12 moneyline edges (*From TASK-045 (feat/045-write-picks-from-a-model-run):* the first moneyline pick also needs `pick_outcomes` to grade moneylines: the winner, units from `price`; D-142 grades spread only), F-25 win totals vs market, F-34 bet tracker (and its `bets` table), F-41 college basketball. Add a phase if one becomes worth building.
 
 ---
 
@@ -454,7 +454,7 @@ _Added 2026-11-01 (D-146) and numbered after M19 so the IDs of M12–M19 stay st
 | Done | # | Task | Layer | Size | Depends on | Autonomy | Notes |
 |------|---|------|-------|------|------------|----------|-------|
 | | M15.1 | Build the totals model | engine | M | M10.5 | attended | Pace × efficiency plus weather snapshots; must pass the spread gates applied to totals (04 § 9.6) |
-| | M15.2 | Pick totals and show them on This Week | engine, ui | M | M15.1 | attended | S-01 Spread / Total / Both (D-074). *From TASK-016 (PR #59):* the fixture's line snapshots carry no totals; this task adds sample-data §1's market totals (OSU/PUR 52.5, TEX/OU 61.5) |
+| | M15.2 | Pick totals and show them on This Week | engine, ui | M | M15.1 | attended | S-01 Spread / Total / Both (D-074). *From TASK-016 (PR #59):* the fixture's line snapshots carry no totals; this task adds sample-data §1's market totals (OSU/PUR 52.5, TEX/OU 61.5). *From TASK-045 (feat/045-write-picks-from-a-model-run):* the pick writer (D-148) writes spread picks only; the first totals pick also needs `pick_outcomes` to grade totals (combined points against `line`, CLV against `closing_total`; D-142 grades spread only), and the CHECKs TASK-040 and TASK-041 proposed (`line` NULL only for moneyline; `price` ≤ −100 or ≥ +100) are schema changes to raise then (stop and ask) |
 | | M15.3 | Approximate committee selection and simulate the 12-team bracket | engine | M | M12.6, M9.2 | attended | Must beat "12 best by rating, 5 top conference champions in" on Brier (04 § 9.6) |
 | | M15.4 | Show CFP % on the team page and Season Outlook | ui | S | M15.3 | unattended | S-06 CFP tile, S-05 (D-081) |
 | | M15.5 | Build the hypothetical matchup endpoint | api | S | — | unattended | Light core, ≤ 2 s (D-092); cross-season ratings |
