@@ -171,13 +171,13 @@ def _(db):
 
 @app.cell
 def _(db, mo):
-    games_scored, pooled_mae = db.sql(
+    ((games_scored, pooled_mae),) = db.sql(
         """
         SELECT count(*), avg(abs(e.margin + c.spread_home))
         FROM eligible e JOIN closing c ON c.game_source_id = e.source_id
         WHERE c.spread_home IS NOT NULL
         """
-    ).fetchone()
+    ).fetchall()
     _benchmark = f"Pooled closing-line MAE, 2014-2025: {pooled_mae:.3f} points"
     print(f"{_benchmark} over {games_scored:,} games.")  # the headless run's record
     mo.md(f"**{_benchmark}** over {games_scored:,} games.")
