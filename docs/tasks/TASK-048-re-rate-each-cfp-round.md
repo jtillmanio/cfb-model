@@ -1,13 +1,13 @@
 ---
 id: TASK-048
 title: Backtest re-rating each CFP round after the rounds before it
-status: Draft
+status: Ready
 depends_on: [TASK-047]
 size: M
 model: opus
 autonomy: attended
 ui: false
-plan_status: proposed
+plan_status: approved
 planned_at_commit: faea7a4
 ---
 
@@ -65,7 +65,7 @@ _Work noticed during this task and deliberately left out. Each bullet ends `→ 
 
 _Written by /plan-batch or /implement-task Phase 1. Approved by the user (plan_status: approved) before any code is written._
 
-Split approved by the owner on 2026-11-02; the ACs above were drafted with this plan and are reviewed with it.
+Split approved by the owner on 2026-11-02; the ACs above were drafted with this plan. Decided at the plan gate (2026-11-02): the AC-7 bar is "adopt unless the paired 95% interval lies wholly above zero"; rounds come from the bracket rule in Context.
 
 **Steps**
 1. Tests first (below); see each fail.

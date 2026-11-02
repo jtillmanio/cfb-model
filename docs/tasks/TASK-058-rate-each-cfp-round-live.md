@@ -1,13 +1,13 @@
 ---
 id: TASK-058
 title: Rate, predict and pick each CFP round live after the rounds before it
-status: Draft
+status: Ready
 depends_on: [TASK-048]
 size: M
 model: opus
 autonomy: attended
 ui: false
-plan_status: proposed
+plan_status: approved
 planned_at_commit: faea7a4
 ---
 
@@ -59,7 +59,7 @@ _Work noticed during this task and deliberately left out. Each bullet ends `→ 
 
 _Written by /plan-batch or /implement-task Phase 1. Approved by the user (plan_status: approved) before any code is written._
 
-Provisional: depends on TASK-048 (its `History.rounds`, the spec setting and the refusal this lifts). Re-plan if TASK-048 changes those names.
+Provisional: depends on TASK-048 (its `History.rounds`, the spec setting and the refusal this lifts). Re-plan if TASK-048 changes those names. Decided at the plan gate (2026-11-02): a postseason round is stored as `model_runs.week`/`team_ratings.week` (no migration).
 
 **Steps**
 1. Tests first (below); see each fail.
