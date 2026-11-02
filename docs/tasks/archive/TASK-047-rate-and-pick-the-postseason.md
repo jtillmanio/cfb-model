@@ -1,7 +1,7 @@
 ---
 id: TASK-047
 title: Rate, predict and pick the postseason (bowls and the CFP)
-status: Review
+status: Done
 depends_on: [TASK-046]
 size: M
 model: opus
