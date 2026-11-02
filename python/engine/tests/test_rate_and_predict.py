@@ -1,0 +1,440 @@
+"""`engine job rate-and-predict` and the `lines` job's pick re-evaluation (TASK-046), against the
+test DB.
+
+The weekly job reads the shared lake (here a local one holding the backtest fixture's 2022-2023
+raw files, with no `staging/`), rebuilds it in a scratch lake and writes through `jobs.make_engine`,
+routed to a savepoint on the rolled-back `db_conn`. Reference rows are published from a separate
+rebuild as `PUBLISH`, a source no real publish uses, with `models.SOURCE` pointed at it, as
+test_publish_models.py does. The re-evaluation tests reuse test_publish_picks.py's world (a version
+and FBS teams in the `pytest` sport) with a `scheduled` run of their own."""
+
+from __future__ import annotations
+
+import json
+from collections.abc import Iterator
+from contextlib import contextmanager
+from datetime import UTC, datetime, timedelta
+from pathlib import Path
+from typing import Any
+
+import pytest
+from lake_fixture import (
+    FIXTURE,
+    backtest_game,
+    engine,
+    fixture_key,
+    write_backtest_repull,
+    write_backtest_seasons,
+)
+from sqlalchemy import Connection, text
+from test_publish_picks import KICKOFF, World, _line
+from test_publish_picks import SEASON as PICK_SEASON
+from test_publish_picks import WEEK as PICK_WEEK
+
+from engine import jobs
+from engine.backtest import harness
+from engine.core.spec import ModelSpec
+from engine.ingest import backfill
+from engine.ingest.backfill import sync_raw
+from engine.ingest.lake import LocalLake
+from engine.publish import models
+from engine.publish.staging import publish_lake
+from engine.transform import rebuild
+
+PUBLISH = "manual"
+NAME = "pytest-weekly"
+SEASON, WEEK = 2023, 5
+CANCELED = "401756847"  # Kansas-Fresno State's week-1 id: its week-5 copy is canceled
+SPEC_FILE = Path(__file__).parents[1] / "specs" / "power-v1.json"
+SPEC = ModelSpec.model_validate_json(SPEC_FILE.read_text("utf-8"))
+CHOICES = {path: values[0] for path, values in SPEC.tunables().items()}
+DEV = "postgresql://dev-host/cfb_dev"
+WEEK1_IDS = [str(g["id"]) for g in FIXTURE[fixture_key("games")]["records"]]
+
+
+def _first_kickoff(week: int) -> datetime:
+    return min(
+        datetime.fromisoformat(backtest_game(SEASON, "regular", week, i)["startDate"])
+        for i in WEEK1_IDS
+    )
+
+
+def _sunday_before(moment: datetime) -> datetime:
+    """09:00 ET (13:00 UTC) on the last Sunday before `moment`."""
+    back = (moment.weekday() - 6) % 7 or 7
+    return (moment - timedelta(days=back)).replace(hour=13, minute=0, second=0, microsecond=0)
+
+
+NOW = _sunday_before(_first_kickoff(WEEK))
+
+
+class Opened:
+    def __init__(self) -> None:
+        self.urls: list[str] = []
+        self.transactions = 0
+
+
+def _savepoint_engine(conn: Connection, opened: Opened) -> Any:
+    """The job's engine: each transaction a savepoint on the rolled-back test connection."""
+
+    class _Engine:
+        @contextmanager
+        def begin(self) -> Iterator[Connection]:
+            opened.transactions += 1
+            with conn.begin_nested():
+                yield conn
+
+        def dispose(self) -> None:
+            pass
+
+    return _Engine()
+
+
+@pytest.fixture
+def weekly(
+    lake: LocalLake, db_conn: Connection, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> Opened:
+    """The shared lake with two seasons and week 5's canceled game, its reference rows published,
+    the clock on the Sunday before week 5, and the job's database the test connection."""
+    write_backtest_seasons(lake)
+    game = backtest_game(SEASON, "regular", WEEK, CANCELED)
+    start = datetime.fromisoformat(game["startDate"])
+    unplayed = {**game, "completed": False, "homePoints": None, "awayPoints": None}
+    write_backtest_repull(lake, SEASON, "regular", WEEK, [unplayed], start + timedelta(days=8))
+    published = LocalLake(tmp_path / "published")
+    sync_raw(lake, published)
+    rebuild(published)
+    publish_lake(published, db_conn, PUBLISH)
+
+    opened = Opened()
+
+    def make_engine(url: str) -> Any:
+        opened.urls.append(url)
+        return _savepoint_engine(db_conn, opened)
+
+    def no_cfbd(_lake: Any) -> Any:
+        raise AssertionError("rate-and-predict built a CFBD client")
+
+    monkeypatch.setattr(jobs, "make_engine", make_engine)
+    monkeypatch.setattr(backfill, "client_for", no_cfbd)
+    monkeypatch.setattr(models, "SOURCE", PUBLISH)
+    monkeypatch.setenv("APP_ENV", "test")
+    monkeypatch.setenv("FIXTURE_NOW", NOW.isoformat())
+    monkeypatch.setenv("DATABASE_URL_UNPOOLED", DEV)
+    return opened
+
+
+def _run_file(tmp_path: Path, choices: dict[str, Any] | None = None) -> Path:
+    path = tmp_path / "run.json"
+    chosen = {str(SEASON): CHOICES} if choices is None else choices
+    path.write_text(json.dumps({"spec_hash": harness.spec_hash(SPEC), "choices": chosen}), "utf-8")
+    return path
+
+
+def _job(run_file: Path, *extra: str) -> int:
+    return engine(
+        "job",
+        "rate-and-predict",
+        *("--target", "dev", "--spec", str(SPEC_FILE), "--choices", str(run_file)),
+        *("--name", NAME),
+        *extra,
+    )
+
+
+def _week_games(conn: Connection) -> dict[str, Any]:
+    """Week 5's published games by CFBD id, with each team's division."""
+    rows = conn.execute(
+        text(
+            "SELECT g.id, g.source_id, g.status, hs.division AS home, aws.division AS away"
+            " FROM games g"
+            " LEFT JOIN team_seasons hs ON hs.team_id = g.home_team_id AND hs.season = g.season"
+            " LEFT JOIN team_seasons aws ON aws.team_id = g.away_team_id AND aws.season = g.season"
+            " WHERE g.source = :s AND g.season = :season AND g.season_type = 'regular'"
+            " AND g.week = :week"
+        ),
+        {"s": PUBLISH, "season": SEASON, "week": WEEK},
+    ).all()
+    return {r.source_id: r for r in rows}
+
+
+def _lines(conn: Connection, spread_home: float, at: datetime = NOW - timedelta(days=1)) -> None:
+    """A DraftKings snapshot for each week-5 game, before the clock."""
+    for game in _week_games(conn).values():
+        _line(conn, game.id, "DraftKings", at, spread_home)
+
+
+def _version(conn: Connection) -> Any:
+    return conn.execute(
+        text("SELECT id, status FROM model_versions WHERE name = :n AND version = 'v1.0'"),
+        {"n": NAME},
+    ).one_or_none()
+
+
+def _runs(conn: Connection) -> list[Any]:
+    return list(
+        conn.execute(
+            text(
+                "SELECT r.* FROM model_runs r JOIN model_versions v ON v.id = r.model_version_id"
+                " WHERE v.name = :n ORDER BY r.id"
+            ),
+            {"n": NAME},
+        ).all()
+    )
+
+
+def _predicted(conn: Connection, run_id: int) -> set[str]:
+    return set(
+        conn.execute(
+            text(
+                "SELECT g.source_id FROM predictions p JOIN games g ON g.id = p.game_id"
+                " WHERE p.model_run_id = :r"
+            ),
+            {"r": run_id},
+        ).scalars()
+    )
+
+
+def _picks(conn: Connection) -> list[Any]:
+    return list(
+        conn.execute(
+            text(
+                "SELECT p.*, g.source_id FROM picks p JOIN games g ON g.id = p.game_id"
+                " JOIN model_versions v ON v.id = p.model_version_id WHERE v.name = :n"
+                " ORDER BY p.id"
+            ),
+            {"n": NAME},
+        ).all()
+    )
+
+
+# AC-1: one transaction writes a scheduled run, its ratings, predictions and picks
+
+
+def test_weekly_run_writes_run_ratings_predictions_and_picks(
+    weekly: Opened, lake: LocalLake, db_conn: Connection, tmp_path: Path
+) -> None:
+    _lines(db_conn, 40.0)  # home +40: every pickable game clears the threshold on the home side
+    ledger = lake.read_text("cfbd_calls.json")
+    summary = tmp_path / "summary.md"
+
+    code = _job(_run_file(tmp_path), "--summary", str(summary))
+
+    assert code == 0, summary.read_text("utf-8") if summary.exists() else ""
+    assert (weekly.urls, weekly.transactions) == ([DEV], 1)
+    version = _version(db_conn)
+    assert version.status == "candidate"  # created from the spec file: v1 is paper-traded (D-144)
+    (run,) = _runs(db_conn)
+    assert (run.run_type, run.status, run.season, run.week) == ("scheduled", "succeeded", 2023, 5)
+    assert run.as_of == _first_kickoff(WEEK)
+    assert run.fitted_params["choices"] == CHOICES
+    ratings = db_conn.execute(
+        text("SELECT count(*) FROM team_ratings WHERE model_run_id = :r"), {"r": run.id}
+    ).scalar_one()
+    assert ratings > 0
+    games = _week_games(db_conn)
+    assert games[str(backtest_game(SEASON, "regular", WEEK, CANCELED)["id"])].status == "canceled"
+    playable = {sid for sid, g in games.items() if g.status != "canceled"}
+    assert len(games) == 5 and len(playable) == 4
+    assert _predicted(db_conn, run.id) == playable
+    fbs = {sid for sid in playable if (games[sid].home, games[sid].away) == ("fbs", "fbs")}
+    picked = _picks(db_conn)
+    assert fbs and {p.source_id for p in picked} == fbs
+    assert all((p.side, p.created_at) == ("home", NOW) for p in picked)
+    assert lake.read_text("cfbd_calls.json") == ledger  # zero CFBD calls
+    assert lake.walk("staging") == []  # rebuilt in a scratch lake, never the shared one
+    text_ = summary.read_text("utf-8")
+    assert "regular week 5" in text_
+    assert f"Run {run.id} succeeded: {ratings} ratings, 4 predictions" in text_
+    assert f"{len(fbs)} picks, 0 passes" in text_
+
+
+def test_a_dry_run_writes_nothing(weekly: Opened, db_conn: Connection, tmp_path: Path) -> None:
+    _lines(db_conn, 40.0)
+    summary = tmp_path / "summary.md"
+
+    assert _job(_run_file(tmp_path), "--dry-run", "--summary", str(summary)) == 0
+
+    assert weekly.transactions == 1
+    assert (_version(db_conn), _runs(db_conn), _picks(db_conn)) == (None, [], [])
+    assert "Dry run" in summary.read_text("utf-8")
+
+
+# AC-2: refusals write nothing; a failed check stops before the database; a re-run
+
+
+def test_settings_for_the_season_unresolved_exits_2(
+    weekly: Opened, db_conn: Connection, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    code = _job(_run_file(tmp_path, {"2022": CHOICES}))
+
+    assert code == 2
+    assert "didn't score 2023" in capsys.readouterr().err
+    assert weekly.urls == []
+    assert (_version(db_conn), _runs(db_conn)) == (None, [])
+
+
+def test_a_version_with_another_spec_exits_2(
+    weekly: Opened, db_conn: Connection, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    other = SPEC.model_copy(update={"home_field": 3.0})
+    db_conn.execute(
+        text(
+            "INSERT INTO model_versions (sport_id, market, name, version, spec,"
+            " spec_schema_version, created_by, status)"
+            " VALUES ('cfb', 'spread', :n, 'v1.0', CAST(:spec AS jsonb), 1, 'system', 'candidate')"
+        ),
+        {"n": NAME, "spec": json.dumps(other.model_dump(mode="json"))},
+    )
+
+    code = _job(_run_file(tmp_path))
+
+    assert code == 2
+    assert "different spec" in capsys.readouterr().err
+    assert _runs(db_conn) == []
+
+
+def test_failed_check_exits_1_before_the_database(
+    weekly: Opened, lake: LocalLake, tmp_path: Path
+) -> None:
+    game = backtest_game(SEASON, "regular", 4, WEEK1_IDS[1])
+    unscored = {**game, "homePoints": None}  # completed with no score: final_has_score fails
+    write_backtest_repull(lake, SEASON, "regular", 4, [unscored], NOW - timedelta(hours=1))
+    summary = tmp_path / "summary.md"
+
+    assert _job(_run_file(tmp_path), "--summary", str(summary)) == 1
+
+    assert weekly.urls == []
+    assert "FAIL final_has_score" in summary.read_text("utf-8")
+
+
+def test_second_run_adds_a_run_but_no_unchanged_pick(
+    weekly: Opened, db_conn: Connection, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _lines(db_conn, 40.0)
+    run_file = _run_file(tmp_path)
+    assert _job(run_file) == 0
+    first = _picks(db_conn)
+    monkeypatch.setenv("FIXTURE_NOW", (NOW + timedelta(hours=1)).isoformat())
+
+    assert _job(run_file) == 0
+
+    runs = _runs(db_conn)
+    assert len(runs) == 2 and all(r.run_type == "scheduled" for r in runs)
+    assert _predicted(db_conn, runs[1].id) == _predicted(db_conn, runs[0].id)
+    assert first and _picks(db_conn) == first
+
+
+def test_postseason_next_writes_nothing(
+    weekly: Opened, db_conn: Connection, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # After the regular season's last game, the coming week is the bowls: not rated yet.
+    last = max(
+        datetime.fromisoformat(backtest_game(SEASON, "regular", 8, i)["startDate"])
+        for i in WEEK1_IDS
+    )
+    monkeypatch.setenv("FIXTURE_NOW", (last + timedelta(days=1)).isoformat())
+    summary = tmp_path / "summary.md"
+
+    assert _job(_run_file(tmp_path), "--summary", str(summary)) == 0
+
+    assert weekly.urls == []
+    assert "postseason" in summary.read_text("utf-8")
+
+
+# AC-3: the `lines` job re-evaluates each version's newest scheduled run
+
+
+def _scheduled(world: World, *, finished_at: datetime, week: int = PICK_WEEK) -> int:
+    run = world.conn.execute(
+        text(
+            "INSERT INTO model_runs (model_version_id, run_type, season, week, as_of, status,"
+            " started_at, finished_at, fitted_params)"
+            " SELECT model_version_id, 'scheduled', season, :week, as_of, status, started_at,"
+            " :finished, fitted_params FROM model_runs WHERE id = :r RETURNING id"
+        ),
+        {"r": world.run, "finished": finished_at, "week": week},
+    ).scalar_one()
+    world.run = run
+    return run
+
+
+LINES_NOW = datetime(2030, 10, 8, 12, tzinfo=UTC)
+
+
+def _reevaluate(world: World, now: datetime) -> list[jobs.Repicked]:
+    return jobs.reevaluate(world.conn, PICK_SEASON, now)
+
+
+def _pick_rows(world: World, game_id: int) -> list[Any]:
+    return list(
+        world.conn.execute(
+            text("SELECT * FROM picks WHERE model_version_id = :v AND game_id = :g ORDER BY id"),
+            {"v": world.version, "g": game_id},
+        ).all()
+    )
+
+
+def test_lines_gains_a_pick_when_the_line_crosses(world: World) -> None:
+    _scheduled(world, finished_at=LINES_NOW - timedelta(days=2))
+    game = world.game(10.0)
+    _line(world.conn, game, "DraftKings", LINES_NOW - timedelta(days=1), -9.0)  # edge 1: no pick
+    assert [r.summary.picks for r in _reevaluate(world, LINES_NOW)] == [0]
+    moved = LINES_NOW + timedelta(hours=6)
+    _line(world.conn, game, "DraftKings", moved - timedelta(hours=1), -5.0)  # edge 5: a pick
+
+    (result,) = _reevaluate(world, moved)
+
+    assert (result.version_id, result.week, result.summary.picks) == (world.version, PICK_WEEK, 1)
+    (pick,) = _pick_rows(world, game)
+    assert (pick.side, pick.line, pick.created_at) == ("home", -5.0, moved)
+
+
+def test_lines_writes_nothing_when_nothing_changes(world: World) -> None:
+    _scheduled(world, finished_at=LINES_NOW - timedelta(days=2))
+    game = world.game(10.0)
+    _line(world.conn, game, "DraftKings", LINES_NOW - timedelta(days=1), -3.0)
+    _reevaluate(world, LINES_NOW)
+    before = _pick_rows(world, game)
+
+    (result,) = _reevaluate(world, LINES_NOW + timedelta(hours=6))
+
+    assert (result.summary.picks, result.summary.passes, result.summary.games) == (0, 0, 1)
+    assert len(before) == 1 and _pick_rows(world, game) == before
+
+
+def test_lines_writes_nothing_after_kickoff(world: World) -> None:
+    _scheduled(world, finished_at=LINES_NOW - timedelta(days=2))
+    game = world.game(10.0)
+    _line(world.conn, game, "DraftKings", KICKOFF - timedelta(hours=2), -3.0)
+
+    (result,) = _reevaluate(world, KICKOFF + timedelta(minutes=1))
+
+    assert (result.summary.picks, result.summary.open) == (0, 0)
+    assert _pick_rows(world, game) == []
+
+
+def test_lines_reads_scheduled_runs_only(world: World) -> None:
+    # The world's own run is `adhoc` (an `engine rate` by hand): the job leaves it alone.
+    game = world.game(10.0)
+    _line(world.conn, game, "DraftKings", LINES_NOW - timedelta(days=1), -3.0)
+
+    assert [r for r in _reevaluate(world, LINES_NOW) if r.version_id == world.version] == []
+    assert _pick_rows(world, game) == []
+
+
+def test_lines_reevaluates_the_newest_scheduled_weeks_run(world: World) -> None:
+    _scheduled(world, finished_at=LINES_NOW - timedelta(days=9), week=PICK_WEEK - 1)
+    _scheduled(world, finished_at=LINES_NOW - timedelta(days=2))
+    game = world.game(10.0)
+    _line(world.conn, game, "DraftKings", LINES_NOW - timedelta(days=1), -3.0)
+
+    results = [r for r in _reevaluate(world, LINES_NOW) if r.version_id == world.version]
+
+    assert [(r.week, r.summary.run_id, r.summary.picks) for r in results] == [
+        (PICK_WEEK, world.run, 1)
+    ]
+
+
+@pytest.fixture
+def world(db_conn: Connection) -> World:
+    return World(db_conn)

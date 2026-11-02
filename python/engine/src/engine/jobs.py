@@ -15,29 +15,49 @@
 3. **Check** the scratch staging; any failure raises `JobFailed` before a database is opened.
 4. **Publish** it to the target in one transaction (`publish_lake`).
 
+
+`lines` then re-evaluates picks (TASK-045's writer) in a second transaction, once the snapshots
+are committed: for each version, its newest `scheduled` run in the season, at the job's clock. A
+pick that fails rolls back the picks alone and the run exits 1; the snapshots stay published.
+
 `Summary` is what the run did: the calls spent, the month's total, rows staged and new per table,
 and the games counted as done only because they're unscored a week after their start (D-121):
 a postponed game CFBD left under its old week would otherwise go unnoticed when it's played.
+
+`engine job rate-and-predict` (TASK-046, `rate_and_predict`) is the weekly cycle, and makes no
+CFBD call: it reads the lake the morning's `results` and `lines` filled. It takes the week
+`lines` would pull (the earliest with a game not yet kicked off) and stops, writing nothing, when
+that week isn't in the regular season (`publish.models` rates no postseason). It resolves the
+season's settings from a backtest's `run.json`, copies every season's raw files into a scratch
+lake and rebuilds it (the prior and the margin model read every earlier season), checks it, and
+fits the week before opening the database; then one transaction inserts a `scheduled` run with
+its ratings and predictions (creating the named version as `candidate` the first time) and the
+picks from it. A dry run does all of it and rolls the transaction back.
 """
 
 from __future__ import annotations
 
 import tempfile
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, Literal
 
+from sqlalchemy import Connection, text
+
 from db.session import make_engine
 from engine import clock
+from engine.core.spec import ModelSpec
 from engine.ingest import endpoints
 from engine.ingest.backfill import ONCE, RAW, season_types, sync_raw
 from engine.ingest.cfbd import MONTHLY_LIMIT, CallBudget, CfbdClient
 from engine.ingest.lake import Lake, LocalLake, decode_raw, fetched_at_of, latest_raw, raw_folder
+from engine.publish import models, picks
 from engine.publish.staging import TABLES as PUBLISHED
 from engine.publish.staging import publish_lake
 from engine.transform import quality, rebuild
+from engine.transform.features import PointInTimeError
 
 Kind = Literal["results", "lines"]
 KINDS: tuple[Kind, ...] = ("results", "lines")
@@ -68,6 +88,30 @@ class JobFailed(RuntimeError):
         self.report = report
 
 
+class PicksFailed(RuntimeError):
+    """`lines` published its snapshots, but re-evaluating the picks failed and was rolled back."""
+
+
+SCHEDULED = ("scheduled",)  # the run type the jobs write, and the only one they pick from
+
+
+@dataclass(frozen=True, slots=True)
+class Repicked:
+    """One version's picks re-evaluated by `lines`: the week of its newest scheduled run."""
+
+    version_id: int
+    version: str
+    week: int
+    summary: picks.PickSummary
+
+
+def _picked(s: picks.PickSummary) -> str:
+    return (
+        f"{s.picks} picks, {s.passes} passes written; {s.games} predicted games, "
+        f"{s.open} before their cutoff"
+    )
+
+
 @dataclass
 class Summary:
     kind: Kind
@@ -81,6 +125,23 @@ class Summary:
     new: dict[str, int] = field(default_factory=dict)
     canceled: list[str] = field(default_factory=list)
     report: quality.Report | None = None
+    repicked: list[Repicked] | None = None
+    repick_error: str | None = None
+
+    def _repicks(self) -> list[str]:
+        out = ["", "Picks re-evaluated against the newest lines (each version's newest scheduled "
+               "run this season):"]
+        if self.repick_error is not None:
+            out.append(
+                f"- **Not re-evaluated; the picks were rolled back:** {self.repick_error}. The "
+                "snapshots above were published."
+            )
+        elif not self.repicked:
+            out.append("- none: no version has a scheduled run this season")
+        for r in self.repicked or []:
+            s = r.summary
+            out.append(f"- {r.version}, week {r.week}, run {s.run_id}: {_picked(s)}")
+        return out
 
     def render(self) -> str:
         weeks = ", ".join(f"{t} week {w}" for t, w in self.weeks) or "none due"
@@ -114,6 +175,51 @@ class Summary:
                 "have postponed one under its old week (D-121).",
             ]
             out += [f"- {item}" for item in self.canceled]
+        if self.repicked is not None or self.repick_error is not None:
+            out += self._repicks()
+        return "\n".join(out)
+
+
+@dataclass
+class WeeklySummary:
+    """What `rate_and_predict` did: the week it rated (or why none), the run and its picks."""
+
+    season: int
+    target: str
+    version: str
+    dry_run: bool = False
+    week: Week | None = None
+    note: str = ""
+    staged: dict[str, int] = field(default_factory=dict)
+    report: quality.Report | None = None
+    run: models.RunSummary | None = None
+    picks: picks.PickSummary | None = None
+
+    def render(self) -> str:
+        rated = f"{self.week[0]} week {self.week[1]}" if self.week else f"none: {self.note}"
+        out = [
+            f"### `rate-and-predict` {self.season} → {self.target}",
+            "",
+            f"- Version: {self.version}",
+            f"- Week rated: {rated}",
+            "- CFBD calls this run: 0",
+        ]
+        if self.report is not None and not self.report.ok:
+            out += ["", "**Nothing written: a data-quality check failed.**", "", "```"]
+            out += [self.report.render(), "```"]
+            return "\n".join(out)
+        if self.run is not None:
+            run = self.run
+            out.append(
+                f"- Run {run.run_id} {run.status}: {run.ratings} ratings, "
+                f"{run.predictions} predictions"
+            )
+            if run.error:
+                out.append(f"- **The fit failed** (recorded as a failed run): {run.error}")
+        if self.picks is not None:
+            out.append(f"- Picks: {_picked(self.picks)}")
+        if self.dry_run and self.run is not None:
+            out += ["", "**Dry run: the transaction was rolled back, so nothing was written.**"]
         return "\n".join(out)
 
 
@@ -174,6 +280,7 @@ def _pull_missing(lake: Lake, season: int, client: CfbdClient) -> None:
         if latest_raw(lake, raw_folder("games", season, None, season_type)) is None:
             endpoints.fetch(lake, "games", season, None, season_type, client=client)
 
+
 def run(
     kind: Kind,
     lake: Lake,
@@ -215,6 +322,131 @@ def run(
         try:
             with db.begin() as conn:
                 summary.new = publish_lake(scratch, conn, report=report)
+            if kind == "lines":
+                _repick(db, season, summary)
         finally:
             db.dispose()
+    return summary
+
+
+def reevaluate(conn: Connection, season: int, now: datetime) -> list[Repicked]:
+    """Each live version's picks, from its newest succeeded `scheduled` run in `season` finished
+    by `now` (the week the weekly job last rated), against the newest snapshots, in the caller's
+    transaction. The writer skips games already past their cutoff."""
+    rows = conn.execute(
+        text(
+            "SELECT DISTINCT ON (r.model_version_id) r.model_version_id, r.week, v.name,"
+            " v.version FROM model_runs r JOIN model_versions v ON v.id = r.model_version_id"
+            " WHERE v.sport_id = :sport AND v.market = :market AND v.deleted_at IS NULL"
+            " AND r.run_type = ANY(:types) AND r.status = 'succeeded' AND r.season = :season"
+            " AND r.finished_at <= :now"
+            " ORDER BY r.model_version_id, r.finished_at DESC, r.id DESC"
+        ),
+        {
+            "sport": picks.SPORT,
+            "market": picks.MARKET,
+            "types": list(SCHEDULED),
+            "season": season,
+            "now": now,
+        },
+    ).all()
+    return [
+        Repicked(
+            r.model_version_id,
+            f"{r.name} {r.version}",
+            r.week,
+            picks.write_picks(conn, r.model_version_id, season, r.week, now, run_types=SCHEDULED),
+        )
+        for r in rows
+    ]
+
+
+def _repick(db: Any, season: int, summary: Summary) -> None:
+    """`reevaluate` in its own transaction, after the snapshots are committed."""
+    try:
+        with db.begin() as conn:
+            summary.repicked = reevaluate(conn, season, clock.now())
+    except (picks.PicksRefused, PointInTimeError) as e:
+        summary.repick_error = f"{type(e).__name__}: {e}"
+        raise PicksFailed(summary.repick_error) from e
+
+
+class _DryRun(Exception):
+    """Raised inside a dry run's transaction so it rolls back."""
+
+
+def coming_week(lake: Lake, season: int, now: datetime) -> Week | None:
+    """The week `lines` would pull: the earliest with a game not yet kicked off."""
+    due = due_weeks("lines", (g for g, _ in _games(lake, season).values()), now)
+    return due[0] if due else None
+
+
+def rate_and_predict(
+    lake: Lake,
+    url: str,
+    *,
+    spec: ModelSpec,
+    run: Mapping[str, Any] | None,
+    name: str,
+    version: str,
+    target: str,
+    dry_run: bool = False,
+    summary: WeeklySummary | None = None,
+) -> WeeklySummary:
+    """The weekly cycle; see the module docstring. Raises `JobFailed` before opening `url` when
+    a check fails, `models.RateRefused` or `picks.PicksRefused` on a refusal (nothing written),
+    and `PointInTimeError` from the fit or the picks (nothing written)."""
+    now = clock.now()
+    season = current_season(now)
+    summary = summary or WeeklySummary(season, target, f"{name} {version}", dry_run)
+    week = coming_week(lake, season, now)
+    if week is None:
+        summary.note = f"no game of {season} is still to be played"
+        return summary
+    if week[0] != models.SEASON_TYPE:
+        summary.note = (
+            f"the coming week is {week[0]} week {week[1]}, and the postseason isn't rated yet"
+        )
+        return summary
+    summary.week = week
+    choices = models.settings(spec, run, season)
+
+    with tempfile.TemporaryDirectory(prefix="cfb-job-") as tmp:
+        scratch = LocalLake(Path(tmp))
+        sync_raw(lake, scratch)
+        summary.staged = rebuild(scratch)
+        report = quality.run(scratch)
+        print(report.render())
+        if not report.ok:
+            summary.report = report
+            raise JobFailed(report)
+        fitted = models.fit_week(scratch, spec, choices, season=season, week=week[1])
+
+    db = make_engine(url)
+    try:
+        with db.begin() as conn:
+            summary.run = models.write(
+                conn,
+                fitted,
+                spec,
+                name=name,
+                version=version,
+                run_type="scheduled",
+                status="candidate",
+            )
+            if summary.run.status == "succeeded":
+                summary.picks = picks.write_picks(
+                    conn,
+                    picks.version_id(conn, name, version),
+                    season,
+                    week[1],
+                    clock.now(),
+                    run_types=SCHEDULED,
+                )
+            if dry_run:
+                raise _DryRun
+    except _DryRun:
+        pass
+    finally:
+        db.dispose()
     return summary

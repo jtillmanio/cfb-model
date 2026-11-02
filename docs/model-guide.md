@@ -2,7 +2,7 @@
 
 A plain-language walkthrough of the college football model, from the data we pull to the pick that comes out, written for a software developer who hasn't done statistical modeling. It covers the math concepts, the actual files, and what each task in M2, M3 and M4 added.
 
-**This is a guide, not the spec.** When it disagrees with the code, `docs/04-model.md` or `docs/decisions.md`, they win (CLAUDE.md › Which document wins), and this file should be fixed. Last brought up to date: 2026-11-02, after TASK-045 (D-148).
+**This is a guide, not the spec.** When it disagrees with the code, `docs/04-model.md` or `docs/decisions.md`, they win (CLAUDE.md › Which document wins), and this file should be fixed. Last brought up to date: 2026-11-02, after TASK-046 (D-149).
 
 **Contents**
 1. [The whole thing on one page](#1-the-whole-thing-on-one-page)
@@ -109,7 +109,8 @@ So it's equivalent to `cd python && .venv/Scripts/engine backtest …`. Each sub
 | `engine transform --rebuild` | Rebuild every staged and feature table from raw files. **Zero API calls**, asserted | lake `staging/` |
 | `engine check` | Run the data-quality checks on staging | read only |
 | `engine publish --target dev\|test` | Upsert teams, games and line snapshots into Postgres | dev or test DB |
-| `engine job results\|lines` | The scheduled jobs: refresh results and lines | CFBD, DB |
+| `engine job results\|lines` | The scheduled jobs: refresh results and lines (`lines` then re-checks the picks) | CFBD, DB |
+| `engine job rate-and-predict --target dev\|live --spec FILE --choices RUN_JSON [--dry-run]` | The weekly job: rebuild every season, fit the coming week, write a `scheduled` run, its predictions and picks | lake (no CFBD call), DB |
 | `engine tiers --seasons 2014-2025` | Check every FBS team-season maps to Power 4 / G5 / FCS | read only |
 | `engine backtest --spec F --seasons A-B [--report DIR] [--compare baselines] [--holdout --reason T]` | Replay history week by week and score the model | lake `backtests/` |
 | `engine compare RUN_A RUN_B [--weeks 1-3]` | Is run A really better than run B? (paired week bootstrap, § 8) | read only |
@@ -357,7 +358,7 @@ Other rules:
 - **A pick is locked to its line.** If the line moves, a new pick row is written only if the side or tier changes, so "Picked at −2.5" stays true (D-140). If a pick stops qualifying, a "pass" row replaces it.
 - **Contest mode** (`core/contest_rules.py`, `contests/splash.py`): Splash has no vig (break-even 50%) and a fixed number of picks, so the rule becomes "rank the slate by cover probability against the contest's line and take the top N", not "everything over a threshold". Wired up in M6.
 
-**Writing picks** (`engine pick`, `publish/picks.py`, TASK-045, D-148). The writer reads only the database: the version's newest run for the week, its predictions and the newest line pull before each game's kickoff. It uses one book's line, one a bettor could take: consensus if it quoted, else DraftKings, else Bovada. In 2026 CFBD's pulls have no consensus quote, so it's DraftKings nearly always, at −110 since no prices come through. A game that has kicked off is skipped, because a pick made after kickoff would be hindsight and the views ignore it anyway. Run it again after a lines pull, and only games whose side or tier changed gain a row. The **expected value** stored with a pick uses the *displayed* probability, so for v1 it's near zero: a pick shown at 53% at −110 is about break-even. That's the honest reading of a model whose calibration gate failed.
+**Writing picks** (`engine pick`, `publish/picks.py`, TASK-045, D-148). The writer reads only the database: the version's newest run for the week, its predictions and the newest line pull before each game's kickoff. It uses one book's line, one a bettor could take: consensus if it quoted, else DraftKings, else Bovada. In 2026 CFBD's pulls have no consensus quote, so it's DraftKings nearly always, at −110 since no prices come through. A game that has kicked off is skipped, because a pick made after kickoff would be hindsight and the views ignore it anyway. Run it again after a lines pull, and only games whose side or tier changed gain a row. The **expected value** stored with a pick uses the *displayed* probability, so for v1 it's near zero: a pick shown at 53% at −110 is about break-even. That's the honest reading of a model whose calibration gate failed. On production nobody runs it by hand: the Sunday `rate-and-predict` job writes the week's first picks and every `lines` run re-checks them (TASK-046), both from `scheduled` runs only, so an `engine rate` by hand never drives the live picks.
 
 ---
 
@@ -483,8 +484,9 @@ The principle: **build the ruler before the thing you measure.** The backtest an
 | **TASK-043** | Widened the alpha grid, ran full validation, opened the holdout once, recorded the go/no-go (D-144) | The verdict, below |
 | **TASK-044** | Stage canceled games; `engine rate` predicts the harness's own week contexts | No permanent predictions for games that won't be played. Part of M4.8 |
 | **TASK-045** | `engine pick`: write picks from a model run against the newest line, re-evaluate when lines move (D-148) | Live picks, locked to a real book's line, never after kickoff. Part of M4.8 |
+| **TASK-046** | `engine job rate-and-predict` and `rate-and-predict.yml` (Sun 9 AM ET): rebuild every season, fit the coming week, write a `scheduled` run, its predictions and picks; `lines` re-picks after each snapshot (D-149) | Paper trading 2026 runs itself, on the settings the holdout examined. Bowls and the CFP aren't rated yet |
 
-Still open in M4.8: TASK-046 (the weekly job that runs rate → predict → pick on production).
+**How the weekly cycle runs.** Sunday 6 AM `results` brings in the weekend's scores, 8 AM `lines` snapshots the coming week's opening lines, and 9 AM `rate-and-predict` fits v1 entering that week. It uses exactly the backtest's code path and the 2026 settings a backtest chose on 2015–2023 (α 2, half-life 16, minimum edge 8, display k 0.1, the same as the holdout run's), predicts every game that will be played, and picks against the newest line. Each later `lines` run re-checks those picks against the new lines, adding a row only when a pick's side or tier changes.
 
 ---
 

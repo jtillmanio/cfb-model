@@ -1,0 +1,74 @@
+# The weekly rate-and-predict job (TASK-046, docs/02-architecture.md › Components › 4 Jobs): Sunday
+# at 09:00 ET, after the morning's results and lines, the coming week's ratings, predictions and
+# picks from the model version it paper-trades, written to production:
+#
+#   choose the coming week from the R2 lake's /games → copy every season's raw files into a
+#   scratch lake on the runner and rebuild it → data-quality checks → fit the week → insert a
+#   scheduled run, its ratings, predictions and picks in one transaction
+#
+# It makes no CFBD call, so it has no CFBD key. A failed check ends the run before production is
+# opened. The dispatcher (infra/dispatcher, D-122) starts it on time with workflow_dispatch; the
+# cron below is a late fallback that does nothing if a dispatched run succeeded since 3 hours
+# before the cron's own slot (D-129). A hand run with dry_run=true does every step against
+# production and rolls the transaction back. The logic lives in `engine job rate-and-predict`
+# (python/engine/src/engine/jobs.py); README › Jobs says how to read a failed run. Secrets reach
+# steps only through `env:`.
+name: Rate and predict
+
+on:
+  workflow_dispatch:
+    inputs:
+      fallback_cron:
+        description: "Try the fallback: take the late-fallback path as if this cron had fired (e.g. the schedule below). Empty: always run"
+        required: false
+        default: ""
+      dry_run:
+        description: "true: do every step against production, then roll the transaction back (writes nothing)"
+        required: false
+        default: "false"
+  schedule:
+    # Fallback for the dispatcher's Sun 09:00 ET: 15:00 UTC is 11:00 ET in EDT, 10:00 ET in EST
+    - cron: "0 15 * * 0"
+
+# One writer at a time, shared with results.yml and lines.yml, so the week is rated from a lake
+# and a database the morning's jobs have finished with; a queued run never cancels one half done.
+concurrency:
+  group: lake-publish
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  actions: read # the fallback's check for a dispatched run
+
+env:
+  UV_FROZEN: "1"
+
+jobs:
+  rate-and-predict:
+    name: rate-and-predict
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: astral-sh/setup-uv@v10.3.2
+        with:
+          enable-cache: true
+          cache-dependency-glob: python/uv.lock
+
+      - name: Skip the fallback if the dispatcher's run succeeded
+        id: guard
+        uses: ./.github/actions/skip-if-dispatched
+
+      # `uv run` installs the dev group, which holds the engine's pyarrow, boto3, duckdb and numpy
+      # (D-114). The version and its 2026 settings are pinned here (D-149).
+      - name: Rate, predict and pick on production
+        if: ${{ steps.guard.outputs.skip != 'true' }}
+        env:
+          LIVE: "true"
+          LAKE_URI: ${{ vars.LAKE_URI }}
+          R2_ACCOUNT_ID: ${{ vars.R2_ACCOUNT_ID }}
+          R2_DATA_LAKE_ACCESS_KEY_ID: ${{ secrets.R2_DATA_LAKE_ACCESS_KEY_ID }}
+          R2_DATA_LAKE_SECRET_ACCESS_KEY: ${{ secrets.R2_DATA_LAKE_SECRET_ACCESS_KEY }}
+          PRODUCTION_DATABASE_URL_UNPOOLED: ${{ secrets.PRODUCTION_DATABASE_URL_UNPOOLED }}
+        run: uv --directory python run engine job rate-and-predict --target live --spec engine/specs/efficiency-v1.json --choices engine/specs/efficiency-v1-2026.run.json --version v1.0 --summary "$GITHUB_STEP_SUMMARY" ${{ inputs.dry_run == 'true' && '--dry-run' || '' }}

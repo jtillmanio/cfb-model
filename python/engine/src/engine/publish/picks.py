@@ -2,7 +2,8 @@
 line, re-evaluated when the line moves (TASK-045; D-140, D-142, D-148).
 
 Everything is read from the database, so the `lines` job re-evaluates without refitting: the
-version's newest succeeded run for the week (`adhoc` or `scheduled`, by `finished_at`, then id),
+version's newest succeeded run for the week (`adhoc` or `scheduled`, by `finished_at`, then id;
+the scheduled jobs read `scheduled` only, TASK-046),
 its predictions, the pick rules (the version's spec resolved with the `choices` the run stored),
 the margin distribution (the run's `fitted_params`: the empirical weights, else a normal margin at
 the prediction's σ) and each team's division that season. A game is picked through
@@ -31,7 +32,7 @@ refused, as is a run that finished after it.
 
 from __future__ import annotations
 
-from collections.abc import Callable, Iterable, Mapping
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, cast
@@ -69,9 +70,14 @@ class PicksRefused(ValueError):
 
 @dataclass(frozen=True, slots=True)
 class PickSummary:
+    """What a write did: picks and passes inserted, out of the run's predicted `games`, `open` of
+    them still before their cutoff (no prediction reads differently from no line moved)."""
+
     run_id: int
     picks: int
     passes: int
+    games: int = 0
+    open: int = 0
 
 
 @dataclass(frozen=True, slots=True)
@@ -103,8 +109,16 @@ def choose_snapshot(rows: Iterable[Snapshot], cut: datetime, now: datetime) -> S
     return min(pull, key=lambda r: (rank.get(r.book, len(BOOKS)), r.book, r.id))
 
 
-def _run(conn: Connection, version_id: int, season: int, week: int, now: datetime) -> Any:
-    """The version's newest succeeded run for the week that had finished by `now`."""
+def _run(
+    conn: Connection,
+    version_id: int,
+    season: int,
+    week: int,
+    now: datetime,
+    run_types: Sequence[str],
+) -> Any:
+    """The version's newest succeeded run of `run_types` for the week that had finished by
+    `now`."""
     run = conn.execute(
         text(
             "SELECT r.id, r.as_of, r.fitted_params, v.spec FROM model_runs r"
@@ -113,7 +127,7 @@ def _run(conn: Connection, version_id: int, season: int, week: int, now: datetim
             " AND r.status = 'succeeded' AND r.run_type = ANY(:types) AND r.finished_at <= :now"
             " ORDER BY r.finished_at DESC, r.id DESC LIMIT 1"
         ),
-        {"v": version_id, "season": season, "week": week, "types": list(RUN_TYPES), "now": now},
+        {"v": version_id, "season": season, "week": week, "types": list(run_types), "now": now},
     ).one_or_none()
     if run is None:
         raise PicksRefused(
@@ -240,16 +254,18 @@ def write_picks(
     week: int,
     now: datetime,
     pickable: Callable[[GameContext], bool] | None = None,
+    run_types: Sequence[str] = RUN_TYPES,
 ) -> PickSummary:
-    """Pick the week's games from the version's newest succeeded run at `now`, in the caller's
-    transaction, inserting only what changes a game's current pick. A transaction-scoped lock on
-    the version makes a second writer (the weekly run against a lines pull) wait for this one to
-    commit, so both never read the same current pick."""
+    """Pick the week's games from the version's newest succeeded run of `run_types` at `now`
+    (the scheduled jobs read only `scheduled` runs), in the caller's transaction, inserting only
+    what changes a game's current pick. A transaction-scoped lock on the version makes a second
+    writer (the weekly run against a lines pull) wait for this one to commit, so both never read
+    the same current pick."""
     conn.execute(
         text("SELECT pg_advisory_xact_lock(hashtext(:lock), CAST(:v AS integer))"),
         {"lock": LOCK, "v": version_id},
     )
-    run = _run(conn, version_id, season, week, now)
+    run = _run(conn, version_id, season, week, now, run_types)
     params: Mapping[str, Any] = run.fitted_params or {}
     rules = _rules(run.spec, params)
     games = _games(conn, run.id)
@@ -264,11 +280,12 @@ def write_picks(
     current = _current(conn, version_id, game_ids)
     allowed = pickable or teams.pickable
 
-    written = passes = 0
+    written = passes = still_open = 0
     for g in games:
         cut = cutoff(g.kickoff_at, g.game_date)
         if now >= cut:
             continue  # kicked off: a row now would be hindsight, and the views ignore it
+        still_open += 1
         snap = choose_snapshot(snapshots.get(g.game_id, ()), cut, now)
         if snap is None:
             continue
@@ -326,7 +343,7 @@ def write_picks(
                 **stored,
             },
         )
-    return PickSummary(cast(int, run.id), written, passes)
+    return PickSummary(cast(int, run.id), written, passes, len(games), still_open)
 
 
 def version_id(conn: Connection, name: str, version: str) -> int:
