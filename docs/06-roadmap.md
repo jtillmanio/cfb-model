@@ -210,7 +210,7 @@ Playbook: [07-claude-design-playbook.md](07-claude-design-playbook.md). Design w
 - [ ] Re-run Prompt 9's audit on the new frames; re-export; update "Design decisions"
 
 **Résumé and profile pass (after Prompt 13, before Phase 5's résumé, preview, profile and models screens)**
-- [ ] Add the sample rows to `design/sample-data.md` (owner approves; protected path), then run **Prompt 14** ([07 § Prompt 14](07-claude-design-playbook.md)): Rankings › Résumé, team page résumé, model profile, computer rankings and history, Game Detail's pick preview, the model switcher, Lab › Models and How it works
+- [ ] Add the sample rows to `design/sample-data.md` (owner approves; protected path), then run **Prompt 14** ([07 § Prompt 14](07-claude-design-playbook.md)): Rankings › Résumé, team page résumé, model profile, computer rankings and history, Game Detail's pick preview, the model switcher, Lab › Models and How it works _(sample rows added 2026-11-02 as `design/sample-data.md` § 10; Prompt 14 not run yet)_
 - [ ] Re-run Prompt 9's audit on the new frames; re-export; update "Design decisions"
 
 **History pass (after Phase 5, before Phase 6)**

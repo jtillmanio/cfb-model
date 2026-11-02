@@ -317,3 +317,154 @@ Header: Georgia 2016–present · 10 seasons · value over expectation +3.6/seas
 | 2025 | +21.5 | +20.4 | −1.1 |
 
 Average value added: +3.6. Georgia before Smart: 2014 +12.4, 2015 +8.3 (Mark Richt).
+
+---
+
+## 10. Résumé, pick preview, team profile and many models (Prompt 14; added 2026-11-02)
+Entering **2026 Week 6**, like §4. Every number is fictional and agrees with §1–§8. Definitions: [docs/04-model.md § 11](../docs/04-model.md).
+- **SOR** = how often a benchmark team (the 25th best, rated +10.5) would have at least this record against this schedule. Lower is better, so rank by it ascending, as in §9.
+- **Difficulty** = how often the benchmark team would *lose* that game at that site. It orders best wins and best losses.
+- **Bad loss** = a loss the benchmark team would have won ≥ 80% of the time.
+- **Quads** use the opponent's model rank and the site:
+
+  | Quad | Home | Neutral | Away |
+  |---|---|---|---|
+  | Q1 | 1–11 | 1–19 | 1–28 |
+  | Q2 | 12–28 | 20–37 | 29–50 |
+  | Q3 | 29–60 | 38–75 | 51–90 |
+  | Q4 | 61+, FCS | 76+, FCS | 91+, FCS |
+
+- **Offensive and defensive results** = points per drive better than what each opponent allows (or scores) against everyone else, averaged over games. Positive is good on both sides.
+
+### Rankings › Résumé (top 10 by SOR)
+| SOR rk | Team | Record | Top-25 team goes this well | SOS rk | Q1 | Q2 | Q3 | Q4 | Off results | Def results | Best win | Worst loss |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 1 | Texas | 5-0 | 9.8% | 21 | 2-0 | 1-0 | 0-0 | 2-0 | +1.4 | +0.7 | @ #14 Michigan (Q1) | — |
+| 2 | Ole Miss | 5-0 | 12.6% | 29 | 1-0 | 2-0 | 1-0 | 1-0 | +1.2 | +0.5 | @ #7 Notre Dame (Q1) | — |
+| 3 | Ohio State | 5-0 | 15.1% | 34 | 0-0 | 3-0 | 0-0 | 2-0 | +1.1 | +1.3 | @ #38 Minnesota (Q2) | — |
+| 4 | Oregon | 5-0 | 17.9% | 40 | 1-0 | 1-0 | 1-0 | 2-0 | +1.3 | +0.6 | vs #5 Georgia (Q1) | — |
+| 5 | Georgia | 4-1 | 19.4% | 8 | 2-1 | 1-0 | 0-0 | 1-0 | +0.6 | +1.1 | vs #9 LSU (Q1) | @ #3 Oregon (Q1) |
+| 6 | Oklahoma | 4-1 | 22.8% | 12 | 1-1 | 2-0 | 1-0 | 0-0 | +0.9 | +1.0 | @ #17 Auburn (Q1) | @ #9 LSU (Q1) |
+| 7 | Utah | 5-0 | 24.0% | 47 | 0-0 | 2-0 | 1-0 | 2-0 | +0.3 | +0.8 | @ #31 Arizona State (Q2) | — |
+| 8 | LSU | 4-1 | 25.9% | 15 | 1-1 | 1-0 | 1-0 | 1-0 | +0.8 | +0.4 | vs #4 Oklahoma (Q1) | @ #5 Georgia (Q1) |
+| 9 | Notre Dame | 4-1 | 31.0% | 18 | 0-1 | 2-0 | 1-0 | 1-0 | +0.8 | +0.7 | vs #21 Louisville (Q2) | vs #6 Ole Miss (Q1) |
+| 10 | Penn State | 4-1 | 33.7% | 25 | 0-0 | 2-0 | 1-0 | 1-1 | +0.5 | +0.9 | @ #33 Illinois (Q2) | vs #66 Maryland (Q4, **bad loss**) |
+
+Things the mock should make visible:
+- **Résumé and rating disagree.** Texas is #2 by rating and #1 by résumé. Utah is #10 by rating and #7 by résumé: unbeaten, but against a soft schedule.
+- **Ohio State has no Q1 game yet.** That's the "no Q1 games" state.
+- **Penn State's loss is the only bad loss.** A benchmark team beats #66 Maryland at home 83% of the time.
+
+### Team page: Ohio State's résumé card
+Header line: `Résumé #3 · a top-25 team goes 5-0 against this schedule 15.1% of the time · SOS #34 · Q1 0-0 · Q2 3-0 · Q3 0-0 · Q4 2-0`
+
+| Wk | Game | Opp. rank | Quad | Result | Difficulty | Off result | Def result |
+|---|---|---|---|---|---|---|---|
+| 4 | @ Minnesota | #38 | Q2 | W 27-10 | 45% | +0.4 | +1.5 |
+| 5 | vs Washington | #24 | Q2 | W 34-20 | 44% | +1.3 | +0.9 |
+| 3 | @ Rutgers | #45 | Q2 | W 38-14 | 40% | +1.1 | +1.4 |
+| 2 | vs Ohio | #70 | Q4 | W 38-13 | 15% | +0.6 | +1.1 |
+| 1 | vs Akron | #112 | Q4 | W 52-6 | 3% | +1.9 | +1.6 |
+| | **Season** | | | **5-0** | | **+1.1** | **+1.3** |
+
+Best wins: @ Minnesota, vs Washington, @ Rutgers (sorted by difficulty, highest first). No losses. For the loss lists, use Georgia (best loss: @ #3 Oregon, difficulty 71%) and Penn State (bad loss: vs #66 Maryland, difficulty 17%).
+
+### Team page: Ohio State's model profile (entering Week 6, model v1.0)
+Rating **+27.4** = offense **+14.1** + defense **+13.3** + special teams (not rated yet). The "Points" column is each input's contribution, so each side's used rows add up exactly.
+
+| Unit | Input | Raw | Opp.-adjusted | Pctl | Used by v1.0 | Points |
+|---|---|---|---|---|---|---|
+| Offense | EPA/play | 0.29 | +0.21 | 97th | used | +5.2 |
+| Offense | Success rate | 50.1% | +6.8 pp | 95th | used | +2.9 |
+| Offense | Pass EPA/play | 0.33 | +0.27 | 94th | used | +3.4 |
+| Offense | Pass success rate | 51% | +7.5 pp | 92nd | used | +1.1 |
+| Offense | Rush EPA/play | 0.17 | +0.12 | 89th | used | +1.0 |
+| Offense | Rush success rate | 47% | +4.9 pp | 88th | used | +0.5 |
+| Offense | Explosive-play rate | 15.2% | +3.1 pp | 93rd | display only | — |
+| Offense | Points per opportunity | 5.4 | +1.2 | 94th | display only | — |
+| Offense | Line yards | 3.31 | +0.42 | 85th | display only | — |
+| Defense | EPA/play allowed | −0.11 | −0.19 | 99th | used | +4.9 |
+| Defense | Success rate allowed | 34.8% | −7.9 pp | 98th | used | +2.8 |
+| Defense | Pass EPA/play allowed | −0.14 | −0.22 | 98th | used | +3.0 |
+| Defense | Pass success rate allowed | 33% | −8.1 pp | 97th | used | +1.2 |
+| Defense | Rush EPA/play allowed | −0.06 | −0.15 | 96th | used | +0.9 |
+| Defense | Rush success rate allowed | 37% | −6.5 pp | 95th | used | +0.5 |
+| Defense | Havoc rate | 21.4% | +4.0 pp | 96th | display only | — |
+| Special teams | FG points over expected | +2.1 | — | 80th | display only (not rated yet) | — |
+| Other | Turnover margin | +5 | — | 88th | display only, labeled "mostly luck" | — |
+
+Derived inputs:
+- **Preseason prior +24.0** (from §6) = last season's rating regressed toward average (+26.8 → +21.4) + returning production 58% (−0.6) + talent, rank 2 (+2.2) + recruiting, rank 4 (+1.0). **Prior weight now: 25%** (100% preseason → 50% at Week 4 → 10% at Week 8, per §8).
+- **Tier:** Power 4. **SOS** #34. **SOR** #3 (15.1%). **Quads:** Q1 0-0 · Q2 3-0 · Q3 0-0 · Q4 2-0.
+- **Position groups** (research, display only): QB 98th · RB 81st · WR/TE 95th · OL 84th · DL 97th · LB 90th · DB 93rd.
+
+### Team page: computer rankings (Ohio State)
+| Source | Rank | Rating | As of |
+|---|---|---|---|
+| Our model (v1.0) | 1 | +27.4 | entering Wk 6 |
+| SP+ | 2 | +28.9 | Sun 10/4 |
+| FPI | 1 | +26.4 | Mon 10/5 |
+| Elo | 1 | 1984 | Sun 10/4 |
+| Massey composite | 2 | — (rank only) | Mon 10/5 |
+| Sagarin | 3 | 96.1 | Sun 9/27 · **stale** (a week old; not used by any model this week) |
+
+### Team page: history (Ohio State, last five seasons)
+Fictional like every number here; real seasons drop in when the endpoint is built. Final ratings are the predictive end-of-season rating (hindsight ratings arrive in Phase 6). 2025's +26.8 is the "last season" in the profile's prior above.
+
+| Season | Record | ATS | Final rating (rk) | SOR rk | Conference | Postseason |
+|---|---|---|---|---|---|---|
+| 2025 | 12-2 | 8-6 | +26.8 (2) | 3 | Big Ten, 1st | CFP semifinal, L |
+| 2024 | 13-2 | 9-6 | +29.1 (1) | 2 | Big Ten, 2nd | CFP final, W |
+| 2023 | 11-2 | 6-7 | +22.7 (5) | 6 | Big Ten, 2nd | Bowl, L |
+| 2022 | 11-2 | 7-6 | +25.0 (3) | 5 | Big Ten, 2nd | CFP semifinal, L |
+| 2021 | 11-2 | 6-7 | +19.0 (6) | 8 | Big Ten, 2nd | Bowl, W |
+
+### Game Detail: pick preview, #2 Texas vs #4 Oklahoma (neutral)
+Uses §2's numbers. Model **TEX −1.3** · market TEX −6.5 · edge **+5.2 OU** · cover 63% (OU +6.5) · win TEX 54% / OU 46% · tier A · confidence **High**: plays at 62.5%+ covered 59.1% in validation (backtest; carries the UNCALIBRATED label like every cover %).
+
+| | Texas | Oklahoma |
+|---|---|---|
+| Rating (rank) | +25.9 (2) | +24.4 (4) |
+| Offense (rank) | +16.0 (1) | +12.6 (7) |
+| Defense (rank) | +9.9 (6) | +11.8 (3) |
+| Pass offense / pass defense pctl | 96th / 83rd | 71st / 58th |
+| Rush offense / rush defense pctl | 74th / 62nd | 90th / 88th |
+| QB · OL · DL (position groups, display only) | 99th · 91st · 80th | 88th · 86th · 94th |
+| SOS rk | 21 | 12 |
+| Résumé (SOR) rk | 1 (9.8%) | 6 (22.8%) |
+| Quads | Q1 2-0 · Q2 1-0 · Q3 0-0 · Q4 2-0 | Q1 1-1 · Q2 2-0 · Q3 1-0 · Q4 0-0 |
+| Best win | @ #14 Michigan (Q1) | @ #17 Auburn (Q1) |
+| Loss | — | @ #9 LSU (Q1) |
+| Computer rankings | SP+ 1 · FPI 2 · Elo 2 · Massey 1 | SP+ 5 · FPI 4 · Elo 5 · Massey 4 |
+
+**Best matchups** (from §2's drivers, largest first): Texas pass offense vs OU pass defense **+3.8 TEX** · OU rush offense vs Texas rush defense **+2.4 OU** · OU pass offense vs Texas pass defense **+1.6 OU**.
+
+**Why, in plain sentences** (rendered from the drivers):
+1. Texas's passing game (96th) against Oklahoma's pass defense (58th) is worth 3.8 points to Texas.
+2. Oklahoma gets 2.4 back on the ground: its run game (90th) against Texas's run defense (62nd).
+3. On a neutral field there's no home edge, so the model has Texas by 1.3, 5.2 points less than the market's 6.5.
+
+### Many models
+| Version | Status | Drives picks | Inputs on | Created | Live 2026 record |
+|---|---|---|---|---|---|
+| v1.0 | production | **yes** | 6 v1 inputs | 2026-08-20 | 31-24-1 · 56.4% · +4.6u (§7) |
+| v1.1 | candidate (active) · *not promoted* | no | v1 inputs + Power 4 / G5 tier shrinkage | 2026-09-14 | since Wk 3: 19-14 · 57.6% · +3.6u |
+| v1.3-ext | paused | no | v1.1 + Elo + SP+ | 2026-10-20 | Wk 5 only: 6-5 · 54.5% · +0.5u (paused after Wk 5) |
+| v0.9-tier-test | **deleted** 2026-10-12 (restorable) | no | v1 inputs, no prior | 2026-09-02 | no live picks |
+
+v1.2-dev from §8 is still a dev version with a backtest running, so it isn't active and has no live record.
+
+**Model switcher** on This Week (v1.0 drives picks; v1.1 shown beside it):
+| Game | Market | v1.0 | v1.1 |
+|---|---|---|---|
+| Texas vs Oklahoma (N) | TEX −6.5 | TEX −1.3 · +5.2 OU · A | TEX −2.0 · +4.5 OU · B |
+| Ole Miss @ LSU | LSU −3.5 | MISS −1.4 · +4.9 MISS · B | MISS −0.6 · +4.1 MISS · B |
+| Purdue @ Ohio State | OSU −27.5 | OSU −31.2 · +3.7 OSU · B | OSU −30.1 · +2.6 OSU · C |
+
+### Model Lab › How it works (v1.0, worked game: Purdue @ Ohio State)
+1. **Data:** this season's plays and drives through Week 5, garbage time removed.
+2. **Ratings:** opponent-adjusted per input (ridge alpha 12.0, recency half-life 4 weeks), blended with the preseason prior at 25% weight. Ohio State +27.4, Purdue −1.5.
+3. **Margin:** +27.4 − (−1.5) + home field 2.3 = **OSU by 31.2**.
+4. **Against the line:** the market is OSU −27.5, so the edge is **+3.7 OSU**, tier B (≥ 3.5).
+5. **Probability:** results scatter around the prediction with σ 13.8. The cover % is pulled toward the market (k 0.6) and calibrated, giving **59%** that OSU covers.
+6. **Pick and grading:** a pick (edge ≥ 2.5 and cover ≥ 55%), graded after the game against the line it was made at, with CLV against the close.
