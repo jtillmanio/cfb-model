@@ -223,6 +223,13 @@ class WeeklySummary:
         return "\n".join(out)
 
 
+def _engine(url: str) -> Any:
+    """The target's engine at READ COMMITTED, pinned rather than left to the server's default: a
+    transaction reads before `write_picks` takes D-148's lock on the version, and only under READ
+    COMMITTED does the read after the lock see the other writer's committed pick."""
+    return make_engine(url).execution_options(isolation_level="READ COMMITTED")
+
+
 def current_season(now: datetime) -> int:
     """The season a job works on: bowls in January belong to the season before."""
     return now.year if now.month >= 7 else now.year - 1
@@ -318,7 +325,7 @@ def run(
         if not report.ok:
             summary.report = report
             raise JobFailed(report)
-        db = make_engine(url)
+        db = _engine(url)
         try:
             with db.begin() as conn:
                 summary.new = publish_lake(scratch, conn, report=report)
@@ -330,14 +337,15 @@ def run(
 
 
 def reevaluate(conn: Connection, season: int, now: datetime) -> list[Repicked]:
-    """Each live version's picks, from its newest succeeded `scheduled` run in `season` finished
-    by `now` (the week the weekly job last rated), against the newest snapshots, in the caller's
-    transaction. The writer skips games already past their cutoff."""
+    """Each live, unretired version's picks, from its newest succeeded `scheduled` run in
+    `season` finished by `now` (the week the weekly job last rated), against the newest
+    snapshots, in the caller's transaction. The writer skips games already past their cutoff."""
     rows = conn.execute(
         text(
             "SELECT DISTINCT ON (r.model_version_id) r.model_version_id, r.week, v.name,"
             " v.version FROM model_runs r JOIN model_versions v ON v.id = r.model_version_id"
             " WHERE v.sport_id = :sport AND v.market = :market AND v.deleted_at IS NULL"
+            " AND v.status <> 'retired'"
             " AND r.run_type = ANY(:types) AND r.status = 'succeeded' AND r.season = :season"
             " AND r.finished_at <= :now"
             " ORDER BY r.model_version_id, r.finished_at DESC, r.id DESC"
@@ -422,7 +430,7 @@ def rate_and_predict(
             raise JobFailed(report)
         fitted = models.fit_week(scratch, spec, choices, season=season, week=week[1])
 
-    db = make_engine(url)
+    db = _engine(url)
     try:
         with db.begin() as conn:
             summary.run = models.write(

@@ -75,6 +75,7 @@ class Published:
         self.staging: list[str] = []
         self.opened: list[str] = []
         self.steps: list[str] = []  # each transaction's begin and commit, and what ran in it
+        self.isolation: list[str] = []
 
 
 def fake_postgres(monkeypatch: pytest.MonkeyPatch, published: Published) -> None:
@@ -85,6 +86,10 @@ def fake_postgres(monkeypatch: pytest.MonkeyPatch, published: Published) -> None
         published.steps.append("commit")
 
     class Engine:
+        def execution_options(self, isolation_level: str) -> Engine:
+            published.isolation.append(isolation_level)
+            return self
+
         def begin(self) -> Any:
             return begin()
 
@@ -297,6 +302,7 @@ def test_lines_reevaluates_after_the_publish_commits(
     assert engine("job", "lines", "--target", "live", "--summary", str(summary)) == 0
 
     assert published.steps == ["begin", "publish", "commit", "begin", "reevaluate", "commit"]
+    assert published.isolation == ["READ COMMITTED"]  # D-148's lock serializes only under it
     assert "no version has a scheduled run this season" in summary.read_text("utf-8")
 
 

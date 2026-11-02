@@ -72,12 +72,17 @@ class Opened:
     def __init__(self) -> None:
         self.urls: list[str] = []
         self.transactions = 0
+        self.isolation: list[str] = []  # each engine's isolation level, as the job asked for it
 
 
 def _savepoint_engine(conn: Connection, opened: Opened) -> Any:
     """The job's engine: each transaction a savepoint on the rolled-back test connection."""
 
     class _Engine:
+        def execution_options(self, isolation_level: str) -> _Engine:
+            opened.isolation.append(isolation_level)
+            return self
+
         @contextmanager
         def begin(self) -> Iterator[Connection]:
             opened.transactions += 1
@@ -221,6 +226,9 @@ def test_weekly_run_writes_run_ratings_predictions_and_picks(
 
     assert code == 0, summary.read_text("utf-8") if summary.exists() else ""
     assert (weekly.urls, weekly.transactions) == ([DEV], 1)
+    # D-148's advisory lock serializes two pick writers only under READ COMMITTED: pinned, not
+    # left to the server's default.
+    assert weekly.isolation == ["READ COMMITTED"]
     version = _version(db_conn)
     assert version.status == "candidate"  # created from the spec file: v1 is paper-traded (D-144)
     (run,) = _runs(db_conn)
@@ -417,6 +425,18 @@ def test_lines_reads_scheduled_runs_only(world: World) -> None:
     # The world's own run is `adhoc` (an `engine rate` by hand): the job leaves it alone.
     game = world.game(10.0)
     _line(world.conn, game, "DraftKings", LINES_NOW - timedelta(days=1), -3.0)
+
+    assert [r for r in _reevaluate(world, LINES_NOW) if r.version_id == world.version] == []
+    assert _pick_rows(world, game) == []
+
+
+def test_lines_skips_a_retired_version(world: World) -> None:
+    _scheduled(world, finished_at=LINES_NOW - timedelta(days=2))
+    game = world.game(10.0)
+    _line(world.conn, game, "DraftKings", LINES_NOW - timedelta(days=1), -3.0)
+    world.conn.execute(
+        text("UPDATE model_versions SET status = 'retired' WHERE id = :v"), {"v": world.version}
+    )
 
     assert [r for r in _reevaluate(world, LINES_NOW) if r.version_id == world.version] == []
     assert _pick_rows(world, game) == []
