@@ -185,13 +185,14 @@ GitHub then starts the workflow on `main`, and its run shows in the Actions tab 
 | `backup.yml` | Daily 03:30 | Quiet hours, before the morning jobs write |
 | `results.yml` | Sun and Mon 06:00 | The weekend's finals; Monday's run settles the week, and both finish before Sunday's ratings and the 10 AM predictions (D-092) |
 | `vercel-cleanup.yml` | Mon 06:15, with `dry_run=false` | Weekly sweep of old deployments ([Deployments and storage](#deployments-and-storage)); a hand run is a dry run |
-| `lines.yml` | Daily 08:00 | The daily line snapshot (02 › Non-functional requirements) |
+| `lines.yml` | Daily 08:00 | The daily line snapshot (02 › Non-functional requirements), then picks re-evaluated against it |
+| `rate-and-predict.yml` | Sun 09:00 | The coming week's ratings, predictions and picks, after Sunday's `results` and `lines`, out before 10 AM (D-092) |
 | `lines.yml` | Thu and Fri 19:00 | The pick window, when lines move most before the weekend |
 
 This table mirrors `SCHEDULE` in `infra/dispatcher/src/index.ts`; that file wins if they differ.
 `backup.yml` keeps a 12:00 UTC cron as a fallback (D-128): it does nothing when the day's dump is
-already in R2 ([Backups](#backups)). `results.yml` and `lines.yml` keep UTC crons as late
-fallbacks, which do nothing when the dispatcher's run succeeded ([Jobs](#jobs)).
+already in R2 ([Backups](#backups)). `results.yml`, `lines.yml` and `rate-and-predict.yml` keep
+UTC crons as late fallbacks, which do nothing when the dispatcher's run succeeded ([Jobs](#jobs)).
 
 ### What it doesn't do
 - **Retry.** A tick that runs late but inside its quarter hour still fires. A quarter hour Cloudflare
@@ -366,7 +367,8 @@ Protection ever covers production (02 › Auth).
 ## Jobs
 
 The **Results** and **Lines** workflows (`.github/workflows/results.yml`, `lines.yml`, TASK-022)
-keep production's games, scores and lines current with nobody running anything. The
+keep production's games, scores and lines current with nobody running anything; **Rate and
+predict** (below) rates, predicts and picks the coming week. The
 [dispatcher](#dispatcher) starts them at their ET times. Each run of `engine job results|lines`
 (`python/engine/src/engine/jobs.py`, with `LIVE=true`) does, in order:
 
@@ -386,19 +388,46 @@ keep production's games, scores and lines current with nobody running anything. 
 4. **publish** to production in one transaction (`PRODUCTION_DATABASE_URL_UNPOOLED`): teams, team
    seasons, venues, the season, games, and new line snapshots. Reference rows are upserted, so a
    second run adds no team or game rows.
+5. `lines` only: **re-evaluate picks** in a second transaction, once the snapshots are committed.
+   For each model version (not `retired`) with a `scheduled` run this season, its newest such run's picks are
+   checked against the newest lines (`engine pick`'s writer, D-148): a row is added only where a
+   game's side or tier changes, never for a game already kicked off.
+
+The **Rate and predict** workflow (`.github/workflows/rate-and-predict.yml`, TASK-046) is the
+weekly cycle: Sunday at 09:00 ET it rates the coming week, predicts it and picks it, from the model
+version the workflow names (`efficiency v1.0`, paper-traded as `candidate`, D-144) with that
+season's settings (`python/engine/specs/efficiency-v1-2026.run.json`, D-149). Each run of
+`engine job rate-and-predict` does, in order:
+
+1. **choose the week**: the earliest week with a game not yet kicked off, from the R2 lake's
+   `/games` files, as `lines` chooses it. If it's the postseason (bowls and the CFP aren't rated
+   yet) or the season is over, the run says so and ends without opening production.
+2. **resolve the settings** the season runs with from the `run.json`; one that didn't score the
+   season is refused (exit 2).
+3. **rebuild every season**: every raw file in R2 is copied into a scratch lake on the runner,
+   which is rebuilt (about 40 seconds for 2014–2026). The prior and the margin model read every
+   earlier season. No CFBD call is made, so the workflow has no CFBD key.
+4. **check** the scratch staging. A failure ends the run (exit 1) before production is opened.
+5. **fit** the week as the backtest fits it, with no connection open.
+6. **write** in one transaction: the version (created as `candidate` the first time; refused if
+   one of that name has another spec), a `scheduled` model run, its ratings and predictions (none
+   for a canceled game), and its picks against the newest line before each game's kickoff. A run
+   whose fit fails is recorded as `failed` with its error and no picks (exit 1).
 
 | Workflow | When (ET) | Fallback cron (UTC) | Calls a run |
 |---|---|---|---|
 | `results.yml` | Sun and Mon 06:00 | `0 12 * * 0,1` | ~6 |
 | `lines.yml` | Daily 08:00, Thu and Fri 19:00 | `0 14 * * *`, `0 1 * * 5,6` | 2 |
+| `rate-and-predict.yml` | Sun 09:00 | `0 15 * * 0` | 0 |
 
 GitHub's cron knows only UTC, so each fallback fires 1–2 hours after its ET slot (an hour later in
 EDT than in EST). GitHub can start it 5-8 hours late, so the check is anchored to the cron's slot,
 not the start: it runs only when no dispatched run of that workflow succeeded since 3 hours before
 that slot (`.github/actions/skip-if-dispatched`, `engine fallback`). To try both paths on a branch,
 run the workflow with `fallback_cron` set to its cron (skips if the day's dispatched run succeeded)
-and without it (runs the job). Both workflows share the `lake-publish` concurrency
-group, so two runs never write the lake or publish at once; a queued one waits.
+and without it (runs the job). All three workflows share the `lake-publish` concurrency
+group, so two runs never write the lake or publish at once, and Sunday's rating waits for the
+morning's `results` and `lines`; a queued one waits.
 
 ### Run one by hand
 ```powershell
@@ -411,21 +440,40 @@ unscored a week after its start (D-121): if CFBD postponed one under its old wee
 manual pull when it's played. Locally, `--target dev` runs the same steps against your dev
 database and `LAKE_URI`.
 
+`gh workflow run rate-and-predict.yml -f dry_run=true` does every step against production and
+rolls the transaction back, so it writes nothing: its Summary shows the week, the run and the
+counts it would have written. A dry run that succeeds still counts as a dispatched success, so one
+on a Sunday after 08:00 EDT (07:00 EST) makes that day's fallback cron skip: if the 09:00 dispatch
+then failed, run the workflow by hand. Without `dry_run` a hand run writes a real `scheduled` run; a second
+run the same week adds another run and its predictions, but no pick whose side and tier are
+unchanged. Its **Summary** lists the version, the week rated (or why none), the run's id and
+status, its ratings and predictions, and the picks and passes written out of the predicted games
+still before kickoff (0 predicted games means nothing was rated; predictions with 0 picks means
+no game cleared the pick rules). `lines` adds one line per version re-evaluated. Locally:
+
+```powershell
+uv --directory python run engine job rate-and-predict --target dev --spec engine/specs/efficiency-v1.json --choices engine/specs/efficiency-v1-2026.run.json
+```
+
 ### Read a failed run
 | Exit | What it means | What to do |
 |---|---|---|
 | 1 | A data-quality check failed; nothing was published | The Summary lists the failed check and the games. A late game missing advanced stats on Sunday clears on Monday's run |
-| 2 | Refused: `LIVE` is unset, or `PRODUCTION_DATABASE_URL_UNPOOLED` is missing or pooled | Check the workflow's `env:` and the secret |
+| 1 (`lines`) | The snapshots were published, but re-evaluating the picks failed and was rolled back | The Summary names the error; the next `lines` run tries again |
+| 1 (`rate-and-predict`) | The fit failed (recorded as a `failed` run, no picks), or a point-in-time check failed (nothing written) | Read the error in the Summary or the log; re-run by hand once fixed |
+| 2 | Refused: `LIVE` is unset, or `PRODUCTION_DATABASE_URL_UNPOOLED` is missing or pooled. `rate-and-predict` also: the settings file didn't score this season, or a version of that name has another spec | Check the workflow's `env:` and the secret; for a new season, commit its settings (D-149) |
 | 3 | The month's CFBD budget (5,000 calls) is spent | Wait for the next UTC month; nothing was published |
 
 Any other failure (R2 credentials, a CFBD error) shows as a Python traceback in the step's log. The
 lake keeps whatever was pulled before it, and the next run reuses it.
 
 ### What it needs
-Repository **secrets**: `CFBD_API_KEY`, `R2_DATA_LAKE_ACCESS_KEY_ID` and
+Repository **secrets**: `CFBD_API_KEY` (not `rate-and-predict`), `R2_DATA_LAKE_ACCESS_KEY_ID` and
 `R2_DATA_LAKE_SECRET_ACCESS_KEY` (an R2 token with Object Read & Write on the lake bucket only), and
 `PRODUCTION_DATABASE_URL_UNPOOLED` (shared with the release workflow). Repository **variables**:
-`LAKE_URI` (`s3://<lake bucket>`) and `R2_ACCOUNT_ID`.
+`LAKE_URI` (`s3://<lake bucket>`) and `R2_ACCOUNT_ID`. `rate-and-predict` and the `lines` pick
+step also need production migrated to `main`'s head (the model tables, `picks` and the pick
+views), which a release does.
 
 ## Performance checks
 

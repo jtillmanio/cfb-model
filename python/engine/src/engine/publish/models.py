@@ -10,8 +10,10 @@ places it. The transform stages a game `canceled` when CFBD still lists it unsco
 uncompleted a week after its start (D-121, TASK-044).
 
 The lake is read and the model fit before any database transaction opens (`fit_week`); `write`
-then inserts in one short transaction. Outputs are insert-only (hard rule 2): a re-run adds a new
-`model_runs` row and its own ratings and predictions. A fit that raises, or gives a number the
+then inserts in one short transaction. `engine rate` writes an `adhoc` run and creates a missing
+version as `dev`; the weekly job (`engine job rate-and-predict`, TASK-046) writes a `scheduled`
+run and creates its version as `candidate`. Outputs are insert-only (hard rule 2): a re-run adds a
+new `model_runs` row and its own ratings and predictions. A fit that raises, or gives a number the
 tables can't hold (NaN, ±Infinity, σ ≤ 0, a share outside 0–1), is recorded as a `failed` run
 with its error and nothing else; a refusal (an unstaged week, an unpublished team, a version with
 another spec) writes nothing. The model's team and game ids are CFBD's; they're mapped to
@@ -47,6 +49,8 @@ SPORT = "cfb"
 MARKET = "spread"
 SOURCE = "cfbd"  # whose ids the lake's teams and games carry
 SEASON_TYPE = "regular"
+RunType = Literal["adhoc", "scheduled"]  # a backtest run spans seasons: never one week's
+VersionStatus = Literal["dev", "candidate"]  # what a version is created as
 
 
 class RateRefused(ValueError):
@@ -248,13 +252,15 @@ def _version(conn: Connection, spec: ModelSpec, name: str, version: str) -> int 
     return row.id
 
 
-def _create_version(conn: Connection, spec: ModelSpec, name: str, version: str) -> int:
+def _create_version(
+    conn: Connection, spec: ModelSpec, name: str, version: str, status: VersionStatus
+) -> int:
     return conn.execute(
         text(
             "INSERT INTO model_versions (sport_id, market, name, version, spec,"
             " spec_schema_version, created_by, status)"
             " VALUES (:sport, :market, :name, :version, CAST(:spec AS jsonb), :schema, 'system',"
-            " 'dev') RETURNING id"
+            " :status) RETURNING id"
         ),
         {
             "sport": SPORT,
@@ -263,6 +269,7 @@ def _create_version(conn: Connection, spec: ModelSpec, name: str, version: str) 
             "version": version,
             "spec": json.dumps(spec.model_dump(mode="json")),
             "schema": spec.spec_schema_version,
+            "status": status,
         },
     ).scalar_one()
 
@@ -271,19 +278,22 @@ def _insert_run(
     conn: Connection,
     version_id: int,
     fitted: FittedWeek,
+    run_type: RunType,
     params: Mapping[str, Any] | None = None,
 ) -> int:
-    """An ad-hoc run of one week: `succeeded` with its fitted params, or `failed` with its
-    error. Inserted finished, so it never sits `running` (a failed fit writes nothing else)."""
+    """A run of one week (`adhoc` by hand, `scheduled` by the weekly job): `succeeded` with its
+    fitted params, or `failed` with its error. Inserted finished, so it never sits `running` (a
+    failed fit writes nothing else)."""
     return conn.execute(
         text(
             "INSERT INTO model_runs (model_version_id, run_type, season, week, as_of, status,"
             " requested_at, started_at, finished_at, fitted_params, error)"
-            " VALUES (:v, 'adhoc', :season, :week, :as_of, :status, :started, :started,"
+            " VALUES (:v, :run_type, :season, :week, :as_of, :status, :started, :started,"
             " :finished, CAST(:params AS jsonb), :error) RETURNING id"
         ),
         {
             "v": version_id,
+            "run_type": run_type,
             "season": fitted.season,
             "week": fitted.week,
             "as_of": fitted.as_of,
@@ -317,20 +327,24 @@ def write(
     name: str,
     version: str,
     source: str | None = None,
+    run_type: RunType = "adhoc",
+    status: VersionStatus = "dev",
 ) -> RunSummary:
     """Insert the run with its ratings and predictions, in the caller's transaction. `spec` is
-    the version's recipe as stored; a refusal raises before anything is inserted."""
+    the version's recipe as stored; a version that doesn't exist yet is created with `status`.
+    A refusal raises before anything is inserted."""
     version_id = _version(conn, spec, name, version)
     if fitted.outputs is None:
-        version_id = version_id or _create_version(conn, spec, name, version)
-        run_id = _insert_run(conn, version_id, fitted)
+        version_id = version_id or _create_version(conn, spec, name, version, status)
+        run_id = _insert_run(conn, version_id, fitted, run_type)
         return RunSummary(run_id, "failed", 0, 0, fitted.error)
 
     ratings, predicted = fitted.outputs
     team_ids = _ids(conn, "teams", source or SOURCE, ratings.teams)
     game_ids = _ids(conn, "games", source or SOURCE, (g.game_id for g, _ in predicted))
-    version_id = version_id or _create_version(conn, spec, name, version)
-    run_id = _insert_run(conn, version_id, fitted, {**ratings.params, "choices": fitted.choices})
+    version_id = version_id or _create_version(conn, spec, name, version, status)
+    params = {**ratings.params, "choices": fitted.choices}
+    run_id = _insert_run(conn, version_id, fitted, run_type, params)
     rating_rows = [
         {
             "run": run_id,

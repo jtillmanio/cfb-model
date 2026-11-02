@@ -21,6 +21,7 @@ export const SCHEDULE: readonly Entry[] = [
   { workflow: "results.yml", days: ["Sun", "Mon"], time: "06:00" },
   { workflow: "vercel-cleanup.yml", days: ["Mon"], time: "06:15", inputs: { dry_run: "false" } },
   { workflow: "lines.yml", days: "daily", time: "08:00" },
+  { workflow: "rate-and-predict.yml", days: ["Sun"], time: "09:00" },
   { workflow: "lines.yml", days: ["Thu", "Fri"], time: "19:00" },
 ];
 

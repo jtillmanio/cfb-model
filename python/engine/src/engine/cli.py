@@ -119,9 +119,17 @@ def _job_url(target: str) -> str:
         _refuse(str(e))
 
 
+def _write_summary(text: str, summary_path: str | None) -> None:
+    print(text)
+    if summary_path:
+        with open(summary_path, "a", encoding="utf-8") as f:
+            f.write(text + "\n")
+
+
 def _job(kind: Kind, target: str, summary_path: str | None) -> None:
-    """Run one scheduled job; exit 1 if a check fails (nothing published), 2 on a refusal, 3 when
-    the CFBD budget stops it. The summary is appended to `summary_path` whatever happens."""
+    """Run one scheduled job; exit 1 if a check fails (nothing published) or the `lines` pick
+    re-evaluation fails (snapshots published, picks rolled back), 2 on a refusal, 3 when the CFBD
+    budget stops it. The summary is appended to `summary_path` whatever happens."""
     from engine import clock, jobs
     from engine.ingest.backfill import client_for
     from engine.ingest.cfbd import BudgetExceededError
@@ -133,17 +141,73 @@ def _job(kind: Kind, target: str, summary_path: str | None) -> None:
     code = 0
     try:
         jobs.run(kind, lake, url, target=target, client=client_for(lake), summary=summary)
-    except jobs.JobFailed:
+    except (jobs.JobFailed, jobs.PicksFailed):
         code = 1
     except BudgetExceededError as e:
         print(e)
         code = 3
     finally:
-        text = summary.render()
-        print(text)
-        if summary_path:
-            with open(summary_path, "a", encoding="utf-8") as f:
-                f.write(text + "\n")
+        _write_summary(summary.render(), summary_path)
+    if code:
+        sys.exit(code)
+
+
+def _rate_job(args: argparse.Namespace) -> None:
+    """The weekly rate-and-predict job; exit 1 if a check fails (nothing written), the fit fails
+    (recorded as a failed run) or the point-in-time check fails (nothing written), 2 on a refusal
+    (nothing written). The summary is appended to `--summary` whatever happens."""
+    import json
+    from pathlib import Path
+
+    from pydantic import ValidationError
+
+    from engine import clock, jobs
+    from engine.backtest import harness
+    from engine.core.spec import ModelSpec
+    from engine.ingest.lake import open_lake
+    from engine.publish import models, picks
+    from engine.transform.features import PointInTimeError
+
+    url = _job_url(args.target)
+    try:
+        spec = ModelSpec.model_validate_json(Path(args.spec).read_text("utf-8"))
+    except (OSError, ValidationError) as e:
+        _refuse(f"--spec {args.spec}: {e}")
+    run = None
+    if args.choices:
+        try:
+            run = json.loads(Path(args.choices).read_text("utf-8"))
+        except (OSError, ValueError) as e:
+            _refuse(f"--choices {args.choices}: {e}")
+    name = args.name or spec.base
+    season = jobs.current_season(clock.now())
+    summary = jobs.WeeklySummary(season, args.target, f"{name} {args.version}", args.dry_run)
+    code, refusal = 0, None
+    try:
+        jobs.rate_and_predict(
+            open_lake(),
+            url,
+            spec=spec,
+            run=run,
+            name=name,
+            version=args.version,
+            target=args.target,
+            dry_run=args.dry_run,
+            summary=summary,
+        )
+        if summary.run is not None and summary.run.error:
+            code = 1
+    except jobs.JobFailed:
+        code = 1
+    except (models.RateRefused, picks.PicksRefused, harness.RefusedError) as e:
+        refusal = str(e)
+    except PointInTimeError as e:
+        print(f"FAIL {e}")
+        code = 1
+    finally:
+        _write_summary(summary.render(), args.summary)
+    if refusal is not None:
+        _refuse(refusal)
     if code:
         sys.exit(code)
 
@@ -541,14 +605,17 @@ def main(argv: list[str] | None = None) -> None:
 
     job = commands.add_parser(
         "job",
-        help="Run a scheduled job: pull the week, stage the season, check it, publish it",
+        help="Run a scheduled job: pull and publish results or lines, or rate, predict and pick",
         description="results: every week with a game in the last 14 days (scores, box scores, "
-        "advanced stats, plays, drives, closing lines); lines: the next week's games and lines. "
-        "The season is staged in a scratch lake, checked, and published in one transaction. "
-        "Exits 1 if a check fails (nothing published), 2 on a refusal, 3 when the CFBD budget "
-        "stops it.",
+        "advanced stats, plays, drives, closing lines); lines: the next week's games and lines, "
+        "then each version's picks re-evaluated against them. The season is staged in a scratch "
+        "lake, checked, and published in one transaction. rate-and-predict: no CFBD call; every "
+        "season rebuilt in a scratch lake and checked, the next regular week fit as the backtest "
+        "fits it, and a scheduled run, its ratings, predictions and picks inserted in one "
+        "transaction. Exits 1 if a check fails (nothing published), a fit fails or the pick "
+        "re-evaluation fails, 2 on a refusal, 3 when the CFBD budget stops it.",
     )
-    job.add_argument("kind", choices=["results", "lines"])
+    job.add_argument("kind", choices=["results", "lines", "rate-and-predict"])
     job.add_argument(
         "--target",
         required=True,
@@ -559,6 +626,27 @@ def main(argv: list[str] | None = None) -> None:
         "--summary",
         metavar="PATH",
         help="Append the run's summary as markdown ($GITHUB_STEP_SUMMARY)",
+    )
+    job.add_argument(
+        "--spec", metavar="FILE", help="rate-and-predict: the version's ModelSpec as JSON"
+    )
+    job.add_argument(
+        "--choices",
+        metavar="RUN_JSON",
+        help="rate-and-predict: a backtest's run.json that scored the season (its settings)",
+    )
+    job.add_argument(
+        "--name", help="rate-and-predict: the version's name (default: the spec's base)"
+    )
+    job.add_argument(
+        "--version",
+        default="v1.0",
+        help="rate-and-predict: the version, created as candidate if missing (default %(default)s)",
+    )
+    job.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="rate-and-predict: do everything, then roll the transaction back",
     )
 
     commands.add_parser(
@@ -725,8 +813,16 @@ def main(argv: list[str] | None = None) -> None:
         load_env()
         _sync(args.src, args.dst)
     elif args.command == "job":
+        weekly = args.kind == "rate-and-predict"
+        if weekly and not args.spec:
+            job.error("rate-and-predict needs --spec")
+        if not weekly and (args.spec or args.choices or args.name or args.dry_run):
+            job.error("--spec, --choices, --name and --dry-run are rate-and-predict's")
         load_env()
-        _job(args.kind, args.target, args.summary)
+        if weekly:
+            _rate_job(args)
+        else:
+            _job(args.kind, args.target, args.summary)
     elif args.command == "backtest":
         seasons = _season_range(bt, args.seasons)
         load_env()

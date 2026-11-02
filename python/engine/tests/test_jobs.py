@@ -74,14 +74,22 @@ class Published:
     def __init__(self) -> None:
         self.staging: list[str] = []
         self.opened: list[str] = []
+        self.steps: list[str] = []  # each transaction's begin and commit, and what ran in it
+        self.isolation: list[str] = []
 
 
 def fake_postgres(monkeypatch: pytest.MonkeyPatch, published: Published) -> None:
     @contextmanager
     def begin() -> Iterator[str]:
+        published.steps.append("begin")
         yield "conn"
+        published.steps.append("commit")
 
     class Engine:
+        def execution_options(self, isolation_level: str) -> Engine:
+            published.isolation.append(isolation_level)
+            return self
+
         def begin(self) -> Any:
             return begin()
 
@@ -95,10 +103,16 @@ def fake_postgres(monkeypatch: pytest.MonkeyPatch, published: Published) -> None
     def publish_lake(lake: LocalLake, conn: str, *, report: Any) -> dict[str, int]:
         assert report.ok
         published.staging = lake.walk("staging")
+        published.steps.append("publish")
         return {"teams": 9, "games": 5, "line_snapshots": 12}
+
+    def reevaluate(conn: str, season: int, now: datetime) -> list[jobs.Repicked]:
+        published.steps.append("reevaluate")
+        return []
 
     monkeypatch.setattr(jobs, "make_engine", make_engine)
     monkeypatch.setattr(jobs, "publish_lake", publish_lake)
+    monkeypatch.setattr(jobs, "reevaluate", reevaluate)
 
 
 def refuse_postgres(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -258,20 +272,75 @@ def test_a_second_run_reuses_final_files(
     assert len(week_pulls) == 2 * len(jobs.PULLS["results"])  # Sunday's and Monday's, not the third
 
 
+def unplayed(games: list[Any]) -> list[Any]:
+    """The week-1 games as CFBD lists them before kickoff."""
+    return [{**g, "completed": False, "homePoints": None, "awayPoints": None} for g in games]
+
+
 def test_lines_pulls_next_unplayed_week(r2: LocalLake, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("FIXTURE_NOW", "2025-08-21T23:00:00Z")  # Thursday 19:00 ET
-
-    def scheduled(games: list[Any]) -> list[Any]:
-        return [
-            {**g, "completed": False, "homePoints": None, "awayPoints": None} for g in games
-        ]
-
-    requests = serve(r2, monkeypatch, scheduled)
+    requests = serve(r2, monkeypatch, unplayed)
     fake_postgres(monkeypatch, Published())
     live(monkeypatch)
 
     assert engine("job", "lines", "--target", "live") == 0
     assert requests == ["games week=None", "games week=1", "lines week=1"]
+
+
+def test_lines_reevaluates_after_the_publish_commits(
+    r2: LocalLake, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """TASK-046 AC-3: the picks are re-evaluated in a second transaction, once the snapshots are
+    committed, so a failed pick never takes the snapshots with it."""
+    monkeypatch.setenv("FIXTURE_NOW", "2025-08-21T23:00:00Z")
+    serve(r2, monkeypatch, unplayed)
+    published = Published()
+    fake_postgres(monkeypatch, published)
+    live(monkeypatch)
+    summary = tmp_path / "summary.md"
+
+    assert engine("job", "lines", "--target", "live", "--summary", str(summary)) == 0
+
+    assert published.steps == ["begin", "publish", "commit", "begin", "reevaluate", "commit"]
+    assert published.isolation == ["READ COMMITTED"]  # D-148's lock serializes only under it
+    assert "no version has a scheduled run this season" in summary.read_text("utf-8")
+
+
+def test_a_failed_reevaluation_keeps_the_snapshots_and_exits_1(
+    r2: LocalLake, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    from engine.publish import picks
+
+    monkeypatch.setenv("FIXTURE_NOW", "2025-08-21T23:00:00Z")
+    serve(r2, monkeypatch, unplayed)
+    published = Published()
+    fake_postgres(monkeypatch, published)
+
+    def refuse(conn: str, season: int, now: datetime) -> list[jobs.Repicked]:
+        raise picks.PicksRefused("a pick for these games was made after the clock")
+
+    monkeypatch.setattr(jobs, "reevaluate", refuse)
+    live(monkeypatch)
+    summary = tmp_path / "summary.md"
+
+    assert engine("job", "lines", "--target", "live", "--summary", str(summary)) == 1
+
+    assert published.steps[:3] == ["begin", "publish", "commit"]
+    assert "commit" not in published.steps[3:]
+    text = summary.read_text("utf-8")
+    assert "Not re-evaluated; the picks were rolled back" in text
+    assert "made after the clock" in text
+
+
+def test_results_reevaluates_no_picks(r2: LocalLake, monkeypatch: pytest.MonkeyPatch) -> None:
+    serve(r2, monkeypatch, lambda games: games)
+    published = Published()
+    fake_postgres(monkeypatch, published)
+    live(monkeypatch)
+
+    assert engine("job", "results", "--target", "live") == 0
+
+    assert "reevaluate" not in published.steps
 
 
 def test_a_job_refuses_production_without_live(
@@ -342,7 +411,7 @@ def workflow(name: str) -> str:
     return (WORKFLOWS / name).read_text(encoding="utf-8")
 
 
-@pytest.mark.parametrize("name", ["results.yml", "lines.yml"])
+@pytest.mark.parametrize("name", ["results.yml", "lines.yml", "rate-and-predict.yml"])
 def test_workflows_dispatch_schedule_and_share_concurrency(name: str) -> None:
     text = workflow(name)
     assert re.search(r"^on:\n  workflow_dispatch:\n(    .*\n)*  schedule:\n", text, re.M)
@@ -352,9 +421,51 @@ def test_workflows_dispatch_schedule_and_share_concurrency(name: str) -> None:
     assert 'LIVE: "true"' in text
     assert "--no-dev" not in text  # engine ingest needs the dev group (D-114)
     assert "uses: ./.github/actions/skip-if-dispatched" in text
-    secrets = ("CFBD_API_KEY", "R2_DATA_LAKE_ACCESS_KEY_ID", "PRODUCTION_DATABASE_URL_UNPOOLED")
+    secrets = ("R2_DATA_LAKE_ACCESS_KEY_ID", "PRODUCTION_DATABASE_URL_UNPOOLED")
     for secret in secrets:
         assert re.search(rf"^\s+{secret}: \$\{{\{{ secrets\.{secret} \}}\}}$", text, re.M), secret
+
+
+@pytest.mark.parametrize("name", ["results.yml", "lines.yml"])
+def test_pulling_workflows_have_the_cfbd_key(name: str) -> None:
+    assert re.search(
+        r"^\s+CFBD_API_KEY: \$\{\{ secrets\.CFBD_API_KEY \}\}$", workflow(name), re.M
+    )
+
+
+def test_rate_and_predict_workflow_runs_the_weekly_job() -> None:
+    """TASK-046 AC-4: the job under LIVE with the version's spec and 2026 settings, no CFBD key
+    (it makes no call), and a dry_run input only a hand run sets."""
+    text = workflow("rate-and-predict.yml")
+    assert "CFBD_API_KEY" not in text
+    step = r"^\s+run: (uv --directory python run engine job rate-and-predict .*)$"
+    run = re.search(step, text, re.M)
+    assert run, "no engine job rate-and-predict step"
+    command = run.group(1)
+    assert "--target live" in command
+    assert "--spec engine/specs/efficiency-v1.json" in command
+    assert "--choices engine/specs/efficiency-v1-2026.run.json" in command
+    assert re.search(r"^      dry_run:\n(        .*\n)*        default: \"false\"$", text, re.M)
+    assert "inputs.dry_run == 'true' && '--dry-run' || ''" in command
+    python = WORKFLOWS.parent.parent / "python"
+    for path in ("engine/specs/efficiency-v1.json", "engine/specs/efficiency-v1-2026.run.json"):
+        assert (python / path).is_file(), path
+
+
+def test_the_committed_settings_match_the_spec_the_workflow_runs() -> None:
+    """D-149: the 2026 settings are a backtest of the spec the workflow names, so a spec edit
+    that leaves the settings file stale fails here, not on a Sunday run in production."""
+    from engine.backtest import harness
+    from engine.core.spec import ModelSpec
+    from engine.publish import models
+
+    specs = WORKFLOWS.parent.parent / "python" / "engine" / "specs"
+    spec = ModelSpec.model_validate_json((specs / "efficiency-v1.json").read_text("utf-8"))
+    run = json.loads((specs / "efficiency-v1-2026.run.json").read_text("utf-8"))
+
+    assert run["spec_hash"] == harness.spec_hash(spec)
+    assert run["tuned_on"]["2026"] == list(range(2015, 2024))  # never a holdout season
+    assert set(models.settings(spec, run, 2026)) == set(spec.tunables())
 
 
 def crons(name: str) -> list[tuple[str, str]]:
@@ -369,7 +480,11 @@ def crons(name: str) -> list[tuple[str, str]]:
 
 @pytest.mark.parametrize(
     ("name", "expected"),
-    [("results.yml", ["0 12 * * 0,1"]), ("lines.yml", ["0 14 * * *", "0 1 * * 5,6"])],
+    [
+        ("results.yml", ["0 12 * * 0,1"]),
+        ("lines.yml", ["0 14 * * *", "0 1 * * 5,6"]),
+        ("rate-and-predict.yml", ["0 15 * * 0"]),
+    ],
 )
 def test_fallback_crons_have_dst_comment(name: str, expected: list[str]) -> None:
     found = crons(name)

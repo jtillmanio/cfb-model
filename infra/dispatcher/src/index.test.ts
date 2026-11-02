@@ -67,6 +67,16 @@ describe("due (AC-1)", () => {
     expect(due(new Date("2026-11-14T00:00:00Z"))).toEqual(["lines.yml"]);
   });
 
+  it("fires rate-and-predict Sun 09:00 ET only, for real rather than a dry run (TASK-046)", () => {
+    // Sunday 2026-10-25 09:00 EDT; Sunday 2026-11-08 09:00 EST; Monday 2026-10-26 09:00 EDT.
+    expect(dueEntries(new Date("2026-10-25T13:00:00Z"))).toEqual([
+      { workflow: "rate-and-predict.yml", days: ["Sun"], time: "09:00" },
+    ]);
+    expect(due(new Date("2026-11-08T14:00:00Z"))).toEqual(["rate-and-predict.yml"]);
+    expect(due(new Date("2026-11-08T13:00:00Z"))).toEqual(["lines.yml"]); // 08:00 EST
+    expect(due(new Date("2026-10-26T13:00:00Z"))).toEqual([]);
+  });
+
   it("fires the Vercel cleanup Mondays 06:15 ET, for real rather than a dry run (D-126)", () => {
     // Monday 2026-10-26 06:15 EDT; Monday 2026-11-09 06:15 EST; Sunday 2026-10-25 06:15 EDT.
     expect(dueEntries(new Date("2026-10-26T10:15:00Z"))).toEqual([
