@@ -452,6 +452,22 @@ def test_rate_and_predict_workflow_runs_the_weekly_job() -> None:
         assert (python / path).is_file(), path
 
 
+def test_the_committed_settings_match_the_spec_the_workflow_runs() -> None:
+    """D-149: the 2026 settings are a backtest of the spec the workflow names, so a spec edit
+    that leaves the settings file stale fails here, not on a Sunday run in production."""
+    from engine.backtest import harness
+    from engine.core.spec import ModelSpec
+    from engine.publish import models
+
+    specs = WORKFLOWS.parent.parent / "python" / "engine" / "specs"
+    spec = ModelSpec.model_validate_json((specs / "efficiency-v1.json").read_text("utf-8"))
+    run = json.loads((specs / "efficiency-v1-2026.run.json").read_text("utf-8"))
+
+    assert run["spec_hash"] == harness.spec_hash(spec)
+    assert run["tuned_on"]["2026"] == list(range(2015, 2024))  # never a holdout season
+    assert set(models.settings(spec, run, 2026)) == set(spec.tunables())
+
+
 def crons(name: str) -> list[tuple[str, str]]:
     """Each schedule cron with the comment line above it."""
     lines = workflow(name).splitlines()

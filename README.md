@@ -389,7 +389,7 @@ predict** (below) rates, predicts and picks the coming week. The
    seasons, venues, the season, games, and new line snapshots. Reference rows are upserted, so a
    second run adds no team or game rows.
 5. `lines` only: **re-evaluate picks** in a second transaction, once the snapshots are committed.
-   For each model version with a `scheduled` run this season, its newest such run's picks are
+   For each model version (not `retired`) with a `scheduled` run this season, its newest such run's picks are
    checked against the newest lines (`engine pick`'s writer, D-148): a row is added only where a
    game's side or tier changes, never for a game already kicked off.
 
@@ -442,7 +442,9 @@ database and `LAKE_URI`.
 
 `gh workflow run rate-and-predict.yml -f dry_run=true` does every step against production and
 rolls the transaction back, so it writes nothing: its Summary shows the week, the run and the
-counts it would have written. Without `dry_run` a hand run writes a real `scheduled` run; a second
+counts it would have written. A dry run that succeeds still counts as a dispatched success, so one
+on a Sunday after 08:00 EDT (07:00 EST) makes that day's fallback cron skip: if the 09:00 dispatch
+then failed, run the workflow by hand. Without `dry_run` a hand run writes a real `scheduled` run; a second
 run the same week adds another run and its predictions, but no pick whose side and tier are
 unchanged. Its **Summary** lists the version, the week rated (or why none), the run's id and
 status, its ratings and predictions, and the picks and passes written out of the predicted games
