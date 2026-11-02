@@ -511,8 +511,11 @@ def test_lines_reevaluates_the_newest_scheduled_weeks_run(world: World) -> None:
 
 def test_lines_reevaluates_the_postseason_week(world: World) -> None:
     """TASK-047 AC-3: once the weekly job has rated the bowls, `lines` re-picks postseason week 1
-    from that run, as it does a regular week's."""
-    _scheduled(world, finished_at=LINES_NOW - timedelta(days=9), week=1)
+    from that run, as it does a regular week's, and its summary names the week. The season's
+    regular week 1, rated earlier, isn't re-picked: the newest scheduled run is the bowls'."""
+    _scheduled(world, finished_at=LINES_NOW - timedelta(days=60), week=1)
+    opener = world.game(10.0, week=1)
+    _line(world.conn, opener, "DraftKings", LINES_NOW - timedelta(days=1), -3.0)
     post = _scheduled(
         world, finished_at=LINES_NOW - timedelta(days=2), week=1, season_type="postseason"
     )
@@ -526,6 +529,13 @@ def test_lines_reevaluates_the_postseason_week(world: World) -> None:
     ]
     (row,) = _pick_rows(world, bowl)
     assert row.side == "home"
+    picked_from = world.conn.execute(
+        text("SELECT model_run_id FROM predictions WHERE id = :p"), {"p": row.prediction_id}
+    ).scalar_one()
+    assert picked_from == post
+    assert _pick_rows(world, opener) == []
+    report = jobs.Summary("lines", PICK_SEASON, "test", repicked=results).render()
+    assert f"pytest-picks v1.0, postseason week 1, run {post}: 1 picks" in report
     _line(world.conn, bowl, "DraftKings", LINES_NOW + timedelta(hours=1), -12.0)
     later = [
         r for r in _reevaluate(world, LINES_NOW + timedelta(hours=2))
