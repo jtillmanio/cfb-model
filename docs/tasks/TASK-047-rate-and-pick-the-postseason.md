@@ -1,7 +1,7 @@
 ---
 id: TASK-047
 title: Rate, predict and pick the postseason (bowls and the CFP)
-status: In progress
+status: Review
 depends_on: [TASK-046]
 size: M
 model: opus
@@ -29,9 +29,9 @@ The weekly job rates, predicts and picks the bowls and the College Football Play
 
 ## Acceptance criteria
 
-- [ ] AC-1: Given a lake fixture whose coming week is postseason week 1, `engine job rate-and-predict --target dev` inserts a `scheduled` run for the postseason week, its ratings, a prediction for every bowl and CFP game that will be played, and its picks, in one transaction, without colliding with the same season's regular week 1 run (test).
-- [ ] AC-2: `latest_team_ratings` and `team_rankings` read a season's regular week 1 and postseason week 1 as different weeks (test).
-- [ ] AC-3: `engine job lines` re-evaluates the postseason week's picks as it does a regular week's (test).
+- [x] AC-1: Given a lake fixture whose coming week is postseason week 1, `engine job rate-and-predict --target dev` inserts a `scheduled` run for the postseason week, its ratings, a prediction for every bowl and CFP game that will be played, and its picks, in one transaction, without colliding with the same season's regular week 1 run (test).
+- [x] AC-2: `latest_team_ratings` and `team_rankings` read a season's regular week 1 and postseason week 1 as different weeks (test).
+- [x] AC-3: `engine job lines` re-evaluates the postseason week's picks as it does a regular week's (test).
 
 ## Out of scope
 
@@ -54,10 +54,16 @@ The weekly job rates, predicts and picks the bowls and the College Football Play
 
 _Work noticed during this task and deliberately left out. Each bullet ends `→ <path> § <section>` (where it was placed) or `→ not tracked: <reason>`. See `.claude/skills/track-follow-ups/classify.md`; the PR's Follow-ups section is copied from here._
 
-- Re-rate each CFP round after the rounds before it (D-127's revisit), validated in the backtest before it runs live; for 2027 (approved at plan) → new Draft task and its task-list stub
-- `docs/03-data-model.md` › model_runs, team_ratings and Views: the `season_type` column and the views' week key (approved at plan)
-- `docs/04-model.md` § 9.2 › "The postseason is one week": production rates it the same way, re-run each Sunday at the same `as_of` (approved at plan)
-- Check 2026's first bowl kickoff against the Sunday 09:00 ET run after Army–Navy; if a bowl kicks off first, dispatch `rate-and-predict` once by hand after Army–Navy (approved at plan) → Owner checklist § Actions
+- Re-rate each CFP round after the rounds before it (D-127's revisit), validated in the backtest before it runs live; for 2027, with its stub M19.7 in `docs/08-tasklist.md` (approved at plan) → docs/tasks/TASK-048-re-rate-each-cfp-round.md (new, Draft)
+- `docs/03-data-model.md`: `season_type` on `model_runs` and `team_ratings`, the ratings index, and the views' week key (approved at plan) → docs/03-data-model.md § Models & outputs
+- `docs/04-model.md` § 9.2 "The postseason is one week": production rates it the same way, re-run each Sunday at the same `as_of` (approved at plan) → docs/04-model.md § 9.2 Leakage rules
+- `docs/02-architecture.md`'s `rate-and-predict` row said the job fits the next regular week and the postseason isn't rated (spec review; approved at close-out) → docs/02-architecture.md § 4. Jobs (GitHub Actions)
+- Check 2026's first bowl kickoff against the Sunday 09:00 ET run after Army–Navy; if a bowl comes first, dispatch `rate-and-predict` once by hand (approved at plan) → docs/owner-checklist.md § Actions
+- Run the Release workflow after this PR merges and before the next Sunday run: the merged job writes `season_type`, which production has only after migration 0005 (found at close-out) → docs/owner-checklist.md § Actions
+- `.github/workflows/lines.yml`'s header comment still describes the old coming-week rule; left alone because a workflow edit runs `lines` against production as its branch gate (owner: track it as a follow-up) → docs/tasks/TASK-048-re-rate-each-cfp-round.md § Context
+- Candidate decision: the rated week's season type, the postseason as one unit in production, the coming-week rule and the postseason `previous_rank` → docs/decisions.md § D-150
+- `team_ratings.season_type` isn't tied to its run's by a foreign key (schema review, MINOR) → not tracked: `season` and `week` have the same gap, both writers set them from one value, and the views join on all three, so a mismatched row drops out rather than mixing weeks
+- A postponed game made up under its old week isn't pulled by `lines` unless its kickoff is the earliest still to come (spec review note) → not tracked: accepted in D-150, which names it as a revisit trigger
 
 ## Plan
 
@@ -87,13 +93,15 @@ Decided at the plan gate (2026-11-02): a `season_type` column (not a week-number
 
 _Filled by /implement-task. One line per round._
 
+- Verify R1 PASS (cedca2f) | Audit R1 CHANGES (AC-3's test failed against base only on `Repicked.week`'s shape) → R2 PASS (813a67a) | Spec R1 CHANGES (stale `engine job` help, stale 02-architecture row, follow-up destinations) · Schema R1 APPROVE (3 MINOR, fixed in a2b4fcf) | Verify R2 PASS (a2b4fcf) | Spec R2 APPROVE (round-1 changes and the close-out follow-ups, ticks and Done cell)
+
 ## Blocked
 
 _Only if status is Blocked: what failed, what was tried, best hypothesis, decision needed._
 
 ## Metrics
 
-- Verify rounds:
-- Review rounds:
-- First-pass AC FAILs:
-- Plan revisions after approval:
+- Verify rounds: 2 (both PASS; the second after the review fixes)
+- Review rounds: 2 (spec), 1 (schema); audit 2
+- First-pass AC FAILs: 0 (audit R1 found AC-3's test not discriminating, not the code; spec R1's CHANGES were docs and follow-up destinations)
+- Plan revisions after approval: 0
