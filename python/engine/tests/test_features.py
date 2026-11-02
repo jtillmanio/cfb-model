@@ -375,3 +375,48 @@ def test_a_round_row_counts_the_earlier_round(rematch: LocalLake) -> None:
     # Regular-season weeks keep one row each, round 1.
     assert all(r["round"] == 1 for r in rows if r["season_type"] == "regular")
     assert not any(k[3] == 3 for k in keyed)
+
+
+def test_rounds_follow_a_twelve_team_bracket() -> None:
+    """The round rule on a 12-team-style bracket: two byes enter at the quarterfinals, one
+    quarterfinal has a TBA kickoff, the title game's second team isn't known yet (NULL), and a
+    canceled bowl starts no chain, so its team's next bowl stays round 1."""
+    import duckdb
+
+    games = [
+        # source_id, kickoff_at (NULL: TBA), game_date, status, home, away
+        ("first-1", "2025-12-20 17:00", "2025-12-20", "final", "A", "B"),
+        ("first-2", "2025-12-20 21:00", "2025-12-20", "final", "C", "D"),
+        ("canceled", "2025-12-22 20:00", "2025-12-22", "canceled", "X", "Y"),
+        ("bowl", "2025-12-30 20:00", "2025-12-30", "scheduled", "X", "Z"),
+        ("quarter-1", "2026-01-01 17:00", "2026-01-01", "final", "E", "A"),
+        ("quarter-2", None, "2026-01-01", "final", "C", "F"),
+        ("semi", "2026-01-09 00:30", "2026-01-08", "final", "E", "C"),
+        ("title", "2026-01-20 00:30", "2026-01-19", "scheduled", None, "E"),
+    ]
+    con = duckdb.connect()
+    con.execute(
+        "CREATE TABLE games (source_id VARCHAR, season INTEGER, season_type VARCHAR, "
+        "week INTEGER, kickoff_at TIMESTAMPTZ, game_date DATE, status VARCHAR, "
+        "home_source_id VARCHAR, away_source_id VARCHAR)"
+    )
+    con.executemany(
+        "INSERT INTO games VALUES (?, 2025, 'postseason', 1, ?::TIMESTAMP AT TIME ZONE 'UTC', "
+        "?, ?, ?, ?)",
+        games,
+    )
+    sql = f"""WITH RECURSIVE g AS (SELECT *, {features.KICKOFF} AS kickoff FROM games),
+        {features.ROUNDS}
+        SELECT g.source_id, coalesce(r.round, 1) FROM g LEFT JOIN rounds r USING (source_id)"""
+    rounds = dict(con.execute(sql).fetchall())
+
+    assert rounds == {
+        "first-1": 1,
+        "first-2": 1,
+        "canceled": 1,
+        "bowl": 1,  # X's canceled game starts no chain
+        "quarter-1": 2,
+        "quarter-2": 2,  # TBA: kicks off at the end of its date, after first-2
+        "semi": 3,
+        "title": 4,  # through E alone: the NULL side chains to nothing
+    }

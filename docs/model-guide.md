@@ -1,6 +1,6 @@
 # How the model works: a guide
 
-A plain-language walkthrough of the college football model, from the data we pull to the pick that comes out, written for a software developer who hasn't done statistical modeling. It covers the math concepts, the actual files, and what each task in M2, M3 and M4 added.
+A plain-language walkthrough of the college football model, from the data we pull to the pick that comes out, written for a software developer who hasn't done statistical modeling. It covers the math concepts, the actual files, and what each task in M2, M3, M4 and M19 added.
 
 **This is a guide, not the spec.** When it disagrees with the code, `docs/04-model.md` or `docs/decisions.md`, they win (CLAUDE.md › Which document wins), and this file should be fixed. Last brought up to date: 2026-11-02, after TASK-048 (D-151).
 
