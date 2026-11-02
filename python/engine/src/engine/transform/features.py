@@ -11,6 +11,15 @@ rescheduled game can't leak into the week it was moved past. Every row carries
 didn't finish before `as_of`. So every feature must aggregate the included games `s`; a feature
 read from another source needs its own timestamp in the check.
 
+**Rounds** (TASK-048). CFBD files every bowl and CFP round under postseason week 1, so a week can
+hold games that depend on each other's results. A postseason game's `round` is 1 + the highest
+round of any earlier game of its week either team played (bowls and the first CFP round are 1;
+the bracket's later rounds follow), and every other game is round 1. `team_week_features` has a
+row per team for each round of a week, `as_of` the round's earliest kickoff; round 1's is the
+week's, so a week with one round is unchanged. `game_features` keeps the week's `as_of` and the
+features entering it (round 1), and adds the game's `round` and its round's `as_of`
+(`round_as_of`), for the backtest's `postseason: rounds` (docs/04-model.md § 9.2).
+
 Efficiency columns are season-to-date means of the per-game values (one game, one observation),
 named `<side>_<split><metric>` as `team_game_advanced` names them, so later metrics and splits
 extend the set without renames. A team-game with no advanced-stats row (CFBD never computed some,
@@ -59,7 +68,29 @@ FEATURES: dict[str, str] = {
     "def_plays": "CAST(coalesce(sum(s.def_plays), 0) AS INTEGER)",
 } | {rate: f"avg(s.{rate})" for rate in _RATES}
 
-KEYS = ("team_source_id", "season", "season_type", "week")
+KEYS = ("team_source_id", "season", "season_type", "week", "round")
+
+# Each postseason game's round (`rounds`), from `g`, the staged games with their `kickoff`: a
+# chain of games sharing a team, each kicking off after the last, within one week. A game that
+# won't be played starts no chain. Needs `WITH RECURSIVE`.
+ROUNDS = """
+    post AS (
+        SELECT source_id, season, season_type, week, kickoff, home_source_id, away_source_id
+        FROM g WHERE season_type = 'postseason' AND status NOT IN ('canceled', 'postponed')
+    ),
+    chain (source_id, round) AS (
+        SELECT source_id, 1 FROM post
+        UNION
+        SELECT later.source_id, c.round + 1
+        FROM chain c
+        JOIN post earlier ON earlier.source_id = c.source_id
+        JOIN post later
+          ON later.season = earlier.season AND later.season_type = earlier.season_type
+         AND later.week = earlier.week AND later.kickoff > earlier.kickoff
+         AND (later.home_source_id IN (earlier.home_source_id, earlier.away_source_id)
+              OR later.away_source_id IN (earlier.home_source_id, earlier.away_source_id))
+    ),
+    rounds AS (SELECT source_id, max(round) AS round FROM chain GROUP BY source_id)"""
 
 
 class PointInTimeError(RuntimeError):
@@ -67,7 +98,7 @@ class PointInTimeError(RuntimeError):
 
 
 def team_week_features() -> str:
-    """One row per team in the season's staged games and week with a staged game."""
+    """One row per team in the season's staged games and round of a week with a staged game."""
     side = """SELECT season, source_id AS game_source_id, kickoff, {team} AS team_source_id,
             {us} AS points_for, {them} AS points_against
         FROM g WHERE status = 'final' AND home_points IS NOT NULL AND away_points IS NOT NULL"""
@@ -78,15 +109,18 @@ def team_week_features() -> str:
     metrics = ", ".join(f"a.{c}" for c in ("off_plays", "def_plays", *_RATES))
     features = ",\n        ".join(f"{sql} AS {name}" for name, sql in FEATURES.items())
     return f"""
-    WITH g AS (
+    WITH RECURSIVE g AS (
         SELECT *,
             {KICKOFF} AS kickoff,
             coalesce(kickoff_at, timezone('America/New_York',
                 CAST(game_date AS TIMESTAMP))) AS earliest
         FROM games
-    ),
+    ),{ROUNDS},
     weeks AS (
-        SELECT season, season_type, week, min(earliest) AS as_of FROM g GROUP BY ALL
+        SELECT g.season, g.season_type, g.week, coalesce(r.round, 1) AS round,
+            min(g.earliest) AS as_of
+        FROM g LEFT JOIN rounds r ON r.source_id = g.source_id
+        GROUP BY ALL
     ),
     teams AS (
         SELECT season, home_source_id AS team_source_id FROM g
@@ -99,35 +133,44 @@ def team_week_features() -> str:
           ON a.game_source_id = p.game_source_id AND a.team_source_id = p.team_source_id
          AND a.garbage_time_excluded  -- the only variant pulled (D-119); never mix in another
     )
-    SELECT t.team_source_id, w.season, w.season_type, w.week, w.as_of,
+    SELECT t.team_source_id, w.season, w.season_type, w.week, w.round, w.as_of,
         {features}
     FROM weeks w
     JOIN teams t USING (season)
     LEFT JOIN s ON s.season = w.season AND s.team_source_id = t.team_source_id AND {INCLUDED}
     WHERE t.team_source_id IS NOT NULL
     GROUP BY ALL
-    ORDER BY w.season, w.as_of, w.season_type, w.week, t.team_source_id
+    ORDER BY w.season, w.as_of, w.season_type, w.week, w.round, t.team_source_id
     """
 
 
 def game_features() -> str:
-    """One row per staged game: both teams' features entering its week, `neutral_site`, and
-    the target `margin = home_points - away_points` (NULL until the game is final). A side with
-    no team row (a NULL team id) leaves its columns NULL, and with both missing `as_of` is NULL,
-    which `check_point_in_time` names, so a game is never silently dropped."""
+    """One row per staged game: both teams' features entering its week (round 1), `neutral_site`,
+    the game's `round` and its round's `as_of` (`round_as_of`), and the target `margin =
+    home_points - away_points` (NULL until the game is final). A side with no team row (a NULL
+    team id) leaves its columns NULL, and with both missing `as_of` is NULL, which
+    `check_point_in_time` names, so a game is never silently dropped."""
     sides = ",\n        ".join(
         f"{alias}.{name} AS {side}_{name}"
         for side, alias in (("home", "h"), ("away", "a"))
         for name in FEATURES
     )
-    on = " AND ".join(f"{{t}}.{k} = g.{k}" for k in KEYS[1:])
+    week = " AND ".join(f"{{t}}.{k} = g.{k}" for k in KEYS[1:4])
+    on = f"{week} AND {{t}}.round = 1"
     return f"""
+    WITH RECURSIVE g AS (SELECT *, {KICKOFF} AS kickoff FROM games),{ROUNDS},
+    round_weeks AS (
+        SELECT DISTINCT season, season_type, week, round, as_of FROM team_week_features
+    )
     SELECT g.source_id AS game_source_id, g.season, g.season_type, g.week,
         coalesce(h.as_of, a.as_of) AS as_of,
+        coalesce(r.round, 1) AS round, rw.as_of AS round_as_of,
         g.kickoff_at, g.neutral_site, g.home_source_id, g.away_source_id,
         {sides},
         CASE WHEN g.status = 'final' THEN g.home_points - g.away_points END AS margin
-    FROM games g
+    FROM g
+    LEFT JOIN rounds r ON r.source_id = g.source_id
+    LEFT JOIN round_weeks rw ON {week.format(t="rw")} AND rw.round = coalesce(r.round, 1)
     LEFT JOIN team_week_features h ON h.team_source_id = g.home_source_id AND {on.format(t="h")}
     LEFT JOIN team_week_features a ON a.team_source_id = g.away_source_id AND {on.format(t="a")}
     ORDER BY g.season, coalesce(h.as_of, a.as_of), g.season_type, g.week, g.source_id
@@ -137,17 +180,18 @@ def game_features() -> str:
 def check_point_in_time(con: duckdb.DuckDBPyConnection) -> None:
     """Fail unless every feature row has an `as_of` and its newest source game finished
     (`GAME_HOURS` after kickoff) by then (docs/04-model.md § 9.2). The error names each
-    offending team, season and week."""
+    offending team, season and week, and the round of a team row past round 1."""
 
-    def offenders(table: str, team: str, last: str, label: str = "''") -> str:
+    def offenders(table: str, team: str, last: str, label: str = "''", rnd: str = "''") -> str:
         return f"""SELECT concat({label}, 'team ', {team}, ', ', season, ' ', season_type,
-                ' week ', week, CASE WHEN as_of IS NULL THEN ': as_of is NULL'
+                ' week ', week, {rnd}, CASE WHEN as_of IS NULL THEN ': as_of is NULL'
                 ELSE concat(': its newest source game kicked off at ', {last},
                     ', less than {GAME_HOURS} hours before as_of ', as_of) END)
             FROM {table}
             WHERE as_of IS NULL OR {last} + INTERVAL {GAME_HOURS} HOURS > as_of"""
 
-    parts = [offenders("team_week_features", "team_source_id", "last_game_kickoff")] + [
+    rnd = "CASE WHEN round > 1 THEN concat(' round ', round) ELSE '' END"
+    parts = [offenders("team_week_features", "team_source_id", "last_game_kickoff", rnd=rnd)] + [
         offenders(
             "game_features",
             f"{side}_source_id",

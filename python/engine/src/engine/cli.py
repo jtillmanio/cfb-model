@@ -336,9 +336,11 @@ def _backtest(args: argparse.Namespace, seasons: list[int]) -> None:
         print(f"Wrote {md} and {page}")
 
 
-def _compare_runs(first: str, second: str, weeks: list[int] | None = None) -> None:
-    """Pair two stored backtest runs by game, only regular-season `weeks` if given; exit 2 if
-    either is missing or they share none."""
+def _compare_runs(
+    first: str, second: str, weeks: list[int] | None = None, postseason: bool = False
+) -> None:
+    """Pair two stored backtest runs by game, only regular-season `weeks` or only postseason
+    games if asked; exit 2 if either is missing or they share none."""
     import io
     import json
 
@@ -359,9 +361,13 @@ def _compare_runs(first: str, second: str, weeks: list[int] | None = None) -> No
         table = pq.read_table(io.BytesIO(lake.read(key))).to_pylist()
         if weeks is not None:
             table = [r for r in table if r["season_type"] == "regular" and r["week"] in weeks]
+        if postseason:
+            table = [r for r in table if r["season_type"] == "postseason"]
         rows.append(table)
     if weeks is not None:
         print(f"Only regular-season weeks {weeks[0]}-{weeks[-1]}")
+    if postseason:
+        print("Only postseason games")
     try:
         v = compare.runs(*rows)
     except ValueError as e:
@@ -707,10 +713,17 @@ def main(argv: list[str] | None = None) -> None:
     )
     cmp.add_argument("first", metavar="RUN_A", help="e.g. backtests/20261027T120000000000Z-abc")
     cmp.add_argument("second", metavar="RUN_B")
-    cmp.add_argument(
+    only = cmp.add_mutually_exclusive_group()
+    only.add_argument(
         "--weeks",
         metavar="FIRST-LAST",
         help="Only these regular-season weeks, e.g. 1-3 (where the preseason prior matters most)",
+    )
+    only.add_argument(
+        "--postseason",
+        action="store_true",
+        help="Only postseason games, e.g. a spec with postseason rounds against one_week (each "
+        "season's postseason week resampled whole)",
     )
 
     tiers = commands.add_parser(
@@ -838,7 +851,7 @@ def main(argv: list[str] | None = None) -> None:
     elif args.command == "compare":
         weeks = None if args.weeks is None else _week_range(cmp, args.weeks)
         load_env()
-        _compare_runs(args.first, args.second, weeks)
+        _compare_runs(args.first, args.second, weeks, args.postseason)
     elif args.command == "tiers":
         seasons = _season_range(tiers, args.seasons)
         load_env()

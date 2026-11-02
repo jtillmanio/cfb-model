@@ -10,13 +10,17 @@ import pytest
 from lake_fixture import (
     BYE,
     FIXTURE,
+    REMATCH_TEAMS,
+    backtest_game_id,
     engine,
     featured,
     fixture_key,
+    rematch_game_id,
     season_game_id,
     staged,
     week_key,
     write,
+    write_backtest_seasons,
     write_season,
 )
 
@@ -314,3 +318,105 @@ def test_one_game_row_per_staged_game_with_target(season: LocalLake) -> None:
     assert week9["home_games_played"] == 8  # Kansas, weeks 1-8
     assert next(r for r in rows if r["game_source_id"] == KANSAS_GAME)["margin"] == 31 - 7
     assert any(r["neutral_site"] for r in rows)  # Kansas State-Iowa State
+
+
+# TASK-048: a CFP round is rated after the rounds before it. The backtest fixture's rematch
+# season: Kansas-Fresno State (Dec 17) and Hawai'i-Stanford (Dec 18), then Kansas-Hawai'i (Jan 10).
+HAWAII = "62"
+
+
+@pytest.fixture
+def rematch(empty_lake: LocalLake) -> LocalLake:
+    write_backtest_seasons(empty_lake, (2023,), cfp_rematch=True)
+    return empty_lake
+
+
+def test_postseason_rounds_follow_the_bracket(rematch: LocalLake) -> None:
+    """AC-1: the December games are round 1 and the January game between their teams round 2;
+    each game carries its round's `as_of` beside the week's."""
+    assert engine("transform", "--rebuild") == 0
+    december = [backtest_game_id(2023, "postseason", 1, w) for w in REMATCH_TEAMS]
+    january = rematch_game_id(2023)
+    kicks = {g: k for g, (_, _, _, k) in kickoffs(rematch).items()}
+    assert kicks[january] - max(kicks[g] for g in december) > timedelta(days=20)
+
+    rows = {r["game_source_id"]: r for r in featured(rematch, "game_features").to_pylist()}
+    assert [rows[g]["round"] for g in [*december, january]] == [1, 1, 2]
+    first = min(kicks[g] for g in december)
+    for game in [*december, january]:
+        assert rows[game]["as_of"] == first, game  # the week's, as before
+    assert rows[january]["round_as_of"] == kicks[january]
+    assert [rows[g]["round_as_of"] for g in december] == [first, first]
+    # Every regular-season game is round 1 at its week's as_of.
+    regular = [r for r in rows.values() if r["season_type"] == "regular"]
+    assert regular and all(r["round"] == 1 for r in regular)
+    assert all(r["round_as_of"] == r["as_of"] for r in regular)
+
+
+def test_a_round_row_counts_the_earlier_round(rematch: LocalLake) -> None:
+    """AC-2: a row per team for postseason week 1 round 2, holding Kansas's December game
+    (finished 4 h before the January kickoff); round 1's row doesn't."""
+    rebuild(rematch)
+    rows = featured(rematch, "team_week_features").to_pylist()
+    keyed = {(r["team_source_id"], r["season_type"], r["week"], r["round"]): r for r in rows}
+    assert len(keyed) == len(rows)  # one row per team, week and round
+    teams = {r["team_source_id"] for r in rows}
+    january = rematch_game_id(2023)
+    kicks = kickoffs(rematch)
+    kansas_bowl = kicks[backtest_game_id(2023, "postseason", 1, KANSAS_GAME)][3]
+
+    second = {t: keyed[(t, "postseason", 1, 2)] for t in teams}
+    first = {t: keyed[(t, "postseason", 1, 1)] for t in teams}
+    assert {r["as_of"] for r in second.values()} == {kicks[january][3]}
+    assert kansas_bowl + timedelta(hours=4) <= kicks[january][3]
+    assert second[KANSAS]["games_played"] == first[KANSAS]["games_played"] + 1 == 9
+    assert second[KANSAS]["last_game_kickoff"] == kansas_bowl
+    assert second[HAWAII]["games_played"] == first[HAWAII]["games_played"] + 1
+    # Regular-season weeks keep one row each, round 1.
+    assert all(r["round"] == 1 for r in rows if r["season_type"] == "regular")
+    assert not any(k[3] == 3 for k in keyed)
+
+
+def test_rounds_follow_a_twelve_team_bracket() -> None:
+    """The round rule on a 12-team-style bracket: two byes enter at the quarterfinals, one
+    quarterfinal has a TBA kickoff, the title game's second team isn't known yet (NULL), and a
+    canceled bowl starts no chain, so its team's next bowl stays round 1."""
+    import duckdb
+
+    games = [
+        # source_id, kickoff_at (NULL: TBA), game_date, status, home, away
+        ("first-1", "2025-12-20 17:00", "2025-12-20", "final", "A", "B"),
+        ("first-2", "2025-12-20 21:00", "2025-12-20", "final", "C", "D"),
+        ("canceled", "2025-12-22 20:00", "2025-12-22", "canceled", "X", "Y"),
+        ("bowl", "2025-12-30 20:00", "2025-12-30", "scheduled", "X", "Z"),
+        ("quarter-1", "2026-01-01 17:00", "2026-01-01", "final", "E", "A"),
+        ("quarter-2", None, "2026-01-01", "final", "C", "F"),
+        ("semi", "2026-01-09 00:30", "2026-01-08", "final", "E", "C"),
+        ("title", "2026-01-20 00:30", "2026-01-19", "scheduled", None, "E"),
+    ]
+    con = duckdb.connect()
+    con.execute(
+        "CREATE TABLE games (source_id VARCHAR, season INTEGER, season_type VARCHAR, "
+        "week INTEGER, kickoff_at TIMESTAMPTZ, game_date DATE, status VARCHAR, "
+        "home_source_id VARCHAR, away_source_id VARCHAR)"
+    )
+    con.executemany(
+        "INSERT INTO games VALUES (?, 2025, 'postseason', 1, ?::TIMESTAMP AT TIME ZONE 'UTC', "
+        "?, ?, ?, ?)",
+        games,
+    )
+    sql = f"""WITH RECURSIVE g AS (SELECT *, {features.KICKOFF} AS kickoff FROM games),
+        {features.ROUNDS}
+        SELECT g.source_id, coalesce(r.round, 1) FROM g LEFT JOIN rounds r USING (source_id)"""
+    rounds = dict(con.execute(sql).fetchall())
+
+    assert rounds == {
+        "first-1": 1,
+        "first-2": 1,
+        "canceled": 1,
+        "bowl": 1,  # X's canceled game starts no chain
+        "quarter-1": 2,
+        "quarter-2": 2,  # TBA: kicks off at the end of its date, after first-2
+        "semi": 3,
+        "title": 4,  # through E alone: the NULL side chains to nothing
+    }

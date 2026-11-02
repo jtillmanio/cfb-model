@@ -10,6 +10,10 @@ model-builder form, so the form can't offer what the engine doesn't support.
   `efficiency` (Rung 2, M4.1) rates the registry inputs it lists.
 - `shrink_toward` is what a rating is pulled toward with little data (04 § 10.4): `zero`, the
   average team, or `tier`, the level of the team's group (CFB: Power 4, G5, FCS).
+- `postseason` is how the backtest walks a postseason week (04 § 9.2): `one_week` predicts every
+  bowl and CFP round from the ratings entering the first bowl; `rounds` refits entering each CFP
+  round, on the rounds before it (TASK-048). Only the backtest runs `rounds` so far: `engine rate`
+  refuses it until TASK-058 rates each round live.
 - `spec_schema_version` travels inside the spec, so a stored spec says which shape it has. A new
   optional field whose default reproduces the old behaviour keeps the version; changing what an
   existing field means bumps it.
@@ -43,6 +47,7 @@ SPEC_SCHEMA_VERSION = 1
 ADDED_DEFAULTS: dict[str, Any] = {
     "shrink_toward": "zero",
     "picks.display_shrinkage_k": 1.0,  # TASK-042
+    "postseason": "one_week",  # TASK-048
 }
 
 # Strict: "6" and true aren't numbers.
@@ -187,6 +192,7 @@ class ModelSpec(_Frozen):
     shrink_toward: Literal["zero", "tier"] = "zero"
     prior: Prior | None = None
     distribution: Literal["normal", "empirical"] = "normal"
+    postseason: Literal["one_week", "rounds"] = "one_week"
     picks: PickRules
 
     @field_validator("inputs")

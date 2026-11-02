@@ -10,6 +10,7 @@ import json
 from pathlib import Path
 from typing import Any
 
+import pyarrow as pa
 import pyarrow.parquet as pq
 import pytest
 from lake_fixture import engine, write_backtest_seasons, write_benchmarks
@@ -271,3 +272,57 @@ def test_engine_compare_refuses_a_missing_run(
 ) -> None:
     assert engine("compare", "backtests/nope", "backtests/nor-this") == 2
     assert "error: backtests/nope/predictions.parquet isn't in the lake" in capsys.readouterr().err
+
+
+# `engine compare --postseason` (TASK-048 AC-6): the CFP-rounds comparison, postseason games only.
+
+
+def _two_runs(lake: LocalLake, tmp_path: Path) -> list[str]:
+    argv = ["--seasons", "2023", "--tune-from", "2022"]
+    assert engine("backtest", "--spec", spec_file(tmp_path), *argv) == 0
+    other = tmp_path / "home.json"
+    other.write_text(json.dumps({**SPEC, "home_field": 10.0}), "utf-8")
+    assert engine("backtest", "--spec", str(other), *argv) == 0
+    return sorted({k.rpartition("/")[0] for k in lake.walk("backtests")})
+
+
+def _rows(lake: LocalLake, folder: str) -> list[dict[str, Any]]:
+    return pq.read_table(io.BytesIO(lake.read(f"{folder}/predictions.parquet"))).to_pylist()
+
+
+def test_compare_postseason_only(
+    backtest_lake: LocalLake, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    folders = _two_runs(backtest_lake, tmp_path)
+    first, second = (
+        [r for r in _rows(backtest_lake, f) if r["season_type"] == "postseason"] for f in folders
+    )
+    everything = _rows(backtest_lake, folders[0])
+    capsys.readouterr()
+
+    assert engine("compare", *folders, "--postseason") == 0
+
+    out = capsys.readouterr().out
+    expected = bootstrap.compare(first, second)
+    assert len(first) == 2 < len(everything)  # the fixture's December and January games
+    assert "Only postseason games" in out
+    assert f"{len(first)} shared games (0 only in A, 0 only in B left out)" in out
+    assert f"A - B: {expected.estimate:+.3f} [{expected.low:+.3f}, {expected.high:+.3f}]" in out
+
+
+def test_compare_postseason_refuses_no_shared_game(
+    backtest_lake: LocalLake, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    folders = _two_runs(backtest_lake, tmp_path)
+    regular = [r for r in _rows(backtest_lake, folders[1]) if r["season_type"] == "regular"]
+    key = f"{folders[1]}/predictions.parquet"
+    schema = pq.read_table(io.BytesIO(backtest_lake.read(key))).schema
+    buffer = io.BytesIO()
+    pq.write_table(pa.Table.from_pylist(regular, schema), buffer)
+    backtest_lake.replace(key, buffer.getvalue())
+    assert engine("compare", *folders) == 0  # the regular season is still shared
+    capsys.readouterr()
+
+    assert engine("compare", *folders, "--postseason") == 2
+
+    assert "share no game" in capsys.readouterr().err
