@@ -2,7 +2,7 @@
 
 A plain-language walkthrough of the college football model, from the data we pull to the pick that comes out, written for a software developer who hasn't done statistical modeling. It covers the math concepts, the actual files, and what each task in M2, M3 and M4 added.
 
-**This is a guide, not the spec.** When it disagrees with the code, `docs/04-model.md` or `docs/decisions.md`, they win (CLAUDE.md › Which document wins), and this file should be fixed. Last brought up to date: 2026-10-31, after TASK-044 (D-145).
+**This is a guide, not the spec.** When it disagrees with the code, `docs/04-model.md` or `docs/decisions.md`, they win (CLAUDE.md › Which document wins), and this file should be fixed. Last brought up to date: 2026-11-02, after TASK-045 (D-148).
 
 **Contents**
 1. [The whole thing on one page](#1-the-whole-thing-on-one-page)
@@ -114,6 +114,7 @@ So it's equivalent to `cd python && .venv/Scripts/engine backtest …`. Each sub
 | `engine backtest --spec F --seasons A-B [--report DIR] [--compare baselines] [--holdout --reason T]` | Replay history week by week and score the model | lake `backtests/` |
 | `engine compare RUN_A RUN_B [--weeks 1-3]` | Is run A really better than run B? (paired week bootstrap, § 8) | read only |
 | `engine rate --spec F --season Y --week N --target dev\|test [--choices run.json]` | Fit the model entering week N and insert the run, ratings and predictions | dev or test DB |
+| `engine pick --season Y --week N --target dev\|test --name NAME [--version v1.0]` | Turn the version's newest run for week N into picks against the newest line; re-run it after lines move | dev or test DB |
 | `engine seed fixture` | Load the design's sample data into the test DB (`pnpm db:seed`) | test DB |
 
 When a task's manual verification said "run `engine backtest …` and check the ledger is unchanged", it was checking two things: the backtest ran end to end on the real 12 seasons, and it didn't spend CFBD calls (the ledger is `data/cfbd_calls.json`).
@@ -353,7 +354,9 @@ Three ideas in that table need explaining.
 
 Other rules:
 - **No FCS games** are ever picked (`pick_game` with `sports.cfb.teams.pickable`; D-047).
-- **A pick is locked to its line.** If the line moves, a new pick row is written only if the side or tier changes, so "Picked at −2.5" stays true (D-140).
+- **A pick is locked to its line.** If the line moves, a new pick row is written only if the side or tier changes, so "Picked at −2.5" stays true (D-140). If a pick stops qualifying, a "pass" row replaces it.
+
+**Writing picks** (`engine pick`, `publish/picks.py`, TASK-045, D-148). The writer reads only the database: the version's newest run for the week, its predictions and the newest line pull before each game's kickoff. It uses one book's line, one a bettor could take: consensus if it quoted, else DraftKings, else Bovada. In 2026 CFBD's pulls have no consensus quote, so it's DraftKings nearly always, at −110 since no prices come through. A game that has kicked off is skipped, because a pick made after kickoff would be hindsight and the views ignore it anyway. Run it again after a lines pull, and only games whose side or tier changed gain a row. The **expected value** stored with a pick uses the *displayed* probability, so for v1 it's near zero: a pick shown at 53% at −110 is about break-even. That's the honest reading of a model whose calibration gate failed.
 - **Contest mode** (`core/contest_rules.py`, `contests/splash.py`): Splash has no vig (break-even 50%) and a fixed number of picks, so the rule becomes "rank the slate by cover probability against the contest's line and take the top N", not "everything over a threshold". Wired up in M6.
 
 ---
@@ -479,8 +482,9 @@ The principle: **build the ruler before the thing you measure.** The backtest an
 | **TASK-042** | `display_shrinkage_k`: calibrate the shown probability separately | Honest probabilities with picks unchanged: calibration failed in 1 bin instead of 6 |
 | **TASK-043** | Widened the alpha grid, ran full validation, opened the holdout once, recorded the go/no-go (D-144) | The verdict, below |
 | **TASK-044** | Stage canceled games; `engine rate` predicts the harness's own week contexts | No permanent predictions for games that won't be played. Part of M4.8 |
+| **TASK-045** | `engine pick`: write picks from a model run against the newest line, re-evaluate when lines move (D-148) | Live picks, locked to a real book's line, never after kickoff. Part of M4.8 |
 
-Still open in M4.8: TASK-045 and TASK-046 (the weekly rate → predict → pick job and writing live picks).
+Still open in M4.8: TASK-046 (the weekly job that runs rate → predict → pick on production).
 
 ---
 

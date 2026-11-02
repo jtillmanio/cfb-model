@@ -1,14 +1,14 @@
 ---
 id: TASK-045
 title: Write picks from a model run, and re-evaluate them when lines move
-status: Ready
+status: In progress
 depends_on: [TASK-042]
 size: M
 model: opus
 autonomy: attended
 ui: false
-plan_status: none
-planned_at_commit:
+plan_status: approved
+planned_at_commit: 1750be0
 ---
 
 # TASK-045 — Write picks from a model run, and re-evaluate them when lines move
@@ -66,9 +66,45 @@ After a model run predicts a week, the engine turns its predictions into spread 
 
 _Work noticed during this task and deliberately left out. Each bullet ends `→ <path> § <section>` (where it was placed) or `→ not tracked: <reason>`. See `.claude/skills/track-follow-ups/classify.md`; the PR's Follow-ups section is copied from here._
 
+- TASK-046 calls `publish.picks.write_picks` in its job's transaction; the writer reads the version's newest succeeded run of any non-backtest type, while TASK-046's AC-3 says "newest `scheduled` run", so its plan decides whether to filter (approved at plan)
+- Candidate decision: the book rule, the re-evaluation rule, `expected_value` on the displayed probability and the `engine pick` entry point, as one D-### row (approved at plan)
+
 ## Plan
 
-_Written by /plan-batch or /implement-task Phase 1. Approved by the user (plan_status: approved) before any code is written._
+Approved 2026-11-02 at `1750be0`.
+
+**Decisions (the plan gate's):**
+1. **Writer:** `publish/picks.py` `write_picks(conn, version_id, season, week, now)` reads the DB only: the version's newest succeeded run (`adhoc` or `scheduled`) for the week, by `finished_at` then `id`; pick rules from the stored spec resolved with the run's stored `choices`; the margin distribution from the run's `fitted_params` (`EmpiricalMargin.from_params`, else `NormalMargin(margin_sd)`); classification from `team_seasons.division`; `pick_game(…, teams.pickable)`. So the `lines` job re-evaluates without a refit.
+2. **Line:** the newest pull with a spread quote, `captured_at` before the cutoff and ≤ `now`. Book: consensus when it quoted the spread; else DraftKings, then Bovada, then any other by `source_id` (2026 dev lines: no consensus in any pull, DraftKings in all 182, Bovada in 112, no prices). Price: the side's price, −110 when none.
+3. **Rows:** a pick when the game has no current pick (`current_picks`) or the side or tier differs; a pass row only when a current pick stops qualifying, never for a game never picked. A pass row's numbers describe the side the blended edge favours; stake 0.
+4. **Cutoff:** no row at or after the cutoff; `created_at` = the writer's `now` (its clock, not the DB's `now()`); the writer asserts each snapshot is before the cutoff and ≤ `now` (hard rule 4).
+5. **`expected_value`** reads the displayed `model_prob` (04 § 4, 03 › picks), at the row's price.
+6. **Entry point:** `engine pick --target dev|test --season --week [--name] [--version v1.0]`, one transaction (`publish_picks`), refused under `LIVE=true`; `engine rate` unchanged.
+7. No CHECKs, no schema change.
+
+**Steps:**
+1. Tests first (`test_publish_picks.py`), confirmed failing (no module).
+2. `publish/picks.py`: run lookup, game contexts, snapshot and book choice, current picks, decide, insert; `publish_picks(url, …)`.
+3. `cli.py`: `engine pick`.
+4. Docs: 02 › Components › 1, the D-### row, `model-guide.md`.
+
+**Files:**
+- `python/engine/src/engine/publish/picks.py` (new): the writer.
+- `python/engine/src/engine/cli.py`: `engine pick` and its `LIVE` refusal.
+- `python/engine/tests/test_publish_picks.py` (new): AC-1 to AC-5.
+- `docs/02-architecture.md` › Components › 1: the writer under `publish`.
+- `docs/decisions.md`: the D-### row.
+- `docs/model-guide.md` (§ 2 commands, § 7, § 10 M4): not in "Files likely touched"; CLAUDE.md requires it when the pipeline changes.
+- Dropped: `publish/models.py`, `test_publish_models.py` (`engine rate` unchanged).
+
+**Test strategy** (`python/engine/tests/test_publish_picks.py`, test DB):
+- AC-1: a pick on the newest snapshot with line, price (−110 and quoted), edge, prob, tier as `pick_game` gives; an FCS game with a large edge gets no row.
+- AC-2: rerun without a new snapshot inserts nothing; a new line changing side or tier inserts a pick shown by `current_picks`; same side and tier inserts nothing (`current_picks` keeps the old line); no longer qualifying inserts a pass row (`current_picks` empty for the game).
+- AC-3: a game kicked off a minute before the clock and one to come (and a TBA game past the end of its Eastern date): a row for the second only; every row's `created_at` before its cutoff.
+- AC-4: a pull with no consensus uses DraftKings; a game with no snapshot before its cutoff gets no pick.
+- AC-5: a statement listener sees no UPDATE or DELETE on `picks`; a failure on the second game leaves no row (`publish_picks` on a savepoint-backed engine); `engine pick` under `LIVE=true` exits 2 without connecting.
+
+**Risks:** 2026 dev picks are DraftKings at −110 until consensus or prices appear; a run whose `choices` don't resolve every pick field is refused (exit 2).
 
 ## Review log
 
