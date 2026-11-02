@@ -127,7 +127,7 @@ def ledger(lake: LocalLake) -> dict[str, int]:
     return json.loads(lake.read_text("cfbd_calls.json") or "{}")
 
 
-# AC-2: ingest â†’ transform â†’ check â†’ publish, and a failed check never publishes
+# AC-2: ingest → transform → check → publish, and a failed check never publishes
 
 
 def test_failed_check_never_publishes(
