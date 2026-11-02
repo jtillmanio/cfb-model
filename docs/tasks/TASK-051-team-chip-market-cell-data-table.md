@@ -7,8 +7,8 @@ size: M
 model: opus
 autonomy: attended
 ui: true
-plan_status: none
-planned_at_commit:
+plan_status: approved
+planned_at_commit: faea7a4
 ---
 
 # TASK-051 — Build the team chip with logos, the market cell and the data table
@@ -60,9 +60,46 @@ The design system gains the pieces every slate and table row is made of: a team 
 
 _Work noticed during this task and deliberately left out. Each bullet ends `→ <path> § <section>` (where it was placed) or `→ not tracked: <reason>`. See `.claude/skills/track-follow-ups/classify.md`; the PR's Follow-ups section is copied from here._
 
+- Open question for TASK-050's plan: this task's provisional plan assumes TASK-050 picks the specimen page `/design-system` and adds jsdom + Testing Library to `web/`; if it picks otherwise, TASK-051 re-plans → docs/tasks/TASK-050-shadcn-and-badge-components.md § Context (approved at plan)
+- The market cell's past-season variant (`Market Extras.dc.html`: open and close only, two dots, dashed join, "Past season" title) isn't in this task's ACs; open question for TASK-056's plan whether a past week on This Week needs it → docs/tasks/TASK-056-this-week-slate.md § Context (approved at plan)
+- CFBD also serves dark-theme logos (`logos-dark/…`), but staging stores only `logos[0]`; some logos may read poorly on the dark theme → not tracked: judged on this task's specimen page in dark mode; storing a dark logo would be a schema change, raised then if needed
+
 ## Plan
 
 _Written by /plan-batch or /implement-task Phase 1. Approved by the user (plan_status: approved) before any code is written._
+
+**Provisional: depends on TASK-050** (and TASK-049's `web/lib/format.ts`). Assumes TASK-050 picks the proposed specimen page `web/app/design-system/page.tsx` and adds jsdom + Testing Library to `web/` for its keyboard test; if it picks Vitest-only review, AC-5's surface is TASK-056 and steps 7–8 move there (re-plan).
+
+**Logo choice (for the plan gate):** Next's image optimizer. `next.config.ts` gets `images: { remotePatterns: [new URL("https://cdn.collegefootballdata.com/logos/**")], qualities: [75], minimumCacheTTL: 2678400 }` (31 days; logos change about once a season). The chip renders `next/image` at 20×20, so the browser asks `/_next/image?url=…` on the app's origin and the Next server fetches CFBD's 500px PNG once per width and caches it. Ruled out: a proxy route (the same fetch, written by hand) and copying logos to the repo or R2 (an ingest change and storage for ~270 files, for no gain at this size). In the in-job Lighthouse build the fixture's teams have no `logo_url`, so screens request no logo; the specimen page's one sample logo goes through `/_next/image` like production (GitHub runners have network; if the fetch fails, the image is decorative, `alt=""` in a fixed 20×20 box, so nothing shifts and no gate reads it).
+
+**Steps**
+1. Tests first (below); see each fail.
+2. `web/next.config.ts`: the `images` block above.
+3. `web/components/team-chip.tsx` (server component): props `{ abbreviation, school?, logoUrl, color, rank?, fcs?, neutral?, locked?, full? }`. Logo slot 20×20: `next/image` when `logoUrl`, else a `rounded-full` dot with `style={{ backgroundColor: color }}` and no children (the only place the colour is used, D-075); no colour → `bg-muted` dot. Rank in `text-caption text-muted-foreground` before the name, no `#`; `FCS` tag and `N` marker from props; `locked` greys the slot (`grayscale`, dot `bg-locked`).
+4. `web/lib/format.ts` + test: add `formatLineNumber(spreadHome)` → the favourite's number with true minus and no abbreviation (`−28`, `−9`, `PK`), the opener as `Market Extras.dc.html` draws it.
+5. `web/components/sparkline.tsx`: 22×10 SVG `polyline`, one point per value, y scaled min→max, all equal → flat at y = 5; stroke `stroke-muted-foreground`, 1px. `web/components/market-cell.tsx`: `{ opener, snapshots, current, home, away }` → muted opener + sparkline, then `formatSpread(current, …)`; `current` null → `No line` only.
+6. `web/components/data-table.tsx` (`"use client"`): generic columns `{ key, header, align?, sortValue?, cell }`, `density: "comfortable" | "compact"` (`h-10`/`h-12` vs `h-8`/`h-9` from the spacing scale); `thead` `sticky top-14` with the 1px border; sortable header = `<th aria-sort>` wrapping a `<button>` (click/Enter/Space: none → ascending → descending), sorted column gets the 2px ink rule + arrow; rows `hover:bg-accent`, `focus-visible:ring`.
+7. `web/app/design-system/page.tsx`: sections for every AC-1–4 state (CFBD logo URL for Ohio State, `#BB0000` dot, rank/FCS/N/locked, the three market-cell cases, both densities with sortable columns), static props, no API call.
+8. `scripts/perf/lib/perf.mjs`: `summariseLhr` also lists as forbidden any request whose origin differs from `lhr.requestedUrl`'s (Vercel extras still filtered); today the gate only catches `/api/py`, so AC-5's "nothing from another host" isn't checked without this.
+9. Run the fixture Lighthouse locally on `/design-system`; if bytes pass its budget, raise it in `budget.json` and 02's table with the written reason.
+10. Docs: new decision (ID from `next-id.ps1`) for the logo choice and the widened gate; `docs/02-architecture.md` › Performance checks › forbidden requests says "or any host other than the app's own".
+
+**Files** (≤ 17): `web/next.config.ts`; `web/components/team-chip.tsx`, `sparkline.tsx`, `market-cell.tsx`, `data-table.tsx` + `team-chip.test.tsx`, `market-cell.test.tsx`, `data-table.test.tsx` (new); `web/lib/format.ts`, `format.test.ts` (not in "Files likely touched": the opener's number); `web/app/design-system/page.tsx`; `web/e2e/design-system.spec.ts`; `scripts/perf/lib/perf.mjs`, `web/lib/perf.test.ts` (not listed: the gate change); `scripts/perf/budget.json` (if needed); `docs/02-architecture.md`; `docs/decisions.md`.
+
+**Test strategy**
+- AC-1: `team-chip.test.tsx` › "renders a same-origin logo at most 20px" (`src` starts `/_next/image`, never contains `cdn.collegefootballdata.com` as host; width/height ≤ 20), "renders a 20px colour dot and no image without a logo", "puts the team colour only on an element with no text".
+- AC-2: `team-chip.test.tsx` › "shows the rank muted before the name with no #", "shows FCS and N from props".
+- AC-3: `market-cell.test.tsx` › "opener −28, two-point sparkline, OSU −27.5, opener and sparkline muted", "flat sparkline when unchanged", "No line without opener or sparkline"; `format.test.ts` › `formatLineNumber` cases.
+- AC-4: `data-table.test.tsx` › "comfortable 40/48 by default", "compact 32/36", "sticky header", "sort button toggles aria-sort on click", "… on Enter and Space".
+- AC-5: `e2e/design-system.spec.ts` › each new state visible at 390 and 1440, dark and light, and `page.on("request")` sees no host but the app's; `web/lib/perf.test.ts` › "flags a request to another origin as forbidden"; the PR's fixture Lighthouse run passes.
+
+**Risks / open questions**
+- AC-4 puts `aria-sort` on the button; ARIA allows it only on the column header, so the plan puts it on the `<th>` around the button and the test reads it there. Confirm at approval.
+- `next/image` in jsdom: dev-mode `remotePatterns` checks may need the config passed to the test; fall back to asserting the rendered `src` only.
+- Dark mode: CFBD also serves `logos-dark/…`; only `logos[0]` (light) is stored, so some dark logos may read poorly on the dark theme (follow-up).
+- Vercel image optimization quota: ~270 teams × 2 widths, cached 31 days, well inside the free tier.
+
+**Size check:** up to 17 files, one layer (web) plus the perf script; no schema. M, attended.
 
 ## Review log
 

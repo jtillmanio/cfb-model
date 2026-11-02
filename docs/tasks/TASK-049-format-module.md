@@ -7,8 +7,8 @@ size: S
 model: sonnet
 autonomy: unattended
 ui: false
-plan_status: none
-planned_at_commit:
+plan_status: approved
+planned_at_commit: faea7a4
 ---
 
 # TASK-049 — Implement format.ts against the number-format card
@@ -61,6 +61,40 @@ _Work noticed during this task and deliberately left out. Each bullet ends `→ 
 ## Plan
 
 _Written by /plan-batch or /implement-task Phase 1. Approved by the user (plan_status: approved) before any code is written._
+
+**Steps**
+1. Write `web/lib/format.test.ts` first (cases below) and see it fail on the missing module.
+2. Create `web/lib/format.ts`: pure, no `server-only` (client components will import it), no `Date.now()`. Constants `MINUS = "−"`, `ALIGN_PAD = "  "`. One private `signed(value, decimals)` helper rounds with `Math.round(v * 10 ** d) / 10 ** d` (not `toFixed`, whose float rounding is uneven), prints `+`/U+2212, and prints a value that rounds to zero with no sign (`0.0`, `0.0u`, `0.0 pts`), so no function can emit negative zero.
+3. Exports (names fixed so TASK-050/051 can call them):
+   - `formatSpread(spreadHome: number | null, home: string, away: string, opts?: { align?: boolean })`: favourite = home when `spreadHome < 0`, away when > 0; `PK` at 0; `No line` at null; whole numbers bare, others one decimal; `align` appends `ALIGN_PAD` to a whole number only.
+   - `formatModelLine(predMargin: number, home, away)`: `predMargin` = home − away (> 0 home favoured, the `predictions` convention); always one decimal (`CLEM −34.0`); `PK` when it rounds to 0.0. Never padded (it always has a decimal).
+   - `formatPrice(american)`: `−110`, `+150`.
+   - `formatEdge(edgePts: number | null, home, away)`: D-140's `edge_pts` (> 0 likes home); `+` and one decimal, the side after (`+3.7 OSU`); null → `—`.
+   - `formatCoverPct(prob, opts?: { marketImplied?: boolean })` → `59%` / `~54%`; `formatWinPct(homeWinProb, home, away)` → favourite's abbr and its integer % (`TEX 54%`, home at exactly 0.5); `formatWinRate(rate)` → `56.4%`.
+   - `formatRating(v)` → `+27.4`; `formatRankMove(n: number | null)` → `▲3`, `▼1`, `—` for 0 or null; `formatRecord(w, l, p = 0)` → `31-24-1`, `5-0` (ASCII hyphens, as the card has them); `formatUnits(v)` → `+4.6u`; `formatClv(v)` → `+0.9 pts` (sign as given: positive = beat the close, D-132/D-140).
+   - `formatKickoff(kickoffAt: string | null, gameDate: string, opts: { zone: string; inTable?: boolean })`: `Intl.DateTimeFormat("en-US", { timeZone, weekday: "short", hour: "numeric", minute: "2-digit" })` → `Sat 3:30 PM`, plus ` ET`/` CT`/` MT`/` PT` from a four-zone map (fallback: Intl `shortGeneric`) unless `inTable`; NULL kickoff → weekday of `gameDate` read as a calendar date (no zone shift) + ` TBA`.
+   - `formatLockCountdown(kickoffAt: string, now: Date)`: two largest of d/h/m, floored (`Locks in 1d 14h`, `3h 20m`, `12m`); under a minute `Locks in <1m`; `≤ 0` → `Locked`.
+   - `formatLiveScore(away, awayPts, home, homePts)` → `PUR 3 · OSU 24`; `formatGameClock(period, secondsLeft)` → `Q3 9:12` (period 5 → `OT`, 6 → `2OT`); `formatFinal(away, awayPts, home, homePts)` → `Final · UNLV 24, BSU 31`.
+4. Run `pnpm --dir web exec vitest run lib/format.test.ts`, then `pnpm typecheck` and `pnpm lint`.
+
+**Files**
+- `web/lib/format.ts` (new), `web/lib/format.test.ts` (new). Nothing else.
+
+**Test strategy** (`web/lib/format.test.ts`)
+- AC-1: `describe("number-format card")` with `it.each` over the 21 examples in AC-1, one row each (input → exact string).
+- AC-2: `it("never prints a hyphen-minus for a negative number")` runs every signed function (spread, model line, price, edge, rating, rank move, units, CLV) over −0.04, −0.05, −1, −1.1, −9.5, −27.5, −110 and asserts no `-`; `it("never prints negative zero")` asserts −0.04 gives `0.0`, `0.0u`, `0.0 pts` and spread −0.0 gives `PK`. `formatRecord` takes counts only and is excluded.
+- AC-3: `describe("spread alignment")`: `BSU −10` + U+2008 U+2007 with `align`, bare without, `BSU −9.5` unchanged with `align`, `formatModelLine(34, "CLEM", …)` = `CLEM −34.0` both ways.
+- AC-4: `describe("kickoff")`: the four cases in AC-4.
+- AC-5: `describe("lock countdown")`: the three durations, exactly-at-kickoff and after → `Locked`.
+- AC-6: `describe("live and final")`: the three strings.
+
+**Risks / open questions**
+- Proposed copy not drawn by the design, change at approval if wanted: `Sat TBA`, `Locks in <1m`, `OT`/`2OT`, zero printed unsigned (`0.0`, `0.0u`).
+- `formatModelLine` takes `pred_margin`, not a spread: AC-3's "a model line from 34" reads as a 34-point home margin.
+- Kickoff labels depend on Node's ICU; Node ships full ICU, and the four-zone map keeps `ET`/`CT` independent of ICU's generic names.
+- Quarter-point medians (D-140) print rounded to one decimal; screens show book lines, which are half points.
+
+**Size check:** 2 files, one layer (web lib). S, unattended OK.
 
 ## Review log
 
