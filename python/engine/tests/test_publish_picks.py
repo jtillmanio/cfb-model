@@ -334,8 +334,8 @@ def test_a_rerun_with_no_new_snapshot_inserts_nothing(world: World, picked: int)
 
 @pytest.mark.parametrize(
     ("spread", "side", "tier"),
-    [(-0.5, "home", "A"), (-14.0, "away", "C")],
-    ids=["tier-changes", "side-changes"],
+    [(-0.5, "home", "A"), (-14.0, "away", "C"), (-16.5, "away", "B")],
+    ids=["tier-changes", "side-and-tier-change", "side-changes"],
 )
 def test_a_new_line_that_changes_the_side_or_tier_inserts_a_pick(
     world: World, picked: int, spread: float, side: str, tier: str
@@ -370,6 +370,15 @@ def test_a_pick_that_no_longer_qualifies_gets_a_pass_row(world: World, picked: i
     assert (passed.side, passed.tier, passed.stake_units) == (None, None, 0.0)
     assert (passed.line_snapshot_id, float(passed.line), passed.edge_pts) == (moved, -8.0, 2.0)
     assert 0.5 < passed.model_prob < 0.6  # the home side the edge favours, as displayed
+
+
+def test_a_picked_game_past_its_cutoff_gets_no_pass_row(world: World, picked: int) -> None:
+    _line(world.conn, picked, "DraftKings", KICKOFF - timedelta(hours=1), -8.0)  # edge 2
+
+    assert world.write(KICKOFF).passes == 0
+
+    assert len(_rows(world.conn, world.version)) == 1
+    assert _current(world.conn, world.version, picked).side == "home"
 
 
 def test_a_game_never_picked_gets_no_pass_row(world: World) -> None:
