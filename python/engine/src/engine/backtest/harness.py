@@ -300,7 +300,7 @@ def load(lake: Lake) -> History:
         con.register(name, table)
     check_point_in_time(con)
     games = (
-        con.execute(f"""
+        con.sql(f"""
             SELECT g.*, f.as_of, f.game_source_id IS NOT NULL AS featured,
                 hs.conference AS home_group, aws.conference AS away_group
             FROM (SELECT *, {KICKOFF} AS kickoff, {EARLIEST} AS earliest FROM games) g
@@ -310,8 +310,7 @@ def load(lake: Lake) -> History:
             LEFT JOIN team_seasons aws
               ON aws.team_source_id = g.away_source_id AND aws.season = g.season
             ORDER BY g.kickoff, g.source_id""")
-        .arrow()
-        .read_all()
+        .to_arrow_table()
         .to_pylist()
     )
     # game_features has a row per staged game, so a missing one means features/ is older than
@@ -433,7 +432,7 @@ def _team_game_stats(con: Any) -> TeamGameStats:
     stems = sorted({d.feature for d in INPUTS})
     columns = ", ".join(f"a.off_{s} AS {s}" for s in stems)
     rows = (
-        con.execute(f"""
+        con.sql(f"""
             SELECT g.source_id, g.season, g.kickoff, a.team_source_id AS team,
                 CASE WHEN a.team_source_id = g.home_source_id
                     THEN g.away_source_id ELSE g.home_source_id END AS opponent,
@@ -448,8 +447,7 @@ def _team_game_stats(con: Any) -> TeamGameStats:
               AND g.home_points IS NOT NULL AND g.away_points IS NOT NULL
               AND g.home_source_id IS NOT NULL AND g.away_source_id IS NOT NULL
             ORDER BY g.season, g.kickoff, g.source_id, a.team_source_id""")
-        .arrow()
-        .read_all()
+        .to_arrow_table()
         .to_pylist()
     )
     by_season: dict[int, list[TeamGameStat]] = {}

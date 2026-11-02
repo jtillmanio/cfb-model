@@ -382,9 +382,8 @@ def test_rate_takes_a_tba_kickoff_from_the_harness(lake: LocalLake) -> None:
     con = connect()
     con.register("games", staged(lake, "games"))
     (expected,) = (
-        con.execute(f"SELECT {KICKOFF} AS k FROM games WHERE source_id = ?", [str(game["id"])])
-        .arrow()
-        .read_all()
+        con.sql(f"SELECT {KICKOFF} AS k FROM games WHERE source_id = ?", params=[str(game["id"])])
+        .to_arrow_table()
         .column("k")
         .to_pylist()
     )
