@@ -384,7 +384,7 @@ The **pooled validation result** is all 2016–2023 predictions taken together. 
 - **Learned weights are fit on seasons before the one being predicted** (an expanding window). This covers the margin-model coefficients, prior weights, decay curve, σ and the empirical margin distribution. They are refit once per season; team ratings update weekly.
 - **Preseason inputs** (talent, returning production, recruiting) use the values published before that season.
 - **Market lines are targets and pick-time inputs, never rating features.** Market shrinkage blends with the line being evaluated, which is known at pick time. No rating or margin model trains on lines.
-- **SP+, FPI and Elo are benchmarks only.** A benchmark counts only if its value was published before the game. If CFBD provides only season-final values, the comparison is labeled "hindsight benchmark" and can't count as a baseline the model beat.
+- **Other systems' ratings (SP+, FPI, Elo and the other computer rankings of § 11.6) count only with values published before the game.** As benchmarks, a season-final value makes the comparison a "hindsight benchmark" that can't count as a baseline the model beat. As optional model inputs (D-146), a source enters a prediction or a backtest only for weeks where we hold a value with an `as_of` before that week's kickoff: a snapshot we took, or a dated archive. A season-final value never enters.
 - **Hindsight ratings (§ 7) are never read** by the harness or by production predictions.
 - **Weather uses forecast snapshots only.** Seasons without snapshots run the totals backtest without weather (D-040).
 - **Tuning targets:** model settings are tuned to minimize margin MAE, not ATS. ATS is far noisier, and tuning on it overfits faster. Pick rules are tuned after them, on the rows those settings produce (TASK-039, D-141): market shrinkage k on the cover Brier score of every eligible tuning-season game (on ATS it is the same dial as the threshold, § 4), then the thresholds (min edge, min cover) on ATS against closing lines over the tuning seasons, only on choices backed by at least 200 graded picks (with none, the one with the most picks, flagged in the report), with the display shrinkage at 1; then the display shrinkage `k_d` on the cover Brier score at those rules (TASK-042, D-143: it changes only the probability shown). Tier thresholds don't change which games are picked, so they are fixed, not tuned.
@@ -516,5 +516,66 @@ A confidence play is a pick the model is most sure of (F-49). The tempting versi
 - **Agreement with other systems** (SP+, FPI): a candidate input, tested like any other, and only with values published before the game (§ 9.2).
 - **Confidence levels** are bins of that probability, and each shows its backtest hit rate ("High: plays like this covered 59% in validation"). Each play lists its reasons: edge, rating certainty, line movement since the pick, agreement with benchmarks. Levels come from the stored `model_prob` and cutoffs in the spec and are never stored (hard rule 1). Whether levels replace the A/B/C edge tiers or sit beside them is decided at M19.3's plan gate.
 
-### 10.8 Position-group ratings (Later, research)
-Rating quarterbacks, receivers, running backs and both lines from player-level data (CFBD's player PPA and usage endpoints) would let the model react to a missing starter without a manual adjustment (F-51). It's Phase 7 research (M16.5): the player endpoints' call cost is estimated first, and it ships only if it beats production out of sample (§ 9.6).
+### 10.8 Position-group ratings (research, moved to Phase 5 on 2026-11-01)
+Rating quarterbacks, receivers, running backs and both lines from player-level data (CFBD's player PPA and usage endpoints) would let the model react to a missing starter without a manual adjustment (F-51). It's research in Phase 5, right after unit ratings (M19.6, was M16.5 in Phase 7; § 11.7): the player endpoints' call cost is estimated first, and it ships only if it beats production out of sample (§ 9.6).
+
+## 11. Résumé, quads, matchup preview, computer rankings and many models (added 2026-11-01)
+
+From the owner's list of 2026-11-01 (F-52 to F-59 in [01 › Feature index](01-product.md#feature-index-ids-priorities-outcomes)), decided in D-146 and D-147. The rule of § 10.1 holds: everything is computed for display, entering every week and point-in-time, and a piece enters predictions only when the backtest shows it helps. Built in Phase 5 after ratings depth (M20–M23 in [08-tasklist.md](08-tasklist.md)), except logos (MVP, M5.2) and the builder (Phase 7, M14).
+
+### 11.1 Résumé ranking
+**Concept: résumé vs strength, again.** A power rating asks "who would win next week?"; a résumé asks "who has done the most with their schedule so far?" A team that keeps winning close games against good opponents has a strong résumé and a merely good rating. § 7 and § 10.5 already define the résumé number, SOR. F-52 builds a ranking around it and shows the reasons:
+- **Rank** by SOR, entering the chosen week. SOR is the résumé rating; no composite score is planned, because a weighted blend of the parts below would be one more set of weights with nothing to fit them to. If one turns out to be wanted, its plan gate decides how it's fit.
+- **Game difficulty:** the chance that the benchmark team (the 25th best, as in SOR) would lose this game, given the opponent's rating entering the chosen week and the site (home field from the version's fitted value). It orders a team's wins and losses.
+- **Best wins:** wins ordered by difficulty. **Best losses:** losses ordered the same way, the ones that cost least. **Bad losses:** losses a benchmark team would have won at least 80% of the time (the cutoff is set at M20.1's plan gate).
+- **Offensive and defensive results:** per game, how the offense did against what that opponent's defense allows everyone else, and the defense likewise. It's § 10.3's opponent-removed difference computed per game instead of per season, in points per drive and EPA/play, with the season figure as their average. Unlike a rating it isn't regressed toward a prior, because the question is what happened.
+- **Time machine:** at a past week, every game is judged with the ratings entering that week, so the résumé shows as it stood then. The season-final version reuses all of this with hindsight ratings (§ 7, F-26, M12.6).
+- **Storage:** difficulty, best and bad results and quad records are aggregates of stored games and ratings, so they're views (hard rule 1). SOR is M18.4's per-run model output. The per-game offensive and defensive results are views over `team_game_stats` (M18.5).
+
+### 11.2 Quad records
+College basketball's NET sorts every game into four quadrants by the opponent's rank and the site, so a résumé reads as "4-1 in Q1 games." F-53 does the same.
+- **Rank** is among FBS teams by the version's rating entering the chosen week. FCS opponents are always Q4.
+- **Site shifts the cutoffs,** because a road game against #30 is harder than a home game against #30. The starting cutoffs are the NET's, scaled from its ~364 teams to FBS's ~136, and are finalized at M20.1's plan gate:
+
+  | Quad | Home | Neutral | Away |
+  |---|---|---|---|
+  | Q1 | 1–11 | 1–19 | 1–28 |
+  | Q2 | 12–28 | 20–37 | 29–50 |
+  | Q3 | 29–60 | 38–75 | 51–90 |
+  | Q4 | 61+, FCS | 76+, FCS | 91+, FCS |
+
+- A smooth alternative, binning games by § 11.1's difficulty instead of rank tables, is offered at the plan gate. It carries the same idea without cliffs at the cutoffs.
+- **As a model input** (M20.5), with low expectations, like SOR (§ 10.5): a quad record counts wins and throws away the margins the ratings already use. The input is point-in-time: entering week N, games before week N are binned with the ratings entering week N.
+
+### 11.3 Pick preview
+F-54 puts the whole matchup on one panel of Game Detail. It needs no new model math; every number is already stored or is a view:
+- The Number's figures (model line, cover and win probability), plus the confidence level and its hit rate (F-49).
+- The two teams side by side: overall, offense, defense and special-teams ratings with ranks; unit and position-group ratings with percentiles; SOS, SOR, résumé rank and quad records; best wins and most important results (§ 11.1); and computer rankings (§ 11.6).
+- **Best matchups:** the unit pairings with the largest share of the predicted margin (each side's offense against the other's defense, per unit), read from the prediction's drivers (§ 10.2). They add up to the margin, so the preview and the drivers waterfall can't disagree.
+- **Why, in plain sentences:** the top drivers, each rendered from a template ("Ohio State's pass offense against Purdue's pass defense: +6.4"). No LLM; Claude-written summaries stay F-39.
+- An upcoming game shows values entering its week. A finished game shows them frozen at kickoff, as Game Detail already does.
+
+### 11.4 Every input visible
+F-55 makes the team page show everything the model could know about a team entering the chosen week: each registry input (§ 10.6) with its raw value, opponent-adjusted rating, percentile, whether the selected version uses it, and its contribution in points (`team_ratings.components`). Derived inputs are included: the prior's parts (last season's rating, returning production, talent, recruiting) and its remaining weight, the tier term (§ 10.4), SOS and SOR, quad records, computer rankings and position groups. Some of these, the prior's parts in particular, aren't stored per team and week today, so M21.1 proposes where they go (schema change: stop and ask). The labels come from the registry, never from `web/`.
+
+### 11.5 How the model works, in the app
+F-56 is a Lab page that walks through the pipeline (data → ratings → margin → probability → pick → grading) with the selected version's live numbers from its spec and `fitted_params`: home field, the prior's weight this week, the ridge strength, the margin model's coefficients, σ, market shrinkage and the pick thresholds. It ends with a worked example on one of this week's games, from ratings to cover %. The prose comes from [model-guide.md](model-guide.md), kept in one place so the page and the guide can't drift; how is decided at M21.6's plan gate.
+
+### 11.6 Computer rankings
+**Concept: ensembling.** Systems built differently make different mistakes, and a blend of several independent forecasts often beats each one, which is why composites like Massey's exist. The catch for betting: the market already watches these systems, so any edge from them will be small. Each source has to earn its place like any input.
+- **Sources:** CFBD's SP+, FPI, Elo and SRS to start. A survey (M22.1) lists others (for example Massey's composite and the systems inside it), with whether each keeps dated weekly history, its terms of use and robots.txt, and the effort to scrape it. The owner picks which to collect.
+- **Shown** on the team profile and the pick preview with each source's rank, rating and as-of date, beside ours. F-23's comparison view (M10.7) reads the same data.
+- **Optional inputs:** each source is a registry input (`ext.sp_plus`, `ext.elo`, …), off by default. A model version turns on any set of them (D-146), so the owner can keep models with and without them side by side (§ 11.8).
+- **Point-in-time is the hard part** (§ 9.2). A source enters a backtest only for weeks where we hold a value published before kickoff. CFBD's Elo appears to come by week (confirmed at M22.1). For a source with only season-final values in CFBD, we snapshot it weekly into the raw lake from now on, and look for a dated archive to scrape. Every week not snapshotted is lost for good, so the snapshot task (M22.2) can run before the rest of Phase 5. A backtest of a model using a source covers only the seasons the source covers, and the report says so.
+- **In production,** a missing or stale value (`as_of` older than the source's usual publishing day) fails that model's weekly run loudly rather than predicting with an old number. A scraped source that breaks stops only the models that use it.
+
+### 11.7 Position groups, sooner
+F-51 moves from Phase 7 to Phase 5 (M19.6), right after unit ratings (M18.3), at the owner's request (D-146). The research rules of § 10.8 are unchanged: estimate the player endpoints' call cost first and get the owner's OK, then rate position groups (QB, running backs, receivers, both lines) entering each week, show them on the team profile and the pick preview as display only, and use them in a model only if it beats the version without them.
+
+### 11.8 Many models, side by side
+The owner wants several models at once, each configured differently (with or without computer rankings, position groups, conference shrinkage…), managed from the app (F-59, D-147). The engine already treats a model as a `ModelSpec` and a version as a frozen spec (§ 6), so this is mostly running and showing more than one:
+- **Active versions:** every `candidate` or `production` version rates and predicts in the weekly job, and each keeps its own live record (`model_record` is already per version). `dev` versions run only on demand, `retired` ones never. Whether `candidate` is the right "active" marker or a new column is needed is decided at M23.1's plan gate.
+- **Which one drives picks:** one version per market is `production` and drives the default picks and the contest ranking (D-135's unique index). The owner switches it from the app, through M14.4's go/no-go checklist once that exists. Any active version's line and picks can be viewed on This Week and Game Detail; a version that hasn't passed the gates is labeled so.
+- **Delete** is a soft delete (`deleted_at`): the version leaves every list and stops running, and its runs, ratings, predictions and picks stay (hard rule 2, D-135's `ON DELETE RESTRICT`). It can be restored. The app asks for confirmation, because it's the owner's data.
+- **Create and edit:** cloning a version and changing its inputs and settings is F-38's builder (Phase 7, M14). Until then new versions are spec files, and the Phase 5 Lab lists, activates, pauses, switches and deletes them.
+- **Guardrails:** every version created counts toward the variants-tried counter (§ 6), and the holdout stays locked. Each active version adds to the weekly job's run time, which must stay within ≤ 10 min (D-092), so M23.1 sets a cap on active versions.

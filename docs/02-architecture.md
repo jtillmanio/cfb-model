@@ -102,7 +102,13 @@ The model detail is [04-model.md § 10](04-model.md); the decision is D-117.
   | SOS of games played | aggregate of stored ratings | view `team_schedule_strength` (MVP, M3.7) |
   | SOR, remaining and full-season SOS | model output (needs Φ and the Poisson binomial) | engine, per model run, insert-only like `season_simulations` (proposed) |
   | Confidence levels | function of stored `model_prob` and spec cutoffs | computed on read, never stored |
-- **Call budget.** The units need no new CFBD endpoints: they come from advanced stats, plays and drives, which the Phase 1 backfill already pulls. Position-group ratings (Phase 7 research) would need the player endpoints, so their call cost is estimated before any pull.
+- **Call budget.** The units need no new CFBD endpoints: they come from advanced stats, plays and drives, which the Phase 1 backfill already pulls. Position-group ratings (Phase 5 research since 2026-11-01, M19.6) would need the player endpoints, so their call cost is estimated before any pull.
+
+#### Computer rankings and many models (added 2026-11-01)
+The model detail is [04-model.md § 11](04-model.md); the decisions are D-146 and D-147.
+- **Computer rankings are a new source.** A weekly `external-ratings` job snapshots each chosen source into the raw lake (append-only, `as_of` = when fetched), through the CFBD client's budget tracker for CFBD sources and a scraper per other source. The transform stages them like any other raw data, and the feature table's point-in-time assertion covers them. A source that fails or returns a stale value stops only the models that use it.
+- **The weekly job runs every active version**, not only production, each as its own model run, within a cap that keeps the job ≤ 10 min (D-092). Predictions, picks and records are already per version, so the API and the views need only a version parameter.
+- **The résumé, quads and pick preview add no engine step** beyond M18.4's SOR: they're views and API composition over stored outputs.
 
 ### 2. `python/api`: FastAPI service
 - **One endpoint per screen** (BFF-style): `/slate`, `/games/{id}`, `/rankings`, `/teams/{id}`, `/picks`, `/performance`, `/contests/...`, `/lab/...`. Each page makes one API call, and each endpoint runs its DB queries concurrently against a fixed query budget.
@@ -125,7 +131,8 @@ In-season cadence (all times ET; adjustable). Jobs run in GitHub Actions but are
 | Job | When | What |
 |---|---|---|
 | `results` | Sun 6am, Mon 6am | Ingest final scores, box scores, advanced stats, PBP for the week |
-| `rate-and-predict` | Sun 9am | Update ratings, predict next week's games, run season sims; from Phase 5 also unit ratings, SOR and remaining SOS |
+| `rate-and-predict` | Sun 9am | Update ratings, predict next week's games, run season sims; from Phase 5 also unit ratings, SOR and remaining SOS, for every active model version (D-147) |
+| `external-ratings` | Weekly, after the sources publish (Phase 5, M22.2; may start earlier) | Snapshot each chosen computer ranking into the raw lake (D-146) |
 | `lines` | Daily, plus Thu–Fri evenings (your pick window) | Snapshot CFBD lines; re-evaluate picks when lines move; send watchlist alerts (edge crossed the threshold, or line moved) that haven't been sent yet. From Phase 5, also snapshot Open-Meteo forecasts for this week's outdoor games |
 | `scores` | Every ~30 min during game windows (Thu–Sat evenings, Sat all day) | Refresh this week's scores and game status so the record strip grades picks as games finish. CFBD's scoreboard endpoint (confirm it's in tier 1 during Phase 1), about 25 calls a week; NFL contest games from nflverse. Near-live only: a dispatched run starts within minutes of its slot, plus the runner's queue time |
 | `backtest` | On demand (CLI or model lab) | Walk-forward backtest for one model version |
