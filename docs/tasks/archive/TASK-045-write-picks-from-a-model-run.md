@@ -1,7 +1,7 @@
 ---
 id: TASK-045
 title: Write picks from a model run, and re-evaluate them when lines move
-status: Review
+status: Done
 depends_on: [TASK-042]
 size: M
 model: opus
