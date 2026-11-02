@@ -5,11 +5,12 @@ The week is the feature week of D-127: its `as_of` is its first kickoff, and the
 backtest's (`harness.fit_games`: every final game that finished, kickoff + 4 h, by `as_of`), so a
 published week is the week the backtest scored. A week is `(season_type, week)`: postseason
 week 1 holds every bowl and CFP game, all predicted from the ratings entering the first bowl, as
-the backtest scores them (D-131, D-150). Its predictions are the week's staged contexts as
-`harness.load` keeps them (`Week.contexts`): every game of the week with both teams that isn't
-canceled or postponed, played or not, its TBA kickoff placed as `features.KICKOFF` places it.
-The transform stages a game `canceled` when CFBD still lists it unscored and uncompleted a week
-after its start (D-121, TASK-044).
+the backtest scores them (D-131, D-150); a spec with `postseason: rounds`, which the backtest can
+walk round by round (TASK-048), is refused until TASK-058 rates each round live. Its predictions
+are the week's staged contexts as `harness.load` keeps them (`Week.contexts`): every game of the
+week with both teams that isn't canceled or postponed, played or not, its TBA kickoff placed as
+`features.KICKOFF` places it. The transform stages a game `canceled` when CFBD still lists it
+unscored and uncompleted a week after its start (D-121, TASK-044).
 
 The lake is read and the model fit before any database transaction opens (`fit_week`); `write`
 then inserts in one short transaction. `engine rate` writes an `adhoc` run and creates a missing
@@ -192,6 +193,11 @@ def fit_week(
 ) -> FittedWeek:
     """Read the lake and fit `spec` (resolved with `choices`) entering `week`; no database is
     opened. A fit that fails is returned with its error, to be recorded; a refusal raises."""
+    if spec.postseason != "one_week":
+        raise RateRefused(
+            f"the spec's postseason is {spec.postseason!r}: only the backtest walks CFP rounds "
+            "so far; rating each round live is TASK-058's (rate with postseason one_week)"
+        )
     try:
         resolved = spec.resolve(choices)
     except ValueError as e:

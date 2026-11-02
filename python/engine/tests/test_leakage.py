@@ -8,13 +8,23 @@ from __future__ import annotations
 
 from typing import Any
 
-from lake_fixture import featured, season_game_id, season_records, write_repull, write_season
+import pytest
+from lake_fixture import (
+    engine,
+    featured,
+    season_game_id,
+    season_records,
+    write_backtest_seasons,
+    write_repull,
+    write_season,
+)
 
 from engine.ingest.lake import LocalLake
-from engine.transform import rebuild
+from engine.transform import features, rebuild
 
 KANSAS = "2305"
 KANSAS_GAME = "401756847"  # Kansas-Fresno State
+HAWAII = "62"
 
 
 def by_key(lake: LocalLake, name: str, *key: str) -> dict[tuple[Any, ...], dict[str, Any]]:
@@ -65,3 +75,22 @@ def test_changing_a_week7_game_leaves_weeks_through_7_unchanged(lake: LocalLake)
         assert after == row, game_id
     week8_game = games_after[season_game_id(8, KANSAS_GAME)]
     assert week8_game != games_before[season_game_id(8, KANSAS_GAME)]
+
+
+def test_point_in_time_catches_a_round_leak(
+    empty_lake: LocalLake, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """TASK-048 AC-2: a CFP round's rows are checked too. Loosen inclusion for round rows only, so
+    round 2 reads the game kicking off at its as_of (the January game), and the build fails
+    naming each of its teams, the season and the round, and replaces no feature file."""
+    write_backtest_seasons(empty_lake, (2023,), cfp_rematch=True)
+    monkeypatch.setattr(
+        features, "INCLUDED", f"({features.INCLUDED} OR (w.round > 1 AND s.kickoff <= w.as_of))"
+    )
+    assert engine("transform", "--rebuild") == 1
+    out = capsys.readouterr().out
+    assert "FAIL" in out
+    for team in (KANSAS, HAWAII):
+        assert f"team {team}, 2023 postseason week 1 round 2: its newest source game" in out
+    assert "regular week" not in out  # only the round rows leaked
+    assert empty_lake.walk("features") == []

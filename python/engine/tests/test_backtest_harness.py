@@ -22,9 +22,11 @@ from lake_fixture import (
     FIXTURE,
     NO_LINE,
     POSTSEASON,
+    REMATCH_TEAMS,
     backtest_game_id,
     engine,
     fixture_key,
+    rematch_game_id,
     staged,
     write_backtest_seasons,
 )
@@ -426,3 +428,71 @@ def test_the_holdout_flag_without_a_holdout_season_is_refused(
     argv = ["backtest", "--spec", spec, "--seasons", "2023", "--model", "stub"]
     assert engine(*argv, "--holdout", "--reason", "nothing locked here") == 2
     assert holdout.count(holdout_lake) == 0
+
+
+# TASK-048: `postseason: rounds` fits each CFP round after the rounds before it. The rematch
+# fixture: Kansas-Fresno State (Dec 17), Hawai'i-Stanford (Dec 18), Kansas-Hawai'i (Jan 10).
+
+
+@pytest.fixture
+def rematch_lake(empty_lake: LocalLake) -> LocalLake:
+    write_backtest_seasons(empty_lake, cfp_rematch=True)
+    rebuild(empty_lake)
+    return empty_lake
+
+
+def test_rounds_fit_each_round_after_the_rounds_before(rematch_lake: LocalLake) -> None:
+    """AC-4: the January game is fit at its own kickoff on a history holding both December
+    games; the December games, round 1, are fit at the week's as_of as before."""
+    history = harness.load(rematch_lake)
+    games = {g["source_id"]: g for g in staged(rematch_lake, "games").to_pylist()}
+    december = [backtest_game_id(2023, "postseason", 1, w) for w in REMATCH_TEAMS]
+    january = rematch_game_id(2023)
+    first = min(games[g]["kickoff_at"] for g in december)
+    fits: list[tuple[Any, frozenset[int]]] = []
+
+    class Recording(MeanMargin):
+        def fit(self, games: GameHistory, as_of: Any) -> Ratings:
+            fits.append((as_of, frozenset(g.game_id for g in games)))
+            return super().fit(games, as_of)
+
+    def post_rows(postseason: str) -> dict[str, Any]:
+        fits.clear()
+        spec = ModelSpec.model_validate({**FIXED, "postseason": postseason})
+        rows = harness.run(spec, Recording, history, seasons=[2023], tune_from=2022).rows
+        return {r["game_source_id"]: r for r in rows if r["season_type"] == "postseason"}
+
+    rows = post_rows("rounds")
+    assert rows[january]["as_of"] == games[january]["kickoff_at"]
+    assert [rows[g]["as_of"] for g in december] == [first, first]
+    (given,) = {g for a, g in fits if a == games[january]["kickoff_at"]}
+    assert {int(g) for g in december} <= given
+    assert int(january) not in given
+    (entering,) = {g for a, g in fits if a == first}
+    assert not {int(g) for g in december} & entering
+
+    # One week: the January game is predicted from the ratings entering the bowls.
+    one_week = post_rows("one_week")
+    assert one_week[january]["as_of"] == first
+    assert games[january]["kickoff_at"] not in {a for a, _ in fits}
+
+
+def test_rounds_leave_other_predictions_alone(rematch_lake: LocalLake) -> None:
+    """AC-4: every regular-season and round-1 row of a `rounds` run equals the `one_week`
+    run's; only the round-2 game moves, to its own as_of and a refit prediction."""
+    history = harness.load(rematch_lake)
+    january = rematch_game_id(2023)
+
+    def rows(postseason: str) -> dict[str, dict[str, Any]]:
+        spec = ModelSpec.model_validate({**FIXED, "postseason": postseason})
+        run = harness.run(spec, backtest.MODELS["power"], history, seasons=[2023], tune_from=2022)
+        return {r["game_source_id"]: r for r in run.rows}
+
+    one_week, rounds = rows("one_week"), rows("rounds")
+    assert one_week.keys() == rounds.keys()
+    assert january in rounds and len(rounds) > 30
+    for game, row in one_week.items():
+        if game != january:
+            assert rounds[game] == row, game
+    assert rounds[january]["as_of"] > one_week[january]["as_of"]
+    assert rounds[january]["pred_margin"] != one_week[january]["pred_margin"]

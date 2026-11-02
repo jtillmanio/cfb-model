@@ -482,6 +482,35 @@ def test_rate_cli_refuses_a_tuned_spec_without_choices(
     assert "--choices" in capsys.readouterr().err
 
 
+def test_rate_refuses_a_rounds_spec(
+    lake: LocalLake,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """TASK-048 AC-5: rating each CFP round live is TASK-058's, so a spec with `postseason:
+    rounds` is refused (exit 2) before the lake is read or a database opened, in `engine rate`
+    and in `fit_week`, which the weekly job calls too."""
+    rounds = SPEC.resolve(CHOICES).model_copy(update={"postseason": "rounds"})
+    spec_file = tmp_path / "rounds.json"
+    spec_file.write_text(rounds.model_dump_json(), "utf-8")
+    _refuse_postgres(monkeypatch)
+
+    def no_lake(*args: Any, **kwargs: Any) -> Any:
+        raise AssertionError("engine rate read the lake")
+
+    monkeypatch.setattr(harness, "load", no_lake)
+    monkeypatch.setenv("DATABASE_URL_UNPOOLED", "postgresql://nowhere.invalid/dev")
+    code = engine(
+        "rate", "--spec", str(spec_file), "--season", "2023", "--week", "5", "--target", "dev"
+    )
+
+    assert code == 2
+    assert "TASK-058" in capsys.readouterr().err
+    with pytest.raises(models.RateRefused, match="TASK-058"):
+        models.fit_week(lake, rounds, {}, season=2023, week=1, season_type="postseason")
+
+
 def test_rate_cli_refuses_without_the_dev_url(
     lake: LocalLake,
     monkeypatch: pytest.MonkeyPatch,

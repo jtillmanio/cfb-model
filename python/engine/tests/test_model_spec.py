@@ -192,8 +192,9 @@ def test_a_spec_at_shrink_toward_zero_keeps_its_hash() -> None:
     from engine.backtest.harness import spec_hash
 
     spec = ModelSpec.model_validate(POWER)
-    before = {k: v for k, v in spec.model_dump(mode="json").items() if k != "shrink_toward"}
-    # The JSON as written before either added field (TASK-042's display_shrinkage_k too).
+    added = ("shrink_toward", "postseason")  # TASK-048's postseason too
+    before = {k: v for k, v in spec.model_dump(mode="json").items() if k not in added}
+    # The JSON as written before any added field (TASK-042's display_shrinkage_k too).
     before["picks"] = {k: v for k, v in before["picks"].items() if k != "display_shrinkage_k"}
     text = json.dumps(before, sort_keys=True, separators=(",", ":"))
 
@@ -203,6 +204,8 @@ def test_a_spec_at_shrink_toward_zero_keeps_its_hash() -> None:
 
 
 SPECS = Path(__file__).parents[1] / "specs"
+# specs/efficiency-v1.json's hash before TASK-048 added `postseason`.
+EFFICIENCY_V1_HASH = "50d9e581281960d96cf493ac6e91f77b445602b35cce1d25cdf0c853a99c77ab"
 
 
 def test_a_spec_without_the_display_shrinkage_keeps_its_hash() -> None:
@@ -248,3 +251,27 @@ def test_the_last_season_prior_sibling_differs_from_v1_only_in_its_components() 
     assert v1.prior is not None and len(v1.prior.components) == 4
     prior = sibling.prior.model_copy(update={"components": v1.prior.components})
     assert sibling.model_copy(update={"prior": prior}) == v1
+
+
+def test_postseason_default_keeps_the_hash() -> None:
+    """TASK-048 AC-3: `postseason` is `one_week` unless set to `rounds`; at its default it's left
+    out of the hash (D-137), so v1's specs and every run.json written before keep matching."""
+    import json
+
+    from engine.backtest.harness import spec_hash
+
+    hashes = {
+        "power-v1.json": "064e84947bdf7b0595f91981e3301094ae57b7e075b3000d344e885555916415",
+        "efficiency-v1.json": EFFICIENCY_V1_HASH,
+    }
+    for name, before in hashes.items():
+        data = json.loads((SPECS / name).read_text("utf-8"))
+        assert "postseason" not in data
+        spec = ModelSpec.model_validate(data)
+        assert spec.postseason == "one_week"
+        assert spec_hash(spec) == before, name
+        assert spec_hash(ModelSpec.model_validate(data | {"postseason": "one_week"})) == before
+        rounds = ModelSpec.model_validate(data | {"postseason": "rounds"})
+        assert rounds.postseason == "rounds"
+        assert spec_hash(rounds) != before, name
+    assert refused(SKETCH | {"postseason": "weekly"}) == {("postseason",)}

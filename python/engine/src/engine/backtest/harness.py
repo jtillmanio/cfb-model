@@ -14,7 +14,11 @@ runs once, shared by the tuning of later seasons, every pick candidate and the s
 
 **Postseason.** CFBD files every bowl and CFP round under postseason week 1, so it's one week
 with one `as_of`, the first bowl's kickoff: a later CFP round is predicted from the ratings
-entering the bowls. That's leak-free and slightly stale (D-127's revisit).
+entering the bowls. That's leak-free and slightly stale (D-127's revisit). A spec with
+`postseason: rounds` (TASK-048) walks the week's rounds instead (`History.rounds`, from
+`game_features.round`): round 1, the bowls and the first CFP round, at the week's `as_of` as
+before, then each later round fit at its own `as_of`, its earliest kickoff, on every game finished
+by then, the earlier rounds among them. A row's `as_of` says which fit made it.
 
 **Inputs.** A model declares what it reads (`reads`). Only `FIT_INPUTS` are given; hindsight
 ratings and market lines are refused by name (D-056, 04 § 9.2). `games` arrive through
@@ -93,6 +97,7 @@ class BacktestModel(RatingModel, GamePredictor, Protocol):
 
 
 ModelFactory = Callable[[ModelSpec], BacktestModel]  # built from a resolved spec
+Postseason = Literal["one_week", "rounds"]  # `ModelSpec.postseason`
 Choices = Mapping[str, float]  # tuned setting path -> its chosen candidate
 Row = dict[str, Any]  # one results row, keyed as in SCHEMA
 Evaluate = Callable[[Choices, int], Sequence[Row]]  # a season's walk-forward under choices
@@ -137,10 +142,12 @@ class Week:
     # Every staged game of the week with both teams that will be played (status not in
     # `NOT_PLAYED`), by kickoff then game id: what `engine rate` predicts (TASK-044).
     contexts: tuple[GameContext, ...] = ()
+    round: int = 1  # a postseason round of the week (`History.rounds`); 1 for a whole week
 
     @property
     def label(self) -> str:
-        return f"{self.season} {self.season_type} week {self.week}"
+        label = f"{self.season} {self.season_type} week {self.week}"
+        return f"{label} round {self.round}" if self.round > 1 else label
 
 
 @dataclass(frozen=True, slots=True)
@@ -267,9 +274,27 @@ class History:
     # game's `home_group`/`away_group` hold, for any code that builds a `GameContext` itself.
     groups: Mapping[tuple[int, int], str] = field(default_factory=dict)
     preseason: Preseason = field(default_factory=Preseason)
+    # Each postseason week split into its rounds (`game_features.round`), each `as_of` the round's
+    # earliest kickoff, in run order: what a `postseason: rounds` spec walks (TASK-048).
+    rounds: tuple[Week, ...] = ()
 
     def season_weeks(self, season: int) -> list[Week]:
         return [w for w in self.weeks if w.season == season]
+
+    def walk(self, season: int, postseason: Postseason = "one_week") -> list[Week]:
+        """The season's weeks in run order; with `rounds`, each postseason week's rounds in its
+        place."""
+        weeks = self.season_weeks(season)
+        if postseason == "one_week":
+            return weeks
+        out: list[Week] = []
+        for w in weeks:
+            if w.season_type != "postseason":
+                out.append(w)
+                continue
+            key = (w.season, w.season_type, w.week)
+            out += [r for r in self.rounds if (r.season, r.season_type, r.week) == key]
+        return out
 
     def scored_seasons(self) -> set[int]:
         return {w.season for w in self.weeks if w.games}
@@ -301,7 +326,8 @@ def load(lake: Lake) -> History:
     check_point_in_time(con)
     games = (
         con.sql(f"""
-            SELECT g.*, f.as_of, f.game_source_id IS NOT NULL AS featured,
+            SELECT g.*, f.as_of, f.round, f.round_as_of,
+                f.game_source_id IS NOT NULL AS featured,
                 hs.conference AS home_group, aws.conference AS away_group
             FROM (SELECT *, {KICKOFF} AS kickoff, {EARLIEST} AS earliest FROM games) g
             LEFT JOIN game_features f ON f.game_source_id = g.source_id
@@ -332,8 +358,11 @@ def load(lake: Lake) -> History:
     }
 
     results: list[GameResult] = []
-    by_week: dict[tuple[int, str, int], tuple[datetime, list[Eligible]]] = {}
-    contexts: dict[tuple[int, str, int], list[GameContext]] = {}
+    # (season, season type, week, round) -> its as_of and eligible games, and its contexts. A
+    # week is every round of it at round 1's as_of (`round` 0 in the key), so each game is in
+    # its week and, if postseason, in its round.
+    by_week: dict[tuple[int, str, int, int], tuple[datetime, list[Eligible]]] = {}
+    contexts: dict[tuple[int, str, int, int], list[GameContext]] = {}
     for g in games:
         teams = g["home_source_id"] is not None and g["away_source_id"] is not None
         final = g["status"] == "final" and None not in (g["home_points"], g["away_points"])
@@ -359,34 +388,38 @@ def load(lake: Lake) -> History:
                     **_fields(context), home_points=g["home_points"], away_points=g["away_points"]
                 )
             )
-        key = (g["season"], g["season_type"], g["week"])
-        _, week_games = by_week.setdefault(key, (g["as_of"], []))
+        at = (g["season"], g["season_type"], g["week"])
+        keys = [((*at, 0), g["as_of"])]
+        if g["season_type"] == "postseason":
+            keys.append(((*at, g["round"]), g["round_as_of"]))
+        lists = [by_week.setdefault(key, (as_of, []))[1] for key, as_of in keys]
         if context is not None and g["status"] not in NOT_PLAYED:
-            contexts.setdefault(key, []).append(context)
+            for key, _ in keys:
+                contexts.setdefault(key, []).append(context)
         line = closing.get(g["source_id"])
         fbs = g["home_classification"] == g["away_classification"] == "fbs"
         if context is None or not final or not fbs or line is None:
             continue
         if line["spread_home"] is None:
             continue
-        week_games.append(
-            Eligible(
-                context=context,
-                source_id=g["source_id"],
-                kickoff_at=g["kickoff_at"],
-                home_source_id=g["home_source_id"],
-                away_source_id=g["away_source_id"],
-                home_points=g["home_points"],
-                away_points=g["away_points"],
-                spread_home=line["spread_home"],
-                spread_home_open=line["spread_home_open"],
-                spread_home_open_close=line["spread_home_open_close"],
-                spread_source=line["source"],
-                closing_from=line["closing_from"],
-            )
+        eligible = Eligible(
+            context=context,
+            source_id=g["source_id"],
+            kickoff_at=g["kickoff_at"],
+            home_source_id=g["home_source_id"],
+            away_source_id=g["away_source_id"],
+            home_points=g["home_points"],
+            away_points=g["away_points"],
+            spread_home=line["spread_home"],
+            spread_home_open=line["spread_home_open"],
+            spread_home_open_close=line["spread_home_open_close"],
+            spread_source=line["source"],
+            closing_from=line["closing_from"],
         )
+        for games_list in lists:
+            games_list.append(eligible)
 
-    weeks = [
+    built = [
         Week(
             season,
             season_type,
@@ -395,14 +428,20 @@ def load(lake: Lake) -> History:
             tuple(sorted(eligible, key=lambda e: e.source_id)),
             tuple(
                 sorted(
-                    contexts.get((season, season_type, week), ()),
+                    contexts.get((season, season_type, week, rnd), ()),
                     key=lambda c: (c.kickoff, c.game_id),
                 )
             ),
+            max(rnd, 1),
         )
-        for (season, season_type, week), (as_of, eligible) in by_week.items()
+        for (season, season_type, week, rnd), (as_of, eligible) in by_week.items()
     ]
-    weeks.sort(key=lambda w: (w.season, w.as_of, w.season_type, w.week))
+
+    def order(w: Week) -> tuple[Any, ...]:
+        return (w.season, w.as_of, w.season_type, w.week, w.round)
+
+    weeks = sorted((w for w, k in zip(built, by_week, strict=True) if k[3] == 0), key=order)
+    rounds = sorted((w for w, k in zip(built, by_week, strict=True) if k[3] > 0), key=order)
     spreads = {
         int(game): line["spread_home"]
         for game, line in closing.items()
@@ -422,6 +461,7 @@ def load(lake: Lake) -> History:
             if r["team_source_id"] is not None and r["conference"] is not None
         },
         _preseason(tables, weeks),
+        tuple(rounds),
     )
 
 
@@ -559,13 +599,16 @@ def give_inputs(model: BacktestModel, history: History) -> None:
         cast(Any, model).use(given)
 
 
-def predict_season(model: BacktestModel, history: History, season: int) -> list[Row]:
-    """Walk one season forward: fit entering each week, then predict its eligible games."""
+def predict_season(
+    model: BacktestModel, history: History, season: int, postseason: Postseason = "one_week"
+) -> list[Row]:
+    """Walk one season forward: fit entering each week (each postseason round, with `rounds`),
+    then predict its eligible games."""
     check_reads(model)
     give_inputs(model, history)
     note = getattr(model, "note", None)  # a baseline's remark on a game, e.g. a hindsight rating
     rows: list[Row] = []
-    for week in history.season_weeks(season):
+    for week in history.walk(season, postseason):
         if not week.games:
             continue
         games = fit_games(history, week.as_of)
@@ -707,7 +750,9 @@ def run(
         model = {p: v for p, v in choices.items() if not pick_rules.is_pick_setting(p)}
         key = (tuple(sorted(model.items())), season)
         if key not in cache:
-            cache[key] = predict_season(factory(spec.resolve(model)), history, season)
+            cache[key] = predict_season(
+                factory(spec.resolve(model)), history, season, spec.postseason
+            )
         return cache[key]
 
     def shown_only(season: int, tuning: tuple[int, ...]) -> Evaluate:

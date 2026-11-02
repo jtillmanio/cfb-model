@@ -148,6 +148,13 @@ POSTSEASON = {"401756847": 0, "401754516": 24}
 
 Rescore = tuple[int, str, int, str]  # season, season type, week, week-1 game id
 
+# The CFP rematch (TASK-048): both postseason games in December (Hawai'i-Stanford a day after
+# Kansas-Fresno State), then a January game between Kansas and Hawai'i, the two winners: a
+# bracket whose January game is round 2.
+REMATCH_DAYS = {**POSTSEASON, "401754516": 1}
+REMATCH_DAY = 24  # the January game's kickoff, days after December 17, at Kansas's time
+REMATCH_TEAMS = ("401756847", "401754516")  # home from the first game, away from the second
+
 
 def backtest_game_id(season: int, season_type: str, week: int, week1_id: str) -> str:
     """The id `write_backtest_seasons` gives a season's copy of a week-1 fixture game."""
@@ -157,6 +164,52 @@ def backtest_game_id(season: int, season_type: str, week: int, week1_id: str) ->
     return f"9{season % 100:02d}{kind}{week:02d}{index}"
 
 
+def rematch_game_id(season: int) -> str:
+    """The id of a season's January CFP rematch (`cfp_rematch`): index 9, no fixture game's."""
+    return f"9{season % 100:02d}10019"
+
+
+def _rematch(
+    season: int, games: list[dict[str, Any]], stats: list[dict[str, Any]], lines: list[Any]
+) -> None:
+    """Add the January game between the home team of `REMATCH_TEAMS[0]`'s December game and the
+    home team of `REMATCH_TEAMS[1]`'s, with each side's stats and the first game's line."""
+    first, second = (
+        next(g for g in games if g["id"] == int(backtest_game_id(season, "postseason", 1, w)))
+        for w in REMATCH_TEAMS
+    )
+    new_id = int(rematch_game_id(season))
+    start = datetime.fromisoformat(first["startDate"]) + timedelta(days=REMATCH_DAY)
+    away = {k[4:]: v for k, v in second.items() if k.startswith("home")}
+    games.append(
+        {
+            **copy.deepcopy(first),
+            **{f"away{k}": v for k, v in away.items()},
+            "id": new_id,
+            "startDate": start.strftime("%Y-%m-%dT%H:%M:%S.000Z"),
+            "neutralSite": True,
+            "homePoints": 28,
+            "awayPoints": 21,
+        }
+    )
+    names = (first["homeTeam"], second["homeTeam"])
+    for game, (team, opponent) in ((first, names), (second, names[::-1])):
+        row = next(r for r in stats if r["gameId"] == game["id"] and r["team"] == team)
+        stats.append({**copy.deepcopy(row), "gameId": new_id, "opponent": opponent})
+    line = next(r for r in lines if r["id"] == first["id"])
+    lines.append(
+        {
+            **copy.deepcopy(line),
+            "id": new_id,
+            "startDate": start.strftime("%Y-%m-%dT%H:%M:%S.000Z"),
+            "awayTeamId": second["homeId"],
+            "awayTeam": second["homeTeam"],
+            "awayConference": second["homeConference"],
+            "awayClassification": second["homeClassification"],
+        }
+    )
+
+
 def _backtest_week(
     season: int,
     season_type: str,
@@ -164,9 +217,11 @@ def _backtest_week(
     rescore: Rescore | None,
     unplayed: Rescore | None,
     consensus: tuple[Rescore, float] | None,
+    cfp_rematch: bool = False,
 ) -> dict[str, list[dict[str, Any]]]:
     games, stats, lines = [], [], []
     post = season_type == "postseason"
+    days = REMATCH_DAYS if cfp_rematch else POSTSEASON
     for game in FIXTURE[fixture_key("games")]["records"]:
         week1_id = str(game["id"])
         if post and week1_id not in POSTSEASON:
@@ -174,7 +229,7 @@ def _backtest_week(
         new_id = int(backtest_game_id(season, season_type, week, week1_id))
         start = datetime.fromisoformat(game["startDate"]).replace(year=season)
         if post:
-            start = start.replace(month=12, day=17) + timedelta(days=POSTSEASON[week1_id])
+            start = start.replace(month=12, day=17) + timedelta(days=days[week1_id])
         else:
             start += timedelta(days=7 * (week - 1))
         # Scores move with the week, and differently each season, so ratings change weekly.
@@ -212,6 +267,8 @@ def _backtest_week(
             if consensus is not None and consensus[0] == (season, season_type, week, week1_id):
                 book = {**lines[-1]["lines"][0], "provider": "consensus", "spread": consensus[1]}
                 lines[-1]["lines"].append(book)
+    if post and cfp_rematch:
+        _rematch(season, games, stats, lines)
     return {"games": games, "stats_game_advanced": stats, "lines": lines}
 
 
@@ -221,11 +278,13 @@ def write_backtest_seasons(
     rescore: Rescore | None = None,
     unplayed: Rescore | None = None,
     consensus: tuple[Rescore, float] | None = None,
+    cfp_rematch: bool = False,
 ) -> None:
     """Each season's games, advanced stats and lines, each pulled after its week's games.
     `rescore` gives that game a 3-45 score and a poor offense instead; `unplayed` leaves that
     game uncompleted, as CFBD shows one in progress: its score and line are still there;
-    `consensus` adds a `consensus` book quoting that spread to that game's line."""
+    `consensus` adds a `consensus` book quoting that spread to that game's line; `cfp_rematch`
+    plays both postseason games in December and adds the January rematch (`REMATCH_DAYS`)."""
     for season in seasons:
         weeks = [("regular", w) for w in range(1, SEASON_WEEKS + 1)] + [("postseason", 1)]
         for season_type, week in weeks:
@@ -233,7 +292,9 @@ def write_backtest_seasons(
                 pulled = datetime(season + 1, 1, 20, 12, tzinfo=UTC)
             else:
                 pulled = datetime(season, 8, 25, 12, tzinfo=UTC) + timedelta(days=7 * (week - 1))
-            records = _backtest_week(season, season_type, week, rescore, unplayed, consensus)
+            records = _backtest_week(
+                season, season_type, week, rescore, unplayed, consensus, cfp_rematch
+            )
             for endpoint, rows in records.items():
                 extra = {
                     "games": {"classification": "fbs"},

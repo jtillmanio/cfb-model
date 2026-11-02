@@ -2,7 +2,7 @@
 
 A plain-language walkthrough of the college football model, from the data we pull to the pick that comes out, written for a software developer who hasn't done statistical modeling. It covers the math concepts, the actual files, and what each task in M2, M3 and M4 added.
 
-**This is a guide, not the spec.** When it disagrees with the code, `docs/04-model.md` or `docs/decisions.md`, they win (CLAUDE.md › Which document wins), and this file should be fixed. Last brought up to date: 2026-11-02, after TASK-047 (D-150).
+**This is a guide, not the spec.** When it disagrees with the code, `docs/04-model.md` or `docs/decisions.md`, they win (CLAUDE.md › Which document wins), and this file should be fixed. Last brought up to date: 2026-11-02, after TASK-048 (D-151).
 
 **Contents**
 1. [The whole thing on one page](#1-the-whole-thing-on-one-page)
@@ -14,7 +14,7 @@ A plain-language walkthrough of the college football model, from the data we pul
 7. [From prediction to pick](#7-from-prediction-to-pick)
 8. [The backtest](#8-the-backtest)
 9. [Where results are stored](#9-where-results-are-stored)
-10. [Task by task: M2, M3, M4](#10-task-by-task-m2-m3-m4)
+10. [Task by task: M2, M3, M4, M19](#10-task-by-task-m2-m3-m4-m19)
 11. [Where v1 stands and what's next](#11-where-v1-stands-and-whats-next)
 12. [Glossary](#12-glossary)
 
@@ -113,7 +113,7 @@ So it's equivalent to `cd python && .venv/Scripts/engine backtest …`. Each sub
 | `engine job rate-and-predict --target dev\|live --spec FILE --choices RUN_JSON [--dry-run]` | The weekly job: rebuild every season, fit the coming week (a regular week, or the bowls and CFP as postseason week 1), write a `scheduled` run, its predictions and picks | lake (no CFBD call), DB |
 | `engine tiers --seasons 2014-2025` | Check every FBS team-season maps to Power 4 / G5 / FCS | read only |
 | `engine backtest --spec F --seasons A-B [--report DIR] [--compare baselines] [--holdout --reason T]` | Replay history week by week and score the model | lake `backtests/` |
-| `engine compare RUN_A RUN_B [--weeks 1-3]` | Is run A really better than run B? (paired week bootstrap, § 8) | read only |
+| `engine compare RUN_A RUN_B [--weeks 1-3 \| --postseason]` | Is run A really better than run B? (paired week bootstrap, § 8), on every shared game, weeks 1–3 only, or postseason games only | read only |
 | `engine rate --spec F --season Y --week N --target dev\|test [--season-type postseason] [--choices run.json]` | Fit the model entering week N (of the regular season unless `--season-type postseason`) and insert the run, ratings and predictions | dev or test DB |
 | `engine pick --season Y --week N --target dev\|test --name NAME [--season-type postseason] [--version v1.0]` | Turn the version's newest run for week N into picks against the newest line; re-run it after lines move | dev or test DB |
 | `engine seed fixture` | Load the design's sample data into the test DB (`pnpm db:seed`) | test DB |
@@ -439,7 +439,7 @@ Postgres, written by `engine rate` (`publish/models.py`):
 
 ---
 
-## 10. Task by task: M2, M3, M4
+## 10. Task by task: M2, M3, M4, M19
 
 ### M2: Data pipeline (Phase 1)
 
@@ -489,7 +489,15 @@ The principle: **build the ruler before the thing you measure.** The backtest an
 
 **How the weekly cycle runs.** Sunday 6 AM `results` brings in the weekend's scores, 8 AM `lines` snapshots the coming week's opening lines, and 9 AM `rate-and-predict` fits v1 entering that week. It uses exactly the backtest's code path and the 2026 settings a backtest chose on 2015–2023 (α 2, half-life 16, minimum edge 8, display k 0.1, the same as the holdout run's), predicts every game that will be played, and picks against the newest line. Each later `lines` run re-checks those picks against the new lines, adding a row only when a pick's side or tier changes.
 
-**The bowls and the CFP.** CFBD files every postseason game under postseason week 1, and the backtest scores that as one week: every bowl and CFP game predicted from the ratings entering the first bowl (D-131). Production does the same, so it trades exactly what was validated. Each Sunday from the first bowl to the title game, the job re-rates postseason week 1 at that same cutoff: the ratings come out identical, but a CFP game whose teams weren't known the Sunday before now gets a prediction and a pick. The cost is staleness: the title game is predicted from ratings about five weeks old that never saw the playoff rounds. Re-rating each round after the one before is planned for 2027 (TASK-048), once the backtest shows it helps. A rated week is `(season_type, week)` everywhere now, so postseason week 1 never mixes with the season's regular week 1 (D-150).
+**The bowls and the CFP.** CFBD files every postseason game under postseason week 1, and the backtest scores that as one week: every bowl and CFP game predicted from the ratings entering the first bowl (D-131). Production does the same, so it trades exactly what was validated. Each Sunday from the first bowl to the title game, the job re-rates postseason week 1 at that same cutoff: the ratings come out identical, but a CFP game whose teams weren't known the Sunday before now gets a prediction and a pick. The cost is staleness: the title game is predicted from ratings about five weeks old that never saw the playoff rounds. TASK-048 tested the fix in the backtest (below); rating each round live is TASK-058. A rated week is `(season_type, week)` everywhere now, so postseason week 1 never mixes with the season's regular week 1 (D-150).
+
+### M19: Next variants
+
+| Task | What it did | What it gave the model |
+|---|---|---|
+| **TASK-048** | CFP rounds: each postseason game's `round` from the bracket's shape, a feature row per team per round, the spec setting `postseason: rounds`, `engine compare --postseason` (D-151) | A playoff game can be predicted from ratings that saw the rounds before it. Backtest only: live rating is TASK-058 |
+
+**Each CFP round after the rounds before it.** The data doesn't say which game is a semifinal, so the round comes from the bracket's shape: a postseason game's round is one more than the latest round either team already played that postseason. Bowls and the first playoff round are round 1; the 4-team title game is round 2; the 12-team bracket runs to round 4. With `postseason: rounds` the backtest refits before each later round, at that round's first kickoff, so a title game's ratings include both semifinals. Everything else is predicted exactly as before. On 2016–2023 only the eight title games changed: 5 of 8 got closer, and postseason MAE went from 14.20 to 14.18, a difference of −0.01 whose 95% interval (−0.04 to +0.01) includes zero. Eight games can't prove a gain, so the bar set before the run was "no clear harm"; it passed, so the split is adopted and TASK-058 rates each round live. Until then `engine rate` refuses a `rounds` spec. The 12-team seasons, where three rounds follow the first, are the holdout (2024–2025), not looked at here.
 
 ---
 
@@ -510,7 +518,7 @@ The principle: **build the ruler before the thing you measure.** The backtest an
 In plain terms: v1 is clearly better than Rung 1 and showed a profitable-looking ATS in validation, but it's still about 0.6 points less accurate than the closing line, and its validation edge didn't carry over to the two locked seasons. Promoting it anyway would call a model that failed its final exam "production". Paper trading 2026 gives new out-of-sample games for free.
 
 **What the next variant goes after** (each its own candidate, with its own holdout run, never tuned on 2024–2025):
-- The gap to the market is largest in **weeks 1–3** (+1.14) and the **postseason** (+0.88).
+- The gap to the market is largest in **weeks 1–3** (+1.14) and the **postseason** (+0.88). Refitting before each CFP round (TASK-048, D-151) changes only the title games and barely moves the postseason MAE, so most of that gap is the bowls themselves.
 - **M19.1**: more inputs from 04 § 10 (explosiveness, havoc, finishing drives and others), each kept only if it wins on its own.
 - **M19.2**: a per-game σ, so a mismatch and a toss-up don't get the same uncertainty.
 - **Rung 3**: LightGBM on Rung 2's residuals.

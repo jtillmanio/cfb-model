@@ -1,7 +1,7 @@
 ---
 id: TASK-048
 title: Backtest re-rating each CFP round after the rounds before it
-status: Ready
+status: In progress
 depends_on: [TASK-047]
 size: M
 model: opus
