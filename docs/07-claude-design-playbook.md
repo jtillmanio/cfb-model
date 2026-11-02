@@ -406,7 +406,7 @@ Ratings stay in ink. Reuse the percentile bars, tier badge and data-table densit
 
 **When:** after Prompt 13, before M20's to M23's UI tasks (M20.4, M21.3, M21.5, M21.6, M21.7, M22.6, M23.3, M23.4). It's a draft: finish it at the Phase 5 review gate.
 
-**Before it:** sample rows go into `design/sample-data.md` (a protected file, so the owner approves that edit): Ohio State's résumé (SOR rank, quad records, three best wins, one loss, offensive and defensive results), the top 10 by SOR, Ohio State's model profile (a dozen inputs across units plus the prior's parts), four computer rankings with as-of dates, five seasons of history, a pick preview for Texas vs Oklahoma, and three model versions (one driving picks, one candidate, one paused).
+**Before it:** sample rows go into `design/sample-data.md` (a protected file, so the owner approves that edit). Done 2026-11-02, as § 10: Ohio State's résumé (SOR rank, quad records, three best wins, offensive and defensive results; it's 5-0, so the loss examples are Georgia's and Penn State's), the top 10 by SOR, Ohio State's model profile (a dozen inputs across units plus the prior's parts), four computer rankings with as-of dates, five seasons of history, a pick preview for Texas vs Oklahoma, and three model versions (one driving picks, one candidate, one paused).
 
 **Attach:** `docs/05-ui-design-brief.md` (§2, §4, §5, §9, §13, §14), `docs/04-model.md` § 11, the updated `design/sample-data.md`. Work in the screens project, since it edits existing frames.
 
