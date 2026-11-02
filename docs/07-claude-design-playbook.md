@@ -402,6 +402,33 @@ Ratings stay in ink. Reuse the percentile bars, tier badge and data-table densit
 - [ ] A confidence level never appears without its hit rate.
 - [ ] Every new frame passes the Prompt 9 audit.
 
+### Prompt 14: Résumé, pick preview, team profile and many models (added 2026-11-01)
+
+**When:** after Prompt 13, before M20's to M23's UI tasks (M20.4, M21.3, M21.5, M21.6, M21.7, M22.6, M23.3, M23.4). It's a draft: finish it at the Phase 5 review gate.
+
+**Before it:** sample rows go into `design/sample-data.md` (a protected file, so the owner approves that edit): Ohio State's résumé (SOR rank, quad records, three best wins, one loss, offensive and defensive results), the top 10 by SOR, Ohio State's model profile (a dozen inputs across units plus the prior's parts), four computer rankings with as-of dates, five seasons of history, a pick preview for Texas vs Oklahoma, and three model versions (one driving picks, one candidate, one paused).
+
+**Attach:** `docs/05-ui-design-brief.md` (§2, §4, §5, §9, §13, §14), `docs/04-model.md` § 11, the updated `design/sample-data.md`. Work in the screens project, since it edits existing frames.
+
+```
+Add the views from brief §14 to the existing frames, using the new sample-data.md rows.
+
+1. Rankings: a Résumé view beside Power and Units (SOR rank, SOS rank, Q1–Q4 records, offensive and defensive results, best win, worst loss; a row expands to best wins, best losses, bad losses). Desktop + mobile.
+2. Team page: a résumé card, a Model profile module (every input grouped by unit, with raw, adjusted, percentile, used or display only, points), a Computer rankings card with as-of dates, and a History module by season. Desktop + mobile.
+3. Game Detail: a Pick preview (model line, cover and win %, confidence with hit rate; the two teams side by side; best wins; best matchups; top reasons as sentences). Try it above The Number and as its own tab, and recommend one. Desktop + mobile.
+4. A model switcher on This Week and Game Detail showing a second model's line beside the one driving picks. Desktop + mobile.
+5. Model Lab: Models (list with status, driving picks, live record, inputs on; activate, pause, drive picks, delete with confirm, restore) and How it works (pipeline steps with this version's numbers and one worked game). Desktop only.
+6. States: preseason (no results yet: résumé empty, profile all prior), a team with no Q1 games, a computer ranking that's stale or missing this week, a deleted model, a model that hasn't passed the gates.
+
+Ratings stay in ink. Reuse the percentile bars, tier badge, data-table densities and Prompt 13's input card; list any new component.
+```
+
+**Review:**
+- [ ] The pick preview's best matchups and reasons agree with the drivers waterfall on the same game.
+- [ ] Every computer ranking shows its as-of date.
+- [ ] Which model drives picks is visible wherever a second model's line appears.
+- [ ] Every new frame passes the Prompt 9 audit.
+
 ### Reusable follow-up prompts
 - *"Tighter: increase information density by ~20% without shrinking body text below [13px]."*
 - *"This feels like a sportsbook. Make it calmer: more like an analytics tool."*

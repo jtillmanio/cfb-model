@@ -7,7 +7,7 @@ _Written by `/milestones` on 2026-10-08 from [06-roadmap.md](06-roadmap.md). Eac
 | Milestones | Scope | Roadmap phases | Stubs |
 |---|---|---|---|
 | M1–M8 | **MVP** (all 19 MVP features in [01 › Feature index](01-product.md#feature-index-ids-priorities-outcomes)) | 0–4 | 67 |
-| M9–M19 | **Future** (Next and Later features) | 5–8 | 64 |
+| M9–M23 | **Future** (Next and Later features) | 5–8 | 86 |
 
 - **M6 is the roadmap's Phase 4 acceptance:** paste the Splash page on Thursday, see the CFB + NFL slate ranked against the contest's lines with the top 4 marked, add your picks, follow results on your phone Saturday. M7–M8 finish the rest of the MVP feature list (D-081).
 - **Sizing:** the kit's guideline is 3–6 milestones for an MVP. This MVP spans five roadmap phases and needs 8; cutting to fit would reopen D-081, so the full scope stays.
@@ -22,6 +22,7 @@ _Written by `/milestones` on 2026-10-08 from [06-roadmap.md](06-roadmap.md). Eac
 - Phase 5's "CLV on picks and contest picks" is already MVP (F-10, D-081): model-pick CLV is in M4.6, contest-entry CLV in M6.2.
 - Phase 5 splits into M9–M11, Phase 6 into M12–M13, Phase 7 into M14–M16.
 - Ratings depth (added 2026-10-20, F-46 to F-51, [04 § 10](04-model.md)) is Phase 5 parts 4–5, numbered M18–M19 so the IDs of M12–M17 stay stable. The MVP keeps its scope; three MVP stubs gain a note (M3.1's input registry, M3.7's SOS view, M4.1's conference-tier test), and position-group ratings are research in M16.5.
+- The owner's list of 2026-11-01 (F-52 to F-59, [04 § 11](04-model.md), D-146, D-147) adds Phase 5 parts 6–9, numbered M20–M23 for the same reason, plus M13.6. Team logos join the MVP as a note on M5.2 (no new stub, so the MVP's stub count is unchanged). Position-group ratings move from M16.5 (Phase 7) to M19.6 (Phase 5). M22.1–M22.3 (computer-ranking snapshots) need only M2 and can run before the rest of Phase 5, because a week not snapshotted is lost.
 
 **Runs in parallel**
 - M2 can start alongside M1. Only M2.6 (backfill reaching prod) and M2.7 (scheduled jobs) wait for M1.3 `release` and the R2 account from M1.4.
@@ -40,8 +41,8 @@ _Written by `/milestones` on 2026-10-08 from [06-roadmap.md](06-roadmap.md). Eac
 | MVP features covered | 19/19 |
 | MVP screens covered | 12/12 (S-01, S-02, S-03, S-04, S-06, S-07, S-08, S-13, S-14, S-15, S-16, S-17) |
 | MVP entities covered | 20/20 tables (5 already built by the skeleton) and 9/9 views |
-| Future features scheduled | 28 of 32 Next/Later features; F-12, F-25, F-34 and F-41 have no roadmap phase (below) |
-| Future screens covered | 5/5 designed (S-05, S-09, S-10, S-11, S-12), plus the undesigned History, coach, SP+/FPI, matchup and ratings-depth screens (Rankings › Units, team Stats, Confidence plays, Lab › Inputs) |
+| Future features scheduled | 36 of 40 Next/Later features; F-12, F-25, F-34 and F-41 have no roadmap phase (below) |
+| Future screens covered | 5/5 designed (S-05, S-09, S-10, S-11, S-12), plus the undesigned History, coach, SP+/FPI, matchup and ratings-depth screens (Rankings › Units, team Stats, Confidence plays, Lab › Inputs), and the 2026-11-01 screens (Rankings › Résumé, team résumé, model profile, computer rankings and history, Game Detail's pick preview, the model switcher, Lab › Models and How it works) |
 
 **MVP features → tasks**
 
@@ -69,9 +70,9 @@ _Written by `/milestones` on 2026-10-08 from [06-roadmap.md](06-roadmap.md). Eac
 
 **MVP entities → tasks.** Already built: `sports`, `teams`, `team_seasons`, `venues`, `games`. M2.2: `seasons`, `team_aliases`, `sportsbooks`, `line_snapshots`. M3.6: `model_versions`, `model_runs`, `team_ratings`, `predictions`. M4.5: `picks`. M6.1: `users`, `contests`, `contest_lines`, `contest_entries`, `contest_standings`. M8.7: `user_settings`. Views: `game_market` (M2.5), `team_rankings`, `team_schedule_strength` (M3.7), `current_picks`, `pick_outcomes`, `model_record` (M4.6), `current_contest_lines`, `contest_results`, current contest standing (M6.2).
 
-**Future features → milestones.** F-08 M10 · F-11 M15 · F-13 M10 · F-14 M11 · F-15 M16 (optional) · F-16 M16 (research) · F-20, F-21 M9 · F-22 M15 · F-23 M10 · F-24 M15 · F-26–F-31 M12–M13 · F-35, F-36 M9 · F-38 M14 · F-39 M16 · F-40 M17 · F-46, F-47, F-48 M18 (v1 units M4, SOS M3.7) · F-49 M19 · F-50 M19, M14.3 · F-51 M16.
+**Future features → milestones.** F-08 M10 · F-11 M15 · F-13 M10 · F-14 M11 · F-15 M16 (optional) · F-16 M16 (research) · F-20, F-21 M9 · F-22 M15 · F-23 M10 · F-24 M15 · F-26–F-31 M12–M13 · F-35, F-36 M9 · F-38 M14 · F-39 M16 · F-40 M17 · F-46, F-47, F-48 M18 (v1 units M4, SOS M3.7) · F-49 M19 · F-50 M19, M14.3 · F-51 M19.6 (was M16.5) · F-52, F-53 M20 · F-54, F-55, F-56 M21 · F-57 M22 (and M10.7) · F-58 M21, M13.6 · F-59 M23, M14.
 
-**Future entities → milestones.** `season_simulations` M9 · `manual_adjustments` M10 · weather snapshots, external benchmark ratings M10 · watchlist, `alert_rules`, alert log, `push_subscriptions` M11 · rating kind, `coaches`, `coach_tenures` M12 · `team_game_stats` and its views M18.5 · schedule-strength outputs (SOR, remaining SOS) M18.4.
+**Future entities → milestones.** `season_simulations` M9 · `manual_adjustments` M10 · weather snapshots, external benchmark ratings M10 · watchlist, `alert_rules`, alert log, `push_subscriptions` M11 · rating kind, `coaches`, `coach_tenures` M12 · `team_game_stats` and its views M18.5 · schedule-strength outputs (SOR, remaining SOS) M18.4 · per-team input values M21.1 · external ratings M22.4 (shared with M10.7) · position-group ratings M19.6 · active-version marker, if needed, M23.1.
 
 **Unscheduled** (no roadmap phase): F-12 moneyline edges, F-25 win totals vs market, F-34 bet tracker (and its `bets` table), F-41 college basketball. Add a phase if one becomes worth building.
 
@@ -170,7 +171,7 @@ _Written by `/milestones` on 2026-10-08 from [06-roadmap.md](06-roadmap.md). Eac
 |------|---|------|-------|------|------------|----------|-------|
 | ✅ | M5.0 → TASK-027 | Gate Lighthouse on an in-job build on the seeded fixture DB | ops | M | M1.5 | attended | D-125 (settles roadmap open question 5): build and serve the app and API in the job on the seeded test DB as e2e does; gates and budgets move there; the PR preview is measured and reported, never gated. Must land before M5.6 sets the first data-heavy budget |
 | | M5.1 | Implement `format.ts` against the number-format card | ui | S | — | attended | D-068: every example in 02 › Testing strategy (Unit: web) as a Vitest case; true minus, padded whole spreads, model lines one decimal; zone-aware kickoff times |
-| | M5.2 | Set up shadcn/ui and build the core components | ui | M | M5.1 | attended | The design track's design-system PR and review gate. Edge pill (filled ≥ 2.5, D-061), tier badge (D-063), team chip (D-075), result marker, market cell with sparkline, filter chips, data table densities (D-084). Hard rule 7: tokens only. Design: `Components.dc.html`, `Foundations.dc.html`, `Market Extras.dc.html`, `design/README.md` |
+| | M5.2 | Set up shadcn/ui and build the core components | ui | M | M5.1 | attended | The design track's design-system PR and review gate. Edge pill (filled ≥ 2.5, D-061), tier badge (D-063), team chip (D-075; shows CFBD's logo from `teams.logo_url` in the 20px slot, the team-color dot when it's NULL, and the screen endpoints return `logo_url`, D-146; the plan gate decides how logos are served without a third-party request, which the Lighthouse gate forbids, D-101), result marker, market cell with sparkline, filter chips, data table densities (D-084). Hard rule 7: tokens only. Design: `Components.dc.html`, `Foundations.dc.html`, `Market Extras.dc.html`, `design/README.md` |
 | | M5.3 | Build the app shell and global states | ui | M | M5.2, M1.1 | attended | S-16. Desktop sidebar with track-record card, top bar, mobile tabs + More, tablet nav at 768, API unreachable with Retry (no saved copy, D-096), wake-up note after 1.5 s and 10 s timeout (D-097); reuse `raceWakeNote` from `web/lib/login.ts` (from #15), stale-lines banner. Sport switcher shows CFB only. Decide at the plan gate how shell data rides in each page's one API call. Design: `App States Desktop.dc.html` / `App States Mobile.dc.html`, `This Week Tablet.dc.html`, `Pass B - New Screens.dc.html` B8a, `Pass C3 - Alerts Settings Shell.dc.html` C16a–c; shots `01-this-week-desktop.png`, `27-more-mobile.png`, `28-this-week-tablet.png` |
 | | M5.4 | Generate the TypeScript API client from OpenAPI | web | S | — | attended | D-011: `openapi-typescript`; CI fails on drift; `/teams` moves onto it |
 | | M5.5 | Build the `/slate` endpoint | api | M | M4.6, M2.5, M5.4 | attended | First screen endpoint (BFF pattern, D-010): games for a week with `game_market` opener/current/snapshots, latest prediction, current pick, pick outcomes for the record strip; ≤ 6 queries in one wave; fixture values from F-01. *From TASK-016 (PR #52):* the fixture still lacks the other 43 Week 6 games behind "54 games" (Tulane @ Memphis final 27-24, Iowa State @ Cincinnati, Arizona State @ Baylor, and filler with edges under 1.0; 02 › Seed data); this task adds them. *From TASK-034 (M3 task files):* TASK-034 seeds v1.0 predictions for the 11 Week 6 games seeded then; this task seeds a v1.0 prediction for each game it adds (filler edges under 1.0), in the same fixture file. *From TASK-040 (PR #105):* TASK-040 seeds Tulane @ Memphis, Iowa State @ Cincinnati and Arizona State @ Baylor (lines, v1.0 predictions and picks, in `picks.json`), so this task adds the other 40 Week 6 games, not 43 *From TASK-041 (PR #107):* `current_picks` is the pick frozen at kickoff; `pick_outcomes` gives each pick's `result`, `units`, `clv` (against the close, NULL until `closing_spread_home` is set) and `clv_so_far` (against the current line, for the "so far" label before kickoff) (D-142) |
@@ -271,7 +272,7 @@ _Written by `/milestones` on 2026-10-08 from [06-roadmap.md](06-roadmap.md). Eac
 | | M10.4 | Add weather snapshots and the weather-flag view | data | S | — | attended | Schema proposal first (03 › Phase 5). Flag thresholds in the view (D-083) |
 | | M10.5 | Snapshot Open-Meteo forecasts for this week's outdoor games | etl | M | M10.4 | attended | D-040: in the `lines` job; domes skipped; forecasts only, never observed weather in backtests |
 | | M10.6 | Show weather flags on the slate and Game Detail | ui | M | M10.5 | unattended | S-01 tooltip and mobile tap, S-03 panel (forecast, dome, no data). Design: `Market Extras.dc.html`, `This Week Desktop.dc.html`, `Game Detail Desktop.dc.html` |
-| | M10.7 | Design and build the SP+/FPI/Elo comparison view | data, ui | M | — | attended | F-23: not designed yet; needs a Claude Design pass and a storage proposal for published benchmark values (point-in-time labels per 04 § 9.2) |
+| | M10.7 | Design and build the SP+/FPI/Elo comparison view | data, ui | M | — | attended | F-23: not designed yet; needs a Claude Design pass and a storage proposal for published benchmark values (point-in-time labels per 04 § 9.2). The storage is shared with M22.4 (computer rankings, D-146): whichever comes first proposes it |
 
 ## M11: Watchlist and alerts (Phase 5, part 3) — Future
 
@@ -316,7 +317,7 @@ _Added 2026-10-20; numbered like M18._
 
 **Goal:** find out which of the new numbers help predict, show how sure the model is about each play, and explain every input.
 **Demo at exit:** a backtest report with a ship or don't-ship verdict for each new input and for game-specific σ; Picks › Confidence plays lists this week's strongest plays with levels, hit rates and reasons; Lab › Inputs shows a card for every input.
-**Features:** F-49, F-50
+**Features:** F-49, F-50, F-51 (moved from M16 on 2026-11-01)
 **Depends on:** M18.1–M18.4; M9.6–M9.7 for M19.5; Prompt 13's frames for M19.4–M19.5
 **Riskiest:** backtest overfitting from testing many inputs at once (04 § 6): every variant is counted and the holdout stays locked.
 
@@ -327,6 +328,74 @@ _Added 2026-10-20; numbered like M18._
 | | M19.3 | Add confidence levels with backtest hit rates and reasons | engine, api | M | M19.2 | attended | F-49, 04 § 10.7, D-118: levels are bins of the calibrated `model_prob`, with cutoffs in the spec, computed on read and never stored (hard rule 1); hit rate per level from pooled validation; each higher level must hit more often (04 § 9.6). Decide at the plan gate whether levels replace the A/B/C tiers |
 | | M19.4 | Build Picks › Confidence plays | api, ui | M | M19.3, M7.2 | unattended | S-07, F-49: level, hit rate, reasons, UNCALIBRATED label. Design: Prompt 13 frames (05 § 13) |
 | | M19.5 | Build Model Lab › Inputs, the inputs explainer | api, ui | M | M18.1, M9.7 | unattended | S-09, F-50, 04 § 10.6: registry text, `fitted_params` weights in plain English, share of the rating spread, league distribution with a team marked. The input card is a component M14.3 reuses. Design: Prompt 13 frames |
+| | M19.6 | Research position-group ratings | engine, etl | M | M18.3 | attended | Moved from M16.5 (Phase 7) on 2026-11-01 (D-146). F-51, 04 § 10.8, § 11.7: `model/` branch; estimate the CFBD player PPA and usage endpoints' call cost and get the owner's OK first; position-group ratings entering each week are shown on the team profile and pick preview (M21) either way; they enter a model only if it beats production out of sample (04 § 9.6) |
+
+## M20: Résumé and quad records (Phase 5, part 6) — Future
+
+_Added 2026-11-01 (D-146) and numbered after M19 so the IDs of M12–M19 stay stable, like M20–M23 below._
+
+**Goal:** see who has done the most with their schedule, entering any week, and why.
+**Demo at exit:** Rankings › Résumé lists teams by SOR with SOS, Q1–Q4 records, offensive and defensive results and best win; Ohio State's row expands to its best wins, best losses and bad losses; the time machine shows the same view for 2019 Week 8; a backtest report gives quad records a ship or don't-ship verdict.
+**Features:** F-52, F-53
+**Depends on:** M18.4 (SOR), M18.5 (team game stats); Prompt 14's frames for M20.4
+**Riskiest:** quad cutoffs that read wrong on real seasons, so M20.1 checks them on 2014–2025 before any UI.
+
+| Done | # | Task | Layer | Size | Depends on | Autonomy | Notes |
+|------|---|------|-------|------|------------|----------|-------|
+| | M20.1 | Add the game-difficulty, quad and best- and worst-result views | data | M | M18.4 | attended | F-52/F-53, 04 § 11.1–11.2: difficulty from the benchmark rating, the opponent's rating entering the chosen week and the site; quads by FBS rank with site-dependent cutoffs (start from § 11.2's table and offer the difficulty-binned alternative), FCS always Q4; the bad-loss cutoff set here. Views only (hard rule 1); the cutoffs checked on 2014–2025; `EXPLAIN` check |
+| | M20.2 | Add per-game offensive and defensive results | data | M | M18.5 | attended | F-52, 04 § 11.1: § 10.3's opponent-removed difference per game, in points per drive and EPA/play; a view over `team_game_stats`, with a test that its season average equals the season-level opponent-removed view on the fixture |
+| | M20.3 | Build the résumé view of `/rankings` and the team page's résumé data | api | M | M20.1, M20.2, M18.6 | unattended | Time machine as on Power; still one API call per page (hard rule 5) |
+| | M20.4 | Build Rankings › Résumé and the team page's résumé card | ui | M | M20.3 | unattended | S-04, S-06, F-52/F-53: expandable rows (best wins, best and bad losses), quad records, time machine, conference chips, preseason empty state. Design: Prompt 14 frames (05 § 14). Adds the Résumé view's Lighthouse route and budget |
+| | M20.5 | Test quad records as a model input | engine | M | M20.1, M19.1 | attended | `model/` branch, 04 § 11.2: point-in-time (entering week N, earlier games binned with the harness's ratings entering week N); kept only if MAE improves with ATS and calibration no worse (04 § 9.5); counted as a variant (04 § 6) |
+
+## M21: Pick preview, team model profile and history (Phase 5, part 7) — Future
+
+**Goal:** everything the model knows about a team and a matchup, on screen and explained.
+**Demo at exit:** Texas vs Oklahoma's Game Detail shows the pick preview, and its best matchups agree with the drivers; Ohio State's page shows every input entering this week with its points, its seasons since 2014 and its résumé card; Lab › How it works walks one of this week's games from ratings to cover %.
+**Features:** F-54, F-55, F-56, F-58
+**Depends on:** M18.6, M19.3 (confidence), M20.3; Prompt 14's frames for the UI tasks
+**Riskiest:** the prior's parts aren't stored per team and week yet (M21.1, a schema change).
+
+| Done | # | Task | Layer | Size | Depends on | Autonomy | Notes |
+|------|---|------|-------|------|------------|----------|-------|
+| | M21.1 | Store the input values the model profile needs | engine, data | M | M18.3 | attended | Schema change: stop and ask (03 › Proposed additions from the 2026-11-01 features). F-55, 04 § 11.4: the prior's parts (last season, returning production, talent, recruiting) and its weight, per run, team and week; insert-only; leakage test |
+| | M21.2 | Extend `/teams/{id}` with the model profile and history | api | M | M21.1, M18.6, M20.3 | unattended | F-55/F-58: every registry input entering the chosen week (raw, adjusted, percentile, used by the selected version, points) and the derived inputs; seasons since 2014 (record, ATS, final rating and rank, SOR rank, conference finish, bowl); labels from the registry, never hard-coded in `web/` |
+| | M21.3 | Build the team page's model profile and history modules | ui | M | M21.2 | unattended | S-06: grouped by unit with "display only" markers; preseason (all prior) state; FCS (schedule only). Design: Prompt 14 frames |
+| | M21.4 | Extend `/games/{id}` with the pick preview | api | M | M19.3, M20.3, M18.6 | unattended | F-54, 04 § 11.3: side-by-side ratings and ranks per unit and position group, SOS, SOR, résumé rank, quads, best wins; best matchups from `drivers`, with a test that they sum with the other drivers to the margin; reason sentences from templates, no LLM; frozen at kickoff for past games |
+| | M21.5 | Build Game Detail's pick preview | ui | M | M21.4, M7.8 | unattended | S-03, F-54: placement per Prompt 14's recommendation; agrees with the waterfall. Design: Prompt 14 frames |
+| | M21.6 | Build Model Lab › How it works | api, ui | M | M9.7 | attended | F-56, 04 § 11.5: pipeline steps with the selected version's spec and `fitted_params`, and a worked example on one of this week's games; the plan gate decides how the page and `docs/model-guide.md` share their prose. Design: Prompt 14 frames |
+
+## M22: Computer rankings (Phase 5, part 8) — Future
+
+**Goal:** other systems' ratings, point-in-time, on the team profile and available to any model.
+**Demo at exit:** Ohio State's page lists the chosen sources (SP+, FPI, Elo and others) with ranks and as-of dates; a model version with Elo turned on runs a backtest over the seasons Elo covers and gets a verdict; the weekly snapshots have been collecting since M22.2 shipped.
+**Features:** F-57 (and F-23's data, with M10.7)
+**Depends on:** M2 (ingest client and lake) for M22.1–M22.3, which can run before the rest of Phase 5; M18.1 (registry) and M19.1 for M22.5; M21 for M22.6
+**Riskiest:** sources with no dated weekly history: every week not snapshotted is lost, and some sites may forbid scraping.
+
+| Done | # | Task | Layer | Size | Depends on | Autonomy | Notes |
+|------|---|------|-------|------|------------|----------|-------|
+| | M22.1 | Survey the computer-ranking sources | etl | S | — | attended | F-57, 04 § 11.6: which of CFBD's SP+, FPI, Elo and SRS come by week; other sources (e.g. Massey's composite and its archive) with dated history, terms of use and robots.txt, scraping effort and call cost. The owner picks the sources |
+| | M22.2 | Snapshot the chosen sources weekly into the raw lake | etl, ops | M | M22.1 | attended | D-146: the `external-ratings` job (02 › Jobs), append-only, `as_of` = fetch time; CFBD calls through the budget tracker; no schema change. Start as early as possible, even before Phase 5 |
+| | M22.3 | Backfill dated weekly archives | etl | M | M22.1 | attended | Only for archives that show when each value was published; the owner approves each scraper; a value without a provable publish date is season-final and never enters a backtest (04 § 9.2) |
+| | M22.4 | Stage and publish external ratings | etl, data | M | M22.2 | attended | Schema change: stop and ask (03 › Proposed additions from the 2026-11-01 features). Shared with M10.7's benchmark storage, whichever comes first; upserted by source key (hard rule 3); the feature table's point-in-time assertion covers them |
+| | M22.5 | Register each source as an optional input and test it | engine | M | M22.4, M18.1, M19.1 | attended | `model/` branch, 04 § 11.6: registry ids `ext.*`, off by default, turned on per version; backtests only on the seasons a source covers; a stale value fails the run of the models that use it; each source counted as a variant (04 § 6) |
+| | M22.6 | Show computer rankings on the team page and the pick preview | api, ui | M | M22.4, M21.3, M21.5 | unattended | S-06, S-03, F-57: each source's rank, rating and as-of date beside ours; stale and missing states. Design: Prompt 14 frames |
+
+## M23: Many models (Phase 5, part 9) — Future
+
+**Goal:** several models running side by side, managed from the app.
+**Demo at exit:** three versions are active; This Week's model switcher shows a candidate's line beside the one driving picks; Lab › Models switches which version drives picks, pauses one and deletes one (restorable, its picks kept); each active version shows its own live record.
+**Features:** F-59 (with F-38's builder in M14)
+**Depends on:** M4.8 (weekly cycle), M9.6–M9.7 (Lab endpoints and versions list); Prompt 14's frames for M23.3–M23.4
+**Riskiest:** the weekly job's run time growing with each active version (D-092).
+
+| Done | # | Task | Layer | Size | Depends on | Autonomy | Notes |
+|------|---|------|-------|------|------------|----------|-------|
+| | M23.1 | Rate and predict every active model version in the weekly job | engine, ops | M | M4.8 | attended | D-147, 04 § 11.8: `candidate` and `production` versions to start; the plan gate decides whether a separate active marker is needed (schema change: stop and ask) and sets the cap on active versions that keeps the job ≤ 10 min (D-092); each version gets its own model run and picks |
+| | M23.2 | Add a version parameter to the screen endpoints | api | M | M23.1, M7.6 | unattended | `/slate`, `/games/{id}`, `/picks` and `/performance` take an optional version, defaulting to the one driving picks; still one API call per page (hard rule 5) |
+| | M23.3 | Build Model Lab › Models: activate, pause, drive picks, delete and restore | api, ui | M | M23.1, M9.7 | attended | S-09, F-59: soft delete with a confirm (D-033), runs and outputs kept (hard rule 2); switching the version that drives picks goes through M14.4's checklist once it exists, and until then shows the gates' status; every created version counts toward variants tried. Design: Prompt 14 frames |
+| | M23.4 | Add the model switcher to This Week and Game Detail | ui | M | M23.2 | unattended | S-01, S-03, F-59: a second model's line beside the one driving picks, labeled when that version hasn't passed the gates. Design: Prompt 14 frames |
 
 ## M12: History data and hindsight ratings (Phase 6, part 1) — Future
 
@@ -359,6 +428,7 @@ _Added 2026-10-20; numbered like M18._
 | | M13.3 | Build the History endpoints | api | M | M13.1, M13.2 | unattended | Season final, programs, coaches, coach page |
 | | M13.4 | Build Rankings › History | ui | M | M13.3 | unattended | Season final, Programs, Coaches tabs; era badge. Design from Prompt 10a–10b (not drawn yet) |
 | | M13.5 | Build the coach page and add coaches to ⌘K | ui | M | M13.3 | unattended | Career by stop, value added by season, ATS and close-game records. Design from Prompts 10b–10c |
+| | M13.6 | Extend the team page's history before 2014, with hindsight ratings and coaches | api, ui | S | M12.5, M13.3, M21.3 | unattended | F-58 (added 2026-11-01): M21.3's module gains the backfilled seasons, scores-only and hindsight labels, and each season's coach |
 
 ## M14: Model Lab builder (Phase 7, part 1) — Future
 
@@ -371,7 +441,7 @@ _Added 2026-10-20; numbered like M18._
 |------|---|------|-------|------|------------|----------|-------|
 | | M14.1 | Add the `backtest` workflow for one model version | ops | M | — | attended | 02 › Jobs; writes results back to `model_runs`. *From TASK-034 (PR #96):* the test-DB fixture's `model_runs.metrics` (`validation`, `holdout` with seasons/picks/win_pct/roi, `accuracy` with mae/closing_mae, `pick_buckets`, `calibration`) is a placeholder shape; the real one comes from `engine.backtest.metrics.Metrics`, and M7.4 reads it, so match it or update `python/db/seeds/fixture/models.json` with it |
 | | M14.2 | Queue backtests from the API through workflow dispatch | api | M | M14.1 | attended | 02 › Components 2: fine-grained token with only `actions:write`; `model_runs.status` queued → running → done. *From TASK-034 (PR #96):* nothing stops an UPDATE of a run's `season`, `week`, `as_of` or `fitted_params` after it has outputs (D-135 put no trigger on `model_runs`); the first code that updates runs in place should propose a column-scoped trigger allowing only `status`, `started_at`, `finished_at`, `error`, `metrics` and `github_run_id` (schema change: stop and ask) |
-| | M14.3 | Generate the builder form from the `ModelSpec` JSON Schema | ui | M | M14.2, M19.5 | attended | D-011, S-10; clone, edit, run states; each input's toggle sits beside M19.5's input card (F-50), with options and labels from the input registry. Design: `Lab Wireframes.dc.html` (low fidelity until redrawn); shot `16-lab-builder-wireframe.png` |
+| | M14.3 | Generate the builder form from the `ModelSpec` JSON Schema | ui | M | M14.2, M19.5 | attended | D-011, S-10; clone, edit, run states; each input's toggle sits beside M19.5's input card (F-50), with options and labels from the input registry. Design: `Lab Wireframes.dc.html` (low fidelity until redrawn); shot `16-lab-builder-wireframe.png`. Creates and edits the versions M23.3's Models page manages (F-59, D-147) |
 | | M14.4 | Add promotion with the go/no-go checklist and variants-tried counter | api, ui | M | M14.3 | attended | 04 § 6, § 9.4: holdout use recorded; one production version per market. *From TASK-034 (PR #96):* `model_runs` has no holdout flag or reason yet (holdout openings are still in the lake's `backtests/holdout/`, D-131), and nothing defines a "variant" or records when a version was promoted, so 02 › Seed data's "7 variants since the last promotion" isn't in the fixture; this task adds both (schema change: stop and ask) and seeds them |
 
 ## M15: Totals, CFP odds and matchups (Phase 7, part 2) — Future
@@ -394,7 +464,7 @@ _Added 2026-10-20; numbered like M18._
 
 **Goal:** try the riskier model ideas, ship only what wins, and add the nice-to-haves.
 **Demo at exit:** a backtest report for each research branch with a ship or don't-ship verdict; Claude-written pick summaries on Game Detail.
-**Features:** F-15, F-16, F-39, F-51
+**Features:** F-15, F-16, F-39
 **Depends on:** M14 (Lab compare and promotion)
 
 | Done | # | Task | Layer | Size | Depends on | Autonomy | Notes |
@@ -403,7 +473,6 @@ _Added 2026-10-20; numbered like M18._
 | | M16.2 | Research the Rung 3 ML residual layer | engine | M | — | attended | `model/` branch; ships only if it beats production Rung 2 out of sample (D-049) |
 | | M16.3 | Write plain-English pick summaries with Claude from `drivers` | api, ui | M | — | attended | F-39 |
 | | M16.4 | Add multi-book lines from The Odds API (optional) | etl | M | — | attended | F-15: 500 free credits a month; lower value without a sportsbook |
-| | M16.5 | Research position-group ratings | engine, etl | M | M18.3 | attended | F-51, 04 § 10.8: `model/` branch; estimate the CFBD player PPA and usage endpoints' call cost and get the owner's OK first; ships only if it beats production out of sample (04 § 9.6) |
 
 ## M17: Multi-sport, NFL first (Phase 8) — Future
 
