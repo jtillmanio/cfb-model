@@ -1,7 +1,7 @@
 ---
 id: TASK-046
 title: Run the production weekly cycle: rate, predict and pick
-status: Review
+status: Done
 depends_on: [TASK-043, TASK-044, TASK-045]
 size: M
 model: opus
