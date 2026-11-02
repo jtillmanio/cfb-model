@@ -106,6 +106,8 @@ Approved 2026-11-02 at `1750be0`.
 
 **Risks:** 2026 dev picks are DraftKings at −110 until consensus or prices appear; a run whose `choices` don't resolve every pick field is refused (exit 2).
 
+**Revision 1** (2026-11-02, after schema review R1; the owner approved all four): the book tie-break ends on the snapshot id (two sources can quote one book in a pull); `write_picks` takes `pg_advisory_xact_lock(hashtext('engine.publish.picks'), version_id)` so two writers on a version serialize; a clock earlier than a pick already made for the week's games is refused, and only runs finished by the clock are read; a prediction with no `margin_sd` (under a normal margin) is refused. Spec review R1's fixes: D-148 says the run's `as_of` may equal a cutoff (the week's first kickoff), with a test of the `PointInTimeError` path. Tests: `test_a_pull_quoting_one_book_twice_takes_the_lowest_id`, `test_the_writer_holds_a_lock_on_the_version_until_it_commits`, `test_a_clock_before_a_pick_already_made_is_refused`, `test_a_run_finished_after_the_clock_is_not_picked_from`, `test_a_prediction_with_no_margin_sd_is_refused`, `test_a_run_as_of_after_a_games_cutoff_raises`.
+
 ## Review log
 
 _Filled by /implement-task. One line per round._

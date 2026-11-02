@@ -26,6 +26,7 @@ from engine.core.probability import NormalMargin, blended_margin, cover_probabil
 from engine.core.spec import ModelSpec
 from engine.publish import picks
 from engine.sports.cfb.teams import pickable
+from engine.transform.features import PointInTimeError
 
 SPORT = "pytest"
 NAME = "pytest-picks"
@@ -91,6 +92,7 @@ def _run(
     finished_at: datetime = NOW - timedelta(days=2),
     choices: dict[str, float] | None = None,
     status: str = "succeeded",
+    as_of: datetime = NOW - timedelta(days=3),
 ) -> int:
     chosen = CHOICES if choices is None else choices
     params = {"home_field": 3.0, "margin_sd": SD, "choices": chosen}
@@ -105,7 +107,7 @@ def _run(
             "v": version_id,
             "season": SEASON,
             "week": WEEK,
-            "as_of": NOW - timedelta(days=3),
+            "as_of": as_of,
             "status": status,
             "started": finished_at - timedelta(minutes=5),
             "finished": finished_at,
@@ -183,13 +185,20 @@ def _line(
     ).scalar_one()
 
 
-def _prediction(conn: Connection, run_id: int, version_id: int, game_id: int, margin: float) -> int:
+def _prediction(
+    conn: Connection,
+    run_id: int,
+    version_id: int,
+    game_id: int,
+    margin: float,
+    sd: float | None = SD,
+) -> int:
     return conn.execute(
         text(
             "INSERT INTO predictions (model_run_id, model_version_id, game_id, pred_margin,"
             " home_win_prob, margin_sd) VALUES (:r, :v, :g, :m, 0.6, :sd) RETURNING id"
         ),
-        {"r": run_id, "v": version_id, "g": game_id, "m": margin, "sd": SD},
+        {"r": run_id, "v": version_id, "g": game_id, "m": margin, "sd": sd},
     ).scalar_one()
 
 
@@ -627,3 +636,76 @@ def test_the_newest_succeeded_run_is_the_one_picked_from(world: World) -> None:
     assert summary.run_id == newer
     (row,) = _rows(world.conn, world.version)
     assert (row.prediction_id, row.side) == (newest_prediction, "away")
+
+
+def test_a_run_finished_after_the_clock_is_not_picked_from(world: World) -> None:
+    game_id = world.game(10.0)
+    later = _run(world.conn, world.version, finished_at=NOW + timedelta(hours=1))
+    _prediction(world.conn, later, world.version, game_id, -12.0)
+    _line(world.conn, game_id, "DraftKings", NOW - timedelta(hours=1), -3.0)
+
+    summary = world.write()
+
+    assert summary.run_id == world.run
+    assert [r.side for r in _rows(world.conn, world.version)] == ["home"]
+
+
+def test_a_clock_before_a_pick_already_made_is_refused(world: World, picked: int) -> None:
+    _line(world.conn, picked, "DraftKings", NOW - timedelta(minutes=30), -0.5)
+
+    with pytest.raises(picks.PicksRefused, match="after the clock"):
+        world.write(NOW - timedelta(minutes=10))
+
+    assert len(_rows(world.conn, world.version)) == 1
+
+
+def test_a_prediction_with_no_margin_sd_is_refused(world: World) -> None:
+    game_id = _game(world.conn, world.team(), world.team())
+    _prediction(world.conn, world.run, world.version, game_id, 10.0, sd=None)
+    _line(world.conn, game_id, "DraftKings", NOW - timedelta(hours=1), -3.0)
+
+    with pytest.raises(picks.PicksRefused, match="no margin_sd"):
+        world.write()
+
+
+def test_a_run_as_of_after_a_games_cutoff_raises(world: World) -> None:
+    """Hard rule 4: a run fit after a game kicked off never picks it (D-148)."""
+    game_id = _game(world.conn, world.team(), world.team(), NOW + timedelta(hours=1))
+    late = _run(
+        world.conn,
+        world.version,
+        finished_at=NOW - timedelta(minutes=5),
+        as_of=NOW + timedelta(hours=2),
+    )
+    _prediction(world.conn, late, world.version, game_id, 10.0)
+    _line(world.conn, game_id, "DraftKings", NOW - timedelta(hours=1), -3.0)
+
+    with pytest.raises(PointInTimeError, match=f"game {game_id}"):
+        world.write()
+
+
+def test_a_pull_quoting_one_book_twice_takes_the_lowest_id() -> None:
+    at = NOW - timedelta(hours=1)
+    rows = [
+        picks.Snapshot(9, "DraftKings", at, -3.5, None, None),
+        picks.Snapshot(4, "DraftKings", at, -3.0, None, None),
+        picks.Snapshot(2, "Bovada", at, -2.5, None, None),
+    ]
+
+    for order in (rows, rows[::-1]):
+        chosen = picks.choose_snapshot(order, KICKOFF, NOW)
+        assert chosen is not None and chosen.id == 4
+
+
+def test_the_writer_holds_a_lock_on_the_version_until_it_commits(world: World) -> None:
+    world.write()
+
+    held = world.conn.execute(
+        text(
+            "SELECT count(*) FROM pg_locks WHERE locktype = 'advisory' AND granted"
+            " AND pid = pg_backend_pid() AND classid::int = hashtext(:lock)"
+            " AND objid::int = :v AND objsubid = 2"
+        ),
+        {"lock": picks.LOCK, "v": world.version},
+    ).scalar_one()
+    assert held == 1

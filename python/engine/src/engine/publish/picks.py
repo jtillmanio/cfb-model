@@ -24,7 +24,9 @@ the end of `game_date` in Eastern time when TBA): the views would ignore it. Eve
 `created_at` is the writer's clock, the same instant the cutoff was checked against.
 
 Insert-only (hard rule 2): the writer never updates or deletes a pick. `write_picks` runs in the
-caller's transaction; `publish_picks` opens one on the target's direct URL.
+caller's transaction, holding a lock on the version until it commits; `publish_picks` opens one
+on the target's direct URL. A clock earlier than a pick already made for the week's games is
+refused, as is a run that finished after it.
 """
 
 from __future__ import annotations
@@ -58,6 +60,7 @@ MARKET = "spread"
 NO_PRICE = -110  # D-132
 BOOKS = ("consensus", "DraftKings", "Bovada")  # D-148: the first of these the pull quotes
 RUN_TYPES = ("adhoc", "scheduled")  # a backtest run spans seasons and has no week
+LOCK = "engine.publish.picks"  # the advisory lock's first key; the second is the version id
 
 
 class PicksRefused(ValueError):
@@ -89,31 +92,33 @@ class Snapshot:
 
 def choose_snapshot(rows: Iterable[Snapshot], cut: datetime, now: datetime) -> Snapshot | None:
     """The row a pick uses: the newest pull before `cut` and no later than `now`, and of its
-    books the first in `BOOKS`, else the first by name; None when there's no such pull."""
+    books the first in `BOOKS`, else the first by name, then the lowest id (two sources can
+    quote one book in a pull); None when there's no such pull."""
     seen = [r for r in rows if r.captured_at < cut and r.captured_at <= now]
     if not seen:
         return None
     newest = max(r.captured_at for r in seen)
     pull = [r for r in seen if r.captured_at == newest]
     rank = {book: i for i, book in enumerate(BOOKS)}
-    return min(pull, key=lambda r: (rank.get(r.book, len(BOOKS)), r.book))
+    return min(pull, key=lambda r: (rank.get(r.book, len(BOOKS)), r.book, r.id))
 
 
-def _run(conn: Connection, version_id: int, season: int, week: int) -> Any:
+def _run(conn: Connection, version_id: int, season: int, week: int, now: datetime) -> Any:
+    """The version's newest succeeded run for the week that had finished by `now`."""
     run = conn.execute(
         text(
             "SELECT r.id, r.as_of, r.fitted_params, v.spec FROM model_runs r"
             " JOIN model_versions v ON v.id = r.model_version_id"
             " WHERE r.model_version_id = :v AND r.season = :season AND r.week = :week"
-            " AND r.status = 'succeeded' AND r.run_type = ANY(:types)"
-            " ORDER BY r.finished_at DESC NULLS LAST, r.id DESC LIMIT 1"
+            " AND r.status = 'succeeded' AND r.run_type = ANY(:types) AND r.finished_at <= :now"
+            " ORDER BY r.finished_at DESC, r.id DESC LIMIT 1"
         ),
-        {"v": version_id, "season": season, "week": week, "types": list(RUN_TYPES)},
+        {"v": version_id, "season": season, "week": week, "types": list(RUN_TYPES), "now": now},
     ).one_or_none()
     if run is None:
         raise PicksRefused(
-            f"version {version_id} has no succeeded run for {season} week {week}: run engine "
-            "rate first"
+            f"version {version_id} has no succeeded run for {season} week {week} finished by "
+            f"{now}: run engine rate first"
         )
     return run
 
@@ -175,6 +180,32 @@ def _snapshots(conn: Connection, game_ids: list[int], now: datetime) -> dict[int
     return found
 
 
+def _distribution(
+    params: Mapping[str, Any], sd: float | None, prediction: int
+) -> MarginDistribution:
+    """The margin distribution the run predicted with: its empirical weights, else a normal margin
+    at the prediction's σ."""
+    try:
+        weights = EmpiricalMargin.from_params(params)
+    except KeyError as e:
+        raise PicksRefused(f"the run's empirical weights have no {e}") from e
+    if weights is not None:
+        return weights
+    if sd is None:
+        raise PicksRefused(f"prediction {prediction} has no margin_sd to pick with")
+    return NormalMargin(sd)
+
+
+def _newest_pick(conn: Connection, version_id: int, game_ids: list[int]) -> datetime | None:
+    return conn.execute(
+        text(
+            "SELECT max(created_at) FROM picks WHERE model_version_id = :v"
+            " AND game_id = ANY(:games)"
+        ),
+        {"v": version_id, "games": game_ids},
+    ).scalar_one()
+
+
 def _current(conn: Connection, version_id: int, game_ids: list[int]) -> dict[int, tuple[Any, Any]]:
     """Each game's current market pick as (side, tier); a game with none is absent."""
     return {
@@ -211,13 +242,24 @@ def write_picks(
     pickable: Callable[[GameContext], bool] | None = None,
 ) -> PickSummary:
     """Pick the week's games from the version's newest succeeded run at `now`, in the caller's
-    transaction, inserting only what changes a game's current pick."""
-    run = _run(conn, version_id, season, week)
+    transaction, inserting only what changes a game's current pick. A transaction-scoped lock on
+    the version makes a second writer (the weekly run against a lines pull) wait for this one to
+    commit, so both never read the same current pick."""
+    conn.execute(
+        text("SELECT pg_advisory_xact_lock(hashtext(:lock), CAST(:v AS integer))"),
+        {"lock": LOCK, "v": version_id},
+    )
+    run = _run(conn, version_id, season, week, now)
     params: Mapping[str, Any] = run.fitted_params or {}
     rules = _rules(run.spec, params)
-    weights = EmpiricalMargin.from_params(params)
     games = _games(conn, run.id)
     game_ids = [g.game_id for g in games]
+    newest = _newest_pick(conn, version_id, game_ids)
+    if newest is not None and newest > now:
+        raise PicksRefused(
+            f"a pick for these games was made at {newest}, after the clock ({now}): the current "
+            "pick would be one from its future"
+        )
     snapshots = _snapshots(conn, game_ids, now)
     current = _current(conn, version_id, game_ids)
     allowed = pickable or teams.pickable
@@ -247,7 +289,7 @@ def write_picks(
             home_classification=g.home_division,
             away_classification=g.away_division,
         )
-        dist: MarginDistribution = weights or NormalMargin(g.margin_sd)
+        dist = _distribution(params, g.margin_sd, g.prediction_id)
         line = snap.spread_home
         made = pick_game(context, g.pred_margin, line, rules, dist, allowed)
         held = current.get(g.game_id)

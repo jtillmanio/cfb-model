@@ -355,9 +355,9 @@ Three ideas in that table need explaining.
 Other rules:
 - **No FCS games** are ever picked (`pick_game` with `sports.cfb.teams.pickable`; D-047).
 - **A pick is locked to its line.** If the line moves, a new pick row is written only if the side or tier changes, so "Picked at −2.5" stays true (D-140). If a pick stops qualifying, a "pass" row replaces it.
+- **Contest mode** (`core/contest_rules.py`, `contests/splash.py`): Splash has no vig (break-even 50%) and a fixed number of picks, so the rule becomes "rank the slate by cover probability against the contest's line and take the top N", not "everything over a threshold". Wired up in M6.
 
 **Writing picks** (`engine pick`, `publish/picks.py`, TASK-045, D-148). The writer reads only the database: the version's newest run for the week, its predictions and the newest line pull before each game's kickoff. It uses one book's line, one a bettor could take: consensus if it quoted, else DraftKings, else Bovada. In 2026 CFBD's pulls have no consensus quote, so it's DraftKings nearly always, at −110 since no prices come through. A game that has kicked off is skipped, because a pick made after kickoff would be hindsight and the views ignore it anyway. Run it again after a lines pull, and only games whose side or tier changed gain a row. The **expected value** stored with a pick uses the *displayed* probability, so for v1 it's near zero: a pick shown at 53% at −110 is about break-even. That's the honest reading of a model whose calibration gate failed.
-- **Contest mode** (`core/contest_rules.py`, `contests/splash.py`): Splash has no vig (break-even 50%) and a fixed number of picks, so the rule becomes "rank the slate by cover probability against the contest's line and take the top N", not "everything over a threshold". Wired up in M6.
 
 ---
 

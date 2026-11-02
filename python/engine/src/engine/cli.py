@@ -433,7 +433,8 @@ def _rate(args: argparse.Namespace) -> None:
 
 def _pick(args: argparse.Namespace) -> None:
     """Pick the week from the version's newest succeeded run at the engine's clock; exit 2 on a
-    refusal (nothing written), 1 if a line or run isn't before a game's cutoff."""
+    refusal (nothing written), 1 if a line isn't before a game's cutoff or the run's as_of is
+    after it."""
     from engine import clock
     from engine.publish import picks
     from engine.transform.features import PointInTimeError
