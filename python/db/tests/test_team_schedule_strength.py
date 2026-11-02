@@ -11,7 +11,7 @@ from typing import Any
 import model_rows as m
 import pytest
 from sqlalchemy import Connection, text
-from test_team_rankings import assert_index_reads
+from test_team_rankings import assert_index_reads, seed_postseason_week
 
 HFA = 3.0
 AS_OF = m.utc(2030, 9, 26, 16)  # entering week 4
@@ -111,3 +111,38 @@ def test_tba_game_finishes_four_hours_after_the_end_of_its_eastern_date(db_conn:
 def test_single_team_read_uses_index(db_conn: Connection):
     """AC-4."""
     assert_index_reads(db_conn, "team_schedule_strength")
+
+
+def test_postseason_week_1_is_its_own_week(db_conn: Connection):
+    """TASK-047 (D-150): entering the bowls, SOS counts every game the season finished by the
+    bowls' `as_of`, from the postseason run's ratings, apart from the same season's week 1."""
+    ids = _schedule(db_conn)
+    v = ids["version"]
+    w1, bowls = m.utc(2030, 8, 31, 16), m.utc(2030, 12, 14, 17)
+    ratings = {"a": 2.0, "b": 10.0, "c": 4.0, "d": -2.0, "e": 1.0, "g": 0.0}
+    for season_type, as_of in (("regular", w1), ("postseason", bowls)):
+        r = m.run(db_conn, v, 1, as_of, season_type=season_type)
+        by_team = {ids[t]: rating for t, rating in ratings.items()}
+        m.ratings(db_conn, r, v, 1, as_of, by_team, season_type=season_type)
+
+    def week_1(season_type: str) -> dict[str, Any]:
+        row = db_conn.execute(
+            text(
+                "SELECT * FROM team_schedule_strength WHERE model_version_id = :v"
+                " AND season = :season AND season_type = :st AND week = 1 AND team_id = :a"
+            ),
+            {"v": v, "season": m.SEASON, "st": season_type, "a": ids["a"]},
+        ).one()
+        return dict(row._mapping)
+
+    assert (week_1("regular")["games_played"], week_1("regular")["sos"]) == (0, None)
+    post = week_1("postseason")
+    assert post["games_played"] == 4
+    # b and e were at a's home (− HFA), c hosted a (+ HFA), d was neutral.
+    assert post["sos"] == pytest.approx(((10.0 - HFA) + (4.0 + HFA) + -2.0 + (1.0 - HFA)) / 4)
+
+
+def test_postseason_single_team_read_uses_index(db_conn: Connection):
+    """TASK-047 (D-150)."""
+    seed_postseason_week(db_conn)
+    assert_index_reads(db_conn, "team_schedule_strength", "postseason", 1)

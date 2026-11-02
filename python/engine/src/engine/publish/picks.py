@@ -3,7 +3,8 @@ line, re-evaluated when the line moves (TASK-045; D-140, D-142, D-148).
 
 Everything is read from the database, so the `lines` job re-evaluates without refitting: the
 version's newest succeeded run for the week (`adhoc` or `scheduled`, by `finished_at`, then id;
-the scheduled jobs read `scheduled` only, TASK-046),
+the scheduled jobs read `scheduled` only, TASK-046; a week is `(season_type, week)`, so the bowls'
+postseason week 1 is never the season's regular week 1, D-150),
 its predictions, the pick rules (the version's spec resolved with the `choices` the run stored),
 the margin distribution (the run's `fitted_params`: the empirical weights, else a normal margin at
 the prediction's σ) and each team's division that season. A game is picked through
@@ -113,6 +114,7 @@ def _run(
     conn: Connection,
     version_id: int,
     season: int,
+    season_type: str,
     week: int,
     now: datetime,
     run_types: Sequence[str],
@@ -123,16 +125,24 @@ def _run(
         text(
             "SELECT r.id, r.as_of, r.fitted_params, v.spec FROM model_runs r"
             " JOIN model_versions v ON v.id = r.model_version_id"
-            " WHERE r.model_version_id = :v AND r.season = :season AND r.week = :week"
+            " WHERE r.model_version_id = :v AND r.season = :season"
+            " AND r.season_type = :season_type AND r.week = :week"
             " AND r.status = 'succeeded' AND r.run_type = ANY(:types) AND r.finished_at <= :now"
             " ORDER BY r.finished_at DESC, r.id DESC LIMIT 1"
         ),
-        {"v": version_id, "season": season, "week": week, "types": list(run_types), "now": now},
+        {
+            "v": version_id,
+            "season": season,
+            "season_type": season_type,
+            "week": week,
+            "types": list(run_types),
+            "now": now,
+        },
     ).one_or_none()
     if run is None:
         raise PicksRefused(
-            f"version {version_id} has no succeeded run for {season} week {week} finished by "
-            f"{now}: run engine rate first"
+            f"version {version_id} has no succeeded run for {season} {season_type} week {week} "
+            f"finished by {now}: run engine rate first"
         )
     return run
 
@@ -255,6 +265,7 @@ def write_picks(
     now: datetime,
     pickable: Callable[[GameContext], bool] | None = None,
     run_types: Sequence[str] = RUN_TYPES,
+    season_type: str = "regular",
 ) -> PickSummary:
     """Pick the week's games from the version's newest succeeded run of `run_types` at `now`
     (the scheduled jobs read only `scheduled` runs), in the caller's transaction, inserting only
@@ -265,7 +276,7 @@ def write_picks(
         text("SELECT pg_advisory_xact_lock(hashtext(:lock), CAST(:v AS integer))"),
         {"lock": LOCK, "v": version_id},
     )
-    run = _run(conn, version_id, season, week, now, run_types)
+    run = _run(conn, version_id, season, season_type, week, now, run_types)
     params: Mapping[str, Any] = run.fitted_params or {}
     rules = _rules(run.spec, params)
     games = _games(conn, run.id)
@@ -361,9 +372,18 @@ def version_id(conn: Connection, name: str, version: str) -> int:
 
 
 def publish_picks(
-    url: str, *, name: str, version: str, season: int, week: int, now: datetime
+    url: str,
+    *,
+    name: str,
+    version: str,
+    season: int,
+    week: int,
+    now: datetime,
+    season_type: str = "regular",
 ) -> PickSummary:
     """`write_picks` for the named version in one transaction on `url` (the target's direct URL,
     D-120): a failure partway inserts no pick."""
     with make_engine(url).begin() as conn:
-        return write_picks(conn, version_id(conn, name, version), season, week, now)
+        return write_picks(
+            conn, version_id(conn, name, version), season, week, now, season_type=season_type
+        )

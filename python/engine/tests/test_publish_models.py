@@ -503,15 +503,19 @@ def test_rate_cli_refuses_without_the_dev_url(
     assert "DATABASE_URL_UNPOOLED" in capsys.readouterr().err
 
 
+@pytest.mark.parametrize(("season_type", "week"), [("regular", 5), ("postseason", 1)])
 def test_rate_cli_publishes_through_one_transaction(
     lake: LocalLake,
     db_conn: Connection,
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
     capsys: pytest.CaptureFixture[str],
+    season_type: str,
+    week: int,
 ) -> None:
     """The command reads the backtest run's settings and publishes on the target's direct URL;
-    here the target's transaction is the rolled-back test connection."""
+    here the target's transaction is the rolled-back test connection. Postseason week 1 is every
+    bowl and CFP game, its run and ratings marked postseason (TASK-047)."""
     write_backtest_seasons(lake)
     rebuild(lake)
     publish_lake(lake, db_conn, PUBLISH)
@@ -547,21 +551,32 @@ def test_rate_cli_publishes_through_one_transaction(
     code = engine(
         "rate",
         *("--spec", str(SPEC_FILE), "--choices", str(run_file)),
-        *("--season", "2023", "--week", "5", "--target", "test", "--name", NAME),
+        *("--season", "2023", "--season-type", season_type, "--week", str(week)),
+        *("--target", "test", "--name", NAME),
     )
 
     assert code == 0, capsys.readouterr().err
     assert steps == ["fit"]
     assert opened == ["postgresql://test-host/cfb_test"]
     out = capsys.readouterr().out
-    assert "succeeded" in out
-    assert db_conn.execute(
+    assert f"2023 {season_type} week {week} succeeded" in out
+    (run,) = db_conn.execute(
         text(
-            "SELECT count(*) FROM model_runs r JOIN model_versions v ON v.id = r.model_version_id"
+            "SELECT r.id, r.season_type, r.week FROM model_runs r"
+            " JOIN model_versions v ON v.id = r.model_version_id"
             " WHERE v.name = :n AND r.status = 'succeeded'"
         ),
         {"n": NAME},
-    ).scalar_one() == 1
+    ).all()
+    assert (run.season_type, run.week) == (season_type, week)
+    rated = db_conn.execute(
+        text("SELECT DISTINCT season_type FROM team_ratings WHERE model_run_id = :r"),
+        {"r": run.id},
+    ).scalars()
+    assert list(rated) == [season_type]
+    if season_type == "postseason":
+        bowls = {str(backtest_game(SEASON, "postseason", 1, i)["id"]) for i in (CANCELED, TBA)}
+        assert _predicted(db_conn, run.id) == bowls
 
 
 # TASK-038 AC-6: an efficiency run writes each team's units in points; a power run doesn't.

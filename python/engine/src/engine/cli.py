@@ -479,6 +479,7 @@ def _rate(args: argparse.Namespace) -> None:
             week=args.week,
             name=name,
             version=args.version,
+            season_type=args.season_type,
         )
     except (models.RateRefused, harness.RefusedError) as e:
         _refuse(str(e))
@@ -486,8 +487,9 @@ def _rate(args: argparse.Namespace) -> None:
         print(f"FAIL {e}")
         sys.exit(1)
     print(
-        f"Run {summary.run_id} of {name} {args.version} entering {args.season} week {args.week} "
-        f"{summary.status} on {args.target}: {summary.ratings} ratings, "
+        f"Run {summary.run_id} of {name} {args.version} entering {args.season} "
+        f"{args.season_type} week {args.week} {summary.status} on {args.target}: "
+        f"{summary.ratings} ratings, "
         f"{summary.predictions} predictions."
     )
     if summary.error:
@@ -516,6 +518,7 @@ def _pick(args: argparse.Namespace) -> None:
             season=args.season,
             week=args.week,
             now=clock.now(),
+            season_type=args.season_type,
         )
     except picks.PicksRefused as e:
         _refuse(str(e))
@@ -523,8 +526,9 @@ def _pick(args: argparse.Namespace) -> None:
         print(f"FAIL {e}")
         sys.exit(1)
     print(
-        f"Run {summary.run_id} of {args.name} {args.version}, {args.season} week {args.week} on "
-        f"{args.target}: {summary.picks} picks, {summary.passes} passes written."
+        f"Run {summary.run_id} of {args.name} {args.version}, {args.season} {args.season_type} "
+        f"week {args.week} on {args.target}: {summary.picks} picks, {summary.passes} passes "
+        "written."
     )
 
 
@@ -610,10 +614,11 @@ def main(argv: list[str] | None = None) -> None:
         "advanced stats, plays, drives, closing lines); lines: the next week's games and lines, "
         "then each version's picks re-evaluated against them. The season is staged in a scratch "
         "lake, checked, and published in one transaction. rate-and-predict: no CFBD call; every "
-        "season rebuilt in a scratch lake and checked, the next regular week fit as the backtest "
-        "fits it, and a scheduled run, its ratings, predictions and picks inserted in one "
-        "transaction. Exits 1 if a check fails (nothing published), a fit fails or the pick "
-        "re-evaluation fails, 2 on a refusal, 3 when the CFBD budget stops it.",
+        "season rebuilt in a scratch lake and checked, the coming week (postseason week 1 is "
+        "every bowl and CFP game) fit as the backtest fits it, and a scheduled run, its ratings, "
+        "predictions and picks inserted in one transaction. Exits 1 if a check fails (nothing "
+        "published), a fit fails or the pick re-evaluation fails, 2 on a refusal, 3 when the "
+        "CFBD budget stops it.",
     )
     job.add_argument("kind", choices=["results", "lines", "rate-and-predict"])
     job.add_argument(
@@ -720,15 +725,17 @@ def main(argv: list[str] | None = None) -> None:
     rate = commands.add_parser(
         "rate",
         help="Fit a model entering one week and publish the run, ratings and predictions",
-        description="Fits the spec on every game finished before the regular-season week's first "
-        "kickoff, as the backtest does, predicts each of the week's staged games, and inserts a "
-        "new model run with its ratings and predictions in one transaction on the target's "
-        "direct URL (re-running inserts another run). A failed fit is recorded as a failed run "
-        "(exit 1); a refusal writes nothing (exit 2). Refused under LIVE=true.",
+        description="Fits the spec on every game finished before the week's first kickoff, as "
+        "the backtest does (postseason week 1 is every bowl and CFP game), predicts each of the "
+        "week's staged games, and inserts a new model run with its ratings and predictions in "
+        "one transaction on the target's direct URL (re-running inserts another run). A failed "
+        "fit is recorded as a failed run (exit 1); a refusal writes nothing (exit 2). Refused "
+        "under LIVE=true.",
     )
     rate.add_argument("--spec", required=True, metavar="FILE", help="A ModelSpec as JSON")
     rate.add_argument("--season", type=int, required=True)
-    rate.add_argument("--week", type=int, required=True, help="Rate entering this regular week")
+    rate.add_argument("--week", type=int, required=True, help="Rate entering this week")
+    rate.add_argument("--season-type", default="regular", choices=SEASON_TYPES)
     rate.add_argument("--target", required=True, choices=["dev", "test"])
     rate.add_argument(
         "--choices",
@@ -745,14 +752,15 @@ def main(argv: list[str] | None = None) -> None:
     pick = commands.add_parser(
         "pick",
         help="Write spread picks from a model run, and re-evaluate them when lines move",
-        description="Reads the version's newest succeeded run for the regular-season week and "
+        description="Reads the version's newest succeeded run for the week and "
         "picks each predicted game against the newest line snapshot before its kickoff, "
         "inserting a pick only where the side or tier changes (a pass row where a pick stops "
         "qualifying), in one transaction on the target's direct URL. Games already kicked off "
         "are skipped. A refusal writes nothing (exit 2). Refused under LIVE=true.",
     )
     pick.add_argument("--season", type=int, required=True)
-    pick.add_argument("--week", type=int, required=True, help="The regular week the run rated")
+    pick.add_argument("--week", type=int, required=True, help="The week the run rated")
+    pick.add_argument("--season-type", default="regular", choices=SEASON_TYPES)
     pick.add_argument("--target", required=True, choices=["dev", "test"])
     pick.add_argument("--name", required=True, help="The model version's name")
     pick.add_argument("--version", default="v1.0", help="The model version (default %(default)s)")

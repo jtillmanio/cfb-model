@@ -7,8 +7,9 @@
 -- run's learned home field (fitted_params.home_field): + HFA when the opponent was at home, - HFA
 -- when the team was, nothing at a neutral site. sos is their mean; NULL with no game played, or
 -- when an opponent has no rating in the run or the run has no home field to adjust a home game.
--- sos_rank 1 is the hardest schedule; only FBS teams with an SOS are ranked. Never stored
--- (hard rule 1).
+-- sos_rank 1 is the hardest schedule; only FBS teams with an SOS are ranked. A week is
+-- (season_type, week), as in latest_team_ratings (TASK-047, D-150); season_type is the last column
+-- because CREATE OR REPLACE VIEW can only add columns at the end. Never stored (hard rule 1).
 CREATE OR REPLACE VIEW team_schedule_strength AS
 SELECT
     s.model_version_id,
@@ -21,15 +22,18 @@ SELECT
     s.sos,
     CASE WHEN s.fbs AND s.sos IS NOT NULL THEN
         rank() OVER (
-            PARTITION BY s.model_version_id, s.season, s.week, s.fbs AND s.sos IS NOT NULL
+            PARTITION BY
+                s.model_version_id, s.season, s.season_type, s.week, s.fbs AND s.sos IS NOT NULL
             ORDER BY s.sos DESC
         )
-    END AS sos_rank
+    END AS sos_rank,
+    s.season_type
 FROM (
     SELECT
         t.model_version_id,
         t.model_run_id,
         t.season,
+        t.season_type,
         t.week,
         t.team_id,
         t.as_of,
@@ -73,6 +77,7 @@ FROM (
         AND o.model_version_id = t.model_version_id
         AND o.team_id = p.opponent_id
         AND o.season = t.season
+        AND o.season_type = t.season_type
         AND o.week = t.week
     CROSS JOIN LATERAL (
         SELECT o.rating + CASE p.site
@@ -82,5 +87,6 @@ FROM (
         END AS rating
     ) adjusted
     GROUP BY
-        t.model_version_id, t.model_run_id, t.season, t.week, t.team_id, t.as_of, t.fbs
+        t.model_version_id, t.model_run_id, t.season, t.season_type, t.week, t.team_id, t.as_of,
+        t.fbs
 ) s;

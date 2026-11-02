@@ -393,6 +393,21 @@ def test_lines_picks_the_earliest_week_not_kicked_off() -> None:
     assert jobs.due_weeks("lines", games, now) == [("regular", 15)]
 
 
+def test_lines_takes_the_week_of_the_earliest_kickoff_to_come() -> None:
+    """TASK-047: a game postponed to a later date keeps its old week; it no longer holds `lines`
+    (and the weekly job) on that week while the coming week's games go unpulled."""
+    now = datetime(2025, 10, 19, 13, tzinfo=UTC)  # Sunday after week 8
+    games = [
+        game(8, now - timedelta(days=1)),
+        {**game(6, now + timedelta(days=34)), "id": 60},  # week 6's game, made up in November
+        game(9, now + timedelta(days=4)),
+        {**game(1, now + timedelta(days=60), "postseason"), "id": 99},
+    ]
+    assert jobs.due_weeks("lines", games, now) == [("regular", 9)]
+    after_army_navy = datetime(2025, 12, 14, 13, tzinfo=UTC)
+    assert jobs.due_weeks("lines", games, after_army_navy) == [("postseason", 1)]
+
+
 def test_canceled_lists_unscored_games_counted_as_done() -> None:
     start = datetime(2025, 10, 4, 16, tzinfo=UTC)
     played = {**game(6, start), "completed": True, "homePoints": 21, "awayPoints": 7}

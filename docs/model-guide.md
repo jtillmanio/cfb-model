@@ -2,7 +2,7 @@
 
 A plain-language walkthrough of the college football model, from the data we pull to the pick that comes out, written for a software developer who hasn't done statistical modeling. It covers the math concepts, the actual files, and what each task in M2, M3 and M4 added.
 
-**This is a guide, not the spec.** When it disagrees with the code, `docs/04-model.md` or `docs/decisions.md`, they win (CLAUDE.md › Which document wins), and this file should be fixed. Last brought up to date: 2026-11-02, after TASK-046 (D-149).
+**This is a guide, not the spec.** When it disagrees with the code, `docs/04-model.md` or `docs/decisions.md`, they win (CLAUDE.md › Which document wins), and this file should be fixed. Last brought up to date: 2026-11-02, after TASK-047 (D-150).
 
 **Contents**
 1. [The whole thing on one page](#1-the-whole-thing-on-one-page)
@@ -110,12 +110,12 @@ So it's equivalent to `cd python && .venv/Scripts/engine backtest …`. Each sub
 | `engine check` | Run the data-quality checks on staging | read only |
 | `engine publish --target dev\|test` | Upsert teams, games and line snapshots into Postgres | dev or test DB |
 | `engine job results\|lines` | The scheduled jobs: refresh results and lines (`lines` then re-checks the picks) | CFBD, DB |
-| `engine job rate-and-predict --target dev\|live --spec FILE --choices RUN_JSON [--dry-run]` | The weekly job: rebuild every season, fit the coming week, write a `scheduled` run, its predictions and picks | lake (no CFBD call), DB |
+| `engine job rate-and-predict --target dev\|live --spec FILE --choices RUN_JSON [--dry-run]` | The weekly job: rebuild every season, fit the coming week (a regular week, or the bowls and CFP as postseason week 1), write a `scheduled` run, its predictions and picks | lake (no CFBD call), DB |
 | `engine tiers --seasons 2014-2025` | Check every FBS team-season maps to Power 4 / G5 / FCS | read only |
 | `engine backtest --spec F --seasons A-B [--report DIR] [--compare baselines] [--holdout --reason T]` | Replay history week by week and score the model | lake `backtests/` |
 | `engine compare RUN_A RUN_B [--weeks 1-3]` | Is run A really better than run B? (paired week bootstrap, § 8) | read only |
-| `engine rate --spec F --season Y --week N --target dev\|test [--choices run.json]` | Fit the model entering week N and insert the run, ratings and predictions | dev or test DB |
-| `engine pick --season Y --week N --target dev\|test --name NAME [--version v1.0]` | Turn the version's newest run for week N into picks against the newest line; re-run it after lines move | dev or test DB |
+| `engine rate --spec F --season Y --week N --target dev\|test [--season-type postseason] [--choices run.json]` | Fit the model entering week N (of the regular season unless `--season-type postseason`) and insert the run, ratings and predictions | dev or test DB |
+| `engine pick --season Y --week N --target dev\|test --name NAME [--season-type postseason] [--version v1.0]` | Turn the version's newest run for week N into picks against the newest line; re-run it after lines move | dev or test DB |
 | `engine seed fixture` | Load the design's sample data into the test DB (`pnpm db:seed`) | test DB |
 
 When a task's manual verification said "run `engine backtest …` and check the ledger is unchanged", it was checking two things: the backtest ran end to end on the real 12 seasons, and it didn't spend CFBD calls (the ledger is `data/cfbd_calls.json`).
@@ -428,8 +428,8 @@ Postgres, written by `engine rate` (`publish/models.py`):
 | Table | One row per | Notes |
 |---|---|---|
 | `model_versions` | named model (e.g. efficiency v1.0) | `status`: `candidate` or `production`; spec + hash |
-| `model_runs` | one fit entering one week | `fitted_params` (all learned weights), status, error |
-| `team_ratings` | team × run | `rating`, `off_rating`, `def_rating`, `components` (per-stat points) |
+| `model_runs` | one fit entering one week | `season_type` + `week` (postseason week 1 is the bowls), `fitted_params` (all learned weights), status, error |
+| `team_ratings` | team × run | `rating`, `off_rating`, `def_rating`, `components` (per-stat points), and the run's `season_type` and `week` |
 | `predictions` | game × run | margin, σ, win probability, drivers |
 | `picks` | each pick or pass | locked to a `line_snapshots` row; edge, displayed probability, tier, stake |
 
@@ -484,9 +484,12 @@ The principle: **build the ruler before the thing you measure.** The backtest an
 | **TASK-043** | Widened the alpha grid, ran full validation, opened the holdout once, recorded the go/no-go (D-144) | The verdict, below |
 | **TASK-044** | Stage canceled games; `engine rate` predicts the harness's own week contexts | No permanent predictions for games that won't be played. Part of M4.8 |
 | **TASK-045** | `engine pick`: write picks from a model run against the newest line, re-evaluate when lines move (D-148) | Live picks, locked to a real book's line, never after kickoff. Part of M4.8 |
-| **TASK-046** | `engine job rate-and-predict` and `rate-and-predict.yml` (Sun 9 AM ET): rebuild every season, fit the coming week, write a `scheduled` run, its predictions and picks; `lines` re-picks after each snapshot (D-149) | Paper trading 2026 runs itself, on the settings the holdout examined. Bowls and the CFP aren't rated yet |
+| **TASK-046** | `engine job rate-and-predict` and `rate-and-predict.yml` (Sun 9 AM ET): rebuild every season, fit the coming week, write a `scheduled` run, its predictions and picks; `lines` re-picks after each snapshot (D-149) | Paper trading 2026 runs itself, on the settings the holdout examined. Bowls and the CFP weren't rated yet |
+| **TASK-047** | Rate, predict and pick the postseason: a `season_type` on `model_runs` and `team_ratings`, the ratings views keyed by it, the coming week taken from the earliest kickoff still to come (D-150) | Paper trading covers the bowls and the CFP, scored the way the backtest scored them |
 
 **How the weekly cycle runs.** Sunday 6 AM `results` brings in the weekend's scores, 8 AM `lines` snapshots the coming week's opening lines, and 9 AM `rate-and-predict` fits v1 entering that week. It uses exactly the backtest's code path and the 2026 settings a backtest chose on 2015–2023 (α 2, half-life 16, minimum edge 8, display k 0.1, the same as the holdout run's), predicts every game that will be played, and picks against the newest line. Each later `lines` run re-checks those picks against the new lines, adding a row only when a pick's side or tier changes.
+
+**The bowls and the CFP.** CFBD files every postseason game under postseason week 1, and the backtest scores that as one week: every bowl and CFP game predicted from the ratings entering the first bowl (D-131). Production does the same, so it trades exactly what was validated. Each Sunday from the first bowl to the title game, the job re-rates postseason week 1 at that same cutoff: the ratings come out identical, but a CFP game whose teams weren't known the Sunday before now gets a prediction and a pick. The cost is staleness: the title game is predicted from ratings about five weeks old that never saw the playoff rounds. Re-rating each round after the one before is planned for 2027 (TASK-048), once the backtest shows it helps. A rated week is `(season_type, week)` everywhere now, so postseason week 1 never mixes with the season's regular week 1 (D-150).
 
 ---
 

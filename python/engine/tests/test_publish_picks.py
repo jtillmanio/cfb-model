@@ -93,20 +93,23 @@ def _run(
     choices: dict[str, float] | None = None,
     status: str = "succeeded",
     as_of: datetime = NOW - timedelta(days=3),
+    season_type: str = "regular",
+    week: int = WEEK,
 ) -> int:
     chosen = CHOICES if choices is None else choices
     params = {"home_field": 3.0, "margin_sd": SD, "choices": chosen}
     return conn.execute(
         text(
-            "INSERT INTO model_runs (model_version_id, run_type, season, week, as_of, status,"
-            " started_at, finished_at, fitted_params)"
-            " VALUES (:v, 'adhoc', :season, :week, :as_of, :status, :started, :finished,"
-            " CAST(:params AS jsonb)) RETURNING id"
+            "INSERT INTO model_runs (model_version_id, run_type, season, season_type, week, as_of,"
+            " status, started_at, finished_at, fitted_params)"
+            " VALUES (:v, 'adhoc', :season, :season_type, :week, :as_of, :status, :started,"
+            " :finished, CAST(:params AS jsonb)) RETURNING id"
         ),
         {
             "v": version_id,
             "season": SEASON,
-            "week": WEEK,
+            "season_type": season_type,
+            "week": week,
             "as_of": as_of,
             "status": status,
             "started": finished_at - timedelta(minutes=5),
@@ -123,19 +126,22 @@ def _game(
     kickoff_at: datetime | None = KICKOFF,
     *,
     game_date: date | None = None,
+    season_type: str = "regular",
+    week: int = WEEK,
 ) -> int:
     return conn.execute(
         text(
             "INSERT INTO games (sport_id, source, source_id, season, week, season_type, game_date,"
             " kickoff_at, neutral_site, conference_game, home_team_id, away_team_id, status)"
-            " VALUES (:sport, 'pytest', :sid, :season, :week, 'regular', :d, :k, false, false,"
+            " VALUES (:sport, 'pytest', :sid, :season, :week, :season_type, :d, :k, false, false,"
             " :h, :a, 'scheduled') RETURNING id"
         ),
         {
             "sport": SPORT,
             "sid": f"{home}-{away}",
             "season": SEASON,
-            "week": WEEK,
+            "week": week,
+            "season_type": season_type,
             "d": game_date or (kickoff_at.date() if kickoff_at else None),
             "k": kickoff_at,
             "h": home,
@@ -648,6 +654,50 @@ def test_a_run_finished_after_the_clock_is_not_picked_from(world: World) -> None
 
     assert summary.run_id == world.run
     assert [r.side for r in _rows(world.conn, world.version)] == ["home"]
+
+
+def test_the_run_is_the_weeks_of_its_season_type(world: World) -> None:
+    """TASK-047 (D-150): postseason week 1 is picked from the postseason run even when the
+    season's regular week 1 has a newer one, and regular week 1 from its own."""
+    post = _run(world.conn, world.version, season_type="postseason", week=1)
+    bowl = _game(world.conn, world.team(), world.team(), season_type="postseason", week=1)
+    _prediction(world.conn, post, world.version, bowl, 10.0)
+    regular = _run(world.conn, world.version, finished_at=NOW - timedelta(hours=2), week=1)
+    opener = _game(world.conn, world.team(), world.team(), week=1)
+    _prediction(world.conn, regular, world.version, opener, -12.0)
+    for game_id in (bowl, opener):
+        _line(world.conn, game_id, "DraftKings", NOW - timedelta(hours=1), -3.0)
+
+    bowls = picks.write_picks(world.conn, world.version, SEASON, 1, NOW, season_type="postseason")
+    week_1 = picks.write_picks(world.conn, world.version, SEASON, 1, NOW)
+
+    assert (bowls.run_id, bowls.picks, week_1.run_id, week_1.picks) == (post, 1, regular, 1)
+    rows = {r.game_id: r.side for r in _rows(world.conn, world.version)}
+    assert rows == {bowl: "home", opener: "away"}
+
+
+def test_pick_cli_takes_the_season_type(
+    world: World, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    post = _run(world.conn, world.version, season_type="postseason", week=1)
+    bowl = _game(world.conn, world.team(), world.team(), season_type="postseason", week=1)
+    _prediction(world.conn, post, world.version, bowl, 10.0)
+    _line(world.conn, bowl, "DraftKings", NOW - timedelta(hours=1), -3.0)
+    monkeypatch.setattr(picks, "make_engine", lambda _url: _savepoint_engine(world.conn))
+    monkeypatch.setenv("APP_ENV", "test")
+    monkeypatch.setenv("FIXTURE_NOW", NOW.isoformat())
+    monkeypatch.setenv("TEST_DATABASE_URL", "postgresql://test-host/cfb_test")
+    monkeypatch.delenv("DATABASE_URL", raising=False)
+    monkeypatch.delenv("DATABASE_URL_UNPOOLED", raising=False)
+    monkeypatch.delenv("LIVE", raising=False)
+
+    code = engine(
+        "pick", "--season", "2030", "--season-type", "postseason", "--week", "1",
+        "--target", "test", "--name", NAME,
+    )  # fmt: skip
+
+    assert code == 0, capsys.readouterr().err
+    assert [(r.game_id, r.side) for r in _rows(world.conn, world.version)] == [(bowl, "home")]
 
 
 def test_a_clock_before_a_pick_already_made_is_refused(world: World, picked: int) -> None:

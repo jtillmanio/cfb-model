@@ -5,9 +5,11 @@
 -- newest succeeded scheduled or ad-hoc one by finished_at, then id, is the one read (a backtest
 -- run may carry a season and week but writes no ratings). fbs is the team's division
 -- that season (false with no team_seasons row); rank is NULL for a team that isn't FBS, and ties
--- share a rank (RANK: 1, 2, 2, 4). The rank partition holds model_version_id, season and week,
--- so a read filtered by them reads only that week's rows, through the
--- (model_version_id, season, week) index.
+-- share a rank (RANK: 1, 2, 2, 4). A week is (season_type, week): postseason week 1, every bowl
+-- and CFP game, isn't the season's regular week 1 (TASK-047, D-150). season_type is the last
+-- column because CREATE OR REPLACE VIEW can only add columns at the end. The rank partition
+-- holds model_version_id, season, season_type and week, so a read filtered by them reads only
+-- that week's rows, through the (model_version_id, season, season_type, week) index.
 CREATE OR REPLACE VIEW latest_team_ratings AS
 SELECT
     t.model_version_id,
@@ -24,22 +26,28 @@ SELECT
     coalesce(ts.division = 'fbs', false) AS fbs,
     CASE WHEN coalesce(ts.division = 'fbs', false) THEN
         rank() OVER (
-            PARTITION BY t.model_version_id, t.season, t.week, coalesce(ts.division = 'fbs', false)
+            PARTITION BY t.model_version_id, t.season, t.season_type, t.week,
+                coalesce(ts.division = 'fbs', false)
             ORDER BY t.rating DESC
         )
-    END AS rank
+    END AS rank,
+    t.season_type
 FROM (
-    -- The newest succeeded run of each (version, season, week), picked once per week.
-    SELECT DISTINCT ON (r.model_version_id, r.season, r.week)
-        r.id, r.model_version_id, r.season, r.week
+    -- The newest succeeded run of each (version, season, season type, week), picked once per
+    -- week.
+    SELECT DISTINCT ON (r.model_version_id, r.season, r.season_type, r.week)
+        r.id, r.model_version_id, r.season, r.season_type, r.week
     FROM model_runs r
     WHERE r.status = 'succeeded' AND r.run_type IN ('scheduled', 'adhoc')
         AND r.season IS NOT NULL
-    ORDER BY r.model_version_id, r.season, r.week, r.finished_at DESC NULLS LAST, r.id DESC
+    ORDER BY
+        r.model_version_id, r.season, r.season_type, r.week,
+        r.finished_at DESC NULLS LAST, r.id DESC
 ) newest
 JOIN team_ratings t
     ON t.model_run_id = newest.id
     AND t.model_version_id = newest.model_version_id
     AND t.season = newest.season
+    AND t.season_type = newest.season_type
     AND t.week = newest.week
 LEFT JOIN team_seasons ts ON ts.team_id = t.team_id AND ts.season = t.season;

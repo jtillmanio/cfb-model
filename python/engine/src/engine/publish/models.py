@@ -3,11 +3,13 @@ predictions to Postgres (TASK-035, D-136).
 
 The week is the feature week of D-127: its `as_of` is its first kickoff, and the fit is the
 backtest's (`harness.fit_games`: every final game that finished, kickoff + 4 h, by `as_of`), so a
-published week is the week the backtest scored. Its predictions are the week's staged contexts as
-`harness.load` keeps them (`Week.contexts`): every regular-season game of the week with both teams
-that isn't canceled or postponed, played or not, its TBA kickoff placed as `features.KICKOFF`
-places it. The transform stages a game `canceled` when CFBD still lists it unscored and
-uncompleted a week after its start (D-121, TASK-044).
+published week is the week the backtest scored. A week is `(season_type, week)`: postseason
+week 1 holds every bowl and CFP game, all predicted from the ratings entering the first bowl, as
+the backtest scores them (D-131, D-150). Its predictions are the week's staged contexts as
+`harness.load` keeps them (`Week.contexts`): every game of the week with both teams that isn't
+canceled or postponed, played or not, its TBA kickoff placed as `features.KICKOFF` places it.
+The transform stages a game `canceled` when CFBD still lists it unscored and uncompleted a week
+after its start (D-121, TASK-044).
 
 The lake is read and the model fit before any database transaction opens (`fit_week`); `write`
 then inserts in one short transaction. `engine rate` writes an `adhoc` run and creates a missing
@@ -17,8 +19,8 @@ new `model_runs` row and its own ratings and predictions. A fit that raises, or 
 tables can't hold (NaN, ±Infinity, σ ≤ 0, a share outside 0–1), is recorded as a `failed` run
 with its error and nothing else; a refusal (an unstaged week, an unpublished team, a version with
 another spec) writes nothing. The model's team and game ids are CFBD's; they're mapped to
-`teams.id` and `games.id` by `(source, source_id)`. Regular season only: `team_ratings` has no
-season type, so postseason week 1 would collide with regular week 1.
+`teams.id` and `games.id` by `(source, source_id)`. The run and every rating carry the week's
+season type, so postseason week 1 never reads as the season's regular week 1.
 
 A model that rates units (Rung 2, TASK-038) also writes each team's `off_rating` and `def_rating`
 in points, summing to `rating`, and `components`, `{input id: {"off": pts, "def": pts}}`;
@@ -48,7 +50,8 @@ from engine.ingest.lake import Lake
 SPORT = "cfb"
 MARKET = "spread"
 SOURCE = "cfbd"  # whose ids the lake's teams and games carry
-SEASON_TYPE = "regular"
+SeasonType = Literal["regular", "postseason"]
+SEASON_TYPES: tuple[SeasonType, ...] = ("regular", "postseason")
 RunType = Literal["adhoc", "scheduled"]  # a backtest run spans seasons: never one week's
 VersionStatus = Literal["dev", "candidate"]  # what a version is created as
 
@@ -74,6 +77,7 @@ class FittedWeek:
     """A fit entering one week, ready to insert: its ratings and predictions, or its error."""
 
     season: int
+    season_type: SeasonType
     week: int
     as_of: datetime
     started: datetime
@@ -111,18 +115,20 @@ def settings(spec: ModelSpec, run: Mapping[str, Any] | None, season: int) -> dic
         raise RateRefused(f"a setting in --choices for {season} isn't a number: {e}") from e
 
 
-def _week(history: harness.History, season: int, week: int) -> harness.Week:
+def _week(
+    history: harness.History, season: int, season_type: SeasonType, week: int
+) -> harness.Week:
     """The harness's week: its `as_of` and its staged games that will be played (`contexts`)."""
     found = next(
         (
             w
             for w in history.weeks
-            if (w.season, w.season_type, w.week) == (season, SEASON_TYPE, week)
+            if (w.season, w.season_type, w.week) == (season, season_type, week)
         ),
         None,
     )
     if found is None:
-        raise RateRefused(f"no staged games in {season} {SEASON_TYPE} week {week}")
+        raise RateRefused(f"no staged games in {season} {season_type} week {week}")
     return found
 
 
@@ -176,7 +182,13 @@ def _unstorable(ratings: Ratings, predictions: Predicted) -> str | None:
 
 
 def fit_week(
-    lake: Lake, spec: ModelSpec, choices: Mapping[str, float], *, season: int, week: int
+    lake: Lake,
+    spec: ModelSpec,
+    choices: Mapping[str, float],
+    *,
+    season: int,
+    week: int,
+    season_type: SeasonType = "regular",
 ) -> FittedWeek:
     """Read the lake and fit `spec` (resolved with `choices`) entering `week`; no database is
     opened. A fit that fails is returned with its error, to be recorded; a refusal raises."""
@@ -190,7 +202,7 @@ def fit_week(
     if factory is None:
         raise RateRefused(f"no model is registered as {spec.base!r}")
     history = harness.load(lake)
-    found = _week(history, season, week)
+    found = _week(history, season, season_type, week)
     model = factory(resolved)
     harness.check_reads(model)
     harness.give_inputs(model, history)
@@ -200,6 +212,7 @@ def fit_week(
     finished = clock.now()
     return FittedWeek(
         season,
+        season_type,
         week,
         found.as_of,
         started,
@@ -286,15 +299,16 @@ def _insert_run(
     failed fit writes nothing else)."""
     return conn.execute(
         text(
-            "INSERT INTO model_runs (model_version_id, run_type, season, week, as_of, status,"
-            " requested_at, started_at, finished_at, fitted_params, error)"
-            " VALUES (:v, :run_type, :season, :week, :as_of, :status, :started, :started,"
-            " :finished, CAST(:params AS jsonb), :error) RETURNING id"
+            "INSERT INTO model_runs (model_version_id, run_type, season, season_type, week,"
+            " as_of, status, requested_at, started_at, finished_at, fitted_params, error)"
+            " VALUES (:v, :run_type, :season, :season_type, :week, :as_of, :status, :started,"
+            " :started, :finished, CAST(:params AS jsonb), :error) RETURNING id"
         ),
         {
             "v": version_id,
             "run_type": run_type,
             "season": fitted.season,
+            "season_type": fitted.season_type,
             "week": fitted.week,
             "as_of": fitted.as_of,
             "status": "failed" if fitted.error is not None else "succeeded",
@@ -351,6 +365,7 @@ def write(
             "v": version_id,
             "team": team_ids[team],
             "season": fitted.season,
+            "season_type": fitted.season_type,
             "week": fitted.week,
             "as_of": fitted.as_of,
             "rating": rating,
@@ -374,10 +389,10 @@ def write(
     if rating_rows:
         conn.execute(
             text(
-                "INSERT INTO team_ratings (model_run_id, model_version_id, team_id, season, week,"
-                " as_of, rating, off_rating, def_rating, prior_weight, components)"
-                " VALUES (:run, :v, :team, :season, :week, :as_of, :rating, :off, :def,"
-                " :prior_weight, CAST(:components AS jsonb))"
+                "INSERT INTO team_ratings (model_run_id, model_version_id, team_id, season,"
+                " season_type, week, as_of, rating, off_rating, def_rating, prior_weight,"
+                " components) VALUES (:run, :v, :team, :season, :season_type, :week, :as_of,"
+                " :rating, :off, :def, :prior_weight, CAST(:components AS jsonb))"
             ),
             rating_rows,
         )
@@ -404,9 +419,10 @@ def rate(
     name: str,
     version: str,
     source: str | None = None,
+    season_type: SeasonType = "regular",
 ) -> RunSummary:
     """`fit_week`, then `write` on `conn`."""
-    fitted = fit_week(lake, spec, choices, season=season, week=week)
+    fitted = fit_week(lake, spec, choices, season=season, week=week, season_type=season_type)
     return write(conn, fitted, spec, name=name, version=version, source=source)
 
 
@@ -420,9 +436,10 @@ def publish(
     week: int,
     name: str,
     version: str,
+    season_type: SeasonType = "regular",
 ) -> RunSummary:
     """Fit with no connection open, then write in one transaction on `url` (the target's direct
     URL, D-120), so the transaction lasts only as long as the inserts."""
-    fitted = fit_week(lake, spec, choices, season=season, week=week)
+    fitted = fit_week(lake, spec, choices, season=season, week=week, season_type=season_type)
     with make_engine(url).begin() as conn:
         return write(conn, fitted, spec, name=name, version=version)
