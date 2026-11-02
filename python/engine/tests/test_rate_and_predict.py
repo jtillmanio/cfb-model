@@ -332,35 +332,87 @@ def test_second_run_adds_a_run_but_no_unchanged_pick(
     assert first and _picks(db_conn) == first
 
 
-def test_postseason_next_writes_nothing(
+# TASK-047 AC-1: postseason week 1 is rated, predicted and picked beside regular week 1
+
+BOWLS = [backtest_game(SEASON, "postseason", 1, i) for i in ("401756847", "401754516")]
+
+
+def _postseason_games(conn: Connection) -> dict[str, Any]:
+    rows = conn.execute(
+        text(
+            "SELECT id, source_id FROM games WHERE source = :s AND season = :season"
+            " AND season_type = 'postseason' AND week = 1"
+        ),
+        {"s": PUBLISH, "season": SEASON},
+    ).all()
+    return {r.source_id: r for r in rows}
+
+
+def test_postseason_week_1_is_rated_beside_regular_week_1(
     weekly: Opened, db_conn: Connection, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    # After the regular season's last game, the coming week is the bowls: not rated yet.
-    last = max(
-        datetime.fromisoformat(backtest_game(SEASON, "regular", 8, i)["startDate"])
-        for i in WEEK1_IDS
-    )
-    monkeypatch.setenv("FIXTURE_NOW", (last + timedelta(days=1)).isoformat())
+    run_file = _run_file(tmp_path)
+    monkeypatch.setenv("FIXTURE_NOW", _sunday_before(_first_kickoff(1)).isoformat())
+    assert _job(run_file) == 0  # regular week 1 first
+    first_bowl = min(datetime.fromisoformat(g["startDate"]) for g in BOWLS)
+    bowls_now = _sunday_before(first_bowl)
+    bowls = _postseason_games(db_conn)
+    assert set(bowls) == {str(g["id"]) for g in BOWLS}
+    for game in bowls.values():  # home +40: both FBS bowls clear the threshold at home
+        _line(db_conn, game.id, "DraftKings", bowls_now - timedelta(days=1), 40.0)
+    monkeypatch.setenv("FIXTURE_NOW", bowls_now.isoformat())
     summary = tmp_path / "summary.md"
 
-    assert _job(_run_file(tmp_path), "--summary", str(summary)) == 0
+    code = _job(run_file, "--summary", str(summary))
 
-    assert weekly.urls == []
-    assert "postseason" in summary.read_text("utf-8")
+    assert code == 0, summary.read_text("utf-8") if summary.exists() else ""
+    assert weekly.transactions == 2  # one per run: the run, its ratings, predictions and picks
+    regular, post = _runs(db_conn)
+    assert (regular.season_type, regular.week) == ("regular", 1)
+    assert (post.run_type, post.status, post.season, post.season_type, post.week) == (
+        "scheduled", "succeeded", SEASON, "postseason", 1,
+    )  # fmt: skip
+    assert post.as_of == first_bowl  # every bowl and CFP game from the ratings entering the first
+    rated = dict(
+        db_conn.execute(
+            text(
+                "SELECT model_run_id, array_agg(DISTINCT season_type) FROM team_ratings"
+                " WHERE model_run_id = ANY(:r) GROUP BY model_run_id"
+            ),
+            {"r": [regular.id, post.id]},
+        ).all()
+    )
+    assert rated == {regular.id: ["regular"], post.id: ["postseason"]}
+    assert _predicted(db_conn, post.id) == set(bowls)
+    assert not _predicted(db_conn, regular.id) & set(bowls)
+    picked = [p for p in _picks(db_conn) if p.source_id in bowls]
+    assert {p.source_id for p in picked} == set(bowls)
+    assert all((p.side, p.created_at) == ("home", bowls_now) for p in picked)
+    from_post = db_conn.execute(
+        text("SELECT count(*) FROM predictions WHERE model_run_id = :r AND id = ANY(:p)"),
+        {"r": post.id, "p": [p.prediction_id for p in picked]},
+    ).scalar_one()
+    assert from_post == len(bowls)
+    text_ = summary.read_text("utf-8")
+    assert "Week rated: postseason week 1" in text_
+    assert f"Run {post.id} succeeded" in text_ and f"{len(bowls)} predictions" in text_
+    assert f"{len(bowls)} picks, 0 passes" in text_
 
 
 # AC-3: the `lines` job re-evaluates each version's newest scheduled run
 
 
-def _scheduled(world: World, *, finished_at: datetime, week: int = PICK_WEEK) -> int:
+def _scheduled(
+    world: World, *, finished_at: datetime, week: int = PICK_WEEK, season_type: str = "regular"
+) -> int:
     run = world.conn.execute(
         text(
-            "INSERT INTO model_runs (model_version_id, run_type, season, week, as_of, status,"
-            " started_at, finished_at, fitted_params)"
-            " SELECT model_version_id, 'scheduled', season, :week, as_of, status, started_at,"
-            " :finished, fitted_params FROM model_runs WHERE id = :r RETURNING id"
+            "INSERT INTO model_runs (model_version_id, run_type, season, season_type, week, as_of,"
+            " status, started_at, finished_at, fitted_params)"
+            " SELECT model_version_id, 'scheduled', season, :season_type, :week, as_of, status,"
+            " started_at, :finished, fitted_params FROM model_runs WHERE id = :r RETURNING id"
         ),
-        {"r": world.run, "finished": finished_at, "week": week},
+        {"r": world.run, "finished": finished_at, "week": week, "season_type": season_type},
     ).scalar_one()
     world.run = run
     return run
@@ -392,7 +444,9 @@ def test_lines_gains_a_pick_when_the_line_crosses(world: World) -> None:
 
     (result,) = _reevaluate(world, moved)
 
-    assert (result.version_id, result.week, result.summary.picks) == (world.version, PICK_WEEK, 1)
+    assert (result.version_id, result.week, result.summary.picks) == (
+        world.version, ("regular", PICK_WEEK), 1
+    )
     (pick,) = _pick_rows(world, game)
     assert (pick.side, pick.line, pick.created_at) == ("home", -5.0, moved)
 
@@ -451,8 +505,33 @@ def test_lines_reevaluates_the_newest_scheduled_weeks_run(world: World) -> None:
     results = [r for r in _reevaluate(world, LINES_NOW) if r.version_id == world.version]
 
     assert [(r.week, r.summary.run_id, r.summary.picks) for r in results] == [
-        (PICK_WEEK, world.run, 1)
+        (("regular", PICK_WEEK), world.run, 1)
     ]
+
+
+def test_lines_reevaluates_the_postseason_week(world: World) -> None:
+    """TASK-047 AC-3: once the weekly job has rated the bowls, `lines` re-picks postseason week 1
+    from that run, as it does a regular week's."""
+    _scheduled(world, finished_at=LINES_NOW - timedelta(days=9), week=1)
+    post = _scheduled(
+        world, finished_at=LINES_NOW - timedelta(days=2), week=1, season_type="postseason"
+    )
+    bowl = world.game(10.0, season_type="postseason", week=1)
+    _line(world.conn, bowl, "DraftKings", LINES_NOW - timedelta(days=1), -3.0)
+
+    results = [r for r in _reevaluate(world, LINES_NOW) if r.version_id == world.version]
+
+    assert [(r.week, r.summary.run_id, r.summary.picks) for r in results] == [
+        (("postseason", 1), post, 1)
+    ]
+    (row,) = _pick_rows(world, bowl)
+    assert row.side == "home"
+    _line(world.conn, bowl, "DraftKings", LINES_NOW + timedelta(hours=1), -12.0)
+    later = [
+        r for r in _reevaluate(world, LINES_NOW + timedelta(hours=2))
+        if r.version_id == world.version
+    ]  # fmt: skip
+    assert [(r.week, r.summary.passes) for r in later] == [(("postseason", 1), 1)]
 
 
 @pytest.fixture

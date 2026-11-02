@@ -44,6 +44,8 @@ MODEL_STATUSES = ("dev", "candidate", "production", "retired")
 MODEL_CREATORS = ("system", "user")
 RUN_TYPES = ("backtest", "scheduled", "adhoc")
 RUN_STATUSES = ("queued", "running", "succeeded", "failed")
+# The season type of a rated week, as on games: postseason week 1 isn't regular week 1 (D-150).
+RATED_SEASON_TYPES = ("regular", "postseason")
 PICK_MARKETS = ("spread", "total", "moneyline")
 PICK_TIERS = ("A", "B", "C")
 DOUBLE = Float(precision=53)
@@ -289,8 +291,8 @@ class ModelVersion(Base):
 
 class ModelRun(Base):
     """One execution of a version. `fitted_params` holds what the fit learned (D-050), `metrics`
-    a backtest's summary. A backtest spans seasons, so only it may leave season, week and as_of
-    NULL."""
+    a backtest's summary. A backtest spans seasons, so only it may leave season, season_type,
+    week and as_of NULL."""
 
     __tablename__ = "model_runs"
     __table_args__ = (
@@ -298,9 +300,11 @@ class ModelRun(Base):
         Index(None, "model_version_id"),
         CheckConstraint(f"run_type IN {RUN_TYPES!r}", name="run_type"),
         CheckConstraint(f"status IN {RUN_STATUSES!r}", name="status"),
+        CheckConstraint(f"season_type IN {RATED_SEASON_TYPES!r}", name="season_type"),
         CheckConstraint(
             "run_type = 'backtest'"
-            " OR (season IS NOT NULL AND week IS NOT NULL AND as_of IS NOT NULL)",
+            " OR (season IS NOT NULL AND season_type IS NOT NULL AND week IS NOT NULL"
+            " AND as_of IS NOT NULL)",
             name="live_run_has_week",
         ),
     )
@@ -311,6 +315,7 @@ class ModelRun(Base):
     )
     run_type: Mapped[str] = mapped_column(Text)
     season: Mapped[int | None]
+    season_type: Mapped[str | None] = mapped_column(Text)
     week: Mapped[int | None]
     as_of: Mapped[datetime | None] = mapped_column(TIMESTAMP(timezone=True))
     # queued → running → succeeded/failed: a lifecycle, so it's updated in place.
@@ -338,21 +343,24 @@ def _run_fk() -> ForeignKeyConstraint:
 
 class TeamRating(Base):
     """Insert-only (hard rule 2): triggers refuse UPDATE, DELETE and TRUNCATE. `week` N means
-    entering week N. A re-run adds rows under its own run, so the run is in the key. Rank is the
-    `team_rankings` view, never a column."""
+    entering week N of `season_type` (postseason week 1 is every bowl and CFP game). A re-run
+    adds rows under its own run, so the run is in the key. Rank is the `team_rankings` view,
+    never a column."""
 
     __tablename__ = "team_ratings"
     __table_args__ = (
         PrimaryKeyConstraint("model_run_id", "team_id", "season", "week"),
         _run_fk(),
-        Index(None, "model_version_id", "season", "week"),
+        Index(None, "model_version_id", "season", "season_type", "week"),
         CheckConstraint("prior_weight BETWEEN 0 AND 1", name="prior_weight_share"),
+        CheckConstraint(f"season_type IN {RATED_SEASON_TYPES!r}", name="season_type"),
     )
 
     model_run_id: Mapped[int] = mapped_column(BigInteger)
     model_version_id: Mapped[int] = mapped_column(BigInteger)
     team_id: Mapped[int] = mapped_column(ForeignKey("teams.id"))
     season: Mapped[int]
+    season_type: Mapped[str] = mapped_column(Text)
     week: Mapped[int]
     as_of: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True))
     rating: Mapped[float] = mapped_column(DOUBLE)

@@ -64,19 +64,21 @@ def run(
     finished_at: datetime | None = None,
     home_field: float | None = 3.0,
     run_type: str = "adhoc",
+    season_type: str = "regular",
 ) -> int:
     params = None if home_field is None else json.dumps({"home_field": home_field})
     return conn.execute(
         text(
-            "INSERT INTO model_runs (model_version_id, run_type, season, week, as_of, status,"
-            " started_at, finished_at, fitted_params)"
-            " VALUES (:v, :run_type, :season, :week, :as_of, :status, :as_of, :finished,"
-            " CAST(:params AS jsonb)) RETURNING id"
+            "INSERT INTO model_runs (model_version_id, run_type, season, season_type, week,"
+            " as_of, status, started_at, finished_at, fitted_params)"
+            " VALUES (:v, :run_type, :season, :season_type, :week, :as_of, :status, :as_of,"
+            " :finished, CAST(:params AS jsonb)) RETURNING id"
         ),
         {
             "v": version_id,
             "run_type": run_type,
             "season": SEASON,
+            "season_type": season_type,
             "week": week,
             "as_of": as_of,
             "status": status,
@@ -93,11 +95,13 @@ def ratings(
     week: int,
     as_of: datetime,
     by_team: Mapping[int, float],
+    season_type: str = "regular",
 ) -> None:
     conn.execute(
         text(
-            "INSERT INTO team_ratings (model_run_id, model_version_id, team_id, season, week,"
-            " as_of, rating) VALUES (:r, :v, :t, :season, :week, :as_of, :rating)"
+            "INSERT INTO team_ratings (model_run_id, model_version_id, team_id, season,"
+            " season_type, week, as_of, rating)"
+            " VALUES (:r, :v, :t, :season, :season_type, :week, :as_of, :rating)"
         ),
         [
             {
@@ -105,6 +109,7 @@ def ratings(
                 "v": version_id,
                 "t": t,
                 "season": SEASON,
+                "season_type": season_type,
                 "week": week,
                 "as_of": as_of,
                 "rating": rating,

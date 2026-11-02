@@ -1,10 +1,11 @@
 """`engine job results|lines` (TASK-022): the scheduled jobs' one entry point. In order:
 
 1. **Pull** into the lake the jobs share (R2): `results`, every week of the current season with a
-   game that started in the last `RECENT` (6 endpoints a week); `lines`, the earliest week with a
-   game not yet kicked off (`/games` and `/lines`). Weeks come from the newest record of each game
-   across the season's saved `/games` files; the season `/games` and `/calendar` files are pulled
-   only when missing. A pull whose saved file is final makes no call (`endpoints.pull`).
+   game that started in the last `RECENT` (6 endpoints a week); `lines`, the week of the earliest
+   kickoff still to come (`/games` and `/lines`), so a game CFBD moved to a later date under its
+   old week doesn't hold `lines` on that week (TASK-047). Weeks come from the newest record of
+   each game across the season's saved `/games` files; the season `/games` and `/calendar` files
+   are pulled only when missing. A pull whose saved file is final makes no call (`endpoints.pull`).
 2. **Stage** the season alone: its raw files, plus every season's `/venues` and `/conferences`
    (pulled once, filed under the backfill's last season), are copied into a scratch lake on the
    runner, which is rebuilt. The season's `/teams` is pulled when missing too. Teams and venues
@@ -17,8 +18,9 @@
 
 
 `lines` then re-evaluates picks (TASK-045's writer) in a second transaction, once the snapshots
-are committed: for each version, its newest `scheduled` run in the season, at the job's clock. A
-pick that fails rolls back the picks alone and the run exits 1; the snapshots stay published.
+are committed: for each version, its newest `scheduled` run in the season (a regular week's or
+the postseason's), at the job's clock. A pick that fails rolls back the picks alone and the run
+exits 1; the snapshots stay published.
 
 `Summary` is what the run did: the calls spent, the month's total, rows staged and new per table,
 and the games counted as done only because they're unscored a week after their start (D-121):
@@ -26,13 +28,16 @@ a postponed game CFBD left under its old week would otherwise go unnoticed when 
 
 `engine job rate-and-predict` (TASK-046, `rate_and_predict`) is the weekly cycle, and makes no
 CFBD call: it reads the lake the morning's `results` and `lines` filled. It takes the week
-`lines` would pull (the earliest with a game not yet kicked off) and stops, writing nothing, when
-that week isn't in the regular season (`publish.models` rates no postseason). It resolves the
-season's settings from a backtest's `run.json`, copies every season's raw files into a scratch
-lake and rebuilds it (the prior and the margin model read every earlier season), checks it, and
-fits the week before opening the database; then one transaction inserts a `scheduled` run with
-its ratings and predictions (creating the named version as `candidate` the first time) and the
-picks from it. A dry run does all of it and rolls the transaction back.
+`lines` would pull (the week of the earliest kickoff still to come) and stops, writing nothing,
+when no game is still to come. From the first bowl to the title game that's postseason week 1,
+every bowl and CFP game: each Sunday rates it again at the same `as_of`, the first bowl's
+kickoff, so the ratings don't change and the CFP games are predicted once their teams are known
+(D-131, D-150). It resolves the season's settings from a backtest's `run.json`, copies every
+season's raw files into a scratch lake and rebuilds it (the prior and the margin model read every
+earlier season), checks it, and fits the week before opening the database; then one transaction
+inserts a `scheduled` run with its ratings and predictions (creating the named version as
+`candidate` the first time) and the picks from it. A dry run does all of it and rolls the
+transaction back.
 """
 
 from __future__ import annotations
@@ -42,7 +47,7 @@ from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any, Literal, cast
 
 from sqlalchemy import Connection, text
 
@@ -101,7 +106,7 @@ class Repicked:
 
     version_id: int
     version: str
-    week: int
+    week: Week
     summary: picks.PickSummary
 
 
@@ -140,7 +145,7 @@ class Summary:
             out.append("- none: no version has a scheduled run this season")
         for r in self.repicked or []:
             s = r.summary
-            out.append(f"- {r.version}, week {r.week}, run {s.run_id}: {_picked(s)}")
+            out.append(f"- {r.version}, {r.week[0]} week {r.week[1]}, run {s.run_id}: {_picked(s)}")
         return out
 
     def render(self) -> str:
@@ -258,14 +263,19 @@ def _order(week: Week) -> tuple[int, int]:
 
 
 def due_weeks(kind: Kind, games: Iterable[dict[str, Any]], now: datetime) -> list[Week]:
-    """`results`: weeks with a game that started in the last `RECENT`; `lines`: the earliest
-    week with a game not yet kicked off."""
+    """`results`: weeks with a game that started in the last `RECENT`; `lines`: the week of the
+    earliest kickoff still to come. A game postponed to a later date keeps its old week, so the
+    earliest week with a game to come could be one already played, every week until it's made up
+    (TASK-047)."""
     games = list(games)
     if kind == "results":
         found = {(g["seasonType"], g["week"]) for g in games if now - RECENT <= _start(g) <= now}
         return sorted(found, key=_order)
-    upcoming = sorted({(g["seasonType"], g["week"]) for g in games if _start(g) > now}, key=_order)
-    return upcoming[:1]
+    upcoming = [g for g in games if _start(g) > now]
+    if not upcoming:
+        return []
+    first = min(upcoming, key=lambda g: (_start(g), _order((g["seasonType"], g["week"]))))
+    return [(first["seasonType"], first["week"])]
 
 
 def canceled(games: Iterable[tuple[dict[str, Any], datetime]]) -> list[str]:
@@ -342,8 +352,9 @@ def reevaluate(conn: Connection, season: int, now: datetime) -> list[Repicked]:
     snapshots, in the caller's transaction. The writer skips games already past their cutoff."""
     rows = conn.execute(
         text(
-            "SELECT DISTINCT ON (r.model_version_id) r.model_version_id, r.week, v.name,"
-            " v.version FROM model_runs r JOIN model_versions v ON v.id = r.model_version_id"
+            "SELECT DISTINCT ON (r.model_version_id) r.model_version_id, r.season_type, r.week,"
+            " v.name, v.version FROM model_runs r"
+            " JOIN model_versions v ON v.id = r.model_version_id"
             " WHERE v.sport_id = :sport AND v.market = :market AND v.deleted_at IS NULL"
             " AND v.status <> 'retired'"
             " AND r.run_type = ANY(:types) AND r.status = 'succeeded' AND r.season = :season"
@@ -362,8 +373,16 @@ def reevaluate(conn: Connection, season: int, now: datetime) -> list[Repicked]:
         Repicked(
             r.model_version_id,
             f"{r.name} {r.version}",
-            r.week,
-            picks.write_picks(conn, r.model_version_id, season, r.week, now, run_types=SCHEDULED),
+            (r.season_type, r.week),
+            picks.write_picks(
+                conn,
+                r.model_version_id,
+                season,
+                r.week,
+                now,
+                run_types=SCHEDULED,
+                season_type=r.season_type,
+            ),
         )
         for r in rows
     ]
@@ -384,7 +403,7 @@ class _DryRun(Exception):
 
 
 def coming_week(lake: Lake, season: int, now: datetime) -> Week | None:
-    """The week `lines` would pull: the earliest with a game not yet kicked off."""
+    """The week `lines` would pull: the week of the earliest kickoff still to come."""
     due = due_weeks("lines", (g for g, _ in _games(lake, season).values()), now)
     return due[0] if due else None
 
@@ -411,11 +430,7 @@ def rate_and_predict(
     if week is None:
         summary.note = f"no game of {season} is still to be played"
         return summary
-    if week[0] != models.SEASON_TYPE:
-        summary.note = (
-            f"the coming week is {week[0]} week {week[1]}, and the postseason isn't rated yet"
-        )
-        return summary
+    season_type = cast(models.SeasonType, week[0])
     summary.week = week
     choices = models.settings(spec, run, season)
 
@@ -428,7 +443,9 @@ def rate_and_predict(
         if not report.ok:
             summary.report = report
             raise JobFailed(report)
-        fitted = models.fit_week(scratch, spec, choices, season=season, week=week[1])
+        fitted = models.fit_week(
+            scratch, spec, choices, season=season, week=week[1], season_type=season_type
+        )
 
     db = _engine(url)
     try:
@@ -450,6 +467,7 @@ def rate_and_predict(
                     week[1],
                     clock.now(),
                     run_types=SCHEDULED,
+                    season_type=season_type,
                 )
             if dry_run:
                 raise _DryRun

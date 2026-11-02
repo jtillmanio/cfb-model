@@ -64,8 +64,10 @@ def _version(
 def _run(conn: Connection, version_id: int) -> int:
     return conn.execute(
         text(
-            "INSERT INTO model_runs (model_version_id, run_type, season, week, as_of, status)"
-            " VALUES (:v, 'scheduled', 2026, 6, '2026-10-04T04:00Z', 'succeeded') RETURNING id"
+            "INSERT INTO model_runs (model_version_id, run_type, season, season_type, week,"
+            " as_of, status)"
+            " VALUES (:v, 'scheduled', 2026, 'regular', 6, '2026-10-04T04:00Z', 'succeeded')"
+            " RETURNING id"
         ),
         {"v": version_id},
     ).scalar_one()
@@ -97,8 +99,9 @@ def _game(conn: Connection) -> int:
 def _rating(conn: Connection, run_id: int, version_id: int, team_id: int, rating: float) -> None:
     conn.execute(
         text(
-            "INSERT INTO team_ratings (model_run_id, model_version_id, team_id, season, week,"
-            " as_of, rating) VALUES (:r, :v, :t, 2026, 6, '2026-10-04T04:00Z', :rating)"
+            "INSERT INTO team_ratings (model_run_id, model_version_id, team_id, season,"
+            " season_type, week, as_of, rating)"
+            " VALUES (:r, :v, :t, 2026, 'regular', 6, '2026-10-04T04:00Z', :rating)"
         ),
         {"r": run_id, "v": version_id, "t": team_id, "rating": rating},
     )
@@ -129,12 +132,13 @@ def test_the_four_tables_exist(db_conn: Connection):
         "created_at", "deleted_at",
     }  # fmt: skip
     assert columns["model_runs"] == {
-        "id", "model_version_id", "run_type", "season", "week", "as_of", "status",
+        "id", "model_version_id", "run_type", "season", "season_type", "week", "as_of", "status",
         "requested_at", "started_at", "finished_at", "github_run_id", "fitted_params",
         "metrics", "error", "created_at",
     }  # fmt: skip
     assert columns["team_ratings"] == {
-        "model_run_id", "model_version_id", "team_id", "season", "week", "as_of", "rating",
+        "model_run_id", "model_version_id", "team_id", "season", "season_type", "week", "as_of",
+        "rating",
         "off_rating", "def_rating", "st_rating", "prior_weight", "components", "created_at",
     }  # fmt: skip
     assert columns["predictions"] == {
@@ -146,7 +150,7 @@ def test_the_four_tables_exist(db_conn: Connection):
         "model_run_id", "team_id", "season", "week",
     ]  # fmt: skip
     indexes = {i["name"]: i["column_names"] for i in insp.get_indexes("team_ratings")}
-    assert ["model_version_id", "season", "week"] in indexes.values()
+    assert ["model_version_id", "season", "season_type", "week"] in indexes.values()
 
 
 def test_one_head_and_the_models_match_the_migrated_db(test_db_url: str):

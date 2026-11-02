@@ -374,8 +374,9 @@ predict** (below) rates, predicts and picks the coming week. The
 
 1. **pull** into the R2 lake (`LAKE_URI`), counted on its shared ledger. `results` pulls every week
    with a game in the last 14 days: `/games`, `/games/teams`, advanced stats, plays, drives and the
-   post-kickoff `/lines` (6 calls a week). `lines` pulls `/games` and `/lines` for the earliest week
-   with a game not yet kicked off (2 calls). A file that's already final costs no call, and a week
+   post-kickoff `/lines` (6 calls a week). `lines` pulls `/games` and `/lines` for the week of the
+   earliest kickoff still to come (2 calls), so a game CFBD moved to a later date under its old
+   week doesn't hold it there (D-150). A file that's already final costs no call, and a week
    becomes final 24 hours after its last kickoff, so Sunday's run is never final and Monday's
    settles it (03 › Lake layout).
 2. **stage** the season alone: its raw files, plus `/venues` and `/conferences` from whichever
@@ -399,9 +400,11 @@ version the workflow names (`efficiency v1.0`, paper-traded as `candidate`, D-14
 season's settings (`python/engine/specs/efficiency-v1-2026.run.json`, D-149). Each run of
 `engine job rate-and-predict` does, in order:
 
-1. **choose the week**: the earliest week with a game not yet kicked off, from the R2 lake's
-   `/games` files, as `lines` chooses it. If it's the postseason (bowls and the CFP aren't rated
-   yet) or the season is over, the run says so and ends without opening production.
+1. **choose the week**: the week of the earliest kickoff still to come, from the R2 lake's
+   `/games` files, as `lines` chooses it. From the first bowl to the title game that's postseason
+   week 1, every bowl and CFP game, rated each Sunday at the same cutoff (the first bowl's
+   kickoff), so the ratings don't change and a CFP game is predicted once its teams are known
+   (D-150). When the season is over, the run says so and ends without opening production.
 2. **resolve the settings** the season runs with from the `run.json`; one that didn't score the
    season is refused (exit 2).
 3. **rebuild every season**: every raw file in R2 is copied into a scratch lake on the runner,

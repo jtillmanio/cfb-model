@@ -203,21 +203,24 @@ def _seed_versions(conn: Connection, data: dict[str, Any]) -> dict[str, int]:
 
 def _seed_run(conn: Connection, version_id: int, run: dict[str, Any]) -> int:
     """The version's run of this type for this season and week, inserted if missing."""
+    key = ("run_type", "season", "season_type", "week")
     found = conn.execute(
         text(
             "SELECT id FROM model_runs WHERE model_version_id = :version_id"
             " AND run_type = :run_type AND season IS NOT DISTINCT FROM CAST(:season AS int)"
+            " AND season_type IS NOT DISTINCT FROM CAST(:season_type AS text)"
             " AND week IS NOT DISTINCT FROM CAST(:week AS int)"
         ),
-        {"version_id": version_id, **{k: run[k] for k in ("run_type", "season", "week")}},
+        {"version_id": version_id, **{k: run[k] for k in key}},
     ).scalar_one_or_none()
     if found is not None:
         return found
     return conn.execute(
         text(
-            "INSERT INTO model_runs (model_version_id, run_type, season, week, as_of, status,"
-            " requested_at, started_at, finished_at, fitted_params, metrics)"
-            " VALUES (:version_id, :run_type, :season, :week, :as_of, :status, :requested_at,"
+            "INSERT INTO model_runs (model_version_id, run_type, season, season_type, week,"
+            " as_of, status, requested_at, started_at, finished_at, fitted_params, metrics)"
+            " VALUES (:version_id, :run_type, :season, :season_type, :week, :as_of, :status,"
+            " :requested_at,"
             " :started_at, :finished_at, CAST(:fitted_params AS jsonb), CAST(:metrics AS jsonb))"
             " RETURNING id"
         ),
@@ -249,6 +252,7 @@ def _scheduled_run(
         {
             "run_type": "scheduled",
             "season": season,
+            "season_type": "regular",
             "week": week,
             "as_of": as_of,
             "status": "succeeded",
@@ -279,6 +283,7 @@ def _seed_models(
             {
                 "run_type": "backtest",
                 "season": None,
+                "season_type": None,
                 "week": None,
                 "as_of": None,
                 "status": b["status"],
@@ -323,10 +328,10 @@ def _seed_models(
             )
     new_ratings = conn.execute(
         text(
-            "INSERT INTO team_ratings (model_run_id, model_version_id, team_id, season, week,"
-            " as_of, rating, off_rating, def_rating, prior_weight, created_at)"
-            " VALUES (:run_id, :version_id, :team_id, :season, :week, :as_of, :rating, :off,"
-            " :def, :prior_weight, :created_at) ON CONFLICT DO NOTHING"
+            "INSERT INTO team_ratings (model_run_id, model_version_id, team_id, season,"
+            " season_type, week, as_of, rating, off_rating, def_rating, prior_weight, created_at)"
+            " VALUES (:run_id, :version_id, :team_id, :season, 'regular', :week, :as_of, :rating,"
+            " :off, :def, :prior_weight, :created_at) ON CONFLICT DO NOTHING"
         ),
         rating_rows,
     ).rowcount
