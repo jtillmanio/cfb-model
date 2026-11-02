@@ -115,6 +115,7 @@ Phase 8  Multi-sport (NFL)
 - [ ] Line movement: opening → current + sparkline in the slate's Market cell, full history on Game Detail
 - [ ] Best lines board (in Picks): upcoming games ranked by cover % against the better of market/contest line, with an *uncalibrated* label until calibration passes
 - [ ] This week's record strip (This Week, Picks, Contest) + a `scores` job refreshing this week's scores during game windows
+- [ ] Team logos from CFBD (`teams.logo_url`) in the TeamChip slot everywhere, served without a third-party request (added 2026-11-01, D-146, M5.2)
 
 **Acceptance:** on a Thursday you paste the Splash page and see the whole CFB + NFL slate ranked against the contest's lines, with the top 4 marked. You record your picks, and on Saturday you follow results from your phone.
 
@@ -139,6 +140,17 @@ Phase 8  Multi-sport (NFL)
 - [ ] Model v1.1: the new units, special teams, opponent-removed stats, SOS/SOR and conference shrinkage tested as inputs, each kept only if it wins; game-specific σ kept only if calibration improves
 - [ ] Confidence plays: levels from the calibrated cover %, each with its backtest hit rate and reasons
 - [ ] Model Lab › Inputs: the inputs explainer
+- [ ] Research, moved from Phase 7 on 2026-11-01 (D-146): position-group ratings from player-level data (estimate the player endpoints' call cost first; shown on the team profile either way; enters a model only if it wins) _(M19.6)_
+
+**Résumé, matchup preview, computer rankings and many models** (added 2026-11-01; [04 § 11](04-model.md), D-146, D-147; M20–M23 in [08-tasklist](08-tasklist.md))
+- [ ] Design first: the résumé and profile pass (Prompt 14) is done
+- [ ] Résumé ranking every week: SOR, SOS, offensive and defensive results, best wins, best and bad losses (views over stored ratings and games)
+- [ ] Quad records by the opponent's rank and the site; shown on the résumé, team page and pick preview; tested as a model input, kept only if it wins
+- [ ] Pick preview on Game Detail: model line, probabilities, confidence, the two teams side by side, best wins, best matchups, reasons in plain sentences
+- [ ] Team page: model profile (every input and derived input entering any week), résumé card, computer rankings card, history by season since 2014 (schema proposal reviewed before migration)
+- [ ] Model Lab › How it works: the model step by step with the selected version's numbers
+- [ ] Computer rankings: survey the sources (weekly history, terms of use, scraping effort), snapshot the chosen ones weekly as early as possible, backfill dated archives, store them (schema proposal reviewed before migration), each an optional model input tested per version
+- [ ] Many models: every active version rates and predicts weekly with its own record; Model Lab › Models to activate, pause, choose which drives picks, delete and restore; a model switcher on This Week and Game Detail
 
 ## Phase 6 — Rankings & history
 **Goal:** rank seasons, programs and coaches across history, not just this week's teams. Design: [04-model.md §7](04-model.md).
@@ -154,17 +166,17 @@ Phase 8  Multi-sport (NFL)
 - [ ] Program rankings over any span of seasons: all time, last N seasons, or a custom range (views)
 - [ ] Coach rankings: value over expectation, shrunk for short tenures, with and without crediting recruiting; ATS and close-game records
 - [ ] Screens: Rankings → History tab (Season final, Programs, Coaches) and a coach page; ⌘K finds coaches
+- [ ] Team page history module extended before 2014, with hindsight ratings and coaches (F-58, added 2026-11-01)
 
 **Acceptance:** for any season since the start year you can see the best team and the best résumé side by side; you can rank programs over any span; you can explain why each of the top 5 coaches is there; the leakage test proves no prediction can read a hindsight rating.
 
 ## Phase 7 — Model builder + extensions
-- [ ] **Model Lab, part 2:** builder form generated from the `ModelSpec` JSON Schema, with the inputs explainer's card beside each input; run backtests from the UI (GitHub Actions dispatch); promote with the go/no-go checklist; variants-tried counter
+- [ ] **Model Lab, part 2:** builder form generated from the `ModelSpec` JSON Schema, with the inputs explainer's card beside each input; creates and edits the versions Phase 5's Models page manages (F-59, D-147); run backtests from the UI (GitHub Actions dispatch); promote with the go/no-go checklist; variants-tried counter
 - [ ] Totals model + picks (uses the Phase 5 weather snapshots)
 - [ ] CFP odds: committee-selection approximation (uses Phase 6's résumé ranking), 12-team bracket simulation
 - [ ] Hypothetical matchup tool (cross-season)
 - [ ] Research: drive-level game simulator (ships only if it improves calibration/totals)
 - [ ] Research: Rung 3 ML residual layer (ships only if it wins)
-- [ ] Research: position-group ratings from player-level data (estimate the player endpoints' call cost first; ships only if it wins)
 - [ ] Claude-generated pick write-ups from `drivers`
 - [ ] Optional: The Odds API multi-book lines
 
@@ -195,6 +207,10 @@ Playbook: [07-claude-design-playbook.md](07-claude-design-playbook.md). Design w
 
 **Ratings-depth pass (after Phase 4, before Phase 5's ratings-depth screens)**
 - [ ] Add the sample rows to `design/sample-data.md` (owner approves; protected path), then run **Prompt 13** ([07 § Prompt 13](07-claude-design-playbook.md)): Rankings › Units and SOR, team page Stats, Confidence plays, Lab › Inputs
+- [ ] Re-run Prompt 9's audit on the new frames; re-export; update "Design decisions"
+
+**Résumé and profile pass (after Prompt 13, before Phase 5's résumé, preview, profile and models screens)**
+- [ ] Add the sample rows to `design/sample-data.md` (owner approves; protected path), then run **Prompt 14** ([07 § Prompt 14](07-claude-design-playbook.md)): Rankings › Résumé, team page résumé, model profile, computer rankings and history, Game Detail's pick preview, the model switcher, Lab › Models and How it works
 - [ ] Re-run Prompt 9's audit on the new frames; re-export; update "Design decisions"
 
 **History pass (after Phase 5, before Phase 6)**

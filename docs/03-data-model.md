@@ -273,6 +273,15 @@ For F-46 to F-49 in Phase 5 ([04 § 10](04-model.md), [02 › Ratings depth](02-
 - **Schedule strength outputs** (M18.4): per model run, team, season and week: `sor`, `sor_benchmark_rating` (the 25th-best rating it was measured against), `sos_remaining`, `sos_full`. Model outputs, insert-only and tied to `model_run_id` like `season_simulations`. Its own table or columns on `team_ratings` is decided at the plan gate.
 - **Not stored:** confidence levels (computed from `picks.model_prob` and the spec's cutoffs), the conference-tier map (code in `sports/cfb`), and the input registry (code in `engine.core`).
 
+### Proposed additions from the 2026-11-01 features (not approved)
+
+For F-51 to F-59 ([04 § 11](04-model.md), D-146, D-147). A rough shape, reviewed at each schema task's plan gate before any migration.
+- **External ratings** (M22.4, shared with M10.7's benchmark storage): one row per (source, team, season, week or date published), with rating, rank and `as_of` (when the value was published or, for our snapshots, fetched). Facts, upserted by source key (hard rule 3). The raw snapshots land in the lake first (`raw/external_ratings/<source>/…`, append-only), and M22.2 can start collecting them before the table exists. A season-final value is stored with a flag saying so, and the feature table refuses it.
+- **Position-group ratings** (M19.6, research): per model run, team, season, week and group. If they're unit-style components, they fit `team_ratings.components` with no change; if they need player-level storage, the research decides and proposes it.
+- **Per-team input values** (M21.1): what the team page's model profile needs that isn't stored per team and week today, mainly the prior's parts (last season's rating, returning production, talent, recruiting) and its weight. Model outputs tied to the run, insert-only; a `components`-style `jsonb` or a table is decided at the plan gate.
+- **Active model versions** (M23.1): `model_versions.status` (`candidate`, `production`) may be enough; a separate active flag or a cap setting is a schema change if needed.
+- **Not stored:** game difficulty, best and bad results, quad records, résumé rank and per-game offensive and defensive results (views over games, ratings and `team_game_stats`); the plain-sentence reasons (rendered from `drivers` on read); team logos (already `teams.logo_url`).
+
 ### Later: history & coaches (proposed, not approved)
 Phase 6 ([04-model.md §7](04-model.md)) will need a way to mark a rating as *predictive* or *hindsight* (so predictions can never read hindsight ratings), plus `coaches` and `coach_tenures` with game-level attribution for mid-season changes. Program and coach rankings themselves are views. The exact schema is proposed and reviewed at the start of Phase 6.
 
