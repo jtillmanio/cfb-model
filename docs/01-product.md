@@ -84,7 +84,7 @@ Built after the betting model (Phase 6). See [04-model.md §7](04-model.md).
 | **View model weights:** the fitted coefficients and settings behind the production model and any version (e.g. "1 point of EPA/play = X points", home field = 2.3, how fast the preseason prior fades) | Next | Read-only, with plain-English labels |
 | Model versions and backtest reports, comparable side by side | Next | Starts as CLI and notebook output and moves into the UI |
 | Calibration charts: do 60% picks hit about 60%? | Next | |
-| **Model builder:** clone a model, choose its inputs, set or fix weights and hyperparameters, run a backtest from the UI, compare it with production, and promote it if it passes the gates | Later | Models are config-driven from day one so this is possible (see [04-model.md §6](04-model.md)) |
+| **Model builder:** clone a model, choose its inputs, set or fix weights and hyperparameters, run a backtest from the UI, compare it with production, and promote it if it passes the gates | Later | Models are config-driven from day one so this is possible (see [04-model.md §6](04-model.md)). From 2026-11-01, several models run side by side and are managed in the app (F-59) |
 | Plain-English pick write-ups from Claude | Later | Claude API summarizes the drivers |
 
 ### Multi-sport
@@ -173,11 +173,19 @@ Outcomes use the 2026 Week 6 fixture (`design/sample-data.md`, seeded as describ
 | F-48 | Strength of schedule and strength of record every week | Next (added) | 3 (SOS) · 5 | S-04, S-06; SOR not designed |
 | F-49 | Confidence plays (best bets with confidence levels) | Next (added) | 5 | S-07; not designed |
 | F-50 | Model inputs explainer | Next (added) | 5 · 7 (builder) | S-09, S-10; not designed |
-| F-51 | Position-group ratings | Later (research, added) | 7 | — |
+| F-51 | Position-group ratings | Next (research; added, moved from Later 2026-11-01) | 5 | S-06, S-03; not designed |
+| F-52 | Résumé ranking every week: SOR, SOS, offensive and defensive results, best wins, best and bad losses | Next (added) | 5 | S-04, S-06; not designed |
+| F-53 | Quad records: each game placed in one of four quads by the opponent's rank and the site | Next (added) | 5 | S-04, S-06, S-03; not designed |
+| F-54 | Pick preview: the whole matchup on one panel of Game Detail | Next (added) | 5 | S-03; not designed |
+| F-55 | Team model profile: every input and derived input for a team, entering any week | Next (added) | 5 | S-06; not designed |
+| F-56 | How the model works, in the app | Next (added) | 5 | S-09; not designed |
+| F-57 | Computer rankings: shown on the team profile, and each an optional model input | Next (added) | 5 | S-06, S-03; not designed |
+| F-58 | Team history: season-by-season results and ratings | Next (added) | 5 · 6 (before 2014, coaches) | S-06; not designed |
+| F-59 | Many models: create, configure, run side by side and delete them in the app | Next (added) | 5 (run and manage) · 7 (builder) | S-09, S-10, S-01, S-03; not designed |
 
 ### Features added 2026-10-20
 
-From the owner's list of 2026-10-20. The model detail for all of them is [04-model.md § 10](04-model.md); where they're built is [08-tasklist.md](08-tasklist.md) M18–M19 (plus M3.7, M4.1 and M16.5). None changes the MVP's screens; the SOS that Rankings and the team page already show (F-17, F-18) gets its definition and its view (M3.7).
+From the owner's list of 2026-10-20. The model detail for all of them is [04-model.md § 10](04-model.md); where they're built is [08-tasklist.md](08-tasklist.md) M18–M19 (plus M3.7, M4.1 and M16.5, which became M19.6 on 2026-11-01). None changes the MVP's screens; the SOS that Rankings and the team page already show (F-17, F-18) gets its definition and its view (M3.7).
 
 | ID | What it is |
 |---|---|
@@ -188,7 +196,27 @@ From the owner's list of 2026-10-20. The model detail for all of them is [04-mod
 | F-50 | In Model Lab, a page that shows every input: what it measures, how it's computed, why it matters, whether this version uses it, its learned weight in plain English, its share of the rating spread, and where teams sit on it. The builder (F-38) shows the same card beside each input |
 | F-51 | Ratings for quarterbacks, receivers, running backs and both lines from player-level data, so the model can react to a missing starter. Research: ships only if it beats production |
 
+F-51 moved from Later (Phase 7 research) to Next (Phase 5) on 2026-11-01: see below.
+
 Also from the same list: **conference-tier shrinkage** ("opponent adjusted but also Power 4 adjusted") is a model setting rather than a feature: v1 tests it (M4.1, 04 § 10.4). **Program rankings** (F-27) get span presets: all time back to the history start year, the last N seasons, or a custom range.
+
+### Features added 2026-11-01
+
+From the owner's list of 2026-11-01. The model detail is [04-model.md § 11](04-model.md); where they're built is [08-tasklist.md](08-tasklist.md) M20–M23, plus M5.2 (logos) and M19.6 (position groups). Decisions D-146 and D-147. Like the 2026-10-20 list, each new number is shown first and enters predictions only if the backtest says it helps (D-117).
+
+| ID | What it is |
+|---|---|
+| F-51 | (Moved.) Position-group ratings now come in Phase 5, right after unit ratings (M19.6, was M16.5), because the owner wants them feeding the model sooner. Still research: the player endpoints' call cost is estimated first, and they enter a model only if it beats the version without them. Shown on the team profile and the pick preview either way |
+| F-52 | A résumé ranking, every week and at any past week: teams ranked by strength of record (F-48), with SOS, quad records, offensive and defensive results (how each unit did against what its opponents allow everyone else), best wins, best losses and bad losses. On a Rankings › Résumé view and the team page. The owner's reference is ribozyme-cfb-analytics.streamlit.app/about. The season-final version with hindsight ratings stays F-26 |
+| F-53 | Each game placed in one of four quads by the opponent's rank and where the game was played (an away game against #30 is harder than a home game against #30), in the style of college basketball's NET quadrants. Quad records ("Q1 3-1 · Q2 2-0") show on the résumé, the team page and the pick preview, and are tested as a model input |
+| F-54 | A pick preview on Game Detail: model line, cover and win probability, confidence level (F-49), the two teams side by side (overall, offense, defense, special teams, unit and position-group ratings with ranks, SOS, SOR, résumé rank, quad records), each team's best wins and most important results, the best matchups (the unit pairings where one side has the biggest edge), and the main reasons for the prediction in plain sentences. Plain sentences come from the drivers, so they need no Claude call; Claude-written summaries stay F-39 |
+| F-55 | A team page module that shows every input the engine computes for the team, entering any week, including derived ones: the raw stat, the opponent-adjusted rating, the percentile, whether the selected model uses it, and its contribution in points. Derived inputs include the preseason prior's parts (last season, returning production, talent, recruiting) and how much weight the prior still has, the tier term, SOS and SOR, quad records, computer rankings and position-group ratings. It covers the per-play offense and defense profile (EPA/play, success rate, explosiveness), which F-46 and F-47 already compute |
+| F-56 | A Model Lab page that explains the model step by step (data, ratings, margin, probability, pick, grading) with the selected version's live numbers and a worked example on one of this week's games. It turns [model-guide.md](model-guide.md) into an in-app page; F-50's input cards cover each input |
+| F-57 | Ratings from other computer systems (CFBD's SP+, FPI, Elo and SRS to start, and others such as Massey's composite found by a survey) shown on the team profile and the pick preview with their rank and as-of date. Each source is an optional model input that a model version can turn on. A source counts in a backtest only for weeks where we hold a value published before kickoff, so weekly snapshots start early, and sources that CFBD lacks or only has as season-final values are explored for weekly scraping. Extends F-23's comparison view |
+| F-58 | The team page gains a history module: each season since 2014 with record, ATS record, final rating and rank, SOR rank, conference finish and bowl. Phase 6 adds hindsight ratings, coaches and seasons before 2014 (F-26, F-29, F-31). Team logos (CFBD's `logo_url`, already stored) replace the team-color dot everywhere in the MVP (D-075), with no feature ID of their own |
+| F-59 | Several models at once, managed in the app. Every active model version rates and predicts each week and keeps its own live record. You choose which one drives picks and the contest ranking, see any active model's line on This Week and Game Detail, pause or delete a model (soft delete: its predictions and picks are kept), and create or clone one and choose its inputs and settings (F-38's builder). Running and managing come in Phase 5; creating and editing in the builder stay Phase 7 |
+
+Also from the same list, already planned: describing a prediction's contributing factors is Game Detail's drivers with their Plain English view (F-05, MVP), confidence-play reasons (F-49) and Claude write-ups (F-39). The full model explanation is F-50 and F-56.
 
 ### Observable outcomes for MVP features
 
