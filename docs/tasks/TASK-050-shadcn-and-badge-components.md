@@ -25,6 +25,7 @@ The app has the design system's small components (edge pill, tier badge, result 
 - Decisions: D-061 (edge pill: filled `--edge` only when edge ≥ the pick threshold, plain muted text below), D-063 (tiers: one violet hue, three lightness steps, letter always printed, C with a 1px outline), D-055 and `design/README.md` § Number formats › Pick thresholds (thresholds are read from the active version's spec, never hard-coded: the pill takes the threshold as a prop), D-070 (no "Lock" verbs), D-085 (violet edge kept), D-101/D-125 (a new top-level page adds its Lighthouse route and budget in the same PR, measured on the fixture build).
 - **Plan gate decides:** what the review surface is. Proposed: a signed-in specimen page (e.g. `/design-system`) rendering each component in every state against static sample props, with no API call; it is a top-level page, so `web/lib/perf.test.ts` requires its route and budget, and it should return 404 in production (e.g. on `VERCEL_ENV=production`) so the owner's app doesn't ship a design page. Alternative: Vitest-only state tests and no page, reviewed through TASK-056's screen instead.
 - `.claude/rules/web.md`: tokens and shared components only; extend the system rather than adding a one-off style.
+- *From TASK-051 (docs/plans-2026-11-02), open question for the plan:* TASK-051's approved plan assumes this task picks the specimen page `/design-system` and adds jsdom and Testing Library to `web/` (for its keyboard test); if this plan picks otherwise, TASK-051 re-plans.
 
 ## Acceptance criteria
 

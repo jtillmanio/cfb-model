@@ -28,6 +28,7 @@ Signed in, the home page is This Week: the current week's games grouped by kicko
 - *From TASK-016 (PR #59):* the fixture has each game's opener (Sun 6:00 AM ET) and current line (Thu 9:02 PM ET) only, plus Texas vs Oklahoma's four and BYU's three snapshots; if a sparkline AC cites `this-week-data.js`'s illustrative in-between points (e.g. LSU −2.5, −2.5, −3, −3.5), this task adds them. (The ACs below don't, so no fixture change is planned.)
 - TASK-014 (M5.8, time screen-to-screen taps) waits on this task; its `depends_on` lists this task.
 - `.claude/rules/web.md`: one API call per page, `loading.tsx` at the loaded size with the pulse off under reduced motion, e2e at phone and desktop widths.
+- *From TASK-051 (docs/plans-2026-11-02), open question for the plan:* TASK-051 builds the market cell's current-season states only; `Market Extras.dc.html` also draws a past-season variant (opening and closing line only, two dots, dashed join, "Past season" title). Does a past week on This Week need it, and if so, does this task build it?
 
 ## Acceptance criteria
 
