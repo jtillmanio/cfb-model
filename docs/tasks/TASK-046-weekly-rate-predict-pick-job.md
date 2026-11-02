@@ -1,7 +1,7 @@
 ---
 id: TASK-046
 title: Run the production weekly cycle: rate, predict and pick
-status: In progress
+status: Review
 depends_on: [TASK-043, TASK-044, TASK-045]
 size: M
 model: opus
@@ -36,11 +36,11 @@ Every Sunday morning in season, production gains new ratings, predictions and pi
 
 ## Acceptance criteria
 
-- [ ] AC-1: Given a lake fixture and the test DB with the version the job names (created as `candidate` from its spec file when missing), `engine job rate-and-predict --target dev` with the clock on a Sunday in season rebuilds every staged season from the raw lake in a scratch lake with zero CFBD calls (the call ledger is unchanged), and in one transaction inserts a `scheduled` model run, its ratings, a prediction for every staged game of the coming week that will be played (none for a canceled one), and TASK-045's picks for them (test).
-- [ ] AC-2: With a version of that name whose stored spec differs from the spec file, or settings for the season that can't be resolved, the job exits 2 and writes nothing; a failed data-quality check exits 1 before the database is opened; a second run in the same week inserts a new run and predictions but no pick whose side and tier are unchanged (tests).
-- [ ] AC-3: `engine job lines`, after publishing new snapshots, re-evaluates the coming week's picks from each version's newest `scheduled` run in the season against the newest snapshots: a test where a line moves across the threshold gains a pick, one where nothing changes gains no row, and a game already kicked off gains none.
+- [x] AC-1: Given a lake fixture and the test DB with the version the job names (created as `candidate` from its spec file when missing), `engine job rate-and-predict --target dev` with the clock on a Sunday in season rebuilds every staged season from the raw lake in a scratch lake with zero CFBD calls (the call ledger is unchanged), and in one transaction inserts a `scheduled` model run, its ratings, a prediction for every staged game of the coming week that will be played (none for a canceled one), and TASK-045's picks for them (test).
+- [x] AC-2: With a version of that name whose stored spec differs from the spec file, or settings for the season that can't be resolved, the job exits 2 and writes nothing; a failed data-quality check exits 1 before the database is opened; a second run in the same week inserts a new run and predictions but no pick whose side and tier are unchanged (tests).
+- [x] AC-3: `engine job lines`, after publishing new snapshots, re-evaluates the coming week's picks from each version's newest `scheduled` run in the season against the newest snapshots: a test where a line moves across the threshold gains a pick, one where nothing changes gains no row, and a game already kicked off gains none.
 - [ ] AC-4: `.github/workflows/rate-and-predict.yml` runs the job under `LIVE=true` with `timeout-minutes: 10`, in the `lake-publish` concurrency group, with a fallback cron and `skip-if-dispatched` as `results.yml` has; the dispatcher's `SCHEDULE` gains `rate-and-predict.yml` on Sun at 09:00 ET with a Vitest case for that slot; the workflow's branch run (the ready gate, as the plan settles) passes in under 10 minutes.
-- [ ] AC-5: README › Jobs gains the workflow's row (time, fallback cron, calls a run: 0) and what each step does, 02 › Components › 4 Jobs says `rate-and-predict` and the `lines` re-evaluation are built, and `docs/owner-checklist.md` lists each owner action the plan names (redeploy the dispatcher), each with a check the owner can run (e.g. after the first Sunday 09:00 ET, `gh run list --workflow rate-and-predict.yml --event workflow_dispatch --limit 1` shows a run started within 5 minutes of it).
+- [x] AC-5: README › Jobs gains the workflow's row (time, fallback cron, calls a run: 0) and what each step does, 02 › Components › 4 Jobs says `rate-and-predict` and the `lines` re-evaluation are built, and `docs/owner-checklist.md` lists each owner action the plan names (redeploy the dispatcher), each with a check the owner can run (e.g. after the first Sunday 09:00 ET, `gh run list --workflow rate-and-predict.yml --event workflow_dispatch --limit 1` shows a run started within 5 minutes of it).
 
 ## Out of scope
 
@@ -72,8 +72,12 @@ Every Sunday morning in season, production gains new ratings, predictions and pi
 
 _Work noticed during this task and deliberately left out. Each bullet ends `→ <path> § <section>` (where it was placed) or `→ not tracked: <reason>`. See `.claude/skills/track-follow-ups/classify.md`; the PR's Follow-ups section is copied from here._
 
-- Rate, predict and pick the postseason (bowls and CFP, D-131's postseason week 1): `team_ratings` and `model_runs` have no season type, so it needs a schema change; it should land before the first bowl (about 2026-12-13) (approved at plan) → new Draft task + `docs/08-tasklist.md` § M4
-- A game postponed to later in the season keeps its old week "not yet kicked off", so `lines` (and this job, which shares its week rule) stays on that week until it's played (approved at plan) → the new postseason task's Context
+- Rate, predict and pick the postseason (bowls and CFP, D-131's postseason week 1): `team_ratings` and `model_runs` have no season type, so it needs a schema change; it should land before the first bowl (about 2026-12-13), with its M4.9 stub in the task list (approved at plan) → docs/tasks/TASK-047-rate-and-pick-the-postseason.md (new, Draft)
+- A game postponed to later in the season keeps its old week "not yet kicked off", so `lines` (and this job, which shares its week rule) stays on that week until it's played (approved at plan) → docs/tasks/TASK-047-rate-and-pick-the-postseason.md § Context
+- Candidate decision: how the weekly cycle runs (the named version created as `candidate`, the committed 2026 settings, the full rebuild, one transaction, the dry run, the `lines` re-evaluation in its own READ COMMITTED transaction) → docs/decisions.md § D-149
+- Owner actions: a release before the first Sunday run so production has the model tables and pick views, and redeploying the dispatcher for the Sun 09:00 entry, each with a check → docs/owner-checklist.md § Actions
+- Spec review R1: a successful hand `dry_run` on a Sunday morning counts as a dispatched success, so that day's fallback cron skips → not tracked: done in this PR (a README › Jobs note says to run the workflow by hand if the 09:00 dispatch then failed)
+- Spec review R1: `rate_and_predict` would still write to the version it names if that version were `retired` (the `lines` re-evaluation skips retired ones) → not tracked: the workflow pins v1.0, created as `candidate`, and M23.1 replaces how the weekly job chooses versions (D-147)
 
 ## Plan
 
@@ -111,13 +115,18 @@ Approved 2026-11-02, with the AC-1, AC-2, AC-3 and AC-5 wording changes above (t
 
 _Filled by /implement-task. One line per round._
 
+- Verify R1 PASS (typecheck, lint, db:check, 805 pytest + Vitest, build, 40 e2e) → R2 PASS after the schema-review fixes (806 pytest, 17 Vitest, 40 e2e)
+- Audit R1 CHANGES (a test_jobs.py comment's arrows garbled by a re-encode; its `timeout-minutes` item was already asserted by the parametrized workflow test), every AC test PROVEN and discriminating → fixed in a37533b
+- Schema R1 APPROVE (two MINORs: isolation not pinned, retired versions re-picked; both fixed with failing-first tests in 29f79b7)
+- Spec R1 (interrupted by a usage limit, resumed on 29f79b7) APPROVE; non-blocking notes: a settings-file guard test and two doc notes added in 2f4c027, one left untracked (Follow-ups)
+
 ## Blocked
 
 _Only if status is Blocked: what failed, what was tried, best hypothesis, decision needed._
 
 ## Metrics
 
-- Verify rounds:
-- Review rounds:
-- First-pass AC FAILs:
-- Plan revisions after approval:
+- Verify rounds: 2 (both PASS; the second after the schema-review fixes)
+- Review rounds: 1 (spec), 1 (schema); audit 1
+- First-pass AC FAILs: 0 (schema R1's MINORs and the audit's encoding fix were not AC failures)
+- Plan revisions after approval: 0 (decision 5's note records the review's pinned isolation, an implementation detail of the approved READ COMMITTED)
