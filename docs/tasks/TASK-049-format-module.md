@@ -1,7 +1,7 @@
 ---
 id: TASK-049
 title: Implement format.ts against the number-format card
-status: Ready
+status: In progress
 depends_on: []
 size: S
 model: sonnet
