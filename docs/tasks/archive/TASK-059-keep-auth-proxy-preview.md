@@ -1,7 +1,7 @@
 ---
 id: TASK-059
 title: Keep the auth-proxy branch's newest preview in the Vercel cleanup
-status: Review
+status: Done
 depends_on: []
 size: S
 model: sonnet
