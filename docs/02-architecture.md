@@ -374,9 +374,12 @@ Every PR is measured with Lighthouse automatically. The job **fails the PR only 
 |---|---|---|---|---|
 | `login` | 10,000 | 166,000 | 15 | 100 |
 | `teams` | 14,000 | 166,000 | 15 | 100 |
+| `design-system` | 9,000 | 183,000 | 16 | 100 |
 <!-- perf-budget:end -->
 
 _Reset 2026-10-23 when the gates moved to the fixture build (D-125, TASK-027), from its first run ([run 40016680767](https://github.com/jtillmanio/cfb-model/actions/runs/40016680767), commit `fdf0e96`), measured with Lighthouse 13.5.0 and Chrome 155.0.8059.39. Medians of three runs: `login` 7,887 doc bytes, 137,623 JS bytes, 12 requests, accessibility 100; `teams` 11,360, 137,623, 12, 100. A re-run on the same commit measured `login` 7,877–7,898 and `teams` 11,361–11,362 doc bytes with the same JS and requests, under 1% apart. `login`'s document is larger than on a preview (4,043), most likely because `next start` compresses differently from Vercel's edge (not checked; D-125 expects the local numbers to differ, which is why they were reset rather than carried over). Earlier preview budgets: first set 2026-10-13 from TASK-008's first preview run (`login` 4,041; `teams` 5,861), and `teams` raised to 15,000 the same day as this reset when the preview database filled (PR #74). Written with `node scripts/perf/report.mjs budget <metrics.json>`, which writes `budget.json` and prints this table; `web/lib/perf.test.ts` checks the two match._
+
+_Added 2026-11-03 for `design-system` (TASK-050, D-152), from the fixture run on its PR ([run 41591176278](https://github.com/jtillmanio/cfb-model/actions/runs/41591176278), commit `6fee022`), measured with Lighthouse 13.5.0 and Chrome 156.0.8078.47. Medians of three runs: 7,213 doc bytes, 151,727 JS bytes, 13 requests, accessibility 100 (the report flagged no unsteady bytes). The `login` and `teams` rows stay as set above; the same run measured them at 7,882 / 137,715 / 12 and 12,448 / 137,715 / 12, inside their budgets._
 
 ## Walking skeleton
 
