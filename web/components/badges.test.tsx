@@ -41,6 +41,12 @@ describe("EdgePill (AC-1)", () => {
     expect(screen.getByText("+2.5 OSU").className).toContain("bg-edge");
   });
 
+  it("compares the raw edge, as the pick rule does: 2.46 prints +2.5 but stays plain", () => {
+    render(<EdgePill edgePts={2.46} home="OSU" away="UTAH" threshold={2.5} />);
+    const pill = screen.getByText("+2.5 OSU");
+    expect(pill.className).not.toContain("bg-edge");
+  });
+
   it("a negative edge at the threshold is filled for the away side", () => {
     render(<EdgePill edgePts={-2.5} home="OSU" away="UTAH" threshold={2.5} />);
     expect(screen.getByText("+2.5 UTAH").className).toContain("bg-edge");
