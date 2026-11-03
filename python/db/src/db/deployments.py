@@ -4,9 +4,10 @@ Each deployment keeps its own copy of the functions, and the Hobby plan's Functi
 10 GB, so previews of closed PRs and old `main` builds pile up against it. `python -m db
 vercel-cleanup --branch <b>` deletes one closed PR's previews; with no `--branch` it sweeps the
 project. Never deleted: the deployment serving production, the newest `KEEP_MAIN` ready `main`
-builds (release and rollback candidates), anything still building, a preview whose PR is open,
-and anything not built from git. The decision is pure (`plan_cleanup`); the clients reuse
-db.release's.
+builds (release and rollback candidates), the newest ready `AUTH_PROXY` preview (its branch
+alias is the preview sign-in proxy's OAuth callback, TASK-060, and that branch has no PR),
+anything still building, a preview whose PR is open, and anything not built from git. The
+decision is pure (`plan_cleanup`); the clients reuse db.release's.
 """
 
 from __future__ import annotations
@@ -34,6 +35,7 @@ KEEP_MAIN = 5
 FRESH_MS = 24 * 60 * 60 * 1000  # a sweep leaves younger previews: their PR may not be open yet
 FINISHED = {"READY", "ERROR", "CANCELED"}
 MAIN = "main"
+AUTH_PROXY = "auth-proxy"  # long-lived, no PR; its branch alias is the preview OAuth callback
 
 
 @dataclass(frozen=True)
@@ -96,6 +98,11 @@ def plan_cleanup(
         b.id for b in builds if b.is_main and b.state == "READY" and b.id not in production
     ]
     newest_main = set(ready_main[:keep_main])  # production is kept on top of these
+    # The branch alias follows the newest ready build; older proxy builds go as usual.
+    newest_proxy = next(
+        (b.id for b in builds if b.branch == AUTH_PROXY and not b.is_main and b.state == "READY"),
+        None,
+    )
 
     verdicts = []
     for b in builds:
@@ -112,6 +119,8 @@ def plan_cleanup(
                 verdicts.append(Verdict(b, True, f"older than the newest {keep_main} main builds"))
             else:
                 verdicts.append(Verdict(b, True, f"main build {b.state.lower()}"))
+        elif b.id == newest_proxy:
+            verdicts.append(Verdict(b, False, "the auth proxy's newest ready preview"))
         elif b.branch in open_branches:
             verdicts.append(Verdict(b, False, "its PR is open"))
         elif branch is None and now_ms - b.created < FRESH_MS:

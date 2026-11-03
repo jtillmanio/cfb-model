@@ -93,6 +93,47 @@ def test_a_main_preview_counts_as_a_main_build_not_a_preview():
     assert got["dpl_m6"] == (True, "older than the newest 5 main builds")
 
 
+# ─── The preview sign-in proxy ───────────────────────────────────────────────────────────────
+
+PROXY_KEPT = (False, "the auth proxy's newest ready preview")
+
+
+def proxy_builds() -> list[Build]:
+    return [build(f"dpl_p{i}", branch="auth-proxy", age_days=1 + i) for i in range(1, 4)]
+
+
+def test_a_sweep_keeps_only_the_newest_ready_auth_proxy_preview():
+    # The branch has no PR, and its alias (the OAuth callback) follows its newest ready build.
+    got = plan(proxy_builds())
+    assert got == {
+        "dpl_p1": PROXY_KEPT,
+        "dpl_p2": (True, "preview with no open PR"),
+        "dpl_p3": (True, "preview with no open PR"),
+    }
+
+
+def test_branch_mode_keeps_the_newest_ready_auth_proxy_preview():
+    got = plan(proxy_builds() + [build("dpl_other", age_days=9)], branch="auth-proxy")
+    assert got == {
+        "dpl_p1": PROXY_KEPT,
+        "dpl_p2": (True, "preview with no open PR"),
+        "dpl_p3": (True, "preview with no open PR"),
+    }
+
+
+def test_a_building_auth_proxy_preview_does_not_displace_the_ready_one():
+    got = plan([
+        build("dpl_new", branch="auth-proxy", age_days=2, state="BUILDING"),
+        build("dpl_ready", branch="auth-proxy", age_days=3),
+        build("dpl_old", branch="auth-proxy", age_days=4),
+    ])
+    assert got == {
+        "dpl_new": (False, "still building"),
+        "dpl_ready": PROXY_KEPT,
+        "dpl_old": (True, "preview with no open PR"),
+    }
+
+
 # ─── One closed PR ───────────────────────────────────────────────────────────────────────────
 
 
