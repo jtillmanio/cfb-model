@@ -35,6 +35,11 @@
       "requests": 15,
       "a11y": 100
     },
-    "design-system": {}
+    "design-system": {
+      "docBytes": 9000,
+      "jsBytes": 183000,
+      "requests": 16,
+      "a11y": 100
+    }
   }
 }

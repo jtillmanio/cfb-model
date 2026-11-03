@@ -33,7 +33,7 @@ The app has the design system's small components (edge pill, tier badge, result 
 - [x] AC-2: The tier badge renders the letters `A`, `B` and `C` with three distinct tier tokens, C with a 1px outline, and `—` for no pick; the result marker renders the glyph first (`✓`, `✗`, `P`) for covered, not covered and push, plus a pending state, each with a text label available to screen readers so colour is never the only signal.
 - [x] AC-3: Filter chips render selected (ink fill and a check icon) and unselected states, are real `<button>` elements with `aria-pressed` matching the state, and toggle with a click and with Enter or Space.
 - [x] AC-4: No component file under `web/components/` contains a hex, `rgb(`, `oklch(` literal or an arbitrary Tailwind size or colour value (`[#…]`, `[13px]`): a Vitest case scans them and fails on one (hard rule 7).
-- [ ] AC-5: The review surface the plan gate chooses shows every state in AC-1 to AC-3 in dark and light themes at 390 and 1440 with no horizontal scroll at 390; if it is a page, its route and budget are in `scripts/perf/routes.mjs` and `budget.json` from a fixture run and `web/lib/perf.test.ts` passes.
+- [x] AC-5: The review surface the plan gate chooses shows every state in AC-1 to AC-3 in dark and light themes at 390 and 1440 with no horizontal scroll at 390; if it is a page, its route and budget are in `scripts/perf/routes.mjs` and `budget.json` from a fixture run and `web/lib/perf.test.ts` passes.
 
 ## Out of scope
 
@@ -106,7 +106,7 @@ _Written by /plan-batch or /implement-task Phase 1. Approved by the user (plan_s
 
 _Filled by /implement-task. One line per round._
 
-Verify R1 PASS | Audit R1 PASS | Spec R1 CHANGES (AC-5: the `design-system` budget waits on the PR's fixture Lighthouse run, plan step 10) | UI R1 PASS
+Verify R1 PASS | Audit R1 PASS | Spec R1 CHANGES (AC-5: the `design-system` budget waits on the PR's fixture Lighthouse run, plan step 10) | Budget set from the PR's fixture run (run 41591176278) | Spec R2 APPROVE | UI R1 PASS
 
 ## Blocked
 
@@ -115,6 +115,6 @@ _Only if status is Blocked: what failed, what was tried, best hypothesis, decisi
 ## Metrics
 
 - Verify rounds: 1
-- Review rounds: 1 (spec re-check after the budget lands)
+- Review rounds: 2
 - First-pass AC FAILs: 0 (AC-5 open only for the budget)
 - Plan revisions after approval: 0 (`@testing-library/dom` added as the peer of `@testing-library/react`; not a plan change)
