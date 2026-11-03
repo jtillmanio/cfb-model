@@ -1,7 +1,7 @@
 ---
 id: TASK-059
 title: Keep the auth-proxy branch's newest preview in the Vercel cleanup
-status: In progress
+status: Review
 depends_on: []
 size: S
 model: sonnet
@@ -27,11 +27,11 @@ The Vercel cleanup never deletes the deployment behind the `auth-proxy` branch's
 
 ## Acceptance criteria
 
-- [ ] AC-1: Given a sweep over READY previews of branch `auth-proxy`, none with an open PR and all more than a day old, `plan_cleanup` keeps exactly the newest one (verdict `delete=False`, with a reason naming the auth proxy) and deletes the older ones with the usual no-open-PR reason (pytest).
-- [ ] AC-2: Given a `--branch auth-proxy` run (the PR-closed mode), the newest READY `auth-proxy` build is still kept and the older ones are deleted (pytest).
-- [ ] AC-3: Given an `auth-proxy` build that is still building next to a READY one, both are kept. The building one is kept by the existing rule and the READY one as the proxy (pytest).
-- [ ] AC-4: Previews of every other branch with no open PR are deleted exactly as before: the existing `test_deployments.py` cases pass unchanged.
-- [ ] AC-5: The `vercel-cleanup.yml` header's "Never deleted" list and the `deployments.py` module docstring both name the newest ready `auth-proxy` preview. The branch name is one constant in `deployments.py`.
+- [x] AC-1: Given a sweep over READY previews of branch `auth-proxy`, none with an open PR and all more than a day old, `plan_cleanup` keeps exactly the newest one (verdict `delete=False`, with a reason naming the auth proxy) and deletes the older ones with the usual no-open-PR reason (pytest).
+- [x] AC-2: Given a `--branch auth-proxy` run (the PR-closed mode), the newest READY `auth-proxy` build is still kept and the older ones are deleted (pytest).
+- [x] AC-3: Given an `auth-proxy` build that is still building next to a READY one, both are kept. The building one is kept by the existing rule and the READY one as the proxy (pytest).
+- [x] AC-4: Previews of every other branch with no open PR are deleted exactly as before: the existing `test_deployments.py` cases pass unchanged.
+- [x] AC-5: The `vercel-cleanup.yml` header's "Never deleted" list and the `deployments.py` module docstring both name the newest ready `auth-proxy` preview. The branch name is one constant in `deployments.py`.
 
 ## Out of scope
 
@@ -89,7 +89,7 @@ Approved by the owner on 2026-11-03.
 
 ## Review log
 
-_Filled by /implement-task. One line per round._
+Verify R1 PASS | Audit R1 NOT RUN (untracked TASK-060 file; excluded locally at the owner's choice) → R1 PASS | Spec R1 CHANGES (D-126 out of date) → R2 APPROVE
 
 ## Blocked
 
@@ -97,7 +97,7 @@ _Only if status is Blocked: what failed, what was tried, best hypothesis, decisi
 
 ## Metrics
 
-- Verify rounds:
-- Review rounds:
-- First-pass AC FAILs:
-- Plan revisions after approval:
+- Verify rounds: 1
+- Review rounds: 2
+- First-pass AC FAILs: 0
+- Plan revisions after approval: 0
