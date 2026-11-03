@@ -1,7 +1,7 @@
 ---
 id: TASK-049
 title: Implement format.ts against the number-format card
-status: In progress
+status: Review
 depends_on: []
 size: S
 model: sonnet
@@ -30,12 +30,12 @@ Every number the app shows (spreads, model lines, edges, percentages, records, u
 
 ## Acceptance criteria
 
-- [ ] AC-1: Given each example on the number-format card listed in 02 › Testing strategy (Unit: web), the matching `format.ts` function returns exactly that string, one Vitest case per example (expected: `OSU −27.5` from spread_home −27.5 with home OSU; `BSU −10`; `PK` from 0; `No line` from null; `−110`; `CLEM −34.0`; `+3.7 OSU`; `59%`; `~54%` for a market-implied value; `TEX 54%`; `56.4%`; `+27.4`; `▲3`, `▼1`, `—`; `31-24-1`; `5-0`; `+4.6u`; `−1.1u`; `+0.9 pts`).
-- [ ] AC-2: Every negative number any function returns uses U+2212, never a hyphen-minus (a test runs every function over negative inputs and finds no `-`), and none returns a negative zero (`−0.0`, `−0.0u`, `−0.0 pts`) for a value that rounds to zero.
-- [ ] AC-3: Given a whole-number spread with the align flag, the spread formatter returns it followed by U+2008 + U+2007 (`BSU −10` + `  `), so it is as wide in tabular figures as `BSU −9.5`; without the flag it returns `BSU −10` bare; a model line from 34 returns `CLEM −34.0` with or without the flag.
-- [ ] AC-4: Given kickoff `2026-10-10T19:30:00Z` and zone America/New_York, the kickoff formatter returns `Sat 3:30 PM ET`, and `Sat 3:30 PM` with the in-table option (header says ET); with zone America/Chicago it returns `Sat 2:30 PM CT`; given a NULL kickoff and `game_date` 2026-10-10 it returns `Sat TBA`.
-- [ ] AC-5: Given kickoff minus now of 1 d 14 h 5 m, 3 h 20 m 40 s and 12 m 30 s, the lock countdown returns `Locks in 1d 14h`, `Locks in 3h 20m` and `Locks in 12m`; at or after kickoff it returns `Locked`.
-- [ ] AC-6: The live-score formatter returns `PUR 3 · OSU 24` (away first) and the clock `Q3 9:12`; the final formatter returns `Final · UNLV 24, BSU 31`.
+- [x] AC-1: Given each example on the number-format card listed in 02 › Testing strategy (Unit: web), the matching `format.ts` function returns exactly that string, one Vitest case per example (expected: `OSU −27.5` from spread_home −27.5 with home OSU; `BSU −10`; `PK` from 0; `No line` from null; `−110`; `CLEM −34.0`; `+3.7 OSU`; `59%`; `~54%` for a market-implied value; `TEX 54%`; `56.4%`; `+27.4`; `▲3`, `▼1`, `—`; `31-24-1`; `5-0`; `+4.6u`; `−1.1u`; `+0.9 pts`).
+- [x] AC-2: Every negative number any function returns uses U+2212, never a hyphen-minus (a test runs every function over negative inputs and finds no `-`), and none returns a negative zero (`−0.0`, `−0.0u`, `−0.0 pts`) for a value that rounds to zero.
+- [x] AC-3: Given a whole-number spread with the align flag, the spread formatter returns it followed by U+2008 + U+2007 (`BSU −10` + `  `), so it is as wide in tabular figures as `BSU −9.5`; without the flag it returns `BSU −10` bare; a model line from 34 returns `CLEM −34.0` with or without the flag.
+- [x] AC-4: Given kickoff `2026-10-10T19:30:00Z` and zone America/New_York, the kickoff formatter returns `Sat 3:30 PM ET`, and `Sat 3:30 PM` with the in-table option (header says ET); with zone America/Chicago it returns `Sat 2:30 PM CT`; given a NULL kickoff and `game_date` 2026-10-10 it returns `Sat TBA`.
+- [x] AC-5: Given kickoff minus now of 1 d 14 h 5 m, 3 h 20 m 40 s and 12 m 30 s, the lock countdown returns `Locks in 1d 14h`, `Locks in 3h 20m` and `Locks in 12m`; at or after kickoff it returns `Locked`.
+- [x] AC-6: The live-score formatter returns `PUR 3 · OSU 24` (away first) and the clock `Q3 9:12`; the final formatter returns `Final · UNLV 24, BSU 31`.
 
 ## Out of scope
 
@@ -57,6 +57,8 @@ Every number the app shows (spreads, model lines, edges, percentages, records, u
 ## Follow-ups
 
 _Work noticed during this task and deliberately left out. Each bullet ends `→ <path> § <section>` (where it was placed) or `→ not tracked: <reason>`. See `.claude/skills/track-follow-ups/classify.md`; the PR's Follow-ups section is copied from here._
+
+- Test audit suggested a TBA-weekday case that fails if `gameDate` were read through a zone west of UTC; Vitest can't change the machine's zone without a setup hook, and the formatter reads the date in UTC by construction → not tracked: no test seam worth adding for a one-line `Date.UTC` read
 
 ## Plan
 
@@ -98,7 +100,7 @@ _Written by /plan-batch or /implement-task Phase 1. Approved by the user (plan_s
 
 ## Review log
 
-_Filled by /implement-task. One line per round._
+Verify R1 PASS | Audit R1 PASS (47 mutants, 3 survived; 2 pinned with new cases, 1 skipped, see Follow-ups) | Spec R1 APPROVE
 
 ## Blocked
 
@@ -106,7 +108,7 @@ _Only if status is Blocked: what failed, what was tried, best hypothesis, decisi
 
 ## Metrics
 
-- Verify rounds:
-- Review rounds:
-- First-pass AC FAILs:
-- Plan revisions after approval:
+- Verify rounds: 1
+- Review rounds: 1
+- First-pass AC FAILs: 0
+- Plan revisions after approval: 0 (the rounding helper rounds the absolute value half away from zero rather than the plan's `Math.round(v * 10 ** d)`, which would round -0.05 and +0.05 unevenly; same intent)
