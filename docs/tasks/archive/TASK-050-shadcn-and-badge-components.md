@@ -1,7 +1,7 @@
 ---
 id: TASK-050
 title: Set up shadcn/ui and build the badge and chip components
-status: Review
+status: Done
 depends_on: [TASK-049]
 size: M
 model: sonnet
