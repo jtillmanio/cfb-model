@@ -54,6 +54,9 @@ The Vercel cleanup never deletes the deployment behind the `auth-proxy` branch's
 
 _Work noticed during this task and deliberately left out. Each bullet ends `→ <path> § <section>` (where it was placed) or `→ not tracked: <reason>`. See `.claude/skills/track-follow-ups/classify.md`; the PR's Follow-ups section is copied from here._
 
+- Candidate decision: the cleanup keeps the newest ready `auth-proxy` preview, which amends D-126 (spec review R1) → docs/decisions.md § D-153
+- README › the Vercel cleanup's "never deletes" sentence doesn't name the proxy preview (spec review R1, optional) → not tracked: that sentence was already a partial list (it also omits "not built from git"). D-126, D-153, the workflow header and the module docstring are the complete lists.
+
 ## Plan
 
 Approved by the owner on 2026-11-03.
