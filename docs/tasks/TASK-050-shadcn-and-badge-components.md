@@ -7,8 +7,8 @@ size: M
 model: sonnet
 autonomy: attended
 ui: true
-plan_status: none
-planned_at_commit:
+plan_status: approved
+planned_at_commit: ef00231
 ---
 
 # TASK-050 — Set up shadcn/ui and build the badge and chip components
@@ -64,9 +64,43 @@ The app has the design system's small components (edge pill, tier badge, result 
 
 _Work noticed during this task and deliberately left out. Each bullet ends `→ <path> § <section>` (where it was placed) or `→ not tracked: <reason>`. See `.claude/skills/track-follow-ups/classify.md`; the PR's Follow-ups section is copied from here._
 
+- `Components.dc.html` also draws the result marker's compact "last 5 ATS" squares and straight-up W/L/P, and the edge pill's large (The Number) variant; none is in this task's ACs → not tracked: built by the first screen that needs it (this task's Out of scope rule)
+
 ## Plan
 
 _Written by /plan-batch or /implement-task Phase 1. Approved by the user (plan_status: approved) before any code is written._
+
+**Review surface (for the plan gate):** a signed-in specimen page `/design-system` (static props, no API call), as TASK-051's approved plan assumes. It shows every state twice, in a `.dark` panel and a `.light` panel (`tokens.css` scopes both themes by class, so no theme switch is needed), side by side at ≥ 1280 and stacked below. `page.tsx` calls `notFound()` when `process.env.VERCEL_ENV === "production"`; previews and the fixture build show it. Ruled out: Vitest-only review (the owner's M5.2 sign-off would wait for TASK-056).
+
+**Steps**
+1. Tests first (below); see each fail.
+2. Deps through pnpm only: `pnpm --dir web add class-variance-authority clsx tailwind-merge lucide-react radix-ui` and `pnpm --dir web add -D jsdom @testing-library/react @testing-library/user-event`.
+3. `web/components.json` hand-written (style `new-york`, `rsc: true`, `tailwind.css: app/globals.css`, `cssVariables: true`, `iconLibrary: lucide`, aliases `@/components`, `@/components/ui`, `@/lib/utils`). No `shadcn init`: it rewrites `globals.css`, whose `@theme` already maps the tokens under shadcn's names. Then `pnpm --dir web dlx shadcn@latest add badge toggle`; revert anything it writes outside `web/components/ui/`, and replace its arbitrary values (`ring-[3px]` and the like) with theme utilities so AC-4's scan passes.
+4. `web/lib/utils.ts`: `cn()` = `clsx` + `extendTailwindMerge` taught the type scale (`text-caption|label|body|panel|section|title` as font sizes). Without it `cn("text-caption", "text-muted-foreground")` drops the size.
+5. `web/components/edge-pill.tsx` (server): `{ edgePts: number | null, home, away, threshold, locked?, loading? }`; text from `formatEdge`; filled (`bg-edge text-edge-foreground`, h-6 px-2 rounded-full text-label font-semibold) when `Math.abs(edgePts) >= threshold`, else plain `text-muted-foreground`; null → `—`; locked → `text-locked` with lucide `Lock`; loading → a `bg-secondary` bar at pill size. Built on `ui/badge` variants via `cva`.
+6. `web/components/tier-badge.tsx`: `{ tier: "A" | "B" | "C" | null, label?, loading? }`; 20px rounded-sm square, `bg-tier-a`/`b`/`c` with their foregrounds, C adds `border border-tier-c-foreground` (1px); null → `—`; `label` adds "Tier A".
+7. `web/components/result-marker.tsx`: `{ result: "covered" | "not_covered" | "push" | "pending" }`; glyph `✓`/`✗`/`P` (`aria-hidden`) in `text-pos`/`text-neg`/`text-push`, then an `sr-only` label ("Covered", "Not covered", "Push", "Pending"); pending = 20px dashed `border-input` square.
+8. `web/components/filter-chips.tsx` (`"use client"`): `{ options: { value, label }[], selected?, defaultSelected?, onChange? }`; each chip is `ui/toggle` (a `<button aria-pressed>`); selected = `bg-primary text-primary-foreground` + lucide `Check`; controlled or uncontrolled.
+9. `web/app/design-system/page.tsx`: sections Edge pill / Tier badge / Result marker / Filter chips, every AC-1–3 state plus the board's locked and loading ones, `threshold={2.5}` passed as sample data (the real value comes from the spec, D-055); no horizontal scroll at 390.
+10. Perf: `{ id: "design-system", path: "/design-system", signedIn: true }` in `scripts/perf/routes.mjs`. Push, let the PR's fixture Lighthouse run measure it (unbudgeted routes are listed, not gated), then `node scripts/perf/report.mjs budget <its metrics.json>` and keep only the new route's entry in `budget.json` and the 02 table (`login`/`teams` stay as they are), with the run cited beside the table.
+11. Docs: one decision (ID from `next-id.ps1`): the specimen page, hidden in production, and shadcn added by hand-written `components.json` + `add` (no `init`) so the tokens stay the only theme.
+
+**Files** (20): `web/package.json`, `pnpm-lock.yaml`, `web/components.json`, `web/lib/utils.ts`, `web/components/ui/badge.tsx`, `ui/toggle.tsx`, `edge-pill.tsx`, `tier-badge.tsx`, `result-marker.tsx`, `filter-chips.tsx`, `badges.test.tsx`, `tokens-only.test.ts` (new), `web/app/design-system/page.tsx`, `page.test.tsx` (new), `web/e2e/design-system.spec.ts`, `web/vitest.config.mts` (only if `.tsx` tests need a JSX setting), `scripts/perf/routes.mjs`, `scripts/perf/budget.json`, `docs/02-architecture.md` (perf table), `docs/decisions.md`.
+
+**Test strategy** (`.tsx` tests start `// @vitest-environment jsdom` and `afterEach(cleanup)`)
+- AC-1: `badges.test.tsx` › "edge 3.7 OSU at threshold 2.5 is filled `+3.7 OSU` (bg-edge)", "0.6 UTAH is muted text, no fill", "exactly 2.5 is filled", "no line renders —"; plus "cn keeps text-caption beside text-muted-foreground".
+- AC-2: `badges.test.tsx` › "tier A/B/C use three tier tokens, C outlined, null → —"; "result marker puts the glyph first with a screen-reader label, pending dashed".
+- AC-3: `badges.test.tsx` › "chips are buttons with aria-pressed matching selected (ink fill + check)", "click toggles", "Enter and Space toggle" (user-event).
+- AC-4: `tokens-only.test.ts` › "flags each banned form in a sample" (hex, `rgb(`, `oklch(`, `[#…]`, `[13px]`; comments stripped first so `#125` in a comment passes) and "no file under web/components/ has one".
+- AC-5: `e2e/design-system.spec.ts` (phone 390, desktop 1440) › every AC-1–3 state visible in the dark and the light panel; `scrollWidth <= clientWidth` at 390. `page.test.tsx` › "404s when VERCEL_ENV is production". `web/lib/perf.test.ts` passes with the new route and budget.
+
+**Risks / open questions**
+- Pill fill compares raw `|edge|` with the threshold, as the pick rule does, so 2.46 prints `+2.5` but stays muted. Confirm, or compare the rounded value.
+- `shadcn add` may still touch `globals.css` or pull another dep; the step reverts it. The budget needs one pushed fixture run before it can be written (step 10).
+- Lighthouse a11y on the specimen page must hold 100 (muted text and tier-c contrast in both themes); fix in the component, never by lowering the budget.
+- Vitest 5 may need a JSX runtime setting for `.tsx`; that is the only reason `vitest.config.mts` changes.
+
+**Size check:** 20 files (the project limit), web plus perf config, no schema. M, attended.
 
 ## Review log
 
