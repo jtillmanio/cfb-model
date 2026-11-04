@@ -1,15 +1,8 @@
-export type Team = {
-  id: number;
-  school: string;
-  abbreviation: string | null;
-  conference: string | null;
-  color: string | null;
-};
+import type { components } from "./api-types";
 
-export type TeamsResponse = {
-  season: number | null;
-  teams: Team[];
-};
+// Generated from the API's response models (`pnpm api:types`, D-011); these are aliases.
+export type Team = components["schemas"]["TeamOut"];
+export type TeamsResponse = components["schemas"]["TeamsOut"];
 
 const collator = new Intl.Collator("en", { sensitivity: "base" });
 

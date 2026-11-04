@@ -14,6 +14,7 @@ The full command list. `CLAUDE.md` › Commands keeps the ones used daily. Windo
 | Production build | `pnpm build` |
 | Migrations | `pnpm db:migrate` (dev), `pnpm db:migrate:test`, `pnpm db:check` (one head, models match) |
 | Seed | `pnpm db:seed` (fixture; test DB only) |
+| API types | `pnpm api:types` (rewrites `web/lib/api-types.ts` from the API's OpenAPI schema; run it after any change to an API response model, and add `--check` to see whether the file is current. `pnpm test` fails when it isn't, D-155) |
 
 ## CI scope
 

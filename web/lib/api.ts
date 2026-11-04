@@ -2,6 +2,7 @@ import "server-only";
 
 import { auth } from "@/auth";
 
+import type { components } from "./api-types";
 import { mintApiToken } from "./api-token";
 import { previewUserId } from "./preview";
 import type { TeamsResponse } from "./teams";
@@ -44,11 +45,7 @@ export function getTeams(): Promise<TeamsResponse> {
 }
 
 // The only API route outside the auth gate; sign-in calls it to wake the database (TASK-002).
-export type HealthResponse = {
-  commit: string;
-  db_reachable: boolean;
-  migration_head: string | null;
-};
+export type HealthResponse = components["schemas"]["HealthOut"];
 
 export function getHealth(): Promise<HealthResponse> {
   return get<HealthResponse>("api/py/health");

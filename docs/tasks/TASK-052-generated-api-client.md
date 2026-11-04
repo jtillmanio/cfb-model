@@ -1,7 +1,7 @@
 ---
 id: TASK-052
 title: Generate the TypeScript API types from OpenAPI
-status: Ready
+status: In progress
 depends_on: []
 size: M
 model: sonnet
