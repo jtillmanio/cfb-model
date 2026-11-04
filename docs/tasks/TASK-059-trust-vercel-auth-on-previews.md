@@ -1,7 +1,7 @@
 ---
 id: TASK-059
 title: Open previews to the owner through Vercel Authentication
-status: In progress
+status: Review
 depends_on: []
 size: M
 model: opus
@@ -49,11 +49,11 @@ Opening any PR's Vercel preview, on desktop or phone, shows the app signed in as
 
 ## Acceptance criteria
 
-- [ ] AC-1: Given `VERCEL_ENV=preview`, `AUTH_ALLOWED_GITHUB_ID` set and no session cookie, a request for `/teams` is not redirected. The page renders the seeded "Ohio State · Big Ten" row, and the API call it makes carries a JWT whose `sub` is `AUTH_ALLOWED_GITHUB_ID` (e2e at 390 and 1440 for the page; Vitest for the `sub`).
-- [ ] AC-2: Given `VERCEL_ENV=preview` and `AUTH_ALLOWED_GITHUB_ID` unset or empty, a signed-out request for `/teams` is redirected to `/login`, the same as today (Vitest on the gate decision).
-- [ ] AC-3: Given `VERCEL_ENV` unset, `development` or `production`, nothing changes: signed-out `/` and `/teams` go to `/login`, and garbage, wrong-secret and expired cookies go to `/login`. Vitest covers each value; the existing `web/e2e/auth.spec.ts` and `web/e2e/login.spec.ts` pass unchanged.
-- [ ] AC-4: The release smoke test fails when production's signed-out `/` isn't a redirect to `/login`: `smoke_check` returns a failure line naming the status it got. It passes on a redirect whose `Location` path is `/login` (pytest, both cases).
-- [ ] AC-5: The docs match:
+- [x] AC-1: Given `VERCEL_ENV=preview`, `AUTH_ALLOWED_GITHUB_ID` set and no session cookie, a request for `/teams` is not redirected. The page renders the seeded "Ohio State · Big Ten" row, and the API call it makes carries a JWT whose `sub` is `AUTH_ALLOWED_GITHUB_ID` (e2e at 390 and 1440 for the page; Vitest for the `sub`).
+- [x] AC-2: Given `VERCEL_ENV=preview` and `AUTH_ALLOWED_GITHUB_ID` unset or empty, a signed-out request for `/teams` is redirected to `/login`, the same as today (Vitest on the gate decision).
+- [x] AC-3: Given `VERCEL_ENV` unset, `development` or `production`, nothing changes: signed-out `/` and `/teams` go to `/login`, and garbage, wrong-secret and expired cookies go to `/login`. Vitest covers each value; the existing `web/e2e/auth.spec.ts` and `web/e2e/login.spec.ts` pass unchanged.
+- [x] AC-4: The release smoke test fails when production's signed-out `/` isn't a redirect to `/login`: `smoke_check` returns a failure line naming the status it got. It passes on a redirect whose `Location` path is `/login` (pytest, both cases).
+- [x] AC-5: The docs match:
   - a new decision row supersedes D-102, with the options considered and the accepted costs;
   - `docs/02-architecture.md` § Auth's last bullet says previews trust Vercel Authentication and production keeps GitHub sign-in;
   - the comments citing D-102 in `web/auth.config.ts`, `web/lib/login.ts` and `web/app/login/page.tsx` are updated;
@@ -94,8 +94,9 @@ Opening any PR's Vercel preview, on desktop or phone, shows the app signed in as
 
 _Work noticed during this task and deliberately left out. Each bullet ends `→ <path> § <section>` (where it was placed) or `→ not tracked: <reason>`. See `.claude/skills/track-follow-ups/classify.md`; the PR's Follow-ups section is copied from here._
 
-- README › Performance checks › Read a failed run: the `ended on /login` row's "On a preview" cause was stale (D-102's). Fixed in this PR as plan revision 1 → not tracked: fixed in this PR (`README.md` › Performance checks)
+- README › Performance checks › Read a failed run: the `ended on /login` row's "On a preview" cause was stale (D-102's). Fixed in this PR as plan revision 1 → README.md § Performance checks (fixed in this PR)
 - `scripts/perf/lib/perf.mjs`: the Lighthouse gate's `ended on /login` message gave the same stale preview cause (`PREVIEW_AUTH_SECRET`). Fixed in this PR as plan revision 2 → not tracked: done in this PR (plan revision)
+- The release smoke test's new signed-out `/` check sends no Vercel protection-bypass header, like the existing health call; 02 › Auth already says smoke tests send it if protection ever covers production → not tracked: already covered by 02-architecture.md § Auth
 
 ## Plan
 
@@ -124,13 +125,17 @@ Approved by the owner 2026-11-03.
 
 _Filled by /implement-task. One line per round._
 
+- Verify R1 FAIL(1: CRLF written into docs/02 broke perf.test.ts's table markers) → R2 PASS | Audit R1 PASS | Spec R1 CHANGES (Follow-up with no destination: stale README row) → R2 APPROVE (after revision 1)
+- Revision 2: Verify R3 PASS | Audit R2 PASS | Spec R3 APPROVE
+- ui-verifier not run: the UI-file changes are comments only; the gate's behaviour is covered by e2e
+
 ## Blocked
 
 _Only if status is Blocked: what failed, what was tried, best hypothesis, decision needed._
 
 ## Metrics
 
-- Verify rounds:
-- Review rounds:
-- First-pass AC FAILs:
-- Plan revisions after approval:
+- Verify rounds: 3 (1 FAIL)
+- Review rounds: 3 spec, 2 audit
+- First-pass AC FAILs: 0
+- Plan revisions after approval: 2 (README row; Lighthouse /login hint)
