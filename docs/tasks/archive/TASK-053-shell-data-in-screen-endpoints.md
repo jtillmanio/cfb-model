@@ -1,7 +1,7 @@
 ---
 id: TASK-053
 title: Carry the app shell's data in each screen endpoint
-status: Review
+status: Done
 depends_on: [TASK-052]
 size: M
 model: opus
