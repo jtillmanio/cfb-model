@@ -113,16 +113,9 @@ describe("AC-2: no hand-written response type in web/lib", () => {
   });
 
   it("the scan flags a copy that adds a field of its own", () => {
-    const extended = [
-      "export type TeamRow = {",
-      "  id: number;",
-      "  school: string;",
-      "  abbreviation: string | null;",
-      "  conference: string | null;",
-      "  color: string | null;",
-      "  rank: number;",
-      "};",
-    ].join("\n");
+    // Built from the schema, so a field added to TeamOut later doesn't make this sample stale.
+    const fields = [...Object.keys(schema.components.schemas.TeamOut.properties ?? {}), "rank"];
+    const extended = ["export type TeamRow = {", ...fields.map((f) => `  ${f}: unknown;`), "};"].join("\n");
     expect(handWrittenResponseTypes(extended, schema.components.schemas)).toEqual(["TeamRow copies TeamOut"]);
   });
 
