@@ -36,9 +36,9 @@
       "a11y": 100
     },
     "design-system": {
-      "docBytes": 9000,
-      "jsBytes": 183000,
-      "requests": 16,
+      "docBytes": 13000,
+      "jsBytes": 190000,
+      "requests": 17,
       "a11y": 100
     }
   }

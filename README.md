@@ -514,6 +514,7 @@ each naming its route.
 | Problem | What it means | What to do |
 |---|---|---|
 | `requested /api/py/…` | A page made the browser call the API, usually a `<Link>` prefetch (hard rule 5) | Link to it with a plain `<a>` and fetch from server code |
+| `requested <url> during a page load, from another host` | The browser fetched something from a host other than the app's own (D-101, D-154), e.g. a team logo straight from CFBD's CDN | Serve the file from the app; a team logo goes through `TeamChip`, so the browser asks the app's `/logos/<id>.png` |
 | `… is over the budget of …` | The page got heavier | Make it lighter, or raise the budget with the reason written in the PR |
 | `ended on /login` | The minted session didn't take | The **fixture** job's `AUTH_SECRET` and `AUTH_ALLOWED_GITHUB_ID` must equal `web/e2e/test-env.ts`'s (a test checks this). On a preview the gate lets every request in (D-153), so ending there means Vercel Preview's `AUTH_ALLOWED_GITHUB_ID` is unset or blank |
 | `never finished measuring` | Lighthouse failed on every run, or the job died | Open the **fixture** job log (a preview: that route's **measure** job; a 401 page means the bypass secret is wrong). `… never answered` in **Serve the app and the API** prints the last lines of both servers' logs |

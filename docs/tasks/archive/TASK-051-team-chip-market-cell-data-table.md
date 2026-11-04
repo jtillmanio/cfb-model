@@ -1,7 +1,7 @@
 ---
 id: TASK-051
 title: Build the team chip with logos, the market cell and the data table
-status: Ready
+status: Done
 depends_on: [TASK-050]
 size: M
 model: opus
@@ -28,11 +28,11 @@ The design system gains the pieces every slate and table row is made of: a team 
 
 ## Acceptance criteria
 
-- [ ] AC-1: Given a team with a `logo_url`, the team chip renders an image at most 20px whose `src` is same-origin (never the CDN host); given `logo_url` NULL and colour `#BB0000`, it renders a 20px dot in that colour and no image; the colour never appears as a background behind text (Vitest render tests).
-- [ ] AC-2: The team chip renders the rank small and muted before the name with no `#`, an `FCS` tag for an FCS team, and an `N` marker for a neutral site, each from a prop.
-- [ ] AC-3: Given opener −28, snapshots [−28, −27.5] and current −27.5 for OSU at home, the market cell renders `−28`, a sparkline with one point per snapshot, then `OSU −27.5`, the opener and sparkline in the muted token; given an unchanged line (opener −9, current −9) the sparkline is flat; given no line it renders `No line` with no opener and no sparkline.
-- [ ] AC-4: The data table renders comfortable (header 40px, rows 48px) by default and compact (header 32px, rows 36px) when asked; its header is sticky; a sortable header is a `<button>` with `aria-sort` reflecting the order, toggled by click and by keyboard.
-- [ ] AC-5: On the review surface from TASK-050, every state in AC-1 to AC-4 shows at 390 and 1440 in dark and light, and a fixture Lighthouse run of every route requests nothing from a host other than the app's own (the forbidden-request gate passes).
+- [x] AC-1: Given a team with a `logo_url`, the team chip renders an image at most 20px whose `src` is same-origin (never the CDN host); given `logo_url` NULL and colour `#BB0000`, it renders a 20px dot in that colour and no image; the colour never appears as a background behind text (Vitest render tests).
+- [x] AC-2: The team chip renders the rank small and muted before the name with no `#`, an `FCS` tag for an FCS team, and an `N` marker for a neutral site, each from a prop.
+- [x] AC-3: Given opener −28, snapshots [−28, −27.5] and current −27.5 for OSU at home, the market cell renders `−28`, a sparkline with one point per snapshot, then `OSU −27.5`, the opener and sparkline in the muted token; given an unchanged line (opener −9, current −9) the sparkline is flat; given no line it renders `No line` with no opener and no sparkline.
+- [x] AC-4: The data table renders comfortable (header 40px, rows 48px) by default and compact (header 32px, rows 36px) when asked; its header is sticky; a sortable header is a `<th aria-sort>` wrapping a `<button>`; aria-sort reflects the order, toggled by click and by keyboard.
+- [x] AC-5: On the review surface from TASK-050, every state in AC-1 to AC-4 shows at 390 and 1440 in dark and light, and a fixture Lighthouse run of every route requests nothing from a host other than the app's own (the forbidden-request gate passes).
 
 ## Out of scope
 
@@ -60,9 +60,15 @@ The design system gains the pieces every slate and table row is made of: a team 
 
 _Work noticed during this task and deliberately left out. Each bullet ends `→ <path> § <section>` (where it was placed) or `→ not tracked: <reason>`. See `.claude/skills/track-follow-ups/classify.md`; the PR's Follow-ups section is copied from here._
 
-- Open question for TASK-050's plan: this task's provisional plan assumes TASK-050 picks the specimen page `/design-system` and adds jsdom + Testing Library to `web/`; if it picks otherwise, TASK-051 re-plans → docs/tasks/TASK-050-shadcn-and-badge-components.md § Context (approved at plan)
+- Open question for TASK-050's plan: this task's provisional plan assumes TASK-050 picks the specimen page `/design-system` and adds jsdom + Testing Library to `web/`; if it picks otherwise, TASK-051 re-plans → docs/tasks/archive/TASK-050-shadcn-and-badge-components.md § Context (approved at plan)
 - The market cell's past-season variant (`Market Extras.dc.html`: open and close only, two dots, dashed join, "Past season" title) isn't in this task's ACs; open question for TASK-056's plan whether a past week on This Week needs it → docs/tasks/TASK-056-this-week-slate.md § Context (approved at plan)
 - CFBD also serves dark-theme logos (`logos-dark/…`), but staging stores only `logos[0]`; some logos may read poorly on the dark theme → not tracked: judged on this task's specimen page in dark mode; storing a dark logo would be a schema change, raised then if needed
+- The Lighthouse gate's new other-host failure had no row in README › Read a failed run → README.md § Performance checks › Read a failed run (fixed in this PR)
+- AC-4 said `aria-sort` sits on the sort `<button>`; ARIA allows it only on the column header, so the owner approved rewording AC-4 to the `<th aria-sort>` wrapping a `<button>` → docs/tasks/TASK-051-team-chip-market-cell-data-table.md § Acceptance criteria (fixed in this PR)
+- `TeamChip` has no loading state and no hover or focus state for a linked chip (both drawn in `Components.dc.html`), and `DataTable` takes plain-data rows; TASK-056 is the first screen to use them → docs/tasks/TASK-056-this-week-slate.md § Context
+- On the dev server at kit.json's `ui.baseUrl` (`127.0.0.1`) Next 16 refuses the HMR socket, so pages never hydrate for UI verification (`localhost` works); the owner chose a separate `chore/` PR → docs/owner-checklist.md § Actions
+- Candidate decision: logos from the app's own `/logos/<id>.png` route (first Next's image optimizer, which 404'd on Vercel), the gate forbidding other hosts, and plain-data table rows → docs/decisions.md § D-154
+- The data table's sort cycles ascending ↔ descending once sorted and never returns to unsorted → not tracked: accepted as is; AC-4 asks only that it toggles
 
 ## Plan
 
@@ -101,9 +107,19 @@ _Written by /plan-batch or /implement-task Phase 1. Approved by the user (plan_s
 
 **Size check:** up to 17 files, one layer (web) plus the perf script; no schema. M, attended.
 
+**Plan revisions after approval**
+- 2026-11-04, Phase 0: plan stale only through TASK-050's expected changes (`/design-system`, jsdom + Testing Library, D-152); the owner confirmed carrying on, with `aria-sort` on the `<th>`.
+- 2026-11-04, step 6 (owner approved): `DataTable` takes plain-data columns `{ key, header, align?, sortable? }` and rows `{ key, cells, sortValues? }` instead of `cell`/`sortValue` functions, which can't cross from a server component to the client table. Same files.
+- Within the steps: `formatLineNumber` takes an optional `side`, so an opener that had the current favourite as the underdog reads `+1`; the sparkline follows the board's formula (most favoured at the top, stroke 1.25); the locked chip's dot is `bg-muted` as `Components.dc.html` draws it, not `bg-locked`.
+- Step 9: run locally, `/design-system` measured 10,712 doc bytes against a 9,000 budget, but local doc bytes run ~15% above CI's (`/login` 9,071 locally vs 7,882 in CI), so the budget is set from the PR's fixture run (`report.mjs budget`, README › Set a route's budget).
+- Close-out (owner approved): README › Read a failed run gains the other-host row; AC-4 reworded to `<th aria-sort>` wrapping a `<button>`. UI R1: the neutral-site specimen spans two columns (`page.tsx`), and the e2e spec checks nothing covers the N marker.
+- After accept (owner asked, 2026-11-04): on the Vercel preview `/_next/image` returned the app's 404 page (preview Lighthouse run 41833440814), so the logo never loaded; it worked under `next dev` and `next start`, which is all the tests ran. Logos now come from a same-origin `/logos/<id>.png` route (`web/app/logos/[file]/route.tsx`, `web/lib/logos.ts`) that fetches CFBD's PNG on the server and renders it at 40px with `next/og`; `next.config.ts` drops its `images` block. D-154 revised (it was new in this PR). The e2e spec now checks the logo decodes and its response is a 200 PNG, not just that the `<img>` is visible.
+
 ## Review log
 
 _Filled by /implement-task. One line per round._
+
+Verify R1 PASS | Audit R1 PASS (sticky header strengthened in e2e) | Spec R1 APPROVE | UI R1 CHANGES (neutral-site specimen covered its N marker at 390, and at 1440 on re-check) → R2 PASS | Verify R2 PASS | CI PASS | Lighthouse R1 FAIL (design-system doc bytes 10,730 > 9,000) → R2 PASS (budget set from the PR's fixture run; no other-host request) | After accept: owner found the logo broken on the preview (`/_next/image` 404) → `/logos` route, Verify R3
 
 ## Blocked
 
@@ -111,7 +127,7 @@ _Only if status is Blocked: what failed, what was tried, best hypothesis, decisi
 
 ## Metrics
 
-- Verify rounds:
-- Review rounds:
-- First-pass AC FAILs:
-- Plan revisions after approval:
+- Verify rounds: 2
+- Review rounds: 2 (UI), 1 (spec)
+- First-pass AC FAILs: 2 (AC-5 at 390, UI R1; AC-1 on the preview, found by the owner after accept)
+- Plan revisions after approval: 4 (carry on past TASK-050's expected changes; plain-data DataTable rows; README row and AC-4 rewording at close-out; the `/logos` route after accept)

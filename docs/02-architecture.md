@@ -337,7 +337,7 @@ Every PR is measured with Lighthouse automatically. The job **fails the PR only 
 - **Preview run (reported only):** each PR's Vercel preview, measured the same way on its own data. Its numbers are shown and compared with no budget, and it never fails a check; anything the gates would have caught (a forbidden request, CLS, a route that didn't measure) is listed as noticed.
 
 **Gates (fail the fixture run):**
-- a forbidden request during a page load or prefetch, named in the failure (e.g. a nav `<Link>` prefetch hitting an `/api/py/*` route; the browser never calls the API, per hard rule 5)
+- a forbidden request during a page load or prefetch, named in the failure: an `/api/py/*` route (e.g. a nav `<Link>` prefetch; the browser never calls the API, per hard rule 5), or any host other than the app's own (e.g. a team logo fetched from CFBD's CDN instead of through the app's `/logos/<id>.png` route, D-154; Vercel's preview extras are left out)
 - per route: document bytes (plus the RSC payload), JS bytes, or request count over budget
 - CLS ≥ 0.1
 - an accessibility score below the recorded one
@@ -374,12 +374,14 @@ Every PR is measured with Lighthouse automatically. The job **fails the PR only 
 |---|---|---|---|---|
 | `login` | 10,000 | 166,000 | 15 | 100 |
 | `teams` | 14,000 | 166,000 | 15 | 100 |
-| `design-system` | 9,000 | 183,000 | 16 | 100 |
+| `design-system` | 13,000 | 190,000 | 17 | 100 |
 <!-- perf-budget:end -->
 
 _Reset 2026-10-23 when the gates moved to the fixture build (D-125, TASK-027), from its first run ([run 40016680767](https://github.com/jtillmanio/cfb-model/actions/runs/40016680767), commit `fdf0e96`), measured with Lighthouse 13.5.0 and Chrome 155.0.8059.39. Medians of three runs: `login` 7,887 doc bytes, 137,623 JS bytes, 12 requests, accessibility 100; `teams` 11,360, 137,623, 12, 100. A re-run on the same commit measured `login` 7,877–7,898 and `teams` 11,361–11,362 doc bytes with the same JS and requests, under 1% apart. `login`'s document is larger than on a preview (4,043), most likely because `next start` compresses differently from Vercel's edge (not checked; D-125 expects the local numbers to differ, which is why they were reset rather than carried over). Earlier preview budgets: first set 2026-10-13 from TASK-008's first preview run (`login` 4,041; `teams` 5,861), and `teams` raised to 15,000 the same day as this reset when the preview database filled (PR #74). Written with `node scripts/perf/report.mjs budget <metrics.json>`, which writes `budget.json` and prints this table; `web/lib/perf.test.ts` checks the two match._
 
 _Added 2026-11-03 for `design-system` (TASK-050, D-152), from the fixture run on its PR ([run 41591176278](https://github.com/jtillmanio/cfb-model/actions/runs/41591176278), commit `6fee022`), measured with Lighthouse 13.5.0 and Chrome 156.0.8078.47. Medians of three runs: 7,213 doc bytes, 151,727 JS bytes, 13 requests, accessibility 100 (the report flagged no unsteady bytes). The `login` and `teams` rows stay as set above; the same run measured them at 7,882 / 137,715 / 12 and 12,448 / 137,715 / 12, inside their budgets._
+
+_Raised 2026-11-04 for `design-system` (TASK-051, D-154), from the fixture run on its PR ([run 41790583297](https://github.com/jtillmanio/cfb-model/actions/runs/41790583297), commit `d9cd7de`), measured with Lighthouse 13.5.0 and Chrome 156.0.8078.47. Medians of three runs: 10,730 doc bytes, 158,026 JS bytes, 14 requests, accessibility 100, all three runs equal. Why: the specimen page now also renders the team chip, the market cell and both table densities in each theme panel, so its document and RSC payload grew by 3,517 bytes; the data table's client code (sorting, lucide arrows) adds 6,299 JS bytes. The budget is this run's median + 20% (bytes rounded up to the next 1,000), from `budgetFrom`, for this route only. The `login` and `teams` rows stay as set above; the same run measured them inside their budgets (`login`'s document moved between runs, 5,812–7,884 bytes, as the report flagged)._
 
 ## Walking skeleton
 

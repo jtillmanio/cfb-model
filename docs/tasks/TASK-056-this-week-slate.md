@@ -29,6 +29,7 @@ Signed in, the home page is This Week: the current week's games grouped by kicko
 - TASK-014 (M5.8, time screen-to-screen taps) waits on this task; its `depends_on` lists this task.
 - `.claude/rules/web.md`: one API call per page, `loading.tsx` at the loaded size with the pulse off under reduced motion, e2e at phone and desktop widths.
 - *From TASK-051 (PR #125), open question for the plan:* TASK-051 builds the market cell's current-season states only; `Market Extras.dc.html` also draws a past-season variant (opening and closing line only, two dots, dashed join, "Past season" title). Does a past week on This Week need it, and if so, does this task build it?
+- *From TASK-051 (PR #133):* the shared pieces are `TeamChip`, `MarketCell` and `DataTable` (`web/components/`, D-154). `DataTable` takes plain-data columns and rows (cells already rendered, `sortValues` by column), so a server page passes them in directly. `TeamChip` has no loading state and no hover or focus state of its own: `Components.dc.html` › Team chip draws a loading skeleton (a 20px circle and a 72×14 bar) and, for a chip that links, an `--accent` fill with an underlined name and the focus ring. The slate's `loading.tsx` and any linked chip add them. `/slate` returns `logo_url` (Out of scope above), and the chip renders it from the app's `/logos/<id>.png` route.
 
 ## Acceptance criteria
 

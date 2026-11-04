@@ -7,6 +7,7 @@ import {
   formatFinal,
   formatGameClock,
   formatKickoff,
+  formatLineNumber,
   formatLiveScore,
   formatLockCountdown,
   formatModelLine,
@@ -179,5 +180,20 @@ describe("live and final", () => {
 
   it("prints the final", () => {
     expect(formatFinal("UNLV", 24, "BSU", 31)).toBe("Final · UNLV 24, BSU 31");
+  });
+});
+
+describe("formatLineNumber: the opener beside the current line (Market Extras.dc.html)", () => {
+  it.each([
+    ["home favorite, number only", () => formatLineNumber(-28), "−28"],
+    ["away favorite, number only", () => formatLineNumber(3.5), "−3.5"],
+    ["whole number is bare", () => formatLineNumber(-9), "−9"],
+    ["pick'em", () => formatLineNumber(0), "PK"],
+    ["from the current favorite's side, still favored", () => formatLineNumber(-28, "home"), "−28"],
+    ["from the current favorite's side, it opened as the underdog", () => formatLineNumber(-1, "away"), "+1"],
+    ["away side, favored", () => formatLineNumber(6.5, "away"), "−6.5"],
+    ["pick'em from a side", () => formatLineNumber(0, "home"), "PK"],
+  ])("%s", (_name, run, expected) => {
+    expect(run()).toBe(expected);
   });
 });
