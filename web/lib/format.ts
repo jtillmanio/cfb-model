@@ -47,6 +47,18 @@ export function formatSpread(
 }
 
 /**
+ * A line's number without the team, for the opener beside the current line (`−28`, `PK`).
+ * With no `side`, it is the favorite's number. With a `side` (the current favorite), it is that
+ * team's line, so an opener that had them as the underdog reads `+1` rather than a bare `−1`.
+ */
+export function formatLineNumber(spreadHome: number, side?: "home" | "away"): string {
+  const magnitude = roundTo(spreadHome, 1);
+  if (magnitude === 0) return "PK";
+  const favored = side === undefined || (side === "home" ? spreadHome < 0 : spreadHome > 0);
+  return `${favored ? MINUS : "+"}${wholeOrOneDecimal(magnitude)}`;
+}
+
+/**
  * Model line from `pred_margin` (home − away, positive when home is favored).
  * Always one decimal, so a model line never looks like a market line.
  */

@@ -337,7 +337,7 @@ Every PR is measured with Lighthouse automatically. The job **fails the PR only 
 - **Preview run (reported only):** each PR's Vercel preview, measured the same way on its own data. Its numbers are shown and compared with no budget, and it never fails a check; anything the gates would have caught (a forbidden request, CLS, a route that didn't measure) is listed as noticed.
 
 **Gates (fail the fixture run):**
-- a forbidden request during a page load or prefetch, named in the failure (e.g. a nav `<Link>` prefetch hitting an `/api/py/*` route; the browser never calls the API, per hard rule 5)
+- a forbidden request during a page load or prefetch, named in the failure: an `/api/py/*` route (e.g. a nav `<Link>` prefetch; the browser never calls the API, per hard rule 5), or any host other than the app's own (e.g. a team logo fetched from CFBD's CDN instead of through `/_next/image`, D-154; Vercel's preview extras are left out)
 - per route: document bytes (plus the RSC payload), JS bytes, or request count over budget
 - CLS ≥ 0.1
 - an accessibility score below the recorded one

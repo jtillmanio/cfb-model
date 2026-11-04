@@ -74,15 +74,27 @@ export function isVercelExtra(url) {
 }
 
 /**
- * The path of a request the browser must never make: anything under /api/py, the Python API
- * (hard rule 5). Null for any other URL.
+ * A request the browser must never make, or null. Anything under /api/py, the Python API (hard
+ * rule 5), is named by its path. Given the page Lighthouse loaded, any http(s) request to another
+ * origin is named by its full URL: the app fetches nothing from a third-party host, so a team logo
+ * goes through the app's own /_next/image, never CFBD's CDN (D-101, D-154). Vercel's preview
+ * extras are dropped before this is asked.
  * @param {string} url
+ * @param {string} [pageUrl] the page's own URL; without it, only the API's paths are forbidden
  * @returns {string | null}
  */
-export function forbiddenPath(url) {
+export function forbiddenPath(url, pageUrl) {
+  let parsed;
   try {
-    const { pathname } = new URL(url);
-    return pathname === "/api/py" || pathname.startsWith("/api/py/") ? pathname : null;
+    parsed = new URL(url);
+  } catch {
+    return null;
+  }
+  const { pathname, protocol, origin } = parsed;
+  if (pathname === "/api/py" || pathname.startsWith("/api/py/")) return pathname;
+  if (!pageUrl || (protocol !== "http:" && protocol !== "https:")) return null;
+  try {
+    return origin === new URL(pageUrl).origin ? null : url;
   } catch {
     return null;
   }
@@ -126,7 +138,9 @@ export function summariseLhr(lhr) {
     docBytes: bytes((q) => q.resourceType === "Document" || /text\/x-component/.test(q.mimeType ?? "")),
     jsBytes: bytes((q) => q.resourceType === "Script"),
     requests: items.length,
-    forbidden: /** @type {string[]} */ (items.map((q) => forbiddenPath(q.url)).filter(Boolean)),
+    forbidden: /** @type {string[]} */ (
+      items.map((q) => forbiddenPath(q.url, lhr.requestedUrl ?? lhr.finalDisplayedUrl)).filter(Boolean)
+    ),
   };
 }
 
@@ -192,8 +206,12 @@ export function gateProblems(routes, budget, expected = []) {
   for (const [id, r] of Object.entries(routes)) {
     for (const path of r.forbidden) {
       problems.push(
-        `${id}: requested ${path} during a page load or prefetch. The browser never calls the API ` +
-          "(hard rule 5): link to it with a plain `<a>`, never `<Link>`, and fetch it from server code",
+        path.startsWith("/")
+          ? `${id}: requested ${path} during a page load or prefetch. The browser never calls the API ` +
+              "(hard rule 5): link to it with a plain `<a>`, never `<Link>`, and fetch it from server code"
+          : `${id}: requested ${path} during a page load, from another host. The browser fetches only ` +
+              "from the app's own origin (D-101): serve the file from the app, a team logo through " +
+              "`next/image` (D-154)",
       );
     }
     if (!r.runs) {

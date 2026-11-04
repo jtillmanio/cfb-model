@@ -1,7 +1,7 @@
 ---
 id: TASK-051
 title: Build the team chip with logos, the market cell and the data table
-status: Ready
+status: In progress
 depends_on: [TASK-050]
 size: M
 model: opus
@@ -100,6 +100,12 @@ _Written by /plan-batch or /implement-task Phase 1. Approved by the user (plan_s
 - Vercel image optimization quota: ~270 teams × 2 widths, cached 31 days, well inside the free tier.
 
 **Size check:** up to 17 files, one layer (web) plus the perf script; no schema. M, attended.
+
+**Plan revisions after approval**
+- 2026-11-04, Phase 0: plan stale only through TASK-050's expected changes (`/design-system`, jsdom + Testing Library, D-152); the owner confirmed carrying on, with `aria-sort` on the `<th>`.
+- 2026-11-04, step 6 (owner approved): `DataTable` takes plain-data columns `{ key, header, align?, sortable? }` and rows `{ key, cells, sortValues? }` instead of `cell`/`sortValue` functions, which can't cross from a server component to the client table. Same files.
+- Within the steps: `formatLineNumber` takes an optional `side`, so an opener that had the current favourite as the underdog reads `+1`; the sparkline follows the board's formula (most favoured at the top, stroke 1.25); the locked chip's dot is `bg-muted` as `Components.dc.html` draws it, not `bg-locked`.
+- Step 9: run locally, `/design-system` measured 10,712 doc bytes against a 9,000 budget, but local doc bytes run ~15% above CI's (`/login` 9,071 locally vs 7,882 in CI), so the budget is set from the PR's fixture run (`report.mjs budget`, README › Set a route's budget).
 
 ## Review log
 
