@@ -17,7 +17,7 @@ function roundTo(value: number, decimals: number): number {
  * Signed number with a fixed decimal count. `+` for positive, U+2212 for negative,
  * and no sign at all for a value that rounds to zero, so there is no negative zero.
  */
-function signed(value: number, decimals: number): string {
+export function signed(value: number, decimals: number): string {
   const magnitude = roundTo(value, decimals);
   if (magnitude === 0) return (0).toFixed(decimals);
   return `${value < 0 ? MINUS : "+"}${magnitude.toFixed(decimals)}`;

@@ -1,7 +1,7 @@
 ---
 id: TASK-054
 title: Build the app shell and global states
-status: Ready
+status: In progress
 depends_on: [TASK-050, TASK-053]
 size: M
 model: opus
@@ -90,7 +90,7 @@ Steps:
    - `mobile-tabs.tsx`: 5 tabs, each ≥ 44px; More opens a `popover` sheet (B8a).
    - `api-unreachable.tsx` (`"use client"`):
      - copy: "Couldn't reach the server · The API didn't answer after N tries." (the saved-copy sentence dropped, D-096);
-     - Retry: `startTransition(() => { router.refresh(); reset(); })`;
+     - Retry: `startTransition(() => retry())`, error.js's `retry` prop in Next 16.4, which re-fetches and re-renders the segment (revised after approval: it replaces `router.refresh()` + `reset()` and does both);
      - auto-retry: "Trying again in 15s", then 30 s, per the board;
      - Details: the request and the error digest.
 3. `web/app/teams/page.tsx`: one `getTeams()` call, then `raceWakeNote(call)`. Ready → AppShell + content. Waking → a `Suspense` with the loading shell + `WakeNote` as fallback, whose child awaits the same call. `loading.tsx`: AppShell (`loading`) around the existing skeleton. `error.tsx` (new): AppShell (`error`) + `ApiUnreachable request="GET /api/py/teams"`. Edit `team-table.tsx` only if its header has to move into the content slot.
@@ -109,7 +109,7 @@ Test strategy (`web/e2e/shell.spec.ts` unless noted):
 - AC-6: `tokens-only.test.ts` scans `web/components/shell/`. Switch server: the count rises by exactly 1 per `/teams` load. `perf.test.ts` passes (no new top-level page).
 
 Risks / open questions:
-- `reset()` alone re-renders without refetching; Retry needs `router.refresh()` as well.
+- `reset()` alone re-renders without refetching; Next 16.4's `retry()` re-fetches, so Retry uses it.
 - The switch server makes e2e start one more process; its tests run serially in the desktop project only.
 - The page holds the stream up to 1.5 s for the race; `loading.tsx` shows the shell during that time.
 - An off-season label beyond "2026" is TASK-057's (see TASK-053's follow-up).

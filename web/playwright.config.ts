@@ -2,6 +2,8 @@ import { defineConfig, devices } from "@playwright/test";
 
 import {
   COLD_PREVIEW_URL,
+  SWITCH_API_URL,
+  SWITCH_WEB_URL,
   TEST_API_JWT_SECRET,
   TEST_AUTH_SECRET,
   TEST_GITHUB_ID,
@@ -16,6 +18,8 @@ const API_PORT = 8001;
 const API_URL = `http://127.0.0.1:${API_PORT}`;
 const COLD_API_PORT = 8002;
 const COLD_PREVIEW_PORT = Number(new URL(COLD_PREVIEW_URL).port);
+const SWITCH_API_PORT = Number(new URL(SWITCH_API_URL).port);
+const SWITCH_WEB_PORT = Number(new URL(SWITCH_WEB_URL).port);
 const isCI = !!process.env.CI;
 
 export default defineConfig({
@@ -92,6 +96,30 @@ export default defineConfig({
         AUTH_ALLOWED_GITHUB_ID: TEST_GITHUB_ID,
         AUTH_GITHUB_ID: "",
         AUTH_GITHUB_SECRET: "",
+        AUTH_TRUST_HOST: "true",
+        API_JWT_SECRET: TEST_API_JWT_SECRET,
+      },
+      reuseExistingServer: !isCI,
+      timeout: 60_000,
+    },
+    // The switched server (TASK-054): the same build and env as the first, but its API sits behind
+    // e2e/switch-api.mjs, which a journey turns off and on and asks for a request count.
+    {
+      command: "node e2e/switch-api.mjs",
+      url: `${SWITCH_API_URL}/api/py/health`,
+      env: { SWITCH_API_PORT: String(SWITCH_API_PORT), SWITCH_API_TARGET: API_URL },
+      reuseExistingServer: !isCI,
+      timeout: 60_000,
+    },
+    {
+      command: `pnpm start --port ${SWITCH_WEB_PORT}`,
+      url: `${SWITCH_WEB_URL}/login`,
+      env: {
+        API_URL: SWITCH_API_URL,
+        AUTH_SECRET: TEST_AUTH_SECRET,
+        AUTH_ALLOWED_GITHUB_ID: TEST_GITHUB_ID,
+        AUTH_GITHUB_ID: "e2e-github-client-id",
+        AUTH_GITHUB_SECRET: "e2e-github-client-secret",
         AUTH_TRUST_HOST: "true",
         API_JWT_SECRET: TEST_API_JWT_SECRET,
       },
