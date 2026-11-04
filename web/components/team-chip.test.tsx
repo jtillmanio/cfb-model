@@ -1,9 +1,6 @@
 // @vitest-environment jsdom
 import { cleanup, render, screen } from "@testing-library/react";
-import { hasRemoteMatch } from "next/dist/shared/lib/match-remote-pattern";
 import { afterEach, describe, expect, it } from "vitest";
-
-import nextConfig from "../next.config";
 
 import { TeamChip } from "./team-chip";
 
@@ -17,23 +14,21 @@ describe("TeamChip logo slot (AC-1, D-075, D-146)", () => {
     const { container } = render(<TeamChip abbreviation="OSU" logoUrl={OSU_LOGO} color="#BB0000" />);
     const img = container.querySelector("img");
     expect(img).not.toBeNull();
-    // The browser asks the app's own image optimizer, never CFBD's CDN (D-101).
-    const src = img!.getAttribute("src")!;
-    expect(src.startsWith("/_next/image?")).toBe(true);
-    for (const candidate of (img!.getAttribute("srcset") ?? "").split(",")) {
-      expect(candidate.trim().startsWith("/_next/image?")).toBe(true);
-    }
-    expect(new URL(src, "http://app.test").host).toBe("app.test");
+    // The browser asks the app's own /logos route, never CFBD's CDN (D-101, D-154).
+    expect(img!.getAttribute("src")).toBe("/logos/194.png");
+    expect(img!.getAttribute("srcset")).toBeNull();
     expect(Number(img!.getAttribute("width"))).toBeLessThanOrEqual(20);
     expect(Number(img!.getAttribute("height"))).toBeLessThanOrEqual(20);
     // Decorative: the name beside it says which team it is.
     expect(img!.getAttribute("alt")).toBe("");
   });
 
-  it("is a logo URL the image optimizer will fetch (next.config remotePatterns)", () => {
-    const patterns = nextConfig.images?.remotePatterns ?? [];
-    expect(hasRemoteMatch([], patterns, new URL(OSU_LOGO))).toBe(true);
-    expect(hasRemoteMatch([], patterns, new URL("https://a.espncdn.com/i/teamlogos/ncaa/500/194.png"))).toBe(false);
+  it("draws the dot for a logo URL the app's route doesn't serve, never a third-party image", () => {
+    const { container } = render(
+      <TeamChip abbreviation="OSU" logoUrl="https://a.espncdn.com/i/teamlogos/ncaa/500/194.png" color="#BB0000" />,
+    );
+    expect(container.querySelector("img")).toBeNull();
+    expect(container.querySelector("[data-slot=team-dot]")).not.toBeNull();
   });
 
   it("renders a 20px colour dot and no image without a logo", () => {

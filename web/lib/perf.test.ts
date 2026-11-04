@@ -220,12 +220,12 @@ describe("AC-2: forbidden requests, Vercel extras, and routes that didn't measur
   });
 
   // TASK-051 AC-5: the browser fetches nothing from a host other than the app's own; a team logo
-  // goes through the app's /_next/image, never CFBD's CDN (D-146).
+  // comes from the app's /logos/<id>.png, never CFBD's CDN (D-146, D-154).
   it("flags a request to another origin as forbidden, naming the URL", () => {
     const result = lhr({
       requests: [
         { url: "https://cdn.collegefootballdata.com/logos/500/194.png", type: "Image", size: 900 },
-        { url: "/_next/image?url=https%3A%2F%2Fcdn.collegefootballdata.com%2Flogos%2F500%2F194.png&w=48&q=75", type: "Image", size: 900 },
+        { url: "/logos/194.png", type: "Image", size: 900 },
       ],
     });
     expect(summariseLhr(result).forbidden).toEqual(["https://cdn.collegefootballdata.com/logos/500/194.png"]);
@@ -239,7 +239,7 @@ describe("AC-2: forbidden requests, Vercel extras, and routes that didn't measur
     expect(forbiddenPath("https://cdn.collegefootballdata.com/x.png", BASE)).toBe(
       "https://cdn.collegefootballdata.com/x.png",
     );
-    expect(forbiddenPath(`${BASE}/_next/image?url=x`, BASE + "/teams")).toBeNull();
+    expect(forbiddenPath(`${BASE}/logos/194.png`, BASE + "/teams")).toBeNull();
     expect(forbiddenPath("http://127.0.0.1:3100/teams", "http://127.0.0.1:3100/login")).toBeNull();
     expect(forbiddenPath("http://127.0.0.1:3101/x.js", "http://127.0.0.1:3100/login")).toBe("http://127.0.0.1:3101/x.js");
     expect(forbiddenPath("data:image/png;base64,AAAA", BASE)).toBeNull();

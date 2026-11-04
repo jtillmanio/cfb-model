@@ -77,7 +77,7 @@ export function isVercelExtra(url) {
  * A request the browser must never make, or null. Anything under /api/py, the Python API (hard
  * rule 5), is named by its path. Given the page Lighthouse loaded, any http(s) request to another
  * origin is named by its full URL: the app fetches nothing from a third-party host, so a team logo
- * goes through the app's own /_next/image, never CFBD's CDN (D-101, D-154). Vercel's preview
+ * comes from the app's own /logos/<id>.png, never CFBD's CDN (D-101, D-154). Vercel's preview
  * extras are dropped before this is asked.
  * @param {string} url
  * @param {string} [pageUrl] the page's own URL; without it, only the API's paths are forbidden
@@ -211,7 +211,7 @@ export function gateProblems(routes, budget, expected = []) {
               "(hard rule 5): link to it with a plain `<a>`, never `<Link>`, and fetch it from server code"
           : `${id}: requested ${path} during a page load, from another host. The browser fetches only ` +
               "from the app's own origin (D-101): serve the file from the app, a team logo through " +
-              "`next/image` (D-154)",
+              "`TeamChip`'s `/logos/<id>.png` (D-154)",
       );
     }
     if (!r.runs) {

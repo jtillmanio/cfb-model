@@ -55,7 +55,11 @@ for (const theme of ["Dark", "Light"]) {
     const logo = chips.locator("img");
     await expect(logo).toHaveCount(1);
     await expect(logo).toBeVisible();
-    expect(await logo.getAttribute("src")).toMatch(/^\/_next\/image\?/);
+    expect(await logo.getAttribute("src")).toBe("/logos/194.png");
+    // It actually decoded: a 404 page in its place still counts as "visible". It loads lazily,
+    // so bring it into view first.
+    await logo.scrollIntoViewIfNeeded();
+    await expect.poll(() => logo.evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth)).toBe(40);
     const box = (await logo.boundingBox())!;
     expect(box.width).toBeLessThanOrEqual(20);
     expect(box.height).toBeLessThanOrEqual(20);
@@ -121,9 +125,13 @@ test("the page requests nothing from a host other than the app's own", async ({ 
     const url = new URL(request.url());
     if (/^https?:$/.test(url.protocol) && url.origin !== new URL(baseURL!).origin) elsewhere.push(url.href);
   });
+  const logo = page.waitForResponse((response) => new URL(response.url()).pathname === "/logos/194.png");
   await page.goto("/design-system");
-  // The Ohio State logo loads through /_next/image, which fetches CFBD's CDN on the server.
-  await expect(page.getByRole("region", { name: "Dark" }).locator("img")).toBeVisible();
+  await page.getByRole("region", { name: "Dark" }).locator("img").scrollIntoViewIfNeeded();
+  // The Ohio State logo comes from the app's /logos route, which fetches CFBD's CDN on the server.
+  const response = await logo;
+  expect(response.status()).toBe(200);
+  expect(response.headers()["content-type"]).toBe("image/png");
   await page.waitForLoadState("networkidle");
   expect(elsewhere).toEqual([]);
 });

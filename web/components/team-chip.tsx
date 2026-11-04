@@ -1,18 +1,19 @@
 import Image from "next/image";
 
+import { logoPath } from "@/lib/logos";
 import { cn } from "@/lib/utils";
 
 // TeamChip (design/README.md › Components; Components.dc.html › Team chip). The 20px logo slot is
 // the only place a team's colour appears (D-075): the logo when CFBD has one (D-146), else a dot
-// in the team colour. The logo goes through next/image, so the browser asks the app's own
-// /_next/image and never CFBD's CDN (D-101, D-154). Locked games drop the colour.
+// in the team colour. The browser asks the app's own /logos/<id>.png, never CFBD's CDN (D-101,
+// D-154); a logo URL that route doesn't serve draws the dot. Locked games drop the colour.
 
 type TeamChipProps = {
   abbreviation: string;
   /** The school's full name, shown instead of the abbreviation when `full` is set. */
   school?: string;
   full?: boolean;
-  /** `teams.logo_url`; null draws the colour dot. */
+  /** `teams.logo_url`; null (or a URL `/logos` doesn't serve) draws the colour dot. */
   logoUrl: string | null;
   /** `teams.color`, e.g. `#BB0000`; null draws a muted dot. */
   color: string | null;
@@ -52,6 +53,7 @@ export function TeamChip({
 }: TeamChipProps) {
   const name = full && school ? school : abbreviation;
   const teamColor = locked ? null : color;
+  const logo = logoPath(logoUrl);
 
   return (
     <span
@@ -62,9 +64,11 @@ export function TeamChip({
         className,
       )}
     >
-      {logoUrl ? (
+      {logo ? (
+        // The route already serves the 2x size, so next/image only draws the <img>.
         <Image
-          src={logoUrl}
+          src={logo}
+          unoptimized
           alt=""
           width={20}
           height={20}

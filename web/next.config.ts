@@ -20,14 +20,6 @@ const nextConfig: NextConfig = {
   agentRules: false,
   cacheComponents: true,
   partialPrefetching: true,
-  // Team logos (D-146, D-154): the browser asks /_next/image on the app's own origin and the Next
-  // server fetches CFBD's PNG once per width, so no page makes a third-party request (D-101).
-  // Logos change about once a season, so an optimized one is kept 31 days.
-  images: {
-    remotePatterns: [new URL("https://cdn.collegefootballdata.com/logos/**")],
-    qualities: [75],
-    minimumCacheTTL: 2_678_400,
-  },
   turbopack: {
     rules: {
       "*.css": {

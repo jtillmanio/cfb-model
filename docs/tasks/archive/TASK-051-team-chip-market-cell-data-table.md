@@ -67,7 +67,7 @@ _Work noticed during this task and deliberately left out. Each bullet ends `→ 
 - AC-4 said `aria-sort` sits on the sort `<button>`; ARIA allows it only on the column header, so the owner approved rewording AC-4 to the `<th aria-sort>` wrapping a `<button>` → docs/tasks/TASK-051-team-chip-market-cell-data-table.md § Acceptance criteria (fixed in this PR)
 - `TeamChip` has no loading state and no hover or focus state for a linked chip (both drawn in `Components.dc.html`), and `DataTable` takes plain-data rows; TASK-056 is the first screen to use them → docs/tasks/TASK-056-this-week-slate.md § Context
 - On the dev server at kit.json's `ui.baseUrl` (`127.0.0.1`) Next 16 refuses the HMR socket, so pages never hydrate for UI verification (`localhost` works); the owner chose a separate `chore/` PR → docs/owner-checklist.md § Actions
-- Candidate decision: logos through Next's image optimizer, the gate forbidding other hosts, and plain-data table rows → docs/decisions.md § D-154
+- Candidate decision: logos from the app's own `/logos/<id>.png` route (first Next's image optimizer, which 404'd on Vercel), the gate forbidding other hosts, and plain-data table rows → docs/decisions.md § D-154
 - The data table's sort cycles ascending ↔ descending once sorted and never returns to unsorted → not tracked: accepted as is; AC-4 asks only that it toggles
 
 ## Plan
@@ -113,12 +113,13 @@ _Written by /plan-batch or /implement-task Phase 1. Approved by the user (plan_s
 - Within the steps: `formatLineNumber` takes an optional `side`, so an opener that had the current favourite as the underdog reads `+1`; the sparkline follows the board's formula (most favoured at the top, stroke 1.25); the locked chip's dot is `bg-muted` as `Components.dc.html` draws it, not `bg-locked`.
 - Step 9: run locally, `/design-system` measured 10,712 doc bytes against a 9,000 budget, but local doc bytes run ~15% above CI's (`/login` 9,071 locally vs 7,882 in CI), so the budget is set from the PR's fixture run (`report.mjs budget`, README › Set a route's budget).
 - Close-out (owner approved): README › Read a failed run gains the other-host row; AC-4 reworded to `<th aria-sort>` wrapping a `<button>`. UI R1: the neutral-site specimen spans two columns (`page.tsx`), and the e2e spec checks nothing covers the N marker.
+- After accept (owner asked, 2026-11-04): on the Vercel preview `/_next/image` returned the app's 404 page (preview Lighthouse run 41833440814), so the logo never loaded; it worked under `next dev` and `next start`, which is all the tests ran. Logos now come from a same-origin `/logos/<id>.png` route (`web/app/logos/[file]/route.tsx`, `web/lib/logos.ts`) that fetches CFBD's PNG on the server and renders it at 40px with `next/og`; `next.config.ts` drops its `images` block. D-154 revised (it was new in this PR). The e2e spec now checks the logo decodes and its response is a 200 PNG, not just that the `<img>` is visible.
 
 ## Review log
 
 _Filled by /implement-task. One line per round._
 
-Verify R1 PASS | Audit R1 PASS (sticky header strengthened in e2e) | Spec R1 APPROVE | UI R1 CHANGES (neutral-site specimen covered its N marker at 390, and at 1440 on re-check) → R2 PASS | Verify R2 PASS | CI PASS | Lighthouse R1 FAIL (design-system doc bytes 10,730 > 9,000) → R2 PASS (budget set from the PR's fixture run; no other-host request)
+Verify R1 PASS | Audit R1 PASS (sticky header strengthened in e2e) | Spec R1 APPROVE | UI R1 CHANGES (neutral-site specimen covered its N marker at 390, and at 1440 on re-check) → R2 PASS | Verify R2 PASS | CI PASS | Lighthouse R1 FAIL (design-system doc bytes 10,730 > 9,000) → R2 PASS (budget set from the PR's fixture run; no other-host request) | After accept: owner found the logo broken on the preview (`/_next/image` 404) → `/logos` route, Verify R3
 
 ## Blocked
 
@@ -128,5 +129,5 @@ _Only if status is Blocked: what failed, what was tried, best hypothesis, decisi
 
 - Verify rounds: 2
 - Review rounds: 2 (UI), 1 (spec)
-- First-pass AC FAILs: 1 (AC-5 at 390, UI R1)
-- Plan revisions after approval: 3 (carry on past TASK-050's expected changes; plain-data DataTable rows; README row and AC-4 rewording at close-out)
+- First-pass AC FAILs: 2 (AC-5 at 390, UI R1; AC-1 on the preview, found by the owner after accept)
+- Plan revisions after approval: 4 (carry on past TASK-050's expected changes; plain-data DataTable rows; README row and AC-4 rewording at close-out; the `/logos` route after accept)
