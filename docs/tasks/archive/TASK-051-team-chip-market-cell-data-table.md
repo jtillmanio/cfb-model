@@ -1,7 +1,7 @@
 ---
 id: TASK-051
 title: Build the team chip with logos, the market cell and the data table
-status: Review
+status: Done
 depends_on: [TASK-050]
 size: M
 model: opus
