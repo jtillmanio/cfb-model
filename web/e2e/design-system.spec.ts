@@ -87,6 +87,10 @@ for (const theme of ["Dark", "Light"]) {
     };
     expect(await heights(`${theme.toLowerCase()} comfortable table`)).toEqual({ header: 40, row: 48 });
     expect(await heights(`${theme.toLowerCase()} compact table`)).toEqual({ header: 32, row: 36 });
+    // The header sticks under the 56px app bar.
+    const thead = panel.getByRole("table", { name: `${theme.toLowerCase()} comfortable table` }).locator("thead");
+    await expect(thead).toHaveCSS("position", "sticky");
+    await expect(thead).toHaveCSS("top", "56px");
 
     // Sorting: a click, then the keyboard, flips aria-sort and the row order.
     const table = panel.getByRole("table", { name: `${theme.toLowerCase()} compact table` });
