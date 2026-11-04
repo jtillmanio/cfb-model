@@ -7,8 +7,8 @@ size: M
 model: opus
 autonomy: attended
 ui: false
-plan_status: none
-planned_at_commit:
+plan_status: approved
+planned_at_commit: 1fbc8a5
 ---
 
 # TASK-053 — Carry the app shell's data in each screen endpoint
@@ -33,7 +33,7 @@ Every screen's single API response also carries what the app shell around it sho
 
 ## Acceptance criteria
 
-- [ ] AC-1: Given the seeded test DB and the clock at Sat 2026-10-10 2:15 PM ET, `GET /api/py/teams` returns a `shell` block with season 2026, season type `regular`, week 6, the shown version's name and version (`v1.0`), a record equal to `model_record`'s `to_date` row for v1.0's newest 2026 week (W-L-P, win %, units, average CLV; on the fixture that's week 6, 32-24-1), record label `live`, lines updated at Thu 2026-10-08 9:02 PM ET (as UTC), the stale flag the plan gate's rule gives, and 9 picks for the week.
+- [ ] AC-1: Given the seeded test DB and the clock at Sat 2026-10-10 2:15 PM ET, `GET /api/py/teams` returns a `shell` block with season 2026, season type `regular`, week 6, the shown version's name and version (`v1.0`), a record equal to `model_record`'s `to_date` row for v1.0's newest 2026 week (W-L-P, win %, units, average CLV; on the fixture that's week 6, 32-24-1), record label `live`, lines updated at Sat 2026-10-10 9:00 AM ET (`2026-10-10T13:00:00Z`, the fixture's newest line snapshot), stale `false` (24 h rule), and 9 picks for the week.
 - [ ] AC-2: Given a DB whose only (cfb, spread) version is a `candidate` with a succeeded `scheduled` run this season, the shell shows that version; given a `production` version too, it shows the `production` one; given none, the record fields are null and the response is still 200 (pytest on rows the test inserts, rolled back).
 - [ ] AC-3: Given the newest line pull 23 h before the clock, `stale` is false; given 25 h, it is true (pytest with its own snapshot times; the boundary follows the rule the plan gate keeps).
 - [ ] AC-4: Given the clock at Mon 2027-02-08 6:00 AM ET (no game still to come in a stored season), the shell names the last season with games (2026), record label `final`, and no current week; the response is 200.
@@ -68,9 +68,48 @@ Every screen's single API response also carries what the app shell around it sho
 
 _Work noticed during this task and deliberately left out. Each bullet ends `→ <path> § <section>` (where it was placed) or `→ not tracked: <reason>`. See `.claude/skills/track-follow-ups/classify.md`; the PR's Follow-ups section is copied from here._
 
+- Off-season and pre-season shell: AC-4's rule names the last season with games, no week, and that season's record; the design's off-season top bar reads "2027 · Week 0" (the next season's `seasons.weeks`, App States `frame="offseason"`) and its pre-season card "Model · 2025 final" (`frame="team"`). Open question for that task's plan → docs/tasks/TASK-057-record-strip-filters-empty-states.md § Context (approved at plan)
+- `01-this-week-desktop.png` and `design/README.md` § Navigation say "Updated Thu 9:02 PM ET", but the fixture's newest pull is Sat 9:00 AM ET (see Plan › Risks) → not tracked: the design rules copy, not numbers; recorded in this task's decision
+
 ## Plan
 
 _Written by /plan-batch or /implement-task Phase 1. Approved by the user (plan_status: approved) before any code is written._
+
+**AC change (approved by the owner 2026-11-04, applied to AC-1):** the fixture's newest line pull is **Sat 2026-10-10 9:00 AM ET** (`2026-10-10T13:00Z`, Texas vs Oklahoma's Sat −6.5 snapshot in `python/db/seeds/fixture/week6.json`), not Thu 9:02 PM. AC-1 expects that time and `stale: false` (5 h 15 m before the clock). The 24 h rule stays as 02 states it, so the stale-rule question goes away. TASK-054 AC-1's "Updated" text follows ("Updated Sat 9:00 AM ET").
+
+Steps:
+1. `python/api/src/api/clock.py`: `now()` uses the same rule as `engine/clock.py` (`FIXTURE_NOW` only with `APP_ENV=test`). It can't live in `engine.core`: the API install has no engine at all (`api/tests/test_bundle.py` keeps `cfb-engine` and numpy out).
+2. `python/api/src/api/wave.py`: `QUERY_BUDGET = 6`; `run_wave(engine, {name: (sql, params)})` refuses more than 6, runs each on its own connection in a `ThreadPoolExecutor`, waits for all and re-raises the first failure.
+3. `python/api/src/api/shell.py`: `SPORT = "cfb"`; `ShellOut` (`season`, `season_type`, `week`, `model` {name, version} | null, `record` {wins, losses, pushes, win_pct 0–100 (D-142), units, avg_clv} | null, `record_label` `live|final` | null, `lines_updated_at`, `stale`, `picks` | null). `SHELL_SQL` is one statement with params `:now` and `:sport`, built from CTEs:
+   - **coming:** the game with the earliest cutoff after now (`coalesce(kickoff_at, end of game_date ET)`, the same cutoff as `current_picks`), regular season before postseason on a tie (D-150's `due_weeks`).
+   - **season:** the coming game's season, else `max(games.season)`.
+   - **shown:** the (sport, `spread`) version, not deleted. `production` comes first; otherwise the newest `candidate` (by `created_at`, then `id`) with a `succeeded` `scheduled` run in that season.
+   - **record:** `model_record`'s `to_date` row for the shown version and season, taking the newest week (postseason after regular). It filters by scalar subqueries, so the view's version and season pushdown still applies.
+   - **picks:** a count of `current_picks` (`line_source` `market`) for the shown version on the coming week's games.
+   - **lines_updated_at:** the newest `captured_at` among `snapshot` rows on that season's games for the sport.
+   `shell_from(row, now)`: `stale` = a week exists and now − `lines_updated_at` > 24 h, so exactly 24 h is not stale. `record_label` is `live` when there's a coming week, otherwise `final` (null when there's no record). `load(conn, now, sport)` runs the statement on one connection, which lets tests use `db_conn`.
+4. `main.py`: add `TeamsOut.shell: ShellOut`. `/teams` runs `run_wave` over `teams` and `shell`: 2 queries in one wave.
+5. Run `pnpm api:types` (regenerates `web/lib/api-types.ts`). In `web/playwright.config.ts`, give the API webServer `FIXTURE_NOW: "2026-10-10T14:15:00-04:00"`.
+6. Docs: `docs/decisions.md` gets one D-### row, with the ID from `next-id.ps1`. It covers the shell block, the version rule, "lines updated" = newest snapshot, the 24 h rule as applied, the API's own clock and `run_wave`. In `docs/02-architecture.md`: › Components › 2 (every screen endpoint carries `shell` inside its one wave); › Test-only sign-in and clock ("the engine, the API and the web app"; e2e's API runs at the slate time, and a journey at another fixture time starts its own API server).
+
+Files: `python/api/src/api/{clock,wave,shell}.py` (new), `main.py`; `python/api/tests/test_api_shell.py` (new); `python/api/tests/conftest.py` (puts `db/tests` on `sys.path` for `model_rows`); `web/lib/api-types.ts`; `web/playwright.config.ts`; `docs/decisions.md`; `docs/02-architecture.md` (11 files).
+
+Test strategy (`test_api_shell.py`; each test fails on `main`, where there's no `shell`):
+- AC-1: `client` with `FIXTURE_NOW` at Sat 2:15 PM ET. The record equals the `model_record` row the test reads (32-24-1); the rest as the AC says, plus `lines_updated_at` 13:00Z, `stale` false and `picks` 9.
+- AC-2: `load(db_conn, now, m.SPORT)` on `model_rows` rows: a candidate with a scheduled run is shown; add a production version and it wins; a candidate with only a backtest run, or a run from last season, isn't shown. Route with `shell.SPORT` monkeypatched to an unused sport → 200 with null `model` and `record`.
+- AC-3: `load` with a future game and its newest snapshot 23 h, 24 h and 25 h before now → false, false, true.
+- AC-4: `client` at 2027-02-08T06:00-05:00 → 2026, `final`, `week` null, 200.
+- AC-5: a `before_cursor_execute` listener on `main.engine()` counts statements and waits on `threading.Barrier(2, timeout=5)`. Serial queries break the barrier, so the request fails. Expect 200 and exactly 2 queries, after one warm call. `run_wave` refuses 7. An EXPLAIN check (`m.explain`/`m.scans`) shows the record read filters `picks` by version. `test_api_auth.py` runs unchanged.
+- AC-6: `web/lib/api-types.test.ts` passes after regeneration. `clock.now()` ignores `FIXTURE_NOW` when `APP_ENV` is unset and honours it with `APP_ENV=test`.
+
+Risks / open questions:
+- The AC-1 change above.
+- If Postgres won't push a subquery-param filter into `model_record`, the EXPLAIN test catches it; the fallback is a LATERAL join on the shown version.
+- psycopg's first-connect queries skip SQLAlchemy events; the warm call keeps them out of the count.
+- With NullPool, each request opens 2 pooled Neon connections. That's within PgBouncer's limits.
+- e2e's one API server has one clock (Sat); journeys at other fixture times need their own server (written into 02 in step 6).
+
+Size check: 11 files, no schema change, no UI → passes.
 
 ## Review log
 

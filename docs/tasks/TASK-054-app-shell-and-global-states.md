@@ -7,8 +7,8 @@ size: M
 model: opus
 autonomy: attended
 ui: true
-plan_status: none
-planned_at_commit:
+plan_status: approved
+planned_at_commit: 1fbc8a5
 ---
 
 # TASK-054 — Build the app shell and global states
@@ -29,7 +29,7 @@ Every signed-in screen sits in the designed app shell: a desktop sidebar with th
 
 ## Acceptance criteria
 
-- [ ] AC-1: Signed in on the seeded test DB at 1440, `/teams` shows the 224px sidebar with the seven nav items in the design's order and icons, Teams marked active, and the track-record card showing the response's shell record (formatted by `web/lib/format.ts`, labelled "2026 live") linking to `/performance`; the top bar shows "2026 · Week 6" and "Updated Thu 9:02 PM ET".
+- [ ] AC-1: Signed in on the seeded test DB at 1440, `/teams` shows the 224px sidebar with the seven nav items in the design's order and icons, Teams marked active, and the track-record card showing the response's shell record (formatted by `web/lib/format.ts`, labelled "2026 live") linking to `/performance`; the top bar shows "2026 · Week 6" and "Updated Sat 9:00 AM ET" (the fixture's newest line snapshot; TASK-053's AC-1, approved 2026-11-04).
 - [ ] AC-2: At 768 the sidebar is replaced by the top-bar navigation drawn in C16c; at 390 the bottom tab bar shows This Week, Picks, Contest, Rankings and More, every tab ≥ 44px tall, and More opens Teams, Performance, Lab and Settings (B8a); no width scrolls horizontally.
 - [ ] AC-3: With the API stopped, `/teams` shows the "API unreachable" state with a Retry button and no saved-copy sentence; after the API restarts, Retry loads the data (e2e journey 8, 02 › Testing strategy).
 - [ ] AC-4: With the API answering after a delay longer than 1.5 s (e2e's existing cold-API server, `web/e2e/cold-api.mjs`), the "Waking up the database…" note appears after 1.5 s and the page then loads without an error.
@@ -62,9 +62,59 @@ Every signed-in screen sits in the designed app shell: a desktop sidebar with th
 
 _Work noticed during this task and deliberately left out. Each bullet ends `→ <path> § <section>` (where it was placed) or `→ not tracked: <reason>`. See `.claude/skills/track-follow-ups/classify.md`; the PR's Follow-ups section is copied from here._
 
+- Production builds hide server error messages, so `error.tsx` can't tell a down API from any other failure of the page's data (an expired token's 401, a 500). Every failure reads "Couldn't reach the server" → not tracked: the design draws one error state; a second one needs a design pass first
+
 ## Plan
 
 _Written by /plan-batch or /implement-task Phase 1. Approved by the user (plan_status: approved) before any code is written._
+
+Provisional: depends on TASK-053. It uses `ShellOut`'s field names, and AC-1's "Updated Sat 9:00 AM ET" is TASK-053's newest-pull time (its AC change, approved 2026-11-04; `stale` is false on the fixture).
+
+**Decisions:**
+- **Each page renders `<AppShell shell={data.shell}>` around its content; the layout doesn't.** A layout can't see which endpoint the page calls. It also persists across client navigation, so shell data rendered there would go stale. `loading.tsx` and `error.tsx` draw the same shell with no data.
+- **More is a sheet using the HTML `popover` attribute**, not a route. It needs no client JS and no Lighthouse route.
+- **The wake note is server-side via `raceWakeNote`**, as `/login/continue` does it.
+
+Steps:
+1. `web/lib/shell.ts`: `type Shell = components["schemas"]["ShellOut"]`; `NAV` (the 7 items, their hrefs and lucide icons, per design/README § Navigation; This Week → `/`); `MOBILE_TABS`, `MORE_ITEMS` (Teams, Performance, Lab, Settings); `SHELL_COPY`.
+   `shellView(shell | null)` returns:
+   - the week label ("2026 · Week 6", or just the season when there's no week);
+   - "Updated <`formatKickoff`> ET";
+   - the card: "Model · 2026 live" or "final", record, `formatWinRate(win_pct / 100)`, units, "CLV +0.9";
+   - the Picks badge, and dashes when there's no data.
+   Export `signed` from `web/lib/format.ts` for the card's CLV.
+2. Components in `web/components/shell/`. None imports server-only code, so the client `error.tsx` can render them.
+   - `app-shell.tsx`: `AppShell({ active, shell, state: ready|loading|error, path, children })`. Sidebar at xl (1280+), top bar plus tablet nav at md (768+), tabs below that. Also holds `StaleBanner` ("Lines last updated <time> ET · Refresh", which reloads `path`) and `WakeNote` (D-097 copy).
+   - `sidebar.tsx`: logo, sport switcher (college football; NFL "Later"; inert), nav (`aria-current`, Picks badge), track-record card linking to `/performance`.
+   - `top-bar.tsx`: week label, an inert "Search teams ⌘K", "Updated …", or "Can't reach the server" in the error state. Also the C16c nav row at md.
+   - `mobile-tabs.tsx`: 5 tabs, each ≥ 44px; More opens a `popover` sheet (B8a).
+   - `api-unreachable.tsx` (`"use client"`):
+     - copy: "Couldn't reach the server · The API didn't answer after N tries." (the saved-copy sentence dropped, D-096);
+     - Retry: `startTransition(() => { router.refresh(); reset(); })`;
+     - auto-retry: "Trying again in 15s", then 30 s, per the board;
+     - Details: the request and the error digest.
+3. `web/app/teams/page.tsx`: one `getTeams()` call, then `raceWakeNote(call)`. Ready → AppShell + content. Waking → a `Suspense` with the loading shell + `WakeNote` as fallback, whose child awaits the same call. `loading.tsx`: AppShell (`loading`) around the existing skeleton. `error.tsx` (new): AppShell (`error`) + `ApiUnreachable request="GET /api/py/teams"`. Edit `team-table.tsx` only if its header has to move into the content slot.
+4. e2e: `web/e2e/switch-api.mjs` (new) proxies the e2e API. `POST /__e2e/down` / `up` switch it off and on (refused when down); `GET /__e2e/count` returns the number of proxied `/api/py/*` requests. `playwright.config.ts` starts it plus a third `next start` (port 3102) pointed at it, and `test-env.ts` names both URLs.
+5. Perf: re-measure `teams` from the PR's fixture Lighthouse run (`node scripts/perf/report.mjs budget …`). Write `scripts/perf/budget.json` and the 02 › Performance checks table, with a dated note giving the reason. No new route.
+6. `docs/decisions.md`: one D-### row (ID from `next-id.ps1`) for the three decisions above.
+
+Files: `web/components/shell/{app-shell,sidebar,top-bar,mobile-tabs,api-unreachable}.tsx`, `app-shell.test.tsx` (new); `web/lib/shell.ts`, `shell.test.ts` (new); `web/lib/format.ts`; `web/app/teams/page.tsx`, `loading.tsx`, `error.tsx` (new), `team-table.tsx` (if needed); `web/e2e/shell.spec.ts`, `switch-api.mjs` (new), `test-env.ts`; `web/playwright.config.ts`; `scripts/perf/budget.json`; `docs/02-architecture.md`; `docs/decisions.md` (19–20 files).
+
+Test strategy (`web/e2e/shell.spec.ts` unless noted):
+- AC-1 (desktop): sidebar 224px wide; 7 nav names in order; Teams `aria-current="page"`; card text and `href="/performance"`; "2026 · Week 6"; the "Updated" text. `shell.test.ts` covers `shellView` on a fixture-shaped `Shell` and on null.
+- AC-2: `setViewportSize(768)` → no sidebar, tablet nav visible. Phone project → 5 tabs, each with box height ≥ 44; More opens the 4 links. `scrollWidth <= clientWidth` at 390, 768 and 1440.
+- AC-3 (desktop, serial, switch server): down → "Couldn't reach the server", a Retry button and no "saved copy" text; up → Retry → the Ohio State row.
+- AC-4: cold preview `/teams` → "Waking up the database…" shows, then the table, with no error.
+- AC-5: `app-shell.test.tsx` renders with `stale` true (banner text) and false (no banner). e2e: the fixture state (false) has no banner.
+- AC-6: `tokens-only.test.ts` scans `web/components/shell/`. Switch server: the count rises by exactly 1 per `/teams` load. `perf.test.ts` passes (no new top-level page).
+
+Risks / open questions:
+- `reset()` alone re-renders without refetching; Retry needs `router.refresh()` as well.
+- The switch server makes e2e start one more process; its tests run serially in the desktop project only.
+- The page holds the stream up to 1.5 s for the race; `loading.tsx` shows the shell during that time.
+- An off-season label beyond "2026" is TASK-057's (see TASK-053's follow-up).
+
+Size check: 19–20 files, UI only (no schema) → passes at the 20-file limit. `autonomy: attended`.
 
 ## Review log
 
