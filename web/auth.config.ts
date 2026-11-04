@@ -3,12 +3,14 @@ import GitHub from "next-auth/providers/github";
 
 import { isAllowedGitHubId } from "@/lib/allowlist";
 import { deniedLoginUrl } from "@/lib/login";
+import { previewUserId } from "@/lib/preview";
 
 // A session lasts 90 days on a device (D-095).
 export const SESSION_MAX_AGE_SECONDS = 90 * 24 * 60 * 60;
 
 // GitHub reads AUTH_GITHUB_ID and AUTH_GITHUB_SECRET; the cookie is signed with AUTH_SECRET.
-// Previews set no GitHub client (D-102): the config still loads, and only minted sessions get in.
+// Previews set no GitHub client (D-153): the config still loads, and `authorized` lets every
+// request in as the allowlisted user, behind Vercel Authentication.
 export const authConfig = {
   providers: [GitHub],
   session: { strategy: "jwt", maxAge: SESSION_MAX_AGE_SECONDS },
@@ -35,8 +37,11 @@ export const authConfig = {
       return { ...session, user: { ...session.user, id: token.sub ?? "" } };
     },
     // Runs in proxy.ts on every page request. Re-checking the allowlist means emptying or changing
-    // AUTH_ALLOWED_GITHUB_ID locks out existing sessions without rotating AUTH_SECRET.
+    // AUTH_ALLOWED_GITHUB_ID locks out existing sessions without rotating AUTH_SECRET. A Vercel
+    // preview lets every request through as the allowlisted user (D-153): Vercel's login already
+    // decided who reached it.
     authorized({ auth }) {
+      if (previewUserId()) return true;
       return isAllowedGitHubId(auth?.user?.id, process.env.AUTH_ALLOWED_GITHUB_ID);
     },
   },

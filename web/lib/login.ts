@@ -5,7 +5,7 @@
 export const WAKE_NOTE_AFTER_MS = 1500;
 
 // Copy from the App States boards (frame "login"). The footnote says "device" at every width
-// (AC-1); the waking note gives no number (D-097). The preview note isn't in the design (D-102).
+// (AC-1); the waking note gives no number (D-097). The preview note isn't in the design (D-153).
 export const LOGIN_COPY = {
   wordmark: "CFB Model",
   heading: "Sign in",

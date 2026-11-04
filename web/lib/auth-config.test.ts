@@ -108,3 +108,35 @@ describe("authorized callback (every request through proxy.ts)", () => {
     expect(await authorized(ALLOWED)).toBe(false);
   });
 });
+
+// Previews trust Vercel Authentication (TASK-059): Vercel's login already decides who reaches one.
+describe("authorized callback on a Vercel preview (TASK-059)", () => {
+  it("lets a signed-out request through as the allowlisted user (AC-1)", async () => {
+    vi.stubEnv("VERCEL_ENV", "preview");
+    vi.stubEnv("AUTH_ALLOWED_GITHUB_ID", ALLOWED);
+    expect(await authorized(undefined)).toBe(true);
+  });
+
+  it.each([
+    ["unset", undefined],
+    ["empty", ""],
+  ])("stays shut when the allowlist is %s (AC-2)", async (_label, value) => {
+    vi.stubEnv("VERCEL_ENV", "preview");
+    vi.stubEnv("AUTH_ALLOWED_GITHUB_ID", value);
+    expect(await authorized(undefined)).toBe(false);
+    expect(await authorized(ALLOWED)).toBe(false);
+  });
+
+  // A garbage, wrongly signed or expired cookie reaches the callback as no session (auth: null).
+  it.each([
+    ["unset", undefined],
+    ["development", "development"],
+    ["production", "production"],
+  ])("changes nothing when VERCEL_ENV is %s (AC-3)", async (_label, value) => {
+    vi.stubEnv("VERCEL_ENV", value);
+    vi.stubEnv("AUTH_ALLOWED_GITHUB_ID", ALLOWED);
+    expect(await authorized(undefined)).toBe(false);
+    expect(await authorized("7654321")).toBe(false);
+    expect(await authorized(ALLOWED)).toBe(true);
+  });
+});

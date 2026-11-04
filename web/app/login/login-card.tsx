@@ -92,7 +92,7 @@ export function WakingNotice() {
   );
 }
 
-// Not in the design (D-102): previews have no GitHub client, so there is nothing to press.
+// Not in the design (D-153): previews have no GitHub client, so there is nothing to press.
 export function UnavailableNote() {
   return <p className="text-label text-muted-foreground">{LOGIN_COPY.unavailable}</p>;
 }

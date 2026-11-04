@@ -90,6 +90,42 @@ describe("signed API calls", () => {
   });
 });
 
+// Previews trust Vercel Authentication (TASK-059): every request is the allowlisted user.
+describe("on a Vercel preview (TASK-059)", () => {
+  it("signs as AUTH_ALLOWED_GITHUB_ID without a session (AC-1)", async () => {
+    vi.stubEnv("VERCEL_ENV", "preview");
+    vi.stubEnv("AUTH_ALLOWED_GITHUB_ID", "1234567");
+    auth.mockResolvedValue(null);
+
+    await getTeams();
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect((await verified(bearerToken(0))).sub).toBe("1234567");
+  });
+
+  it("sends nothing without a session when the allowlist is empty (AC-2)", async () => {
+    vi.stubEnv("VERCEL_ENV", "preview");
+    vi.stubEnv("AUTH_ALLOWED_GITHUB_ID", "");
+    auth.mockResolvedValue(null);
+
+    await expect(getTeams()).rejects.toThrow(/signed-in session/);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["unset", undefined],
+    ["development", "development"],
+    ["production", "production"],
+  ])("still needs a session when VERCEL_ENV is %s (AC-3)", async (_label, value) => {
+    vi.stubEnv("VERCEL_ENV", value);
+    vi.stubEnv("AUTH_ALLOWED_GITHUB_ID", "1234567");
+    auth.mockResolvedValue(null);
+
+    await expect(getTeams()).rejects.toThrow(/signed-in session/);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+});
+
 describe("refused before any request is sent (AC-3)", () => {
   it("throws without a session", async () => {
     auth.mockResolvedValue(null);

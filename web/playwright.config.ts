@@ -67,9 +67,10 @@ export default defineConfig({
       reuseExistingServer: !isCI,
       timeout: 180_000,
     },
-    // The cold preview (TASK-002): the same build, started after the one above, with no GitHub
-    // client (D-102; empty, so the repo's .env.local can't fill it in) and an API that answers
-    // 3 s late (e2e/cold-api.mjs).
+    // The cold preview (TASK-002): the same build, started after the one above, set up like a
+    // Vercel preview: VERCEL_ENV=preview, so the gate lets every request in as the allowlisted
+    // user (D-153, TASK-059), and no GitHub client (empty, so the repo's .env.local can't fill it
+    // in). Its API answers 3 s late (e2e/cold-api.mjs).
     {
       command: "node e2e/cold-api.mjs",
       url: `http://127.0.0.1:${COLD_API_PORT}/api/py/health`,
@@ -82,6 +83,7 @@ export default defineConfig({
       url: `${COLD_PREVIEW_URL}/login`,
       env: {
         API_URL: `http://127.0.0.1:${COLD_API_PORT}`,
+        VERCEL_ENV: "preview",
         AUTH_SECRET: TEST_AUTH_SECRET,
         AUTH_ALLOWED_GITHUB_ID: TEST_GITHUB_ID,
         AUTH_GITHUB_ID: "",

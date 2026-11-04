@@ -14,7 +14,7 @@ export const instant = false;
 // callbackUrl; a refused GitHub account comes back with ?error=AccessDenied&login=<login>.
 export default async function Login({ searchParams }: PageProps<"/login">) {
   const params = await searchParams;
-  // Previews have no GitHub client (D-102): say so instead of drawing a button that can't work.
+  // Previews have no GitHub client (D-153): say so instead of drawing a button that can't work.
   const state = loginState(params, !!process.env.AUTH_GITHUB_ID);
   const redirectTo = continuePath(safeNextPath(params.callbackUrl));
 

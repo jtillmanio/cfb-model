@@ -1,6 +1,8 @@
 """The release workflow's logic (TASK-005, docs/02-architecture.md › Release & operations)."""
 
+import threading
 from datetime import UTC, datetime
+from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 
 import pytest
@@ -156,35 +158,110 @@ def healthy(**overrides):
     return {"commit": C2, "db_reachable": True, "migration_head": "0001", **overrides}
 
 
+# Production's signed-out `/`: Auth.js's 307 to /login, with the page asked for as callbackUrl.
+LOGIN_REDIRECT = "https://cfb.example.com/login?callbackUrl=https%3A%2F%2Fcfb.example.com%2F"
+
+
+def check(health=None, **overrides):
+    """smoke_check on a healthy, guarded production, with `overrides` for the one thing wrong."""
+    args = {
+        "commit": C2, "head": "0001", "unsigned_status": 401,
+        "root_status": 307, "root_location": LOGIN_REDIRECT, **overrides,
+    }
+    return smoke_check(healthy() if health is None else health, **args)
+
+
 def test_smoke_passes_for_the_right_commit_head_and_a_guarded_api():
-    assert smoke_check(healthy(), commit=C2, head="0001", unsigned_status=401) == []
+    assert check() == []
 
 
 def test_smoke_fails_on_a_different_commit():
-    failures = smoke_check(healthy(commit=C1), commit=C2, head="0001", unsigned_status=401)
+    failures = check(healthy(commit=C1))
     assert len(failures) == 1
     assert failures[0].startswith("commit")
 
 
 def test_smoke_fails_when_the_database_is_unreachable():
-    failures = smoke_check(
-        healthy(db_reachable=False, migration_head=None), commit=C2, head="0001",
-        unsigned_status=401,
-    )
+    failures = check(healthy(db_reachable=False, migration_head=None))
     assert failures[0].startswith("db_reachable")
 
 
 def test_smoke_fails_on_a_different_migration_head():
-    failures = smoke_check(healthy(migration_head="0000"), commit=C2, head="0001",
-                           unsigned_status=401)
+    failures = check(healthy(migration_head="0000"))
     assert len(failures) == 1
     assert failures[0].startswith("migration_head")
 
 
 def test_smoke_fails_when_the_api_answers_without_a_token():
-    failures = smoke_check(healthy(), commit=C2, head="0001", unsigned_status=200)
+    failures = check(unsigned_status=200)
     assert len(failures) == 1
     assert failures[0].startswith("unsigned GET /api/py/teams")
+
+
+# TASK-059 AC-4: a production build that treats itself as a preview would open `/` signed out.
+@pytest.mark.parametrize(
+    "location", [LOGIN_REDIRECT, "/login", "/login?callbackUrl=%2F"],
+    ids=["absolute", "relative", "relative-with-query"],
+)
+def test_smoke_passes_when_signed_out_root_redirects_to_login(location):
+    assert check(root_location=location) == []
+
+
+@pytest.mark.parametrize("status", [302, 303, 308])
+def test_smoke_accepts_any_redirect_status_to_login(status):
+    assert check(root_status=status) == []
+
+
+def test_smoke_fails_when_signed_out_root_is_served():
+    failures = check(root_status=200, root_location=None)
+    assert len(failures) == 1
+    assert failures[0].startswith("signed-out GET / answered 200")
+    assert "expected a redirect to /login" in failures[0]
+
+
+def test_smoke_fails_when_signed_out_root_redirects_elsewhere():
+    failures = check(root_location="https://cfb.example.com/teams")
+    assert len(failures) == 1
+    assert failures[0].startswith("signed-out GET / answered 307")
+    assert "https://cfb.example.com/teams" in failures[0]
+
+
+def test_smoke_fails_when_a_redirect_has_no_location():
+    failures = check(root_location=None)
+    assert len(failures) == 1
+    assert failures[0].startswith("signed-out GET / answered 307")
+
+
+def test_smoke_fails_when_login_is_only_a_prefix_of_the_path():
+    failures = check(root_location="/login-elsewhere")
+    assert len(failures) == 1
+    assert failures[0].startswith("signed-out GET / answered 307")
+
+
+def test_fetch_root_reports_the_redirect_without_following_it():
+    # Following it would hand smoke_check /login's 200, and a gated production would fail.
+    class Gate(BaseHTTPRequestHandler):
+        def do_GET(self):
+            if self.path == "/":
+                self.send_response(307)
+                self.send_header("Location", "/login?callbackUrl=%2F")
+            else:
+                self.send_response(200)
+            self.send_header("Content-Length", "0")
+            self.end_headers()
+
+        def log_message(self, format, *args):  # noqa: A002 (the base class names it)
+            pass
+
+    server = HTTPServer(("127.0.0.1", 0), Gate)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        url = f"http://127.0.0.1:{server.server_port}/"
+        assert release.fetch_root(url) == (307, "/login?callbackUrl=%2F")
+    finally:
+        server.shutdown()
+        server.server_close()
 
 
 def test_the_expected_head_is_the_repos_single_alembic_head():

@@ -6,6 +6,7 @@ export const TEST_GITHUB_ID = "4242";
 // in .github/workflows/ci.yml sets the same value for pytest: change both together.
 export const TEST_API_JWT_SECRET = "e2e-only-api-jwt-secret-never-used-outside-tests-0001";
 
-// A second `next start` set up like a Vercel preview (no GitHub client, D-102) whose API answers
-// only after a delay, as a database waking from idle does (cold-api.mjs; TASK-002).
+// A second `next start` set up like a Vercel preview (VERCEL_ENV=preview and no GitHub client,
+// D-153) whose API answers only after a delay, as a database waking from idle does (cold-api.mjs;
+// TASK-002).
 export const COLD_PREVIEW_URL = "http://127.0.0.1:3101";

@@ -3,6 +3,7 @@ import "server-only";
 import { auth } from "@/auth";
 
 import { mintApiToken } from "./api-token";
+import { previewUserId } from "./preview";
 import type { TeamsResponse } from "./teams";
 
 // On Vercel, API_URL is injected by the service binding in vercel.json; locally the API runs
@@ -29,10 +30,10 @@ async function get<T>(path: string, headers?: HeadersInit): Promise<T> {
 }
 
 // Every route but health: a fresh short-lived JWT for the signed-in GitHub user, minted per
-// request (02 › Auth, D-105). Without a session or a usable secret, nothing is sent.
+// request (02 › Auth, D-105). On a Vercel preview that user is the allowlisted one, session or
+// not (D-153). Without a session or a usable secret, nothing is sent.
 async function signedGet<T>(path: string): Promise<T> {
-  const session = await auth();
-  const githubId = session?.user?.id;
+  const githubId = previewUserId() ?? (await auth())?.user?.id;
   if (!githubId) throw new Error(`GET /${path} needs a signed-in session.`);
   const token = await mintApiToken(githubId);
   return get<T>(path, { Authorization: `Bearer ${token}` });
