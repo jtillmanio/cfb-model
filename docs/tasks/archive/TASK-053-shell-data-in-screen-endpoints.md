@@ -1,7 +1,7 @@
 ---
 id: TASK-053
 title: Carry the app shell's data in each screen endpoint
-status: Ready
+status: Done
 depends_on: [TASK-052]
 size: M
 model: opus
@@ -33,12 +33,12 @@ Every screen's single API response also carries what the app shell around it sho
 
 ## Acceptance criteria
 
-- [ ] AC-1: Given the seeded test DB and the clock at Sat 2026-10-10 2:15 PM ET, `GET /api/py/teams` returns a `shell` block with season 2026, season type `regular`, week 6, the shown version's name and version (`v1.0`), a record equal to `model_record`'s `to_date` row for v1.0's newest 2026 week (W-L-P, win %, units, average CLV; on the fixture that's week 6, 32-24-1), record label `live`, lines updated at Sat 2026-10-10 9:00 AM ET (`2026-10-10T13:00:00Z`, the fixture's newest line snapshot), stale `false` (24 h rule), and 9 picks for the week.
-- [ ] AC-2: Given a DB whose only (cfb, spread) version is a `candidate` with a succeeded `scheduled` run this season, the shell shows that version; given a `production` version too, it shows the `production` one; given none, the record fields are null and the response is still 200 (pytest on rows the test inserts, rolled back).
-- [ ] AC-3: Given the newest line pull 23 h before the clock, `stale` is false; given 25 h, it is true (pytest with its own snapshot times; the boundary follows the rule the plan gate keeps).
-- [ ] AC-4: Given the clock at Mon 2027-02-08 6:00 AM ET (no game still to come in a stored season), the shell names the last season with games (2026), record label `final`, and no current week; the response is 200.
-- [ ] AC-5: `GET /api/py/teams` runs at most 6 queries, all in one concurrent wave (a test counts them); the route still rejects a missing or bad JWT (`test_api_auth.py` covers the new field's route unchanged).
-- [ ] AC-6: The generated TypeScript types include the `shell` block (TASK-052's drift check passes), and `FIXTURE_NOW` set without `APP_ENV=test` is ignored by the API clock (a test).
+- [x] AC-1: Given the seeded test DB and the clock at Sat 2026-10-10 2:15 PM ET, `GET /api/py/teams` returns a `shell` block with season 2026, season type `regular`, week 6, the shown version's name and version (`v1.0`), a record equal to `model_record`'s `to_date` row for v1.0's newest 2026 week (W-L-P, win %, units, average CLV; on the fixture that's week 6, 32-24-1), record label `live`, lines updated at Sat 2026-10-10 9:00 AM ET (`2026-10-10T13:00:00Z`, the fixture's newest line snapshot), stale `false` (24 h rule), and 9 picks for the week.
+- [x] AC-2: Given a DB whose only (cfb, spread) version is a `candidate` with a succeeded `scheduled` run this season, the shell shows that version; given a `production` version too, it shows the `production` one; given none, the record fields are null and the response is still 200 (pytest on rows the test inserts, rolled back).
+- [x] AC-3: Given the newest line pull 23 h before the clock, `stale` is false; given 25 h, it is true (pytest with its own snapshot times; the boundary follows the rule the plan gate keeps).
+- [x] AC-4: Given the clock at Mon 2027-02-08 6:00 AM ET (no game still to come in a stored season), the shell names the last season with games (2026), record label `final`, and no current week; the response is 200.
+- [x] AC-5: `GET /api/py/teams` runs at most 6 queries, all in one concurrent wave (a test counts them); the route still rejects a missing or bad JWT (`test_api_auth.py` covers the new field's route unchanged).
+- [x] AC-6: The generated TypeScript types include the `shell` block (TASK-052's drift check passes), and `FIXTURE_NOW` set without `APP_ENV=test` is ignored by the API clock (a test).
 
 ## Out of scope
 
@@ -70,6 +70,9 @@ _Work noticed during this task and deliberately left out. Each bullet ends `→ 
 
 - Off-season and pre-season shell: AC-4's rule names the last season with games, no week, and that season's record; the design's off-season top bar reads "2027 · Week 0" (the next season's `seasons.weeks`, App States `frame="offseason"`) and its pre-season card "Model · 2025 final" (`frame="team"`). Open question for that task's plan → docs/tasks/TASK-057-record-strip-filters-empty-states.md § Context (approved at plan)
 - `01-this-week-desktop.png` and `design/README.md` § Navigation say "Updated Thu 9:02 PM ET", but the fixture's newest pull is Sat 9:00 AM ET (see Plan › Risks) → not tracked: the design rules copy, not numbers; recorded in this task's decision
+- The shell's week pick count reads `current_picks` with `line_source = 'market'` only; no test can prove that filter until contest picks exist (`picks.line_snapshot_id` is NOT NULL today, D-140). When M6.1 adds them, add a contest pick to a `test_api_shell.py` case and check `picks` leaves it out (test audit R2) → docs/08-tasklist.md § M6 › M6.1
+- The shell statement reads every one of the sport's games for the coming week and every snapshot of the season for the newest pull; fine at today's volume (schema review R1) → docs/decisions.md § D-156 (Revisit if)
+- The `lines` read had no `captured_at <= now` bound, so a fixture time before a stored pull showed a future pull (schema review R1) → not tracked: done in this PR (plan revision 2)
 
 ## Plan
 
@@ -94,6 +97,10 @@ Steps:
 
 Files: `python/api/src/api/{clock,wave,shell}.py` (new), `main.py`; `python/api/tests/test_api_shell.py` (new); `python/api/tests/conftest.py` (puts `db/tests` on `sys.path` for `model_rows`); `web/lib/api-types.ts`; `web/playwright.config.ts`; `docs/decisions.md`; `docs/02-architecture.md` (11 files).
 
+**Plan revision 1 (Phase 3):** `web/lib/api-types.test.ts` too (12 files). TASK-052's scan test used the old hand-written `TeamsResponse` (`season`, `teams`) as its sample of a copy; with `shell` on `TeamsOut` it no longer copies it, so the scan rightly passed it and the test failed. The sample is now built from `TeamsOut`'s schema keys, as the next test's is.
+
+**Plan revision 2 (Phase 5, schema review; approved by the owner 2026-11-04):** the `lines` read takes the newest snapshot with `captured_at <= :now`, so at a fixture time before a stored pull (Contest's Thu 10 PM ET) the shell doesn't show a future pull as not stale. Test: `test_a_pull_after_now_is_not_an_update_yet`; D-156 says "up to now".
+
 Test strategy (`test_api_shell.py`; each test fails on `main`, where there's no `shell`):
 - AC-1: `client` with `FIXTURE_NOW` at Sat 2:15 PM ET. The record equals the `model_record` row the test reads (32-24-1); the rest as the AC says, plus `lines_updated_at` 13:00Z, `stale` false and `picks` 9.
 - AC-2: `load(db_conn, now, m.SPORT)` on `model_rows` rows: a candidate with a scheduled run is shown; add a production version and it wins; a candidate with only a backtest run, or a run from last season, isn't shown. Route with `shell.SPORT` monkeypatched to an unused sport → 200 with null `model` and `record`.
@@ -115,13 +122,15 @@ Size check: 11 files, no schema change, no UI → passes.
 
 _Filled by /implement-task. One line per round._
 
+Verify R1 FAIL(1: api-types.test.ts scan sample, plan revision 1) → R2 PASS → R3 PASS (after plan revision 2) | Audit R1 CHANGES (AC-4 last season UNPROVEN; lines season filter, week tie and `line_source` filter unguarded) → R2 PASS (`line_source` untestable until M6.1: follow-up) | Spec R1 CHANGES (follow-up with no destination) → R2 APPROVE, follow-ups check passed | Schema R1 APPROVE (3 MINOR: `captured_at <= now` fixed as plan revision 2; growth → D-156 Revisit if) → R2 APPROVE | UI not run (no UI change)
+
 ## Blocked
 
 _Only if status is Blocked: what failed, what was tried, best hypothesis, decision needed._
 
 ## Metrics
 
-- Verify rounds:
-- Review rounds:
-- First-pass AC FAILs:
-- Plan revisions after approval:
+- Verify rounds: 3
+- Review rounds: 2
+- First-pass AC FAILs: 0
+- Plan revisions after approval: 2

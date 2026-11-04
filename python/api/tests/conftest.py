@@ -1,12 +1,17 @@
 """API fixtures: a client against the migrated, seeded test DB and a factory for API tokens."""
 
+import sys
 import time
 from collections.abc import Callable
+from pathlib import Path
 from typing import Any
 
 import jwt
 import pytest
 from fastapi.testclient import TestClient
+
+# The view tests' constructed rows (model_rows), shared with the shell tests.
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "db" / "tests"))
 
 # Test-only key, set per test so a value in .env.local or CI's job env never decides a result.
 TEST_SECRET = "pytest-only-api-jwt-secret-never-used-anywhere-0001"

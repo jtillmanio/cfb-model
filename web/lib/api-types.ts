@@ -55,6 +55,47 @@ export interface components {
             /** Migration Head */
             migration_head: string | null;
         };
+        /** ShellModelOut */
+        ShellModelOut: {
+            /** Name */
+            name: string;
+            /** Version */
+            version: string;
+        };
+        /** ShellOut */
+        ShellOut: {
+            /** Lines Updated At */
+            lines_updated_at: string | null;
+            model: components["schemas"]["ShellModelOut"] | null;
+            /** Picks */
+            picks: number | null;
+            record: components["schemas"]["ShellRecordOut"] | null;
+            /** Record Label */
+            record_label: ("live" | "final") | null;
+            /** Season */
+            season: number | null;
+            /** Season Type */
+            season_type: ("regular" | "postseason") | null;
+            /** Stale */
+            stale: boolean;
+            /** Week */
+            week: number | null;
+        };
+        /** ShellRecordOut */
+        ShellRecordOut: {
+            /** Avg Clv */
+            avg_clv: number | null;
+            /** Losses */
+            losses: number;
+            /** Pushes */
+            pushes: number;
+            /** Units */
+            units: number;
+            /** Win Pct */
+            win_pct: number | null;
+            /** Wins */
+            wins: number;
+        };
         /** TeamOut */
         TeamOut: {
             /** Abbreviation */
@@ -72,6 +113,7 @@ export interface components {
         TeamsOut: {
             /** Season */
             season: number | null;
+            shell: components["schemas"]["ShellOut"];
             /** Teams */
             teams: components["schemas"]["TeamOut"][];
         };

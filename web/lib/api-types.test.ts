@@ -106,7 +106,9 @@ describe("AC-1: the generated types cover the schema", () => {
 
 describe("AC-2: no hand-written response type in web/lib", () => {
   it("the scan flags a copy of a response model", () => {
-    const old = "export type TeamsResponse = {\n  season: number | null;\n  teams: Team[];\n};\n";
+    // Built from the schema, so a field added to TeamsOut (TASK-053's `shell`) keeps it a copy.
+    const teamsFields = Object.keys(schema.components.schemas.TeamsOut.properties ?? {});
+    const old = ["export type TeamsResponse = {", ...teamsFields.map((f) => `  ${f}: unknown;`), "};"].join("\n");
     expect(handWrittenResponseTypes(old, schema.components.schemas)).toEqual(["TeamsResponse copies TeamsOut"]);
     const oldHealth = "export type HealthResponse = {\n  commit: string;\n  db_reachable: boolean;\n  migration_head: string | null;\n};\n";
     expect(handWrittenResponseTypes(oldHealth, schema.components.schemas)).toEqual(["HealthResponse copies HealthOut"]);

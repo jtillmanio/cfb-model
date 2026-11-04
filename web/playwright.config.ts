@@ -38,8 +38,12 @@ export default defineConfig({
     {
       command: `uv --directory ../python run uvicorn api.main:app --port ${API_PORT}`,
       url: `${API_URL}/api/py/health`,
+      // The API's clock (APP_ENV=test honours FIXTURE_NOW) sits at the slate's fixture time, Sat
+      // 2:15 PM ET (docs/02 › Test-only sign-in and clock). A journey at another fixture time
+      // starts its own API server.
       env: {
         APP_ENV: "test",
+        FIXTURE_NOW: "2026-10-10T14:15:00-04:00",
         GIT_COMMIT_SHA: process.env.GITHUB_SHA ?? "local",
         API_JWT_SECRET: TEST_API_JWT_SECRET,
       },

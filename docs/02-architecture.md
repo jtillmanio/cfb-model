@@ -111,7 +111,7 @@ The model detail is [04-model.md § 11](04-model.md); the decisions are D-146 an
 - **The résumé, quads and pick preview add no engine step** beyond M18.4's SOR: they're views and API composition over stored outputs.
 
 ### 2. `python/api`: FastAPI service
-- **One endpoint per screen** (BFF-style): `/slate`, `/games/{id}`, `/rankings`, `/teams/{id}`, `/picks`, `/performance`, `/contests/...`, `/lab/...`. Each page makes one API call, and each endpoint runs its DB queries concurrently against a fixed query budget.
+- **One endpoint per screen** (BFF-style): `/slate`, `/games/{id}`, `/rankings`, `/teams/{id}`, `/picks`, `/performance`, `/contests/...`, `/lab/...`. Each page makes one API call, and each endpoint runs its DB queries concurrently against a fixed query budget. Every screen endpoint also carries a `shell` block (the season and coming week, the shown model version and its season record, when lines were last pulled and whether they are stale, the week's pick count) for the app shell around the page: one statement in the same wave (`api/shell.py`, `api/wave.py`, D-156).
 - On-demand compute: hypothetical matchups, what-if adjustments (light numpy).
 - Writes: contest entries, manual adjustments, lab model specs, watchlist stars and alert settings.
 - **Model lab trigger:** "Run backtest" saves a `model_run` with status `queued` and starts the `backtest` GitHub Actions workflow through the GitHub API, using a fine-grained token with only `actions:write` on this repo. The job writes results back to Postgres, and the UI polls the run's status.
@@ -300,7 +300,7 @@ Screen and feature IDs: [05 › Screen inventory](05-ui-design-brief.md#screen-i
 ### Test-only sign-in and clock
 - **Sign-in:** e2e mints a session cookie with the test `AUTH_SECRET`. The helper lives in the Playwright fixtures, never in `web/` source, so production has no way in except GitHub.
 - **Dev sign-in (ui-verifier):** `web/e2e/dev-session.mjs <url>` mints the same cookie for the local dev server with the dev `AUTH_SECRET`, read from the repo root's `.env.local` only, valid 1 hour, and refuses any URL that isn't `http:` on a loopback host (D-111). It sits beside e2e's mint; a Vitest case fails if app source imports from `e2e/`.
-- **Clock:** the engine and the web app each read "now" from one clock function, which honors `FIXTURE_NOW` only when `APP_ENV=test`. The fixture uses four times:
+- **Clock:** the engine, the API and the web app each read "now" from one clock function (`engine/clock.py`, `api/clock.py`: the API install has no engine), which honors `FIXTURE_NOW` only when `APP_ENV=test`. e2e's API server runs at the slate's time (`web/playwright.config.ts`); a journey at another fixture time starts its own API server. The fixture uses four times:
   - Thu 2026-10-08 10:00 PM ET: Contest, Best lines.
   - Fri 2026-10-09 8:12 PM ET: the locked game.
   - Sat 2026-10-10 2:15 PM ET: slate, Picks, Game Detail, Team.
