@@ -206,6 +206,20 @@ def test_a_closing_line_is_not_a_pull(db_conn: Connection):
     assert got.stale is True
 
 
+def test_another_seasons_pull_is_not_this_seasons_update(db_conn: Connection):
+    """Lines updated reads the shown season's games only."""
+    game_id = _coming_game(db_conn)
+    old_season = _coming_game(db_conn, season=m.SEASON - 1, kickoff=m.utc(2029, 9, 8, 16))
+    book_id = m.book(db_conn)
+    m.line(db_conn, game_id, book_id, NOW - timedelta(hours=30), -3.0)
+    m.line(db_conn, old_season, book_id, NOW - timedelta(hours=1), -7.0)
+
+    got = shell.load(db_conn, NOW, m.SPORT)
+
+    assert got.lines_updated_at == NOW - timedelta(hours=30)
+    assert got.stale is True
+
+
 # AC-4
 
 
@@ -218,6 +232,54 @@ def test_the_offseason_shell_names_the_last_season(
     assert body["record_label"] == "final"
     assert body["record"] is not None and body["record"]["wins"] == 32
     assert (body["stale"], body["picks"]) == (False, None)
+
+
+def test_after_the_last_game_the_shell_names_the_latest_season(db_conn: Connection):
+    """Every game of 2030 and 2031 has started: the season is 2031, with no week, and the shown
+    version's 2031 record is final."""
+    m.sport(db_conn)
+    home, away = m.team(db_conn, "home-final"), m.team(db_conn, "away-final")
+    m.game(db_conn, home, away, m.utc(2030, 9, 7, 16), week=1, season=2030)
+    last = m.game(db_conn, home, away, m.utc(2031, 9, 6, 16), week=1, season=2031,
+                  points=(31, 10))  # fmt: skip
+    version_id = _version(db_conn, "live", "production", m.utc(2030, 6, 1))
+    run_id = m.run(db_conn, version_id, 1, m.utc(2031, 9, 1, 10))
+    prediction_id = m.prediction(db_conn, run_id, version_id, last)
+    snapshot = m.line(db_conn, last, m.book(db_conn), m.utc(2031, 9, 1, 10), -3.0)
+    m.pick(db_conn, prediction_id, version_id, last, snapshot, m.utc(2031, 9, 1, 10, 10),
+           side="home", line=-3.0)  # fmt: skip
+
+    got = shell.load(db_conn, m.utc(2031, 12, 1), m.SPORT)
+
+    assert (got.season, got.season_type, got.week, got.picks) == (2031, None, None, None)
+    assert got.record is not None and (got.record.wins, got.record.losses) == (1, 0)
+    assert (got.record_label, got.stale) == ("final", False)
+
+
+def _postseason_game(conn: Connection, home: int, away: int, kickoff: datetime) -> int:
+    return conn.execute(
+        text(
+            "INSERT INTO games (sport_id, source, source_id, season, week, season_type, game_date,"
+            " kickoff_at, neutral_site, conference_game, home_team_id, away_team_id, status)"
+            " VALUES (:sport, 'pytest', 'bowl', :season, 1, 'postseason', :d, :k, true, false,"
+            " :h, :a, 'scheduled') RETURNING id"
+        ),
+        {"sport": m.SPORT, "season": m.SEASON, "d": kickoff.date(), "k": kickoff, "h": home,
+         "a": away},
+    ).scalar_one()  # fmt: skip
+
+
+def test_a_regular_and_a_postseason_game_at_one_time_name_the_regular_week(db_conn: Connection):
+    """D-150: on a tie for the earliest kickoff to come, the regular season's week."""
+    kickoff = NOW + timedelta(days=3)
+    m.sport(db_conn)
+    home, away = m.team(db_conn, "home-tie"), m.team(db_conn, "away-tie")
+    _postseason_game(db_conn, home, away, kickoff)
+    m.game(db_conn, home, away, kickoff, week=15, status="scheduled")
+
+    got = shell.load(db_conn, NOW, m.SPORT)
+
+    assert (got.season_type, got.week) == ("regular", 15)
 
 
 # AC-5
