@@ -54,9 +54,9 @@ const TABLE_ROWS: Row[] = SAMPLE_TEAMS.map((t) => ({
   sortValues: { rank: t.rank, rating: t.rating },
 }));
 
-function Specimen({ caption, children }: { caption: string; children: ReactNode }) {
+function Specimen({ caption, wide, children }: { caption: string; wide?: boolean; children: ReactNode }) {
   return (
-    <figure className="m-0 flex min-w-0 flex-col items-start gap-2">
+    <figure className={`m-0 flex min-w-0 flex-col items-start gap-2 ${wide ? "col-span-2" : ""}`}>
       <figcaption className="text-caption text-muted-foreground">{caption}</figcaption>
       {children}
     </figure>
@@ -161,7 +161,7 @@ function Specimens({ theme }: { theme: "dark" | "light" }) {
         <Specimen caption="FCS opponent">
           <TeamChip abbreviation="FUR" school="Furman" full logoUrl={null} color="#582C83" fcs />
         </Specimen>
-        <Specimen caption="Neutral site">
+        <Specimen caption="Neutral site" wide>
           <span className="flex items-center gap-1">
             <TeamChip abbreviation="TEX" logoUrl={null} color="#BF5700" rank={2} />
             <span className="text-muted-foreground">vs</span>

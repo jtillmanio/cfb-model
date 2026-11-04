@@ -63,6 +63,14 @@ for (const theme of ["Dark", "Light"]) {
     await expect(chips.getByText("Ohio State", { exact: true })).toBeVisible();
     await expect(chips.getByText("FCS", { exact: true })).toBeVisible();
     await expect(chips.getByText("N", { exact: true })).toBeVisible();
+    // Nothing covers the N marker: at 390 the matchup once ran under the next specimen.
+    const marker = chips.getByText("N", { exact: true });
+    // elementFromPoint sees only the viewport, so bring the marker into it first.
+    await marker.scrollIntoViewIfNeeded();
+    expect(await marker.evaluate((el) => {
+      const r = el.getBoundingClientRect();
+      return el.contains(document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2));
+    })).toBe(true);
     await expect(chips.getByText("UNLV", { exact: true })).toBeVisible();
 
     // Market cell: opener + sparkline before the current line; flat when unchanged; No line.
