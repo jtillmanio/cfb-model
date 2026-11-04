@@ -12,8 +12,9 @@ one query of its budget on it (docs/02-architecture.md › Components › 2).
   D-144). M23's model switcher replaces this (D-147).
 - **Record:** `model_record`'s newest `to_date` row for the version and season (D-142: the newest
   week's to-date row is the season; `win_pct` 0–100).
-- **Lines updated:** the newest `snapshot` `captured_at` on the season's games (each `lines` pull
-  inserts a row per book at its `captured_at`). **Stale:** more than 24 h before now while a week
+- **Lines updated:** the newest `snapshot` `captured_at` up to now on the season's games (each
+  `lines` pull inserts a row per book at its `captured_at`; a later one, at a fixture time before
+  it, hasn't happened yet). **Stale:** more than 24 h before now while a week
   is still to come (docs/02 › Non-functional requirements, D-096); exactly 24 h is not stale.
 """
 
@@ -122,6 +123,7 @@ SHELL_SQL = text(
         FROM line_snapshots l
         JOIN games g ON g.id = l.game_id
         WHERE l.kind = 'snapshot'
+            AND l.captured_at <= :now
             AND g.sport_id = :sport
             AND g.season = (SELECT season FROM season)
     )

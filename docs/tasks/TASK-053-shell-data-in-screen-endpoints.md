@@ -70,6 +70,9 @@ _Work noticed during this task and deliberately left out. Each bullet ends `→ 
 
 - Off-season and pre-season shell: AC-4's rule names the last season with games, no week, and that season's record; the design's off-season top bar reads "2027 · Week 0" (the next season's `seasons.weeks`, App States `frame="offseason"`) and its pre-season card "Model · 2025 final" (`frame="team"`). Open question for that task's plan → docs/tasks/TASK-057-record-strip-filters-empty-states.md § Context (approved at plan)
 - `01-this-week-desktop.png` and `design/README.md` § Navigation say "Updated Thu 9:02 PM ET", but the fixture's newest pull is Sat 9:00 AM ET (see Plan › Risks) → not tracked: the design rules copy, not numbers; recorded in this task's decision
+- The shell's week pick count reads `current_picks` with `line_source = 'market'` only; no test can prove that filter until contest picks exist (`picks.line_snapshot_id` is NOT NULL today, D-140). When M6.1 adds them, add a contest pick to a `test_api_shell.py` case and check `picks` leaves it out (test audit R2) → docs/08-tasklist.md § M6 › M6.1
+- The shell statement reads every one of the sport's games for the coming week and every snapshot of the season for the newest pull; fine at today's volume (schema review R1) → docs/decisions.md § D-156 (Revisit if)
+- The `lines` read had no `captured_at <= now` bound, so a fixture time before a stored pull showed a future pull (schema review R1) → not tracked: done in this PR (plan revision 2)
 
 ## Plan
 
@@ -95,6 +98,8 @@ Steps:
 Files: `python/api/src/api/{clock,wave,shell}.py` (new), `main.py`; `python/api/tests/test_api_shell.py` (new); `python/api/tests/conftest.py` (puts `db/tests` on `sys.path` for `model_rows`); `web/lib/api-types.ts`; `web/playwright.config.ts`; `docs/decisions.md`; `docs/02-architecture.md` (11 files).
 
 **Plan revision 1 (Phase 3):** `web/lib/api-types.test.ts` too (12 files). TASK-052's scan test used the old hand-written `TeamsResponse` (`season`, `teams`) as its sample of a copy; with `shell` on `TeamsOut` it no longer copies it, so the scan rightly passed it and the test failed. The sample is now built from `TeamsOut`'s schema keys, as the next test's is.
+
+**Plan revision 2 (Phase 5, schema review; approved by the owner 2026-11-04):** the `lines` read takes the newest snapshot with `captured_at <= :now`, so at a fixture time before a stored pull (Contest's Thu 10 PM ET) the shell doesn't show a future pull as not stale. Test: `test_a_pull_after_now_is_not_an_update_yet`; D-156 says "up to now".
 
 Test strategy (`test_api_shell.py`; each test fails on `main`, where there's no `shell`):
 - AC-1: `client` with `FIXTURE_NOW` at Sat 2:15 PM ET. The record equals the `model_record` row the test reads (32-24-1); the rest as the AC says, plus `lines_updated_at` 13:00Z, `stale` false and `picks` 9.

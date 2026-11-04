@@ -220,6 +220,20 @@ def test_another_seasons_pull_is_not_this_seasons_update(db_conn: Connection):
     assert got.stale is True
 
 
+def test_a_pull_after_now_is_not_an_update_yet(db_conn: Connection):
+    """At a fixture time before a stored pull, that pull hasn't happened: the shell reads the
+    newest one up to now."""
+    game_id = _coming_game(db_conn)
+    book_id = m.book(db_conn)
+    m.line(db_conn, game_id, book_id, NOW - timedelta(hours=30), -3.0)
+    m.line(db_conn, game_id, book_id, NOW + timedelta(hours=2), -3.5)
+
+    got = shell.load(db_conn, NOW, m.SPORT)
+
+    assert got.lines_updated_at == NOW - timedelta(hours=30)
+    assert got.stale is True
+
+
 # AC-4
 
 
