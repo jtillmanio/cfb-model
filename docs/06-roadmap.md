@@ -103,7 +103,7 @@ Phase 8  Multi-sport (NFL)
 ## Phase 4 — Web app MVP
 **Goal:** the app you open every Thursday, Friday and Saturday. Built from the Claude Design output.
 
-- [ ] Design system tokens + core components implemented
+- [x] Design system tokens + core components implemented
 - [ ] Generated TypeScript API client from OpenAPI
 - [ ] Screens: This Week, Game Detail, Picks, Rankings, Team, Performance
 - [ ] **Contest mode (generic, Splash preset):** `ContestRules`, `contests`, `contest_lines` (snapshots), `contest_entries` with kickoff-lock enforcement; Splash paste parser + alias matching; top-N ranking against contest lines; you-vs-model results (`contest_results` view)
@@ -197,7 +197,7 @@ Playbook: [07-claude-design-playbook.md](07-claude-design-playbook.md). Design w
 - [x] Prompt 8: states and leftovers (after 11)
 - [x] Prompt 9: consistency audit. Complete for every frame drawn through Prompt 12 (the Prompt 12 frames were audited on `Pass Audit.dc.html`); it runs again after Prompt 10, in the History pass below
 - [x] Handoff bundle in `design/handoff/` (replaced the PDF + HTML export), share links, "Design decisions" section in the brief, docs synced to the design
-- [ ] Design-system handoff, then implement it as its own PR (needs the Phase 0 `web/` scaffold). **Review gate**
+- [x] Design-system handoff, then implement it as its own PR (needs the Phase 0 `web/` scaffold). **Review gate**
 
 **Gap-fill pass (2026-10-07, before Phase 4 handoffs)**
 - [x] Prompt 12: decisions applied to existing frames, Teams index, More menu, mobile Performance sections, missing states, light mode ([07 § Prompt 12](07-claude-design-playbook.md#prompt-12-gap-fill-after-the-starter-kit-review-2026-10-07))
