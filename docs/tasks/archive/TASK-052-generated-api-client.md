@@ -1,7 +1,7 @@
 ---
 id: TASK-052
 title: Generate the TypeScript API types from OpenAPI
-status: Ready
+status: Done
 depends_on: []
 size: M
 model: sonnet
@@ -29,10 +29,10 @@ The web app's API response types are generated from the FastAPI schema, and CI f
 
 ## Acceptance criteria
 
-- [ ] AC-1: Running the generate command (`pnpm api:types`, or the name the plan picks, listed in `docs/COMMANDS.md`) writes the TypeScript types for every route in the API's OpenAPI schema, and running it twice in a row leaves the file byte-identical.
-- [ ] AC-2: `web/lib/teams.ts`, `web/lib/api.ts` and the Teams page use the generated `TeamsOut`/`HealthOut` types (or aliases of them); no hand-written response type for an API route remains in `web/lib/` (a Vitest case or grep in the test fails on one).
-- [ ] AC-3: Given a field added to `TeamOut` in `python/api/src/api/main.py` and the types not regenerated, the drift check exits non-zero and names the generated file; after regenerating, it exits 0. CI runs the check on every PR (shown failing on the branch once, then passing).
-- [ ] AC-4: `pnpm typecheck`, `pnpm lint` and `pnpm build` pass with the generated file in place, and the Teams page e2e (`web/e2e/teams.spec.ts`) still passes.
+- [x] AC-1: Running the generate command (`pnpm api:types`, or the name the plan picks, listed in `docs/COMMANDS.md`) writes the TypeScript types for every route in the API's OpenAPI schema, and running it twice in a row leaves the file byte-identical.
+- [x] AC-2: `web/lib/teams.ts`, `web/lib/api.ts` and the Teams page use the generated `TeamsOut`/`HealthOut` types (or aliases of them); no hand-written response type for an API route remains in `web/lib/` (a Vitest case or grep in the test fails on one).
+- [x] AC-3: Given a field added to `TeamOut` in `python/api/src/api/main.py` and the types not regenerated, the drift check exits non-zero and names the generated file; after regenerating, it exits 0. CI runs the check on every PR (shown failing on the branch once, then passing).
+- [x] AC-4: `pnpm typecheck`, `pnpm lint` and `pnpm build` pass with the generated file in place, and the Teams page e2e (`web/e2e/teams.spec.ts`) still passes.
 
 ## Out of scope
 
@@ -58,6 +58,13 @@ The web app's API response types are generated from the FastAPI schema, and CI f
 ## Follow-ups
 
 _Work noticed during this task and deliberately left out. Each bullet ends `→ <path> § <section>` (where it was placed) or `→ not tracked: <reason>`. See `.claude/skills/track-follow-ups/classify.md`; the PR's Follow-ups section is copied from here._
+
+- TASK-053 changes `/teams`'s response model (the `shell` block), so its PR must run `pnpm api:types` and commit the file or `pnpm test` fails → docs/tasks/TASK-053-shell-data-in-screen-endpoints.md § Context
+- TASK-055 adds the `/slate` response models, with the same rule → docs/tasks/TASK-055-slate-endpoint.md § Context
+- Candidate decision: types generated and committed, drift checked by a Vitest case, generator in `web/`, no fetch client → docs/decisions.md § D-155
+- `openapi-typescript` 7.13.0 declares a peer range of TypeScript ^5 and the repo is on 6, so pnpm prints a peer warning; the generator and `tsc` work → not tracked: informational, the plan accepted it (Risks); the PR says so
+- The roadmap item and M5.4 stub say "API client", but the task delivers generated types and keeps `signedGet` → not tracked: item ticked as delivered, its text is not edited (ticks.md); D-155 records the choice
+- The AC-2 scan flags a hand-written type that declares every property of a schema, so a copy that drops or renames fields would pass it → not tracked: a heuristic backed by `tsc`, which fails when a generated type no longer fits a use
 
 ## Plan
 
@@ -113,13 +120,19 @@ _Written by /plan-batch or /implement-task Phase 1. Approved by the user (plan_s
 
 _Filled by /implement-task. One line per round._
 
+Verify R1 PASS | Audit R1 PASS (every test PROVEN; the CI half of AC-3 needs plan step 9) | Spec R1 CHANGES (`beforeAll` lacked the 30 s timeout; AC-2 scan matched exact property sets, the plan said "cover") → R2 APPROVE | Verify R2 PASS (after the review fixes) | Schema and UI reviewers: not run (no migration, SQL or UI file in the diff)
+
+AC-3, CI half (plan step 9), on PR #134: commit `2cc5bf8` added `logo_url: str | None = None` to `TeamOut` without regenerating → CI run 41865840869 RED at `pnpm test` only (typecheck and lint passed): `api-types.test.ts` failed, with the drift message ``web/lib/api-types.ts is out of date with the API's OpenAPI schema. Run `pnpm api:types` and commit the result.`` Commit `22ff128` reverted it → CI run 41867973989 GREEN. The red run also exposed a stale sample in one of my own tests (it hard-coded `TeamOut`'s properties, so it failed when `TeamOut` gained a field); fixed in the same push so the scan test now builds its sample from the schema, and shown to pass with the extra field present (only the 3 drift-dependent tests fail) and with it removed (12/12).
+
+Ready gates on `22ff128`: verify.full PASS (R2, before the step 9 commits; the step 9 commits change one test and revert one line, and CI `verify` ran the whole suite green) | CI `verify` PASS | Vercel preview PASS | Lighthouse fixture PASS (within budget) | Changed workflow run: n/a (no workflow change).
+
 ## Blocked
 
 _Only if status is Blocked: what failed, what was tried, best hypothesis, decision needed._
 
 ## Metrics
 
-- Verify rounds:
-- Review rounds:
-- First-pass AC FAILs:
-- Plan revisions after approval:
+- Verify rounds: 2 (both PASS; the second followed the review fixes)
+- Review rounds: 2 (R1 CHANGES, R2 APPROVE)
+- First-pass AC FAILs: 0
+- Plan revisions after approval: 0

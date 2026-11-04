@@ -104,7 +104,7 @@ Phase 8  Multi-sport (NFL)
 **Goal:** the app you open every Thursday, Friday and Saturday. Built from the Claude Design output.
 
 - [x] Design system tokens + core components implemented
-- [ ] Generated TypeScript API client from OpenAPI
+- [x] Generated TypeScript API client from OpenAPI
 - [ ] Screens: This Week, Game Detail, Picks, Rankings, Team, Performance
 - [ ] **Contest mode (generic, Splash preset):** `ContestRules`, `contests`, `contest_lines` (snapshots), `contest_entries` with kickoff-lock enforcement; Splash paste parser + alias matching; top-N ranking against contest lines; you-vs-model results (`contest_results` view)
 - [ ] NFL schedule/scores/closing lines from nflverse (no NFL model yet) so mixed CFB + NFL slates can be shown and graded

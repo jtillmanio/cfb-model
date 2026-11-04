@@ -13,6 +13,7 @@
     "db:migrate": "uv --directory python run python -m db migrate --target dev",
     "db:migrate:test": "uv --directory python run python -m db migrate --target test",
     "db:check": "uv --directory python run python -m db check --target test",
+    "api:types": "pnpm --dir web api:types",
     "db:seed": "uv --directory python run engine seed fixture",
     "ingest:games": "uv --directory python run engine ingest games"
   },

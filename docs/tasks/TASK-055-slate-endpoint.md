@@ -31,6 +31,7 @@ One API call returns everything This Week shows for a week: every game with its 
 - *From TASK-040 (PR #105):* TASK-040 seeds Tulane @ Memphis, Iowa State @ Cincinnati and Arizona State @ Baylor (lines, v1.0 predictions and picks, in `picks.json`), so this task adds the other 40 Week 6 games, not 43.
 - *From TASK-041 (PR #107):* `current_picks` is the pick frozen at kickoff; `pick_outcomes` gives each pick's `result`, `units`, `clv` (against the close, NULL until `closing_spread_home` is set) and `clv_so_far` (against the current line, for the "so far" label before kickoff) (D-142).
 - Filler games need teams beyond the fixture's 53 (`python/db/seeds/fixture/teams.json`), each with lines and a v1.0 prediction; if they get ratings, they rank below the fixture's top 10 so `team_rankings`' seeded ranks don't move. Seeded through `python/engine/src/engine/fixture.py` (D-089: test DB only).
+- *From TASK-052 (PR #134):* the web types in `web/lib/api-types.ts` are generated from the API's response models (D-155). Adding the `/slate` response models to `python/api/src/api/main.py` makes `pnpm test` fail until you run `pnpm api:types` and commit the file; type the screen's data from `components["schemas"][...]` in `web/lib/api-types.ts`, and don't hand-write a response type in `web/lib/`.
 
 ## Acceptance criteria
 
