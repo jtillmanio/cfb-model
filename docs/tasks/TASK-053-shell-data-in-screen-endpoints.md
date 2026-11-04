@@ -1,7 +1,7 @@
 ---
 id: TASK-053
 title: Carry the app shell's data in each screen endpoint
-status: In progress
+status: Review
 depends_on: [TASK-052]
 size: M
 model: opus
@@ -33,12 +33,12 @@ Every screen's single API response also carries what the app shell around it sho
 
 ## Acceptance criteria
 
-- [ ] AC-1: Given the seeded test DB and the clock at Sat 2026-10-10 2:15 PM ET, `GET /api/py/teams` returns a `shell` block with season 2026, season type `regular`, week 6, the shown version's name and version (`v1.0`), a record equal to `model_record`'s `to_date` row for v1.0's newest 2026 week (W-L-P, win %, units, average CLV; on the fixture that's week 6, 32-24-1), record label `live`, lines updated at Sat 2026-10-10 9:00 AM ET (`2026-10-10T13:00:00Z`, the fixture's newest line snapshot), stale `false` (24 h rule), and 9 picks for the week.
-- [ ] AC-2: Given a DB whose only (cfb, spread) version is a `candidate` with a succeeded `scheduled` run this season, the shell shows that version; given a `production` version too, it shows the `production` one; given none, the record fields are null and the response is still 200 (pytest on rows the test inserts, rolled back).
-- [ ] AC-3: Given the newest line pull 23 h before the clock, `stale` is false; given 25 h, it is true (pytest with its own snapshot times; the boundary follows the rule the plan gate keeps).
-- [ ] AC-4: Given the clock at Mon 2027-02-08 6:00 AM ET (no game still to come in a stored season), the shell names the last season with games (2026), record label `final`, and no current week; the response is 200.
-- [ ] AC-5: `GET /api/py/teams` runs at most 6 queries, all in one concurrent wave (a test counts them); the route still rejects a missing or bad JWT (`test_api_auth.py` covers the new field's route unchanged).
-- [ ] AC-6: The generated TypeScript types include the `shell` block (TASK-052's drift check passes), and `FIXTURE_NOW` set without `APP_ENV=test` is ignored by the API clock (a test).
+- [x] AC-1: Given the seeded test DB and the clock at Sat 2026-10-10 2:15 PM ET, `GET /api/py/teams` returns a `shell` block with season 2026, season type `regular`, week 6, the shown version's name and version (`v1.0`), a record equal to `model_record`'s `to_date` row for v1.0's newest 2026 week (W-L-P, win %, units, average CLV; on the fixture that's week 6, 32-24-1), record label `live`, lines updated at Sat 2026-10-10 9:00 AM ET (`2026-10-10T13:00:00Z`, the fixture's newest line snapshot), stale `false` (24 h rule), and 9 picks for the week.
+- [x] AC-2: Given a DB whose only (cfb, spread) version is a `candidate` with a succeeded `scheduled` run this season, the shell shows that version; given a `production` version too, it shows the `production` one; given none, the record fields are null and the response is still 200 (pytest on rows the test inserts, rolled back).
+- [x] AC-3: Given the newest line pull 23 h before the clock, `stale` is false; given 25 h, it is true (pytest with its own snapshot times; the boundary follows the rule the plan gate keeps).
+- [x] AC-4: Given the clock at Mon 2027-02-08 6:00 AM ET (no game still to come in a stored season), the shell names the last season with games (2026), record label `final`, and no current week; the response is 200.
+- [x] AC-5: `GET /api/py/teams` runs at most 6 queries, all in one concurrent wave (a test counts them); the route still rejects a missing or bad JWT (`test_api_auth.py` covers the new field's route unchanged).
+- [x] AC-6: The generated TypeScript types include the `shell` block (TASK-052's drift check passes), and `FIXTURE_NOW` set without `APP_ENV=test` is ignored by the API clock (a test).
 
 ## Out of scope
 
@@ -122,13 +122,15 @@ Size check: 11 files, no schema change, no UI → passes.
 
 _Filled by /implement-task. One line per round._
 
+Verify R1 FAIL(1: api-types.test.ts scan sample, plan revision 1) → R2 PASS → R3 PASS (after plan revision 2) | Audit R1 CHANGES (AC-4 last season UNPROVEN; lines season filter, week tie and `line_source` filter unguarded) → R2 PASS (`line_source` untestable until M6.1: follow-up) | Spec R1 CHANGES (follow-up with no destination) → R2 APPROVE, follow-ups check passed | Schema R1 APPROVE (3 MINOR: `captured_at <= now` fixed as plan revision 2; growth → D-156 Revisit if) → R2 APPROVE | UI not run (no UI change)
+
 ## Blocked
 
 _Only if status is Blocked: what failed, what was tried, best hypothesis, decision needed._
 
 ## Metrics
 
-- Verify rounds:
-- Review rounds:
-- First-pass AC FAILs:
-- Plan revisions after approval:
+- Verify rounds: 3
+- Review rounds: 2
+- First-pass AC FAILs: 0
+- Plan revisions after approval: 2
