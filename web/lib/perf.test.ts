@@ -349,11 +349,14 @@ describe("TASK-027 AC-1: a pull request is measured on the fixture build (D-125)
     ]);
   });
 
-  it("says how to fix a session that didn't take, naming both runs' secrets", () => {
+  // A preview lets every request in as the allowlisted user (D-153, TASK-059), so its secret can't
+  // send it to /login; only an unset or blank allowlisted ID on Vercel Preview can.
+  it("says how to fix a session that didn't take, for the fixture build and for a preview", () => {
     const [problem] = gate(lhr({ path: "/login" }));
     expect(problem).toContain("the session didn't take");
     expect(problem).toContain("web/e2e/test-env.ts");
-    expect(problem).toContain("PREVIEW_AUTH_SECRET");
+    expect(problem).toContain("Vercel Preview's AUTH_ALLOWED_GITHUB_ID is unset or blank");
+    expect(problem).not.toContain("PREVIEW_AUTH_SECRET");
   });
 });
 

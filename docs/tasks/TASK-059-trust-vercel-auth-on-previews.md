@@ -95,6 +95,7 @@ Opening any PR's Vercel preview, on desktop or phone, shows the app signed in as
 _Work noticed during this task and deliberately left out. Each bullet ends `→ <path> § <section>` (where it was placed) or `→ not tracked: <reason>`. See `.claude/skills/track-follow-ups/classify.md`; the PR's Follow-ups section is copied from here._
 
 - README › Performance checks › Read a failed run: the `ended on /login` row's "On a preview" cause was stale (D-102's). Fixed in this PR as plan revision 1 → not tracked: fixed in this PR (`README.md` › Performance checks)
+- `scripts/perf/lib/perf.mjs`: the Lighthouse gate's `ended on /login` message gave the same stale preview cause (`PREVIEW_AUTH_SECRET`). Fixed in this PR as plan revision 2 → not tracked: done in this PR (plan revision)
 
 ## Plan
 
@@ -109,9 +110,11 @@ Approved by the owner 2026-11-03.
 5. `python/db/src/db/release.py`: `fetch_root(url)` (no redirect following) returns status and `Location`; `smoke_check` takes `root_status` and `root_location` and fails with a line naming the status (and Location) unless it is a 30x whose Location path is `/login`; `smoke()` passes them.
 6. Docs: a new decision row superseding D-102 (options considered, accepted costs; keeps the two OAuth apps and "no GitHub client on previews"); `docs/02-architecture.md` § Auth's last bullet; D-102 comments repointed; `docs/owner-checklist.md` § Actions item for Deployment Protection.
 
-**Files:** `web/lib/preview.ts` and `preview.test.ts` (new), `web/auth.config.ts`, `web/lib/api.ts`, `web/lib/auth-config.test.ts`, `web/lib/api-token.test.ts` (not in likely-touched: AC-1's `sub`), `web/playwright.config.ts`, `web/e2e/preview.spec.ts` (new), `web/e2e/test-env.ts` (comment; not in likely-touched), `web/lib/login.ts`, `web/app/login/page.tsx`, `web/app/login/login-card.tsx` (D-102 comment; not in likely-touched), `web/lib/login.test.ts` (D-102 in a test name; not in likely-touched), `python/db/src/db/release.py`, `python/db/tests/test_release.py`, `docs/02-architecture.md`, `docs/decisions.md`, `docs/owner-checklist.md`; `README.md` (revision 1).
+**Files:** `web/lib/preview.ts` and `preview.test.ts` (new), `web/auth.config.ts`, `web/lib/api.ts`, `web/lib/auth-config.test.ts`, `web/lib/api-token.test.ts` (not in likely-touched: AC-1's `sub`), `web/playwright.config.ts`, `web/e2e/preview.spec.ts` (new), `web/e2e/test-env.ts` (comment; not in likely-touched), `web/lib/login.ts`, `web/app/login/page.tsx`, `web/app/login/login-card.tsx` (D-102 comment; not in likely-touched), `web/lib/login.test.ts` (D-102 in a test name; not in likely-touched), `python/db/src/db/release.py`, `python/db/tests/test_release.py`, `docs/02-architecture.md`, `docs/decisions.md`, `docs/owner-checklist.md`; `README.md` (revision 1); `scripts/perf/lib/perf.mjs` and `web/lib/perf.test.ts` (revision 2).
 
 **Revision 1 (owner, 2026-11-04):** fix `README.md` › Performance checks › Read a failed run, whose `ended on /login` row still gave D-102's preview cause; found in Phase 2, flagged by spec review.
+
+**Revision 2 (owner, 2026-11-04):** the Lighthouse gate's `ended on /login` message in `scripts/perf/lib/perf.mjs` gave the same stale preview cause; it now names Vercel Preview's unset or blank `AUTH_ALLOWED_GITHUB_ID`, and `web/lib/perf.test.ts` asserts it (found by spec review round 2).
 
 **Test strategy:** AC-1 `web/e2e/preview.spec.ts` (page) + `web/lib/api-token.test.ts` (`sub`); AC-2/AC-3 `web/lib/auth-config.test.ts` (+ `preview.test.ts`), `auth.spec.ts`/`login.spec.ts` unchanged; AC-4 `test_release.py` (307 → `/login` passes; 200 and a redirect elsewhere fail naming the status); AC-5 spec-reviewer; AC-6 owner.
 
