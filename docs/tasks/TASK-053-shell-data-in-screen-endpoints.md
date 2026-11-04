@@ -1,7 +1,7 @@
 ---
 id: TASK-053
 title: Carry the app shell's data in each screen endpoint
-status: Ready
+status: In progress
 depends_on: [TASK-052]
 size: M
 model: opus
@@ -93,6 +93,8 @@ Steps:
 6. Docs: `docs/decisions.md` gets one D-### row, with the ID from `next-id.ps1`. It covers the shell block, the version rule, "lines updated" = newest snapshot, the 24 h rule as applied, the API's own clock and `run_wave`. In `docs/02-architecture.md`: › Components › 2 (every screen endpoint carries `shell` inside its one wave); › Test-only sign-in and clock ("the engine, the API and the web app"; e2e's API runs at the slate time, and a journey at another fixture time starts its own API server).
 
 Files: `python/api/src/api/{clock,wave,shell}.py` (new), `main.py`; `python/api/tests/test_api_shell.py` (new); `python/api/tests/conftest.py` (puts `db/tests` on `sys.path` for `model_rows`); `web/lib/api-types.ts`; `web/playwright.config.ts`; `docs/decisions.md`; `docs/02-architecture.md` (11 files).
+
+**Plan revision 1 (Phase 3):** `web/lib/api-types.test.ts` too (12 files). TASK-052's scan test used the old hand-written `TeamsResponse` (`season`, `teams`) as its sample of a copy; with `shell` on `TeamsOut` it no longer copies it, so the scan rightly passed it and the test failed. The sample is now built from `TeamsOut`'s schema keys, as the next test's is.
 
 Test strategy (`test_api_shell.py`; each test fails on `main`, where there's no `shell`):
 - AC-1: `client` with `FIXTURE_NOW` at Sat 2:15 PM ET. The record equals the `model_record` row the test reads (32-24-1); the rest as the AC says, plus `lines_updated_at` 13:00Z, `stale` false and `picks` 9.

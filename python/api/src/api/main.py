@@ -19,7 +19,10 @@ from sqlalchemy import Engine, text
 from db.config import app_database_url, load_env
 from db.session import make_engine
 
+from . import clock, shell
 from .auth import require_api_token
+from .shell import ShellOut
+from .wave import run_wave
 
 load_env()
 
@@ -45,6 +48,7 @@ class TeamOut(BaseModel):
 class TeamsOut(BaseModel):
     season: int | None
     teams: list[TeamOut]
+    shell: ShellOut
 
 
 class HealthOut(BaseModel):
@@ -53,7 +57,8 @@ class HealthOut(BaseModel):
     migration_head: str | None
 
 
-# One query (budget: ≤ 6, docs/02 › Non-functional requirements). FBS only (F-44). Conference
+# The teams and the shell (shell.py): two queries in one wave (budget: ≤ 6, docs/02 ›
+# Non-functional requirements). FBS only (F-44). Conference
 # is per season, so the list is the latest season any team has a row for.
 TEAMS_SQL = text(
     """
@@ -70,9 +75,11 @@ TEAMS_SQL = text(
 
 @router.get("/teams")
 def teams() -> TeamsOut:
-    with engine().connect() as conn:
-        rows = conn.execute(TEAMS_SQL).all()
+    now = clock.now()
+    found = run_wave(engine(), {"teams": (TEAMS_SQL, {}), "shell": shell.query(now, shell.SPORT)})
+    rows = found["teams"]
     return TeamsOut(
+        shell=shell.shell_from(found["shell"][0], now),
         season=rows[0].season if rows else None,
         teams=[
             TeamOut(
