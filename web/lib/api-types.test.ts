@@ -26,7 +26,7 @@ let committed: string;
 beforeAll(() => {
   schema = dumpSchema() as Schema;
   committed = readFileSync(OUTPUT_PATH, "utf8");
-});
+}, 30_000); // spawns uv (.claude/rules/web.md)
 
 /** The names a `type X = { … }` or `interface X { … }` body declares at its top level. */
 function objectTypeBodies(source: string): { name: string; props: string[] }[] {
@@ -56,15 +56,16 @@ function objectTypeBodies(source: string): { name: string; props: string[] }[] {
   return found;
 }
 
-/** Hand-written object types whose property names are exactly a schema's: a copy of a response. */
+/** Hand-written object types that declare every property of a schema: a copy of a response. */
 function handWrittenResponseTypes(source: string, schemas: Schema["components"]["schemas"]) {
-  const sets = Object.entries(schemas).map(
-    ([name, s]) => [name, Object.keys(s.properties ?? {}).sort().join(",")] as const,
+  return objectTypeBodies(source).flatMap(({ name, props }) =>
+    Object.entries(schemas)
+      .filter(([, s]) => {
+        const wanted = Object.keys(s.properties ?? {});
+        return wanted.length > 0 && wanted.every((p) => props.includes(p));
+      })
+      .map(([schemaName]) => `${name} copies ${schemaName}`),
   );
-  return objectTypeBodies(source).flatMap(({ name, props }) => {
-    const key = [...props].sort().join(",");
-    return sets.filter(([, setKey]) => setKey !== "" && setKey === key).map(([schemaName]) => `${name} copies ${schemaName}`);
-  });
 }
 
 describe("AC-1: the generated types cover the schema", () => {
@@ -109,6 +110,20 @@ describe("AC-2: no hand-written response type in web/lib", () => {
     expect(handWrittenResponseTypes(old, schema.components.schemas)).toEqual(["TeamsResponse copies TeamsOut"]);
     const oldHealth = "export type HealthResponse = {\n  commit: string;\n  db_reachable: boolean;\n  migration_head: string | null;\n};\n";
     expect(handWrittenResponseTypes(oldHealth, schema.components.schemas)).toEqual(["HealthResponse copies HealthOut"]);
+  });
+
+  it("the scan flags a copy that adds a field of its own", () => {
+    const extended = [
+      "export type TeamRow = {",
+      "  id: number;",
+      "  school: string;",
+      "  abbreviation: string | null;",
+      "  conference: string | null;",
+      "  color: string | null;",
+      "  rank: number;",
+      "};",
+    ].join("\n");
+    expect(handWrittenResponseTypes(extended, schema.components.schemas)).toEqual(["TeamRow copies TeamOut"]);
   });
 
   it("the scan lets an alias of a generated type through", () => {
