@@ -515,7 +515,7 @@ each naming its route.
 |---|---|---|
 | `requested /api/py/…` | A page made the browser call the API, usually a `<Link>` prefetch (hard rule 5) | Link to it with a plain `<a>` and fetch from server code |
 | `… is over the budget of …` | The page got heavier | Make it lighter, or raise the budget with the reason written in the PR |
-| `ended on /login` | The minted session didn't take | The **fixture** job's `AUTH_SECRET` and `AUTH_ALLOWED_GITHUB_ID` must equal `web/e2e/test-env.ts`'s (a test checks this). On a preview: `PREVIEW_AUTH_SECRET` must equal Vercel Preview's `AUTH_SECRET` |
+| `ended on /login` | The minted session didn't take | The **fixture** job's `AUTH_SECRET` and `AUTH_ALLOWED_GITHUB_ID` must equal `web/e2e/test-env.ts`'s (a test checks this). On a preview the gate lets every request in (D-153), so ending there means Vercel Preview's `AUTH_ALLOWED_GITHUB_ID` is unset or blank |
 | `never finished measuring` | Lighthouse failed on every run, or the job died | Open the **fixture** job log (a preview: that route's **measure** job; a 401 page means the bypass secret is wrong). `… never answered` in **Serve the app and the API** prints the last lines of both servers' logs |
 | **No secret in the reports** step failed | A report still held a secret, so nothing was uploaded | The step names the files, never the value; fix the scrubbing in `scripts/perf/lib/perf.mjs` |
 

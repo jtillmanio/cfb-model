@@ -48,7 +48,7 @@ describe("loginState", () => {
     });
   });
 
-  it("is unavailable when no GitHub client ID is configured (previews, D-102), whatever the URL says", () => {
+  it("is unavailable when no GitHub client ID is configured (previews, D-153), whatever the URL says", () => {
     expect(loginState({}, false)).toEqual({ kind: "unavailable" });
     expect(loginState({ error: "AccessDenied", login: "someone-else" }, false)).toEqual({
       kind: "unavailable",

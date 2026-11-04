@@ -205,9 +205,9 @@ export function gateProblems(routes, budget, expected = []) {
       problems.push(
         `${id}: loaded ${r.path} and ended on ${wrong.map((p) => p ?? "(nowhere)").join(", ")}` +
           (wrong.includes("/login")
-            ? ": the session didn't take. The minted session's AUTH_SECRET and AUTH_ALLOWED_GITHUB_ID must " +
-              "match the server's: web/e2e/test-env.ts's values for the fixture build, PREVIEW_AUTH_SECRET " +
-              "and the allowlisted GitHub ID for a preview"
+            ? ": the session didn't take. For the fixture build, the minted session's AUTH_SECRET and " +
+              "AUTH_ALLOWED_GITHUB_ID must match web/e2e/test-env.ts's. A preview lets every request in " +
+              "(D-153), so there Vercel Preview's AUTH_ALLOWED_GITHUB_ID is unset or blank"
             : ""),
       );
       continue;

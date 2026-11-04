@@ -19,7 +19,7 @@ from pathlib import Path
 from typing import Any
 from urllib.error import HTTPError
 from urllib.parse import urlencode, urlsplit
-from urllib.request import Request, urlopen
+from urllib.request import HTTPRedirectHandler, Request, build_opener, urlopen
 
 from alembic.runtime.migration import MigrationContext
 from alembic.script import ScriptDirectory
@@ -150,7 +150,13 @@ def pending_migrations(script: ScriptDirectory, current: Sequence[str]) -> list[
 
 
 def smoke_check(
-    health: Mapping[str, Any], *, commit: str, head: str, unsigned_status: int
+    health: Mapping[str, Any],
+    *,
+    commit: str,
+    head: str,
+    unsigned_status: int,
+    root_status: int,
+    root_location: str | None,
 ) -> list[str]:
     """What's wrong with production, one line per failed check; empty when it's healthy."""
     failures = []
@@ -163,7 +169,17 @@ def smoke_check(
     if unsigned_status != 401:
         # Every route but health needs the JWT (D-107); a build without the guard must not pass.
         failures.append(f"unsigned GET /api/py/teams answered {unsigned_status}, expected 401")
+    if not _redirects_to_login(root_status, root_location):
+        # Previews let everyone in (D-153); a production build that thinks it's one must not pass.
+        failures.append(
+            f"signed-out GET / answered {root_status} (Location {root_location or 'none'}), "
+            "expected a redirect to /login"
+        )
     return failures
+
+
+def _redirects_to_login(status: int, location: str | None) -> bool:
+    return status in (301, 302, 303, 307, 308) and urlsplit(location or "").path == "/login"
 
 
 def snapshot_name(commit: str, now: datetime) -> str:
@@ -322,6 +338,22 @@ def fetch_health(base_url: str) -> tuple[dict[str, Any], int]:
     return health, status
 
 
+class _NoRedirect(HTTPRedirectHandler):
+    def redirect_request(self, *args: Any, **kwargs: Any) -> None:
+        return None  # surface the 30x as an HTTPError instead of following it
+
+
+def fetch_root(base_url: str) -> tuple[int, str | None]:
+    """The status and Location a signed-out GET of production's `/` gets, without following it."""
+    try:
+        with build_opener(_NoRedirect).open(Request(f"{base_url.rstrip('/')}/"), timeout=10) as r:
+            return r.status, r.headers.get("Location")
+    except HTTPError as e:
+        return e.code, e.headers.get("Location")
+    except OSError:
+        return 0, None
+
+
 # ─── Commands ────────────────────────────────────────────────────────────────────────────────
 
 
@@ -391,7 +423,11 @@ def smoke(args: argparse.Namespace) -> None:
     failures: list[str] = []
     for attempt in range(1, args.attempts + 1):
         health, status = fetch_health(args.url)
-        failures = smoke_check(health, commit=args.commit, head=args.head, unsigned_status=status)
+        root_status, root_location = fetch_root(args.url)
+        failures = smoke_check(
+            health, commit=args.commit, head=args.head, unsigned_status=status,
+            root_status=root_status, root_location=root_location,
+        )
         if not failures:
             _summary(f"Smoke test passed: {args.url} serves `{args.commit}` at {args.head}.")
             return
@@ -423,7 +459,7 @@ def add_commands(subparsers: Any) -> None:
     p.add_argument("--deployment-id", required=True)
     p.set_defaults(func=promote)
 
-    p = steps.add_parser("smoke", help="Check production's health and the API guard")
+    p = steps.add_parser("smoke", help="Check production's health, API guard and sign-in gate")
     p.add_argument("--url", required=True)
     p.add_argument("--commit", required=True)
     p.add_argument("--head", required=True)
