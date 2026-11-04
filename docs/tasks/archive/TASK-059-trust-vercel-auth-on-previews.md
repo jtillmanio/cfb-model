@@ -1,7 +1,7 @@
 ---
 id: TASK-059
 title: Open previews to the owner through Vercel Authentication
-status: Review
+status: Done
 depends_on: []
 size: M
 model: opus
@@ -58,7 +58,7 @@ Opening any PR's Vercel preview, on desktop or phone, shows the app signed in as
   - `docs/02-architecture.md` § Auth's last bullet says previews trust Vercel Authentication and production keeps GitHub sign-in;
   - the comments citing D-102 in `web/auth.config.ts`, `web/lib/login.ts` and `web/app/login/page.tsx` are updated;
   - `docs/owner-checklist.md` § Actions has an item to confirm Vercel › Settings › Deployment Protection has Vercel Authentication on for all preview deployments (Standard Protection).
-- [ ] AC-6 (owner, after the PR's preview is up): opening the PR's preview signed out of the app (a private window, signed in to Vercel) shows `/teams` with data, on desktop and on a phone. Production's `/` in a private window still lands on `/login`.
+- [x] AC-6 (owner, after the PR's preview is up): opening the PR's preview signed out of the app (a private window, signed in to Vercel) shows `/teams` with data, on desktop and on a phone. Production's `/` in a private window still lands on `/login`.
 
 ## Out of scope
 
