@@ -40,6 +40,7 @@ class TeamOut(BaseModel):
     abbreviation: str | None
     conference: str | None
     color: str | None
+    logo_url: str | None = None
 
 
 class TeamsOut(BaseModel):
