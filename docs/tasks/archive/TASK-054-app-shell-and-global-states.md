@@ -1,7 +1,7 @@
 ---
 id: TASK-054
 title: Build the app shell and global states
-status: Review
+status: Done
 depends_on: [TASK-050, TASK-053]
 size: M
 model: opus
