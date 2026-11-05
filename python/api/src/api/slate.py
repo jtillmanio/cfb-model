@@ -260,7 +260,9 @@ LINES_SQL = text(
 )
 
 # pick_outcomes' window partitions by game and version, so filtering both applies at the picks
-# scan. A pick made after the API's clock (only under a fixture time) isn't shown.
+# scan. A pick made after the API's clock (only under a fixture time) isn't shown, and neither is
+# the pick it superseded: `is_current` is ranked over every pick, and recomputing the window here
+# would fork current_picks' rule. The fixture has no game picked twice.
 PICKS_SQL = text(
     f"""{_PREFIX}
     SELECT
@@ -327,8 +329,9 @@ def _distribution(params: Mapping[str, Any], sd: float | None) -> MarginDistribu
 
 def _market(row: Row[Any], snapshots: list[SlateLineOut]) -> SlateMarketOut:
     """game_market's lines as of the API's clock: the close once the game has started, and the
-    current line the newest pull by now, else the close, else the open. With the real clock this
-    is game_market's own current line."""
+    current line the newest pull with a spread by now, else the close, else the open. With the
+    real clock this is game_market's current line, except after a pull that quoted only totals or
+    moneylines: game_market then reports its NULL spread, and this the pull before it."""
     opening = _float(row.opening_spread_home)
     closing = _float(row.closing_spread_home) if row.started else None
     if snapshots:
