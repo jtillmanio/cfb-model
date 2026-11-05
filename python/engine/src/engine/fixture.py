@@ -37,6 +37,10 @@ WEEK = 6
 BOOK = "consensus"
 
 
+class FixtureDrift(ValueError):
+    """The test DB holds a fixture row the files no longer describe, which a re-seed can't fix."""
+
+
 def _load(name: str) -> dict[str, Any]:
     return json.loads((FIXTURE_DIR / name).read_text(encoding="utf-8"))
 
@@ -192,13 +196,22 @@ def _seed_versions(conn: Connection, data: dict[str, Any]) -> dict[str, int]:
                 "created_at": _ts(v["created_at"]),
             },
         )
-        ids[v["version"]] = conn.execute(
+        found = conn.execute(
             text(
-                "SELECT id FROM model_versions WHERE sport_id = :sport AND market = :market"
+                "SELECT id, spec FROM model_versions WHERE sport_id = :sport AND market = :market"
                 " AND name = :name AND version = :version AND deleted_at IS NULL"
             ),
             key,
-        ).scalar_one()
+        ).one()
+        if found.spec != v["spec"]:
+            # A version is reused, never changed, so a test DB seeded from an older models.json
+            # would keep the old spec without a word (TASK-055 changed v1.0's).
+            raise FixtureDrift(
+                f"the test DB's {data['name']} {v['version']} spec differs from models.json:"
+                " rebuild the test DB (drop and recreate its schema, then db:migrate:test and"
+                " db:seed)"
+            )
+        ids[v["version"]] = found.id
     return ids
 
 

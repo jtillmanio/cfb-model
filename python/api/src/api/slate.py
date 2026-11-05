@@ -5,7 +5,8 @@ Non-functional requirements: ≤ 6).
 
 - **Week:** the one asked for, else the coming week (`shell.COMING`, D-150); with neither (the
   off-season) no games and `offseason`.
-- **Version and run:** the shell's shown version (`shell.SHOWN`, TASK-053), and its newest
+- **Version and run:** the shell's shown version (`shell.SEASON` and `shell.SHOWN`, TASK-053,
+  whatever week is asked for), and its newest
   succeeded `scheduled` or `adhoc` run for the week finished by now, as `engine pick` reads it
   (D-140). Each game's prediction is that run's.
 - **Edge, side and cover** are against the current line, for every game, through `engine.core`:
@@ -20,6 +21,11 @@ Non-functional requirements: ≤ 6).
   `game_market` (consensus, else the median of the pull's books).
 - **Cover** on a final game is the side that covered the close (the current line when there's
   none), or `push`.
+- **One clock.** Everything is as of the API's clock: the line history and the current line (the
+  newest pull by then), the close and CLV only once the game's cutoff has passed by it, and no
+  pick made after it. With the real clock that is `game_market`'s and `pick_outcomes`' own reading;
+  under a fixture time (FIXTURE_NOW) the database's `now()` is ahead of it, so those views'
+  clock-dependent columns aren't read as they are.
 """
 
 from __future__ import annotations
@@ -152,7 +158,9 @@ class SlateOut(BaseModel):
 Week = tuple[int, SeasonType, int]
 
 # The week, the shown version and its run for the week; each statement starts with it, so the
-# wave needs nothing from a statement before it. CTEs a statement doesn't read aren't run.
+# wave needs nothing from a statement before it. CTEs a statement doesn't read aren't run. The
+# week's filters on the views are scalar subqueries (InitPlans), which Postgres applies at the
+# base tables' scans, below the views' windows (.claude/rules/database.md › Views & queries).
 _PREFIX = f"""
     WITH {shell.COMING},
     slate_week AS (
@@ -163,14 +171,15 @@ _PREFIX = f"""
         FROM (SELECT 1) one
         LEFT JOIN coming c ON true
     ),
-    season AS (SELECT season FROM slate_week),
+    {shell.SEASON},
     {shell.SHOWN},
     week_run AS (
         SELECT r.id, r.fitted_params
         FROM model_runs r
-        JOIN slate_week w
-            ON r.season = w.season AND r.season_type = w.season_type AND r.week = w.week
         WHERE r.model_version_id = (SELECT id FROM shown)
+            AND r.season = (SELECT season FROM slate_week)
+            AND r.season_type = (SELECT season_type FROM slate_week)
+            AND r.week = (SELECT week FROM slate_week)
             AND r.status = 'succeeded'
             AND r.run_type IN ('scheduled', 'adhoc')
             AND r.finished_at <= :now
@@ -178,9 +187,10 @@ _PREFIX = f"""
         LIMIT 1
     )"""
 
-_WEEK_GAMES = """games g
-    JOIN slate_week w
-        ON g.season = w.season AND g.season_type = w.season_type AND g.week = w.week"""
+_IN_WEEK = """g.sport_id = :sport
+        AND g.season = (SELECT season FROM slate_week)
+        AND g.season_type = (SELECT season_type FROM slate_week)
+        AND g.week = (SELECT week FROM slate_week)"""
 
 
 def _team_columns(side: str, team: str, season: str, rank: str) -> str:
@@ -192,23 +202,28 @@ def _team_columns(side: str, team: str, season: str, rank: str) -> str:
     )
 
 
+# `started`: the game's cutoff has passed by the API's clock. game_market dates its close by the
+# database's clock, which is ahead of the API's under a fixture time (FIXTURE_NOW), so the close
+# is read only once `started` (slate_from).
 GAMES_SQL = text(
     f"""{_PREFIX},
     ranks AS (
         SELECT r.team_id, r.rank
         FROM team_rankings r
-        JOIN slate_week w
-            ON r.season = w.season AND r.season_type = w.season_type AND r.week = w.week
         WHERE r.model_version_id = (SELECT id FROM shown)
+            AND r.season = (SELECT season FROM slate_week)
+            AND r.season_type = (SELECT season_type FROM slate_week)
+            AND r.week = (SELECT week FROM slate_week)
     )
     SELECT
         g.id, g.kickoff_at, g.game_date, g.status, g.neutral_site, g.home_points, g.away_points,
+        {shell.CUTOFF} <= :now AS started,
         vn.name AS venue_name, vn.city AS venue_city, vn.state AS venue_state,
         {_team_columns("home", "ht", "hs", "hr")},
         {_team_columns("away", "awt", "aws", "ar")},
         gm.opening_spread_home, gm.current_spread_home, gm.closing_spread_home,
         p.pred_margin, p.home_win_prob, p.margin_sd
-    FROM {_WEEK_GAMES}
+    FROM games g
     JOIN teams ht ON ht.id = g.home_team_id
     JOIN teams awt ON awt.id = g.away_team_id
     LEFT JOIN team_seasons hs ON hs.team_id = g.home_team_id AND hs.season = g.season
@@ -218,7 +233,7 @@ GAMES_SQL = text(
     LEFT JOIN venues vn ON vn.id = g.venue_id
     LEFT JOIN game_market gm ON gm.game_id = g.id
     LEFT JOIN predictions p ON p.model_run_id = (SELECT id FROM week_run) AND p.game_id = g.id
-    WHERE g.sport_id = :sport
+    WHERE {_IN_WEEK}
     ORDER BY {shell.CUTOFF}, g.id
     """
 )
@@ -232,10 +247,10 @@ LINES_SQL = text(
             min(ls.spread_home) FILTER (WHERE b.source_id = 'consensus'),
             (percentile_cont(0.5) WITHIN GROUP (ORDER BY ls.spread_home))::numeric
         ) AS spread_home
-    FROM {_WEEK_GAMES}
+    FROM games g
     JOIN line_snapshots ls ON ls.game_id = g.id
     JOIN sportsbooks b ON b.id = ls.book_id
-    WHERE g.sport_id = :sport
+    WHERE {_IN_WEEK}
         AND ls.kind = 'snapshot'
         AND ls.spread_home IS NOT NULL
         AND ls.captured_at <= :now
@@ -244,18 +259,19 @@ LINES_SQL = text(
     """
 )
 
-# pick_outcomes' window partition holds the version, so the filter applies at the picks scan.
+# pick_outcomes' window partitions by game and version, so filtering both applies at the picks
+# scan. A pick made after the API's clock (only under a fixture time) isn't shown.
 PICKS_SQL = text(
     f"""{_PREFIX}
     SELECT
         o.game_id, o.side, o.line, o.price, o.model_prob, o.edge_pts, o.tier, o.created_at,
-        o.result, o.units, o.clv, o.clv_so_far
+        o.result, o.units, o.clv, o.clv_so_far, o.current_spread_home
     FROM pick_outcomes o
-    JOIN slate_week w
-        ON o.season = w.season AND o.season_type = w.season_type AND o.week = w.week
     WHERE o.model_version_id = (SELECT id FROM shown)
+        AND o.game_id = ANY(ARRAY(SELECT g.id FROM games g WHERE {_IN_WEEK}))
         AND o.is_current
         AND o.line_source = 'market'
+        AND o.created_at <= :now
     """
 )
 
@@ -309,13 +325,30 @@ def _distribution(params: Mapping[str, Any], sd: float | None) -> MarginDistribu
     return NormalMargin(sd) if sd is not None and sd > 0 else None
 
 
+def _market(row: Row[Any], snapshots: list[SlateLineOut]) -> SlateMarketOut:
+    """game_market's lines as of the API's clock: the close once the game has started, and the
+    current line the newest pull by now, else the close, else the open. With the real clock this
+    is game_market's own current line."""
+    opening = _float(row.opening_spread_home)
+    closing = _float(row.closing_spread_home) if row.started else None
+    if snapshots:
+        current = snapshots[-1].spread_home
+    else:
+        current = closing if closing is not None else opening
+    return SlateMarketOut(
+        opening_spread_home=opening,
+        current_spread_home=current,
+        closing_spread_home=closing,
+        snapshots=snapshots,
+    )
+
+
 def _model(
-    row: Row[Any], rules: PickRules | None, params: Mapping[str, Any]
+    row: Row[Any], line: float | None, rules: PickRules | None, params: Mapping[str, Any]
 ) -> SlateModelOut | None:
     if row.pred_margin is None:
         return None
     pred = float(row.pred_margin)
-    line = _float(row.current_spread_home)
     dist = _distribution(params, _float(row.margin_sd))
     edge = side = prob = None
     if rules is not None and dist is not None and line is not None:
@@ -339,21 +372,33 @@ def _team(row: Row[Any], side: str) -> SlateTeamOut:
     })  # fmt: skip
 
 
-def _cover(row: Row[Any]) -> Literal["home", "away", "push"] | None:
+def _cover(row: Row[Any], market: SlateMarketOut) -> Literal["home", "away", "push"] | None:
     if row.status != "final" or row.home_points is None or row.away_points is None:
         return None
-    line = _float(row.closing_spread_home)
-    line = _float(row.current_spread_home) if line is None else line
+    line = market.closing_spread_home
+    line = market.current_spread_home if line is None else line
     if line is None:
         return None
     margin = row.home_points - row.away_points + line
     return "home" if margin > 0 else "away" if margin < 0 else "push"
 
 
-def _pick(row: Row[Any]) -> SlatePickOut:
+def _pick(row: Row[Any], market: SlateMarketOut) -> SlatePickOut:
+    """pick_outcomes' row. Its CLV is against the close, so only once the game has a close by the
+    API's clock; `clv_so_far` is the view's while its current line is the one shown, else the same
+    sum (D-140's sign) against the line shown, as under a fixture time."""
+    line = float(row.line)
+    sign = 1 if row.side == "home" else -1
+    current = market.current_spread_home
+    if current is None:
+        so_far = None
+    elif _float(row.current_spread_home) == current:
+        so_far = _float(row.clv_so_far)
+    else:
+        so_far = sign * (line - current)
     return SlatePickOut(
         side=row.side,
-        line=float(row.line),
+        line=line,
         price=row.price,
         edge=float(row.edge_pts),
         cover_prob=float(row.model_prob),
@@ -361,8 +406,8 @@ def _pick(row: Row[Any]) -> SlatePickOut:
         picked_at=row.created_at,
         result=row.result,
         units=_float(row.units),
-        clv=_float(row.clv),
-        clv_so_far=_float(row.clv_so_far),
+        clv=_float(row.clv) if market.closing_spread_home is not None else None,
+        clv_so_far=so_far,
     )
 
 
@@ -394,9 +439,12 @@ def slate_from(
         lines.setdefault(r.game_id, []).append(
             SlateLineOut(captured_at=r.captured_at, spread_home=float(r.spread_home))
         )
-    picks = {r.game_id: _pick(r) for r in found["picks"]}
-    games = [
-        SlateGameOut(
+    picks = {r.game_id: r for r in found["picks"]}
+    games: list[SlateGameOut] = []
+    for r in found["games"]:
+        market = _market(r, lines.get(r.id, []))
+        picked = picks.get(r.id)
+        games.append(SlateGameOut(
             id=r.id,
             kickoff_at=r.kickoff_at,
             game_date=r.game_date,
@@ -409,18 +457,11 @@ def slate_from(
             home=_team(r, "home"),
             away_points=r.away_points,
             home_points=r.home_points,
-            cover=_cover(r),
-            market=SlateMarketOut(
-                opening_spread_home=_float(r.opening_spread_home),
-                current_spread_home=_float(r.current_spread_home),
-                closing_spread_home=_float(r.closing_spread_home),
-                snapshots=lines.get(r.id, []),
-            ),
-            model=_model(r, rules, params),
-            pick=picks.get(r.id),
-        )
-        for r in found["games"]
-    ]  # fmt: skip
+            cover=_cover(r, market),
+            market=market,
+            model=_model(r, market.current_spread_home, rules, params),
+            pick=None if picked is None else _pick(picked, market),
+        ))  # fmt: skip
 
     if week is not None:
         season, season_type, number = week

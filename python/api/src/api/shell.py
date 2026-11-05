@@ -63,13 +63,21 @@ class ShellOut(BaseModel):
 CUTOFF = "coalesce(g.kickoff_at, (g.game_date + 1)::timestamp AT TIME ZONE 'America/New_York')"
 
 # The coming week and the shown version, shared with the other screens' statements (slate.py) so
-# every screen agrees with its shell. `SHOWN` reads a one-row `season` CTE before it.
+# every screen agrees with its shell. `SHOWN` reads `SEASON`, which reads `COMING`.
 COMING = f"""coming AS (
         SELECT g.season, g.season_type, g.week
         FROM games g
         WHERE g.sport_id = :sport AND {CUTOFF} > :now
         ORDER BY {CUTOFF}, g.season_type = 'postseason', g.week
         LIMIT 1
+    )"""
+
+# The season the shown version is chosen for: the coming week's, else the latest with games.
+SEASON = """season AS (
+        SELECT coalesce(
+            (SELECT season FROM coming),
+            (SELECT max(season) FROM games WHERE sport_id = :sport)
+        ) AS season
     )"""
 
 SHOWN = """shown AS (
@@ -99,12 +107,7 @@ SHOWN = """shown AS (
 SHELL_SQL = text(
     f"""
     WITH {COMING},
-    season AS (
-        SELECT coalesce(
-            (SELECT season FROM coming),
-            (SELECT max(season) FROM games WHERE sport_id = :sport)
-        ) AS season
-    ),
+    {SEASON},
     {SHOWN},
     record AS (
         SELECT r.wins, r.losses, r.pushes, r.win_pct, r.units, r.avg_clv

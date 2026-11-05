@@ -166,6 +166,27 @@ def test_the_line_history_holds_only_pulls_before_the_clock(
     assert [s["spread_home"] for s in at_thursday["market"]["snapshots"]] == [7, 6.5, 6.5]
 
 
+def test_the_market_and_picks_read_the_api_clock(
+    client: TestClient, make_token: MakeToken, monkeypatch: pytest.MonkeyPatch
+):
+    """The database's clock is past every fixture kickoff, the API's isn't: at Thursday noon
+    Ohio State's line is still Sunday's −28 (Thursday's −27.5 pull hasn't happened) and the pick
+    made at it Thursday night doesn't exist yet; at the slate time Ole Miss @ LSU hasn't kicked
+    off, so it has no close and its pick no CLV yet, while UNLV @ Boise State's close is there."""
+    thursday = _get(client, make_token, monkeypatch, THURSDAY_NOON)
+    osu = _game(thursday, "PUR", "OSU")
+    assert osu["market"]["current_spread_home"] == -28
+    assert osu["model"]["edge"] == pytest.approx(3.2)
+    assert osu["pick"] is None
+
+    body = _get(client, make_token, monkeypatch)
+    miss = _game(body, "MISS", "LSU")
+    assert miss["market"]["closing_spread_home"] is None
+    assert miss["pick"]["clv"] is None
+    assert miss["pick"]["clv_so_far"] == -1.0
+    assert _game(body, "UNLV", "BSU")["market"]["closing_spread_home"] == -10
+
+
 def test_an_edge_against_the_current_line_not_the_one_picked_at(
     client: TestClient, make_token: MakeToken, monkeypatch: pytest.MonkeyPatch
 ):
@@ -317,6 +338,9 @@ def test_the_offseason_answers_200_with_no_games(
     assert body["games"] == []
     assert body["counts"] == {"games": 0, "picks": 0}
     assert body["shell"]["week"] is None
+    # The shell's version (2026's, the latest season) and its rules, as in season.
+    assert body["shell"]["model"] == {"name": "power", "version": "v1.0"}
+    assert body["rules"] is not None and body["rules"]["min_edge_pts"] == 2.5
 
 
 NOW = m.utc(m.SEASON, 9, 1, 12)
@@ -464,3 +488,29 @@ def test_the_response_has_no_decimals(
     assert isinstance(game["market"]["current_spread_home"], float)
     assert isinstance(game["pick"]["line"], float)
     assert datetime.fromisoformat(game["kickoff_at"]) == datetime(2026, 10, 10, 16, tzinfo=UTC)
+
+
+# Views read for one week filter by it before ranking or windowing (.claude/rules/database.md ›
+# Views & queries), so the slate's cost doesn't grow with the version's history.
+
+
+def _plan(conn: Connection, name: str) -> dict[str, Any]:
+    now = datetime.fromisoformat(SLATE_NOW)
+    sql, params = slate.queries(now)[name]
+    return m.explain(conn, str(sql), params)
+
+
+def _conds(nodes: list[dict[str, Any]]) -> list[str]:
+    for node in nodes:
+        assert node["Node Type"] != "Seq Scan", node
+    return [n.get("Index Cond") or n.get("Recheck Cond") or "" for n in nodes]
+
+
+def test_the_ranks_are_read_for_the_week_alone(db_conn: Connection):
+    conds = _conds(m.scans(_plan(db_conn, "games"), "team_ratings"))
+    assert conds and all("week" in c for c in conds), conds
+
+
+def test_the_picks_are_read_for_the_weeks_games_alone(db_conn: Connection):
+    conds = _conds(m.scans(_plan(db_conn, "picks"), "picks"))
+    assert conds and all("game_id" in c for c in conds), conds
