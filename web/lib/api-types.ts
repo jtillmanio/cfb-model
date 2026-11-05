@@ -25,6 +25,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/py/slate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Slate
+         * @description This Week (slate.py): the week asked for, all three of season, season type and week, or
+         *     with none of them the coming week. Five queries in one wave (budget: ≤ 6).
+         */
+        get: operations["get_slate_api_py_slate_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/py/teams": {
         parameters: {
             query?: never;
@@ -46,6 +67,11 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** HTTPValidationError */
+        HTTPValidationError: {
+            /** Detail */
+            detail?: components["schemas"]["ValidationError"][];
+        };
         /** HealthOut */
         HealthOut: {
             /** Commit */
@@ -96,6 +122,174 @@ export interface components {
             /** Wins */
             wins: number;
         };
+        /** SlateCountsOut */
+        SlateCountsOut: {
+            /** Games */
+            games: number;
+            /** Picks */
+            picks: number;
+        };
+        /** SlateGameOut */
+        SlateGameOut: {
+            away: components["schemas"]["SlateTeamOut"];
+            /** Away Points */
+            away_points: number | null;
+            /** Cover */
+            cover: ("home" | "away" | "push") | null;
+            /**
+             * Game Date
+             * Format: date
+             */
+            game_date: string;
+            home: components["schemas"]["SlateTeamOut"];
+            /** Home Points */
+            home_points: number | null;
+            /** Id */
+            id: number;
+            /** Kickoff At */
+            kickoff_at: string | null;
+            market: components["schemas"]["SlateMarketOut"];
+            model: components["schemas"]["SlateModelOut"] | null;
+            /** Neutral Site */
+            neutral_site: boolean;
+            pick: components["schemas"]["SlatePickOut"] | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "scheduled" | "in_progress" | "final" | "canceled" | "postponed";
+            venue: components["schemas"]["SlateVenueOut"] | null;
+        };
+        /** SlateLineOut */
+        SlateLineOut: {
+            /**
+             * Captured At
+             * Format: date-time
+             */
+            captured_at: string;
+            /** Spread Home */
+            spread_home: number;
+        };
+        /** SlateMarketOut */
+        SlateMarketOut: {
+            /** Closing Spread Home */
+            closing_spread_home: number | null;
+            /** Current Spread Home */
+            current_spread_home: number | null;
+            /** Opening Spread Home */
+            opening_spread_home: number | null;
+            /** Snapshots */
+            snapshots: components["schemas"]["SlateLineOut"][];
+        };
+        /** SlateModelOut */
+        SlateModelOut: {
+            /** Cover Prob */
+            cover_prob: number | null;
+            /** Edge */
+            edge: number | null;
+            /** Home Win Prob */
+            home_win_prob: number;
+            /** Pred Margin */
+            pred_margin: number;
+            /** Side */
+            side: ("home" | "away") | null;
+        };
+        /** SlateOut */
+        SlateOut: {
+            counts: components["schemas"]["SlateCountsOut"];
+            /** Games */
+            games: components["schemas"]["SlateGameOut"][];
+            /** Offseason */
+            offseason: boolean;
+            rules: components["schemas"]["SlateRulesOut"] | null;
+            /** Season */
+            season: number | null;
+            /** Season Type */
+            season_type: ("regular" | "postseason") | null;
+            shell: components["schemas"]["ShellOut"];
+            /** Week */
+            week: number | null;
+        };
+        /** SlatePickOut */
+        SlatePickOut: {
+            /** Clv */
+            clv: number | null;
+            /** Clv So Far */
+            clv_so_far: number | null;
+            /** Cover Prob */
+            cover_prob: number;
+            /** Edge */
+            edge: number;
+            /** Line */
+            line: number;
+            /**
+             * Picked At
+             * Format: date-time
+             */
+            picked_at: string;
+            /** Price */
+            price: number;
+            /**
+             * Result
+             * @enum {string}
+             */
+            result: "won" | "lost" | "push" | "pending" | "void";
+            /**
+             * Side
+             * @enum {string}
+             */
+            side: "home" | "away";
+            /** Tier */
+            tier: ("A" | "B" | "C") | null;
+            /** Units */
+            units: number | null;
+        };
+        /**
+         * SlateRulesOut
+         * @description The shown version's pick rules (D-055), so the UI never hard-codes a threshold.
+         */
+        SlateRulesOut: {
+            /** Min Edge Pts */
+            min_edge_pts: number;
+            /** Min Prob */
+            min_prob: number;
+            tiers: components["schemas"]["SlateTiersOut"];
+        };
+        /** SlateTeamOut */
+        SlateTeamOut: {
+            /** Abbreviation */
+            abbreviation: string | null;
+            /** Color */
+            color: string | null;
+            /** Division */
+            division: string | null;
+            /** Id */
+            id: number;
+            /** Logo Url */
+            logo_url: string | null;
+            /** Rank */
+            rank: number | null;
+            /** School */
+            school: string;
+        };
+        /** SlateTiersOut */
+        SlateTiersOut: {
+            /** A */
+            A: number;
+            /** B */
+            B: number;
+            /** C */
+            C: number;
+        };
+        /** SlateVenueOut */
+        SlateVenueOut: {
+            /** City */
+            city: string | null;
+            /** Name */
+            name: string;
+            /** State */
+            state: string | null;
+        };
         /** TeamOut */
         TeamOut: {
             /** Abbreviation */
@@ -116,6 +310,19 @@ export interface components {
             shell: components["schemas"]["ShellOut"];
             /** Teams */
             teams: components["schemas"]["TeamOut"][];
+        };
+        /** ValidationError */
+        ValidationError: {
+            /** Context */
+            ctx?: Record<string, never>;
+            /** Input */
+            input?: unknown;
+            /** Location */
+            loc: (string | number)[];
+            /** Message */
+            msg: string;
+            /** Error Type */
+            type: string;
         };
     };
     responses: never;
@@ -142,6 +349,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HealthOut"];
+                };
+            };
+        };
+    };
+    get_slate_api_py_slate_get: {
+        parameters: {
+            query?: {
+                season?: number | null;
+                season_type?: ("regular" | "postseason") | null;
+                week?: number | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SlateOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

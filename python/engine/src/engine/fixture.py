@@ -5,7 +5,8 @@ Every reference row has source = 'fixture', so it can never collide with a real 
 model registry has no source column; its rows are found by sport, market, name and version.
 Re-seeding changes nothing: reference rows are upserted, line snapshots, ratings, predictions and
 picks skip a key already stored, and a version or run that exists is reused. picks.json is written
-by its generator, generate_picks.py, beside it (TASK-040).
+by its generator, generate_picks.py, beside it (TASK-040), and week6_filler.json, the Week 6 games
+the design doesn't draw, by generate_filler.py (TASK-055).
 """
 
 from __future__ import annotations
@@ -461,6 +462,78 @@ def _seed_picks(
     return new_lines, new_predictions, new_picks
 
 
+def _seed_filler(
+    conn: Connection,
+    data: dict[str, Any],
+    models: dict[str, Any],
+    week_data: dict[str, Any],
+    team_ids: dict[str, int],
+    book_id: int,
+    version_id: int,
+) -> tuple[int, int, int]:
+    """week6_filler.json: its new teams, their ratings under the version's weekly runs, the
+    games, their lines and the week's predictions under the week's run (TASK-055). Returns the
+    number of new ratings, line snapshots and predictions."""
+    season = data["season"]
+    team_ids = {**team_ids, **_seed_teams(conn, data)}
+    starts = _week_starts(week_data)
+    prior = next(
+        b["fitted_params"]["prior_weight_by_week"]
+        for b in models["backtests"]
+        if b["version"] == data["version"]
+    )
+    weeks = models["ratings"]["weeks"]
+    runs = {w: _scheduled_run(conn, version_id, season, w, starts[w]) for w in weeks}
+    new_ratings = conn.execute(
+        text(
+            "INSERT INTO team_ratings (model_run_id, model_version_id, team_id, season,"
+            " season_type, week, as_of, rating, prior_weight, created_at)"
+            " VALUES (:run_id, :version_id, :team_id, :season, 'regular', :week, :as_of, :rating,"
+            " :prior_weight, :created_at) ON CONFLICT DO NOTHING"
+        ),
+        [
+            {
+                "run_id": runs[w][0],
+                "version_id": version_id,
+                "team_id": team_ids[r["team"]],
+                "season": season,
+                "week": w,
+                "as_of": starts[w],
+                "rating": r["by_week"][i],
+                "prior_weight": prior[str(w)],
+                "created_at": runs[w][1],
+            }
+            for r in data["ratings"]
+            for i, w in enumerate(weeks)
+        ],
+    ).rowcount
+
+    game_ids = _upsert_games(conn, season, data["games"], team_ids, {})
+    new_lines = _insert_lines(conn, data["games"], game_ids, book_id)
+    run_id, finished = runs[data["week"]]
+    new_predictions = conn.execute(
+        text(
+            "INSERT INTO predictions (model_run_id, model_version_id, game_id, created_at,"
+            " pred_margin, home_win_prob, margin_sd)"
+            " VALUES (:run_id, :version_id, :game_id, :created_at, :pred_margin, :home_win_prob,"
+            " :margin_sd) ON CONFLICT (model_run_id, game_id) DO NOTHING"
+        ),
+        [
+            {
+                "run_id": run_id,
+                "version_id": version_id,
+                "game_id": game_ids[p["game"]],
+                "created_at": finished,
+                "pred_margin": p["pred_margin"],
+                "home_win_prob": p["home_win_prob"],
+                "margin_sd": models["predictions"]["margin_sd"],
+            }
+            for p in data["predictions"]
+        ],
+    ).rowcount
+    return new_ratings, new_lines, new_predictions
+
+
 def seed_fixture() -> None:
     refuse_if_live("seed the fixture")
     url = resolve_test_database_url()
@@ -468,6 +541,7 @@ def seed_fixture() -> None:
     week = _load("week6.json")
     models = _load("models.json")
     picks = _load("picks.json")
+    filler = _load("week6_filler.json")
     with make_engine(url).begin() as conn:
         team_ids = _seed_teams(conn, teams)
         game_ids, lines, book_id = _seed_week(conn, week, team_ids)
@@ -475,10 +549,14 @@ def seed_fixture() -> None:
         more_lines, more_predictions, new_picks = _seed_picks(
             conn, picks, week, team_ids, game_ids, book_id, version_ids[picks["version"]]
         )
+        filler_ratings, filler_lines, filler_predictions = _seed_filler(
+            conn, filler, models, week, team_ids, book_id, version_ids[filler["version"]]
+        )
     print(
-        f"Seeded {len(teams['teams'])} fixture teams for {teams['season']}, "
-        f"{len(week['games']) + len(picks['games'])} games and {lines + more_lines} new line"
-        f" snapshots, {len(models['versions'])} model versions, {ratings} new ratings,"
-        f" {predictions + more_predictions} new predictions and {new_picks} new picks into the"
-        " test DB."
+        f"Seeded {len(teams['teams']) + len(filler['teams'])} fixture teams for"
+        f" {teams['season']}, {len(week['games']) + len(picks['games']) + len(filler['games'])}"
+        f" games and {lines + more_lines + filler_lines} new line snapshots,"
+        f" {len(models['versions'])} model versions, {ratings + filler_ratings} new ratings,"
+        f" {predictions + more_predictions + filler_predictions} new predictions and"
+        f" {new_picks} new picks into the test DB."
     )

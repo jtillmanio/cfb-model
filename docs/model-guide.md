@@ -67,7 +67,7 @@ Separately from that live path, the **backtest** replays 2014–2023 week by wee
 
 The engine has two weights:
 
-- **Light core** (`engine/core/`): pure math with only numpy, scipy and pydantic. It holds the spec, the probability formulas and the pick rules. The API imports *only* this, because the API runs as a Vercel function with a 250 MB size limit (CLAUDE.md hard rule 5).
+- **Light core** (`engine/core/`): pure math on pydantic and the standard library. It holds the spec, the probability formulas and the pick rules. The API installs the engine's base package and imports *only* this, because the API runs as a Vercel function with a 250 MB size limit (CLAUDE.md hard rule 5; TASK-055 put it in the API's install).
 - **Training stack** (the `train` extra: duckdb, pyarrow, numpy, boto3): ingest, transform, the models, the backtest. It runs on your machine or in GitHub Actions, never inside the API.
 
 Inside `python/engine/src/engine/`:
@@ -359,6 +359,8 @@ Other rules:
 - **Contest mode** (`core/contest_rules.py`, `contests/splash.py`): Splash has no vig (break-even 50%) and a fixed number of picks, so the rule becomes "rank the slate by cover probability against the contest's line and take the top N", not "everything over a threshold". Wired up in M6.
 
 **Writing picks** (`engine pick`, `publish/picks.py`, TASK-045, D-148). The writer reads only the database: the version's newest run for the week, its predictions and the newest line pull before each game's kickoff. It uses one book's line, one a bettor could take: consensus if it quoted, else DraftKings, else Bovada. In 2026 CFBD's pulls have no consensus quote, so it's DraftKings nearly always, at −110 since no prices come through. A game that has kicked off is skipped, because a pick made after kickoff would be hindsight and the views ignore it anyway. Run it again after a lines pull, and only games whose side or tier changed gain a row. The **expected value** stored with a pick uses the *displayed* probability, so for v1 it's near zero: a pick shown at 53% at −110 is about break-even. That's the honest reading of a model whose calibration gate failed. On production nobody runs it by hand: the Sunday `rate-and-predict` job writes the week's first picks and every `lines` run re-checks them (TASK-046), both from `scheduled` runs only, so an `engine rate` by hand never drives the live picks.
+
+**On This Week** (`/slate`, `api/slate.py`, TASK-055). A picked game shows the pick as it was made: the line, edge and probability at the moment it was written, and its CLV so far against the line now. Every game, picked or not, also shows the model's edge and cover probability against the **current** line, computed on read by the same `core` functions with the run's pick rules and margin distribution. That's why Ole Miss @ LSU reads +3.9 at the pick (LSU −2.5) and +4.9 now (−3.5). Nothing new is stored: the edge on a game without a pick depends on a line that keeps moving.
 
 ---
 

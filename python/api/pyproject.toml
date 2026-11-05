@@ -1,16 +1,18 @@
 [project]
 name = "cfb-api"
 version = "0.0.0"
-description = "FastAPI service: one endpoint per screen. Depends on the db package only, never engine[train]"
+description = "FastAPI service: one endpoint per screen. Depends on the db package and the engine's base install (its light core), never engine[train]"
 requires-python = ">=3.13,<3.14"
 dependencies = [
     "cfb-db",
+    "cfb-engine",
     "fastapi>=0.118",
     "pyjwt>=2.15.1",
 ]
 
 [tool.uv.sources]
 cfb-db = { workspace = true }
+cfb-engine = { workspace = true }
 
 [tool.vercel]
 entrypoint = "src.api.main:app"

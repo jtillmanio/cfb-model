@@ -1,5 +1,5 @@
 {
-  "_source": "design/sample-data.md §1 (week-6 model lines and win %), §2 (Texas vs Oklahoma drivers and σ), §4 (ratings entering week 6, with off/def), §7 (backtest summaries) and §8 (v1.0 settings, learned weights, versions); weekly ratings from the `traj` arrays in design/handoff/designs/rankings-data.js (preseason = entering week 1). The 18 filler teams' ratings are invented and stay below Utah every week, as do the 24 teams picks.json adds (from Tulane on; drawn once with a fixed seed, no ties in any week, TASK-040). pred_margin is home − away and home_win_prob is the home team's (§1 states both from the favorite's side); drivers are the §2 table in home − away points. The success_rate weight is per share of plays (the input registry's unit): §8's ×0.31 is per percentage point. Run times come from the fixture calendar in week6.json (TASK-034). Test DB only (D-089).",
+  "_source": "design/sample-data.md §1 (week-6 model lines and win %), §2 (Texas vs Oklahoma drivers and σ), §4 (ratings entering week 6, with off/def), §7 (backtest summaries) and §8 (v1.0 settings, learned weights, versions); weekly ratings from the `traj` arrays in design/handoff/designs/rankings-data.js (preseason = entering week 1). The 18 filler teams' ratings are invented and stay below Utah every week, as do the 24 teams picks.json adds (from Tulane on; drawn once with a fixed seed, no ties in any week, TASK-040). pred_margin is home − away and home_win_prob is the home team's (§1 states both from the favorite's side); drivers are the §2 table in home − away points. The success_rate weight is per share of plays (the input registry's unit): §8's ×0.31 is per percentage point. Run times come from the fixture calendar in week6.json (TASK-034). v1.0 fixes picks.market_shrinkage_k at 1.0, not the tuned 0.6 of the design's settings table: v1 fixes k at 1 (D-141) and its picks are unshrunk, so engine.core resolves its pick rules (TASK-055). Test DB only (D-089).",
   "sport": "cfb",
   "market": "spread",
   "name": "power",
@@ -34,7 +34,7 @@
         "picks": {
           "min_edge_pts": 2.5,
           "min_prob": 0.55,
-          "market_shrinkage_k": {"tune": [0.5, 0.6, 0.7]},
+          "market_shrinkage_k": 1.0,
           "tiers": {"A": 5.0, "B": 3.5, "C": 2.5}
         }
       }
@@ -127,8 +127,7 @@
         "prior_weight_by_week": {"1": 1.0, "2": 0.833, "3": 0.667, "4": 0.5, "5": 0.4, "6": 0.3, "7": 0.2, "8": 0.1},
         "choices": {
           "hyperparameters.ridge_alpha": 12.0,
-          "hyperparameters.recency_half_life_weeks": 4.0,
-          "picks.market_shrinkage_k": 0.6
+          "hyperparameters.recency_half_life_weeks": 4.0
         },
         "importance": {
           "pass_offense": 0.31, "pass_defense": 0.22, "rush_offense": 0.15, "rush_defense": 0.13,

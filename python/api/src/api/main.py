@@ -10,18 +10,19 @@ from __future__ import annotations
 
 import os
 from functools import cache
-from typing import Any
+from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, FastAPI
+from fastapi import APIRouter, Depends, FastAPI, HTTPException, Query
 from pydantic import BaseModel
 from sqlalchemy import Engine, text
 
 from db.config import app_database_url, load_env
 from db.session import make_engine
 
-from . import clock, shell
+from . import clock, shell, slate
 from .auth import require_api_token
 from .shell import ShellOut
+from .slate import SeasonType, SlateOut
 from .wave import run_wave
 
 load_env()
@@ -92,6 +93,25 @@ def teams() -> TeamsOut:
             for r in rows
         ],
     )
+
+
+@router.get("/slate")
+def get_slate(
+    season: int | None = None,
+    season_type: SeasonType | None = None,
+    week: Annotated[int | None, Query(ge=1)] = None,
+) -> SlateOut:
+    """This Week (slate.py): the week asked for, all three of season, season type and week, or
+    with none of them the coming week. Five queries in one wave (budget: ≤ 6)."""
+    asked = (season, season_type, week)
+    if any(v is None for v in asked) and any(v is not None for v in asked):
+        raise HTTPException(422, "give season, season_type and week together, or none of them")
+    chosen = None if season is None or season_type is None or week is None else (
+        season, season_type, week
+    )  # fmt: skip
+    now = clock.now()
+    found = run_wave(engine(), slate.queries(now, shell.SPORT, chosen))
+    return slate.slate_from(found, now, chosen)
 
 
 @router.get("/openapi.json", include_in_schema=False)

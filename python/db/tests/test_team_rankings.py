@@ -174,11 +174,13 @@ def test_seeded_week_6_order_and_change(db_conn: Connection):
     among its FBS teams."""
     teams = json.loads((SEEDS / "teams.json").read_text("utf-8"))
     ratings = json.loads((SEEDS / "models.json").read_text("utf-8"))["ratings"]
-    fbs = {t["source_id"] for t in teams["teams"] if t["division"] == "fbs"}
+    filler = json.loads((SEEDS / "week6_filler.json").read_text("utf-8"))  # TASK-055
+    fbs = {t["source_id"] for t in teams["teams"] + filler["teams"] if t["division"] == "fbs"}
     weeks = ratings["weeks"]
+    seeded = ratings["teams"] | {r["team"]: r["by_week"] for r in filler["ratings"]}
 
     def expected(week: int) -> dict[str, int]:
-        by_team = {t: r[weeks.index(week)] for t, r in ratings["teams"].items() if t in fbs}
+        by_team = {t: r[weeks.index(week)] for t, r in seeded.items() if t in fbs}
         return {t: 1 + sum(o > r for o in by_team.values()) for t, r in by_team.items()}
 
     week6, week5 = expected(6), expected(5)

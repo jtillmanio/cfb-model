@@ -1,14 +1,14 @@
 ---
 id: TASK-055
 title: Build the /slate endpoint
-status: Ready
+status: In progress
 depends_on: [TASK-052, TASK-053]
 size: M
 model: opus
 autonomy: attended
 ui: false
-plan_status: none
-planned_at_commit:
+plan_status: approved
+planned_at_commit: af8e6d1
 ---
 
 # TASK-055 — Build the /slate endpoint
@@ -71,9 +71,34 @@ One API call returns everything This Week shows for a week: every game with its 
 
 _Work noticed during this task and deliberately left out. Each bullet ends `→ <path> § <section>` (where it was placed) or `→ not tracked: <reason>`. See `.claude/skills/track-follow-ups/classify.md`; the PR's Follow-ups section is copied from here._
 
+- TASK-056's AC-2 expects "59%" for Purdue @ Ohio State, but the fixture's pick and `engine.core` give Φ(3.7/13.8) = 60.6%: the screen should print the response's number (approved at plan)
+- Decisions A–C below (the engine in the API's install, the fixture's v1.0 k = 1, edge and cover against the current line) as a decisions-log row (approved at plan)
+
 ## Plan
 
-_Written by /plan-batch or /implement-task Phase 1. Approved by the user (plan_status: approved) before any code is written._
+Approved 2026-11-05 with decisions A–D.
+
+**Decisions.** A: the API reaches `engine.core` by installing the engine package itself: `httpx` moves from the engine's base dependencies to its `train` extra (only `engine/ingest/cfbd.py` imports it; the jobs install `[train]` through the dev group), `cfb-api` depends on `cfb-engine`, `uv lock`. No third-party package joins the API install. B: the fixture's v1.0 spec fixes `picks.market_shrinkage_k` at 1.0 (D-141; its picks are unshrunk already) and its backtest drops the stale 0.6 choice, so `engine.core` can resolve its pick rules. C: each game's edge, side and cover are against the current line (the design's Ole Miss +4.9 now vs +3.9 at the pick); the `pick` block carries the pick's own line, edge, probability, tier, `picked_at`, `clv_so_far`, `clv`, result and units. D: the local test DB is rebuilt (drop and recreate `public` on `TEST_DATABASE_URL`, migrate, seed), since a re-seed reuses the v1.0 row.
+
+**Steps**
+
+1. Install: engine `httpx` → `train` extra; `cfb-api` depends on `cfb-engine`; `uv lock`. `test_bundle.py`: `API_PACKAGES` unchanged; the moot `cfb-engine` check (hidden by `--no-emit-workspace`) is replaced by a subprocess test that `import api.main` loads no numpy, httpx, pyarrow, duckdb, boto3 or `engine.sports`, and a scan that `api/src` imports only `engine.core`.
+2. Filler: `python/db/seeds/fixture/generate_filler.py` (fixed seed) writes `week6_filler.json`: 40 week-6 games between the 18 unused teams whose schedules the design doesn't fix and 62 new FBS teams (ratings weeks 1–6 below Utah every week, no ties), kickoffs Sat 3:30 PM ET or later (scheduled, no scores), opening + Sun + Thu snapshots, v1.0 predictions with |edge| < 1.0 at the current line. `fixture.py` loads it.
+3. `models.json`: v1.0 `market_shrinkage_k` 1.0, backtest choices without it.
+4. `shell.py`: its coming-week and shown-version SQL as shared fragments (no behaviour change).
+5. `slate.py`: one wave of 5 queries (shell; games with teams, division, rank entering the week, venue, `game_market` open/current/close and the prediction from the week's newest succeeded run; line pulls up to the clock; `current_picks` + `pick_outcomes`; the shown version's spec and the run's params). Rules = spec resolved with the run's choices; distribution = the run's empirical weights, else a normal margin at the prediction's σ; edge, side, cover against the current line through `engine.core`; a final game's cover result against the close, else the current line. Unresolvable rules → rules and computed fields null. Response models.
+6. `main.py`: `GET /api/py/slate?season&season_type&week` (all three or none, else 422).
+7. `pnpm api:types`; `docs/02` › Components 1 (what the API installs) and › Seed data (the filler as built).
+
+**Files**: `python/engine/pyproject.toml`, `python/api/pyproject.toml`, `python/uv.lock` (by `uv lock`), `python/api/tests/test_bundle.py` (not in "Files likely touched": decision A), `python/db/seeds/fixture/generate_filler.py` + `week6_filler.json` (new; in place of editing `teams.json`/`week6.json`), `python/db/seeds/fixture/models.json`, `python/engine/src/engine/fixture.py`, `python/api/src/api/shell.py` (not listed: shared CTEs), `python/api/src/api/slate.py` (new), `python/api/src/api/main.py`, `python/api/tests/test_api_slate.py` (new), `python/db/tests/test_filler_schema.py` (new), `python/db/tests/test_model_schema.py` (FBS count, choices), `python/db/tests/test_team_rankings.py` (reads the filler file), `web/lib/api-types.ts`, `docs/02-architecture.md`, `docs/model-guide.md` (added in Phase 2: CLAUDE.md asks for it when the pipeline changes; the light-core bullet and § 7's This Week note).
+
+**Test strategy**
+
+- AC-1 to AC-5: `python/api/tests/test_api_slate.py` — the fixture slate at the slate clock (counts, rules, shell), Purdue @ Ohio State and Kansas State @ Utah against the views and `engine.core` called directly, the row states, the Ole Miss @ LSU and Tulane @ Memphis picks, week 5, the off-season clock, and a no-lines week built under `model_rows`' throwaway sport through `slate.load(conn, …)`.
+- AC-6: the same file — a barrier counts 5 statements in one wave; no token and a bad token are rejected; `pnpm test`'s drift check (`web/lib/api-types.test.ts`) covers the generated types.
+- Filler: `python/db/tests/test_filler_schema.py` — the file equals `build()`, every edge < 1.0, ratings below Utah with no ties.
+
+**Risks**: the engine as a workspace dependency of the API is proven on Vercel only by the preview deploy (and `/api/py/health` there, which imports `api.main`).
 
 ## Review log
 
