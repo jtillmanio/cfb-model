@@ -1,7 +1,7 @@
 ---
 id: TASK-054
 title: Build the app shell and global states
-status: In progress
+status: Review
 depends_on: [TASK-050, TASK-053]
 size: M
 model: opus
@@ -29,12 +29,12 @@ Every signed-in screen sits in the designed app shell: a desktop sidebar with th
 
 ## Acceptance criteria
 
-- [ ] AC-1: Signed in on the seeded test DB at 1440, `/teams` shows the 224px sidebar with the seven nav items in the design's order and icons, Teams marked active, and the track-record card showing the response's shell record (formatted by `web/lib/format.ts`, labelled "2026 live") linking to `/performance`; the top bar shows "2026 · Week 6" and "Updated Sat 9:00 AM ET" (the fixture's newest line snapshot; TASK-053's AC-1, approved 2026-11-04).
-- [ ] AC-2: At 768 the sidebar is replaced by the top-bar navigation drawn in C16c; at 390 the bottom tab bar shows This Week, Picks, Contest, Rankings and More, every tab ≥ 44px tall, and More opens Teams, Performance, Lab and Settings (B8a); no width scrolls horizontally.
-- [ ] AC-3: With the API stopped, `/teams` shows the "API unreachable" state with a Retry button and no saved-copy sentence; after the API restarts, Retry loads the data (e2e journey 8, 02 › Testing strategy).
-- [ ] AC-4: With the API answering after a delay longer than 1.5 s (e2e's existing cold-API server, `web/e2e/cold-api.mjs`), the "Waking up the database…" note appears after 1.5 s and the page then loads without an error.
-- [ ] AC-5: When the shell block's stale flag is true, a neutral banner reads "Lines last updated <time> ET · Refresh" at the top of the content (C16a desktop, C16b mobile); when false, no banner is drawn (component test with both flags; e2e on whichever the fixture state gives).
-- [ ] AC-6: The shell's track-record card, nav and banners use tokens only (hard rule 7, TASK-050's scan passes), `/teams` still makes exactly one API call per request (a test counts the server-side fetches), and every new top-level page has its Lighthouse route and fixture budget (`web/lib/perf.test.ts` passes).
+- [x] AC-1: Signed in on the seeded test DB at 1440, `/teams` shows the 224px sidebar with the seven nav items in the design's order and icons, Teams marked active, and the track-record card showing the response's shell record (formatted by `web/lib/format.ts`, labelled "2026 live") linking to `/performance`; the top bar shows "2026 · Week 6" and "Updated Sat 9:00 AM ET" (the fixture's newest line snapshot; TASK-053's AC-1, approved 2026-11-04).
+- [x] AC-2: At 768 the sidebar is replaced by the top-bar navigation drawn in C16c; at 390 the bottom tab bar shows This Week, Picks, Contest, Rankings and More, every tab ≥ 44px tall, and More opens Teams, Performance, Lab and Settings (B8a); no width scrolls horizontally.
+- [x] AC-3: With the API stopped, `/teams` shows the "API unreachable" state with a Retry button and no saved-copy sentence; after the API restarts, Retry loads the data (e2e journey 8, 02 › Testing strategy).
+- [x] AC-4: With the API answering after a delay longer than 1.5 s (e2e's existing cold-API server, `web/e2e/cold-api.mjs`), the "Waking up the database…" note appears after 1.5 s and the page then loads without an error.
+- [x] AC-5: When the shell block's stale flag is true, a neutral banner reads "Lines last updated <time> ET · Refresh" at the top of the content (C16a desktop, C16b mobile); when false, no banner is drawn (component test with both flags; e2e on whichever the fixture state gives).
+- [x] AC-6: The shell's track-record card, nav and banners use tokens only (hard rule 7, TASK-050's scan passes), `/teams` still makes exactly one API call per request (a test counts the server-side fetches), and every new top-level page has its Lighthouse route and fixture budget (`web/lib/perf.test.ts` passes).
 
 ## Out of scope
 
@@ -63,6 +63,12 @@ Every signed-in screen sits in the designed app shell: a desktop sidebar with th
 _Work noticed during this task and deliberately left out. Each bullet ends `→ <path> § <section>` (where it was placed) or `→ not tracked: <reason>`. See `.claude/skills/track-follow-ups/classify.md`; the PR's Follow-ups section is copied from here._
 
 - Production builds hide server error messages, so `error.tsx` can't tell a down API from any other failure of the page's data (an expired token's 401, a 500). Every failure reads "Couldn't reach the server" → not tracked: the design draws one error state; a second one needs a design pass first
+- This Week sits in the shell the same way Teams does (`AppShell`, its `loading.tsx` / `error.tsx`, `raceWakeNote`), the shell draws the stale banner, and the top bar's week box is a static label where stepping arrows would go → docs/tasks/TASK-056-this-week-slate.md § Context
+- The shell's Account row (the sidebar's bottom row and More's Account section, B8a) is left out: it needs the GitHub login and belongs with Account's Sign out → docs/08-tasklist.md § M8 › M8.8
+- How the shell is drawn (page not layout, More as a `popover` sheet, server-side wake note, `retry()`, `prefetch={false}` nav links) → docs/decisions.md § D-157
+- The dev database is at migration 0003 while the code is at 0005, so `/teams` on `pnpm dev` returns a 500 from the API → not tracked: local dev database state, not code; `pnpm db:migrate` brings it up to date (owner's call)
+- ui-verifier's headless Chromium saw `next dev`'s HMR websocket fail (`ERR_INVALID_HTTP_RESPONSE`) and the page not hydrate → not tracked: seen in one `next dev` session with the cause unconfirmed (`proxy.ts` already skips `_next/`); the production build hydrates in e2e and in ui-verifier's second run
+- The stale banner's present side is proven by the component test, not e2e (the fixture at the slate's time isn't stale) → not tracked: AC-5 asks e2e for the fixture's own state; checked by hand on a production build with the API clock at Sat 2026-10-10 8:30 AM ET, where the newest pull (Thu 9:02 PM ET) is over 24 h old and the banner reads "Lines last updated Thu 9:02 PM ET · Refresh" at 1440 and 390
 
 ## Plan
 
@@ -120,13 +126,15 @@ Size check: 19–20 files, UI only (no schema) → passes at the 20-file limit. 
 
 _Filled by /implement-task. One line per round._
 
+Verify R1 PASS | Audit R1 PASS (no blocking; AC-6's one-call test is a regression guard, shown to fail with a second fetch) | Spec R1 APPROVE (plan step 5, the `teams` budget, pending the PR's fixture run) | UI R1 NOT RUN (dev DB behind on migrations) → R2 PASS on fixture production builds (AC-1, AC-2, AC-5 fresh side, AC-6 tokens); AC-5 stale side checked by hand, not independently
+
 ## Blocked
 
 _Only if status is Blocked: what failed, what was tried, best hypothesis, decision needed._
 
 ## Metrics
 
-- Verify rounds:
-- Review rounds:
-- First-pass AC FAILs:
-- Plan revisions after approval:
+- Verify rounds: 1
+- Review rounds: 1 spec, 2 UI (the first blocked by the dev environment)
+- First-pass AC FAILs: 0
+- Plan revisions after approval: 1 (Retry uses error.js's `retry()` instead of `router.refresh()` + `reset()`)
