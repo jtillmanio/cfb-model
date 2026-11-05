@@ -379,12 +379,13 @@ def test_v1_0s_backtest_carries_its_metrics_and_weights(db_conn: Connection):
         "pass_epa_per_play": 31.0, "rush_epa_per_play": 24.0, "success_rate": 31.0,
     }  # fmt: skip
     assert fitted["margin_sd"] == 13.8
+    # § 8's choices, less its market shrinkage: v1.0 fixes k at 1 (D-141, TASK-055).
     assert fitted["choices"] == {
         "hyperparameters.ridge_alpha": 12.0,
         "hyperparameters.recency_half_life_weeks": 4.0,
-        "picks.market_shrinkage_k": 0.6,
     }
     v1 = ModelSpec.model_validate(_seeded_versions(db_conn)["v1.0"]["spec"])
+    assert v1.picks.market_shrinkage_k == 1.0
     assert v1.resolve(fitted["choices"]).is_resolved
 
 
@@ -415,7 +416,9 @@ def test_every_fbs_team_is_rated_entering_weeks_5_and_6(db_conn: Connection):
             )
         ).scalars()
     )
-    assert len(fbs) == 52  # 28 from the slate and rankings, 24 more for the picks (TASK-040)
+    # 28 from the slate and rankings, 24 more for the picks (TASK-040), 62 for the filler games
+    # (TASK-055).
+    assert len(fbs) == 114
     for week in (5, 6):
         assert set(_ranks(db_conn, week)) == fbs
 
@@ -461,7 +464,8 @@ def test_each_week_6_game_has_one_v1_prediction(db_conn: Connection):
             " GROUP BY g.source_id"
         )
     ).all()
-    assert len(rows) == 14  # the 11 slate games and the 3 picks.json adds (TASK-040)
+    # The 11 slate games, the 3 picks.json adds (TASK-040) and the 40 filler games (TASK-055).
+    assert len(rows) == 54
     assert {r.source_id: r.n for r in rows} == {r.source_id: 1 for r in rows}
     for r in rows:
         assert r.created_at < r.kickoff  # made before the game

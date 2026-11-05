@@ -60,24 +60,27 @@ class ShellOut(BaseModel):
 # Each CTE reads only the ones before it, and each is one row at most. The record and pick reads
 # filter the views by scalar subqueries, which Postgres applies at the picks scan (the views'
 # partitions and GROUP BY hold the version and season), so only the shown version is graded.
-_CUTOFF = "coalesce(g.kickoff_at, (g.game_date + 1)::timestamp AT TIME ZONE 'America/New_York')"
+CUTOFF = "coalesce(g.kickoff_at, (g.game_date + 1)::timestamp AT TIME ZONE 'America/New_York')"
 
-SHELL_SQL = text(
-    f"""
-    WITH coming AS (
+# The coming week and the shown version, shared with the other screens' statements (slate.py) so
+# every screen agrees with its shell. `SHOWN` reads `SEASON`, which reads `COMING`.
+COMING = f"""coming AS (
         SELECT g.season, g.season_type, g.week
         FROM games g
-        WHERE g.sport_id = :sport AND {_CUTOFF} > :now
-        ORDER BY {_CUTOFF}, g.season_type = 'postseason', g.week
+        WHERE g.sport_id = :sport AND {CUTOFF} > :now
+        ORDER BY {CUTOFF}, g.season_type = 'postseason', g.week
         LIMIT 1
-    ),
-    season AS (
+    )"""
+
+# The season the shown version is chosen for: the coming week's, else the latest with games.
+SEASON = """season AS (
         SELECT coalesce(
             (SELECT season FROM coming),
             (SELECT max(season) FROM games WHERE sport_id = :sport)
         ) AS season
-    ),
-    shown AS (
+    )"""
+
+SHOWN = """shown AS (
         SELECT v.id, v.name, v.version
         FROM model_versions v
         WHERE v.sport_id = :sport
@@ -99,7 +102,13 @@ SHELL_SQL = text(
             )
         ORDER BY v.status = 'production' DESC, v.created_at DESC, v.id DESC
         LIMIT 1
-    ),
+    )"""
+
+SHELL_SQL = text(
+    f"""
+    WITH {COMING},
+    {SEASON},
+    {SHOWN},
     record AS (
         SELECT r.wins, r.losses, r.pushes, r.win_pct, r.units, r.avg_clv
         FROM model_record r

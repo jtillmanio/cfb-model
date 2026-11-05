@@ -143,6 +143,7 @@ version = "0.0.0"
 source = { editable = "api" }
 dependencies = [
     { name = "cfb-db" },
+    { name = "cfb-engine" },
     { name = "fastapi" },
     { name = "pyjwt" },
 ]
@@ -150,6 +151,7 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "cfb-db", editable = "db" },
+    { name = "cfb-engine", editable = "engine" },
     { name = "fastapi", specifier = ">=0.118" },
     { name = "pyjwt", specifier = ">=2.15.1" },
 ]
@@ -179,7 +181,6 @@ version = "0.0.0"
 source = { editable = "engine" }
 dependencies = [
     { name = "cfb-db" },
-    { name = "httpx" },
     { name = "pydantic" },
     { name = "tzdata" },
 ]
@@ -188,6 +189,7 @@ dependencies = [
 train = [
     { name = "boto3" },
     { name = "duckdb" },
+    { name = "httpx" },
     { name = "numpy" },
     { name = "pyarrow" },
 ]
@@ -197,7 +199,7 @@ requires-dist = [
     { name = "boto3", marker = "extra == 'train'", specifier = ">=1.43.114" },
     { name = "cfb-db", editable = "db" },
     { name = "duckdb", marker = "extra == 'train'", specifier = ">=1.5.6" },
-    { name = "httpx", specifier = ">=0.28" },
+    { name = "httpx", marker = "extra == 'train'", specifier = ">=0.28" },
     { name = "numpy", marker = "extra == 'train'", specifier = ">=2.5.4" },
     { name = "pyarrow", marker = "extra == 'train'", specifier = ">=26.0.0" },
     { name = "pydantic", specifier = ">=2.13.5" },

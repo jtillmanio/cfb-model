@@ -3,9 +3,11 @@ name = "cfb-engine"
 version = "0.0.0"
 description = "Model engine: ingest, publish, and (later) ratings, predictions and backtests"
 requires-python = ">=3.13,<3.14"
+# The base install is what the API runs (D-004): engine.core needs only pydantic. The ingest
+# client's httpx and the training and lake stack are the `train` extra, which the jobs install
+# through the workspace's dev group (D-114, D-126, TASK-055).
 dependencies = [
     "cfb-db",
-    "httpx>=0.28",
     "pydantic>=2.13.5",
     "tzdata>=2025.2",
 ]
@@ -17,6 +19,7 @@ engine = "engine.cli:main"
 train = [
     "boto3>=1.43.114",
     "duckdb>=1.5.6",
+    "httpx>=0.28",
     "numpy>=2.5.4",
     "pyarrow>=26.0.0",
 ]
