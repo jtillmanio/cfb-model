@@ -1,7 +1,7 @@
 ---
 id: TASK-055
 title: Build the /slate endpoint
-status: In progress
+status: Review
 depends_on: [TASK-052, TASK-053]
 size: M
 model: opus
@@ -35,12 +35,12 @@ One API call returns everything This Week shows for a week: every game with its 
 
 ## Acceptance criteria
 
-- [ ] AC-1: Given the seeded test DB and the clock at Sat 2026-10-10 2:15 PM ET, `GET /api/py/slate` (no week given) returns season 2026, season type `regular`, week 6, 54 games, a pick count of 9, the shown version's pick rules (min edge, min cover, tier cut-offs from its spec) and TASK-053's shell block.
-- [ ] AC-2: For Purdue @ Ohio State the response gives the opening and current spreads, one entry per line snapshot captured before the clock, the model line, an edge of 3.7 to OSU, the cover probability, tier B and OSU's win probability, matching the fixture rows and `engine.core`'s calculation on them; for Kansas State @ Utah the edge is 0.6 to Utah with no pick.
-- [ ] AC-3: Row states come back as data: UNLV @ Boise State `final` with 24 and 31 and its cover result; Purdue @ Ohio State and Iowa @ Wisconsin `in_progress` with their scores; Furman @ Clemson with no market lines and Furman marked FCS; Texas vs Oklahoma neutral-site with its venue's city; each team with id, abbreviation, school, colour, `logo_url` and its rank entering the week.
-- [ ] AC-4: The Ole Miss @ LSU pick returns the line it was picked at (−2.5) and when, the current line (−3.5), and `clv_so_far` −1.0 before kickoff (D-140's sign), from `pick_outcomes`; a graded week-6 pick (Tulane @ Memphis) returns `result` won and its units.
-- [ ] AC-5: `GET /api/py/slate?season=2026&season_type=regular&week=5` returns week 5's games; given the clock at Mon 2027-02-08 6:00 AM ET and no week, it returns 200 with no games and an off-season marker; given a week whose games have no lines yet, each game returns its model line with null market fields and null edge.
-- [ ] AC-6: The endpoint runs at most 6 queries in one concurrent wave on the seeded DB (a test counts them; if the plan needs more, the reason is written in `docs/02-architecture.md` › Non-functional requirements); it rejects a missing or bad JWT; the generated TypeScript types include it (TASK-052's drift check passes).
+- [x] AC-1: Given the seeded test DB and the clock at Sat 2026-10-10 2:15 PM ET, `GET /api/py/slate` (no week given) returns season 2026, season type `regular`, week 6, 54 games, a pick count of 9, the shown version's pick rules (min edge, min cover, tier cut-offs from its spec) and TASK-053's shell block.
+- [x] AC-2: For Purdue @ Ohio State the response gives the opening and current spreads, one entry per line snapshot captured before the clock, the model line, an edge of 3.7 to OSU, the cover probability, tier B and OSU's win probability, matching the fixture rows and `engine.core`'s calculation on them; for Kansas State @ Utah the edge is 0.6 to Utah with no pick.
+- [x] AC-3: Row states come back as data: UNLV @ Boise State `final` with 24 and 31 and its cover result; Purdue @ Ohio State and Iowa @ Wisconsin `in_progress` with their scores; Furman @ Clemson with no market lines and Furman marked FCS; Texas vs Oklahoma neutral-site with its venue's city; each team with id, abbreviation, school, colour, `logo_url` and its rank entering the week.
+- [x] AC-4: The Ole Miss @ LSU pick returns the line it was picked at (−2.5) and when, the current line (−3.5), and `clv_so_far` −1.0 before kickoff (D-140's sign), from `pick_outcomes`; a graded week-6 pick (Tulane @ Memphis) returns `result` won and its units.
+- [x] AC-5: `GET /api/py/slate?season=2026&season_type=regular&week=5` returns week 5's games; given the clock at Mon 2027-02-08 6:00 AM ET and no week, it returns 200 with no games and an off-season marker; given a week whose games have no lines yet, each game returns its model line with null market fields and null edge.
+- [x] AC-6: The endpoint runs at most 6 queries in one concurrent wave on the seeded DB (a test counts them; if the plan needs more, the reason is written in `docs/02-architecture.md` › Non-functional requirements); it rejects a missing or bad JWT; the generated TypeScript types include it (TASK-052's drift check passes).
 
 ## Out of scope
 
@@ -71,8 +71,15 @@ One API call returns everything This Week shows for a week: every game with its 
 
 _Work noticed during this task and deliberately left out. Each bullet ends `→ <path> § <section>` (where it was placed) or `→ not tracked: <reason>`. See `.claude/skills/track-follow-ups/classify.md`; the PR's Follow-ups section is copied from here._
 
-- TASK-056's AC-2 expects "59%" for Purdue @ Ohio State, but the fixture's pick and `engine.core` give Φ(3.7/13.8) = 60.6%: the screen should print the response's number (approved at plan)
-- Decisions A–C below (the engine in the API's install, the fixture's v1.0 k = 1, edge and cover against the current line) as a decisions-log row (approved at plan)
+- TASK-056's AC-2 expects "59%" for Purdue @ Ohio State, but the fixture's pick and `engine.core` give Φ(3.7/13.8) = 60.6%: the screen should print the response's number; also how `/slate` reads → docs/tasks/TASK-056-this-week-slate.md § Context (approved at plan)
+- Decisions A–C (the engine in the API's install, the fixture's v1.0 k = 1, edge and cover against the current line), with the one-clock rule and the consensus-else-median current line (schema review), amending D-004 and D-126 → docs/decisions.md § D-158 (approved at plan)
+- `.claude/rules/python.md` still described the API's dependency as the light core "(numpy, scipy, pydantic)" → .claude/rules/python.md § Python rules (approved at close-out)
+- The live period and clock ("Q3 9:12") need two columns on `games`, which M6.8's `scores` job would fill; nothing M6.8 reads said so → docs/03-data-model.md § Proposed additions from the 2026-11-01 features (approved at close-out)
+- `engine/core/__init__.py`'s docstring also said "numpy, scipy and pydantic only" → not tracked: done in this PR (plan revision, approved at close-out)
+- `game_market` reports a pull that quoted only totals or moneylines as a NULL spread, so `pick_outcomes`' CLV and `clv_so_far` go NULL (schema review R2) → docs/tasks/TASK-060-game-market-spreadless-pulls.md (new, Draft)
+- Under a fixture clock a pick superseded after it is hidden along with its successor (`is_current` is ranked over every pick) → not tracked: fixture-time only, production never has a pick after now; documented in `api/slate.py`, and no fixture game is picked twice
+- `team_rankings` isn't bounded by the API clock → not tracked: a week's ranks come from the run entering it, which finishes before the week (schema review R1, accepted as is)
+- The test auditor's backup copies in `C:/tmp_audit_bk/` (outside the project; the guard blocked its delete) → not tracked: asked the owner in the session
 
 ## Plan
 
@@ -90,7 +97,7 @@ Approved 2026-11-05 with decisions A–D.
 6. `main.py`: `GET /api/py/slate?season&season_type&week` (all three or none, else 422).
 7. `pnpm api:types`; `docs/02` › Components 1 (what the API installs) and › Seed data (the filler as built).
 
-**Files**: `python/engine/pyproject.toml`, `python/api/pyproject.toml`, `python/uv.lock` (by `uv lock`), `python/api/tests/test_bundle.py` (not in "Files likely touched": decision A), `python/db/seeds/fixture/generate_filler.py` + `week6_filler.json` (new; in place of editing `teams.json`/`week6.json`), `python/db/seeds/fixture/models.json`, `python/engine/src/engine/fixture.py`, `python/api/src/api/shell.py` (not listed: shared CTEs), `python/api/src/api/slate.py` (new), `python/api/src/api/main.py`, `python/api/tests/test_api_slate.py` (new), `python/db/tests/test_filler_schema.py` (new), `python/db/tests/test_model_schema.py` (FBS count, choices), `python/db/tests/test_team_rankings.py` (reads the filler file), `web/lib/api-types.ts`, `docs/02-architecture.md`, `docs/model-guide.md` (added in Phase 2: CLAUDE.md asks for it when the pipeline changes; the light-core bullet and § 7's This Week note).
+**Files**: `python/engine/pyproject.toml`, `python/api/pyproject.toml`, `python/uv.lock` (by `uv lock`), `python/api/tests/test_bundle.py` (not in "Files likely touched": decision A), `python/db/seeds/fixture/generate_filler.py` + `week6_filler.json` (new; in place of editing `teams.json`/`week6.json`), `python/db/seeds/fixture/models.json`, `python/engine/src/engine/fixture.py`, `python/api/src/api/shell.py` (not listed: shared CTEs), `python/api/src/api/slate.py` (new), `python/api/src/api/main.py`, `python/api/tests/test_api_slate.py` (new), `python/db/tests/test_filler_schema.py` (new), `python/db/tests/test_model_schema.py` (FBS count, choices), `python/db/tests/test_team_rankings.py` (reads the filler file), `web/lib/api-types.ts`, `docs/02-architecture.md`, `docs/model-guide.md` (added in Phase 2: CLAUDE.md asks for it when the pipeline changes; the light-core bullet and § 7's This Week note). Review fixes added `python/engine/tests/test_fixture_seed.py` (the seeder's drift refusal). Close-out added `python/engine/src/engine/core/__init__.py` (its docstring, approved at close-out).
 
 **Test strategy**
 
@@ -104,13 +111,15 @@ Approved 2026-11-05 with decisions A–D.
 
 _Filled by /implement-task. One line per round._
 
+- Verify R1 PASS | Audit R1 CHANGES (1 non-discriminating: the light-core import scan passed with nothing to find) → fixed and checked against main | Spec R1 APPROVE | Schema R1 CHANGES (2 major: `pick_outcomes` read below its window unfiltered; the database's and the API's clocks mixed; 3 minor) → fixed (EXPLAIN tests, one clock, the shell's season rule, a drift refusal in the seeder) | Verify R2 PASS | Schema R2 APPROVE (2 minor docstrings, fixed) | UI not run (`ui: false`; the only web change is the generated types)
+
 ## Blocked
 
 _Only if status is Blocked: what failed, what was tried, best hypothesis, decision needed._
 
 ## Metrics
 
-- Verify rounds:
-- Review rounds:
-- First-pass AC FAILs:
-- Plan revisions after approval:
+- Verify rounds: 2
+- Review rounds: 2
+- First-pass AC FAILs: 0
+- Plan revisions after approval: 2 (`docs/model-guide.md` added in Phase 2; `engine/core/__init__.py`'s docstring at close-out)

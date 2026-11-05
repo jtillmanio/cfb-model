@@ -1,5 +1,5 @@
-"""The engine's light core: sport- and platform-agnostic, numpy, scipy and pydantic only, so the
-API can import it (D-004). It never imports `engine.sports` (D-022)."""
+"""The engine's light core: sport- and platform-agnostic, pydantic and the standard library only,
+so the API can import it (D-004, D-158). It never imports `engine.sports` (D-022)."""
 
 from engine.core.inputs import INPUT_IDS, INPUTS, InputDef
 from engine.core.interfaces import (

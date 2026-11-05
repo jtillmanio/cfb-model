@@ -282,6 +282,7 @@ For F-51 to F-59 ([04 § 11](04-model.md), D-146, D-147). A rough shape, reviewe
 - **Position-group ratings** (M19.6, research): per model run, team, season, week and group. If they're unit-style components, they fit `team_ratings.components` with no change; if they need player-level storage, the research decides and proposes it.
 - **Per-team input values** (M21.1): what the team page's model profile needs that isn't stored per team and week today, mainly the prior's parts (last season's rating, returning production, talent, recruiting) and its weight. Model outputs tied to the run, insert-only; a `components`-style `jsonb` or a table is decided at the plan gate.
 - **Active model versions** (M23.1): `model_versions.status` (`candidate`, `production`) may be enough; a separate active flag or a cap setting is a schema change if needed.
+- **Live game clock** (M6.8, from TASK-055): `games` has `status` and the scores but no period or game clock, so a live row can't show "Q3 9:12" (sample-data § 1, F-01). Two nullable columns, e.g. `period` and `clock`, filled by the `scores` job from CFBD's `/scoreboard` and cleared when the game is final; `/slate` returns them once they exist.
 - **Not stored:** game difficulty, best and bad results, quad records, résumé rank and per-game offensive and defensive results (views over games, ratings and `team_game_stats`); the plain-sentence reasons (rendered from `drivers` on read); team logos (already `teams.logo_url`).
 
 ### Later: history & coaches (proposed, not approved)
