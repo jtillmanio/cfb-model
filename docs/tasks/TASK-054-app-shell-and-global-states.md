@@ -69,6 +69,7 @@ _Work noticed during this task and deliberately left out. Each bullet ends `→ 
 - The dev database is at migration 0003 while the code is at 0005, so `/teams` on `pnpm dev` returns a 500 from the API → not tracked: local dev database state, not code; `pnpm db:migrate` brings it up to date (owner's call)
 - ui-verifier's headless Chromium saw `next dev`'s HMR websocket fail (`ERR_INVALID_HTTP_RESPONSE`) and the page not hydrate → not tracked: seen in one `next dev` session with the cause unconfirmed (`proxy.ts` already skips `_next/`); the production build hydrates in e2e and in ui-verifier's second run
 - The stale banner's present side is proven by the component test, not e2e (the fixture at the slate's time isn't stale) → not tracked: AC-5 asks e2e for the fixture's own state; checked by hand on a production build with the API clock at Sat 2026-10-10 8:30 AM ET, where the newest pull (Thu 9:02 PM ET) is over 24 h old and the banner reads "Lines last updated Thu 9:02 PM ET · Refresh" at 1440 and 390
+- The shell's markup is in every shell page's document once per width (sidebar, the 768 nav row, the phone tab bar and the More sheet) and twice over (loading fallback and page, HTML and RSC), about 16 KB on `/teams`; one nav list restyled per breakpoint would cut it → not tracked: accepted with the `teams` budget raise in this PR; revisit if a later screen's budget is tight
 
 ## Plan
 
@@ -127,6 +128,7 @@ Size check: 19–20 files, UI only (no schema) → passes at the 20-file limit. 
 _Filled by /implement-task. One line per round._
 
 Verify R1 PASS | Audit R1 PASS (no blocking; AC-6's one-call test is a regression guard, shown to fail with a second fetch) | Spec R1 APPROVE (plan step 5, the `teams` budget, pending the PR's fixture run) | UI R1 NOT RUN (dev DB behind on migrations) → R2 PASS on fixture production builds (AC-1, AC-2, AC-5 fresh side, AC-6 tokens); AC-5 stale side checked by hand, not independently
+Lighthouse R1 FAIL (teams 28,862 doc bytes, 16 requests; 164,917 JS from the client error.tsx) → plan revision 2 (error state on the server), Verify PASS, Spec R2 APPROVE → Lighthouse R2 FAIL on the old budget only (28,831 / 153,858 / 16) → `teams` budget written from that run (plan step 5)
 
 ## Blocked
 
