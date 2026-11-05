@@ -20,7 +20,7 @@ A game's opening, current and closing spreads stay the last ones a book quoted, 
 ## Context
 
 - Task list: `docs/08-tasklist.md` › M5 › M5.9.
-- *From TASK-055 (feat/055-slate-endpoint):* the schema review found that `engine publish` writes a `snapshot` row when any price is set (`engine/publish/lines.py`), so a pull with a total or moneyline but no spread is a snapshot with `spread_home` NULL. `game_market` (`python/db/views/010_game_market.sql`) picks each line as one pull (same kind and `captured_at`), so its spread is that pull's NULL. `pick_outcomes`' `clv` and `clv_so_far` read it. `/slate` skips spread-less pulls in its line history and current line (D-158), so it already differs from the view here.
+- *From TASK-055 (PR #138):* the schema review found that `engine publish` writes a `snapshot` row when any price is set (`engine/publish/lines.py`), so a pull with a total or moneyline but no spread is a snapshot with `spread_home` NULL. `game_market` (`python/db/views/010_game_market.sql`) picks each line as one pull (same kind and `captured_at`), so its spread is that pull's NULL. `pick_outcomes`' `clv` and `clv_so_far` read it. `/slate` skips spread-less pulls in its line history and current line (D-158), so it already differs from the view here.
 - Data model: `docs/03-data-model.md` › Views (`game_market`), › Games & market (`line_snapshots`). Decisions: D-120 (how the lines are chosen), D-132/D-140 (CLV), D-142.
 - Open question for the plan: does the total follow the same rule separately (the newest pull with a total), or does the view keep one pull per line and only skip spread-less ones for the spread?
 
