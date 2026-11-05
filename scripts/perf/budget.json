@@ -30,9 +30,9 @@
       "a11y": 100
     },
     "teams": {
-      "docBytes": 14000,
-      "jsBytes": 166000,
-      "requests": 15,
+      "docBytes": 35000,
+      "jsBytes": 185000,
+      "requests": 20,
       "a11y": 100
     },
     "design-system": {

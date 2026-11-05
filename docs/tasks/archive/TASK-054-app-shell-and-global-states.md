@@ -1,7 +1,7 @@
 ---
 id: TASK-054
 title: Build the app shell and global states
-status: Ready
+status: Done
 depends_on: [TASK-050, TASK-053]
 size: M
 model: opus
@@ -29,12 +29,12 @@ Every signed-in screen sits in the designed app shell: a desktop sidebar with th
 
 ## Acceptance criteria
 
-- [ ] AC-1: Signed in on the seeded test DB at 1440, `/teams` shows the 224px sidebar with the seven nav items in the design's order and icons, Teams marked active, and the track-record card showing the response's shell record (formatted by `web/lib/format.ts`, labelled "2026 live") linking to `/performance`; the top bar shows "2026 · Week 6" and "Updated Sat 9:00 AM ET" (the fixture's newest line snapshot; TASK-053's AC-1, approved 2026-11-04).
-- [ ] AC-2: At 768 the sidebar is replaced by the top-bar navigation drawn in C16c; at 390 the bottom tab bar shows This Week, Picks, Contest, Rankings and More, every tab ≥ 44px tall, and More opens Teams, Performance, Lab and Settings (B8a); no width scrolls horizontally.
-- [ ] AC-3: With the API stopped, `/teams` shows the "API unreachable" state with a Retry button and no saved-copy sentence; after the API restarts, Retry loads the data (e2e journey 8, 02 › Testing strategy).
-- [ ] AC-4: With the API answering after a delay longer than 1.5 s (e2e's existing cold-API server, `web/e2e/cold-api.mjs`), the "Waking up the database…" note appears after 1.5 s and the page then loads without an error.
-- [ ] AC-5: When the shell block's stale flag is true, a neutral banner reads "Lines last updated <time> ET · Refresh" at the top of the content (C16a desktop, C16b mobile); when false, no banner is drawn (component test with both flags; e2e on whichever the fixture state gives).
-- [ ] AC-6: The shell's track-record card, nav and banners use tokens only (hard rule 7, TASK-050's scan passes), `/teams` still makes exactly one API call per request (a test counts the server-side fetches), and every new top-level page has its Lighthouse route and fixture budget (`web/lib/perf.test.ts` passes).
+- [x] AC-1: Signed in on the seeded test DB at 1440, `/teams` shows the 224px sidebar with the seven nav items in the design's order and icons, Teams marked active, and the track-record card showing the response's shell record (formatted by `web/lib/format.ts`, labelled "2026 live") linking to `/performance`; the top bar shows "2026 · Week 6" and "Updated Sat 9:00 AM ET" (the fixture's newest line snapshot; TASK-053's AC-1, approved 2026-11-04).
+- [x] AC-2: At 768 the sidebar is replaced by the top-bar navigation drawn in C16c; at 390 the bottom tab bar shows This Week, Picks, Contest, Rankings and More, every tab ≥ 44px tall, and More opens Teams, Performance, Lab and Settings (B8a); no width scrolls horizontally.
+- [x] AC-3: With the API stopped, `/teams` shows the "API unreachable" state with a Retry button and no saved-copy sentence; after the API restarts, Retry loads the data (e2e journey 8, 02 › Testing strategy).
+- [x] AC-4: With the API answering after a delay longer than 1.5 s (e2e's existing cold-API server, `web/e2e/cold-api.mjs`), the "Waking up the database…" note appears after 1.5 s and the page then loads without an error.
+- [x] AC-5: When the shell block's stale flag is true, a neutral banner reads "Lines last updated <time> ET · Refresh" at the top of the content (C16a desktop, C16b mobile); when false, no banner is drawn (component test with both flags; e2e on whichever the fixture state gives).
+- [x] AC-6: The shell's track-record card, nav and banners use tokens only (hard rule 7, TASK-050's scan passes), `/teams` still makes exactly one API call per request (a test counts the server-side fetches), and every new top-level page has its Lighthouse route and fixture budget (`web/lib/perf.test.ts` passes).
 
 ## Out of scope
 
@@ -62,7 +62,14 @@ Every signed-in screen sits in the designed app shell: a desktop sidebar with th
 
 _Work noticed during this task and deliberately left out. Each bullet ends `→ <path> § <section>` (where it was placed) or `→ not tracked: <reason>`. See `.claude/skills/track-follow-ups/classify.md`; the PR's Follow-ups section is copied from here._
 
-- Production builds hide server error messages, so `error.tsx` can't tell a down API from any other failure of the page's data (an expired token's 401, a 500). Every failure reads "Couldn't reach the server" → not tracked: the design draws one error state; a second one needs a design pass first
+- Every failure of the page's one call (a down API, an expired token's 401, a 500) reads "Couldn't reach the server" → not tracked: the design draws one error state; a second one needs a design pass first
+- This Week sits in the shell the same way Teams does (`AppShell` drawn by the page, its `loading.tsx`, the page drawing its own error state on the server with a shell-less `error.tsx`, `raceWakeNote`), the shell draws the stale banner, and the top bar's week box is a static label where stepping arrows would go → docs/tasks/TASK-056-this-week-slate.md § Context
+- The shell's Account row (the sidebar's bottom row and More's Account section, B8a) is left out: it needs the GitHub login and belongs with Account's Sign out → docs/08-tasklist.md § M8 › M8.8
+- How the shell is drawn (page not layout, More as a `popover` sheet, server-side wake note, the error state drawn on the server with Retry as `router.refresh()`, no client module importing the shell, `prefetch={false}` nav links) → docs/decisions.md § D-157
+- The dev database is at migration 0003 while the code is at 0005, so `/teams` on `pnpm dev` returns a 500 from the API → not tracked: local dev database state, not code; `pnpm db:migrate` brings it up to date (owner's call)
+- ui-verifier's headless Chromium saw `next dev`'s HMR websocket fail (`ERR_INVALID_HTTP_RESPONSE`) and the page not hydrate → not tracked: seen in one `next dev` session with the cause unconfirmed (`proxy.ts` already skips `_next/`); the production build hydrates in e2e and in ui-verifier's second run
+- The stale banner's present side is proven by the component test, not e2e (the fixture at the slate's time isn't stale) → not tracked: AC-5 asks e2e for the fixture's own state; checked by hand on a production build with the API clock at Sat 2026-10-10 8:30 AM ET, where the newest pull (Thu 9:02 PM ET) is over 24 h old and the banner reads "Lines last updated Thu 9:02 PM ET · Refresh" at 1440 and 390
+- The shell's markup is in every shell page's document once per width (sidebar, the 768 nav row, the phone tab bar and the More sheet) and twice over (loading fallback and page, HTML and RSC), about 16 KB on `/teams`; one nav list restyled per breakpoint would cut it → not tracked: accepted with the `teams` budget raise in this PR; revisit if a later screen's budget is tight
 
 ## Plan
 
@@ -71,7 +78,7 @@ _Written by /plan-batch or /implement-task Phase 1. Approved by the user (plan_s
 Provisional: depends on TASK-053. It uses `ShellOut`'s field names, and AC-1's "Updated Sat 9:00 AM ET" is TASK-053's newest-pull time (its AC change, approved 2026-11-04; `stale` is false on the fixture).
 
 **Decisions:**
-- **Each page renders `<AppShell shell={data.shell}>` around its content; the layout doesn't.** A layout can't see which endpoint the page calls. It also persists across client navigation, so shell data rendered there would go stale. `loading.tsx` and `error.tsx` draw the same shell with no data.
+- **Each page renders `<AppShell shell={data.shell}>` around its content; the layout doesn't.** A layout can't see which endpoint the page calls. It also persists across client navigation, so shell data rendered there would go stale. `loading.tsx` draws the same shell with no data. (Revised after approval (2), see step 3: the page draws the error state in the shell itself, and `error.tsx` draws no shell.)
 - **More is a sheet using the HTML `popover` attribute**, not a route. It needs no client JS and no Lighthouse route.
 - **The wake note is server-side via `raceWakeNote`**, as `/login/continue` does it.
 
@@ -83,17 +90,17 @@ Steps:
    - the card: "Model · 2026 live" or "final", record, `formatWinRate(win_pct / 100)`, units, "CLV +0.9";
    - the Picks badge, and dashes when there's no data.
    Export `signed` from `web/lib/format.ts` for the card's CLV.
-2. Components in `web/components/shell/`. None imports server-only code, so the client `error.tsx` can render them.
+2. Components in `web/components/shell/`. (Revised after approval (2), see step 3: they are drawn on the server only; no client module imports them, `server-only-shell.test.ts`. `api-unreachable.tsx` is the one client component.)
    - `app-shell.tsx`: `AppShell({ active, shell, state: ready|loading|error, path, children })`. Sidebar at xl (1280+), top bar plus tablet nav at md (768+), tabs below that. Also holds `StaleBanner` ("Lines last updated <time> ET · Refresh", which reloads `path`) and `WakeNote` (D-097 copy).
    - `sidebar.tsx`: logo, sport switcher (college football; NFL "Later"; inert), nav (`aria-current`, Picks badge), track-record card linking to `/performance`.
    - `top-bar.tsx`: week label, an inert "Search teams ⌘K", "Updated …", or "Can't reach the server" in the error state. Also the C16c nav row at md.
    - `mobile-tabs.tsx`: 5 tabs, each ≥ 44px; More opens a `popover` sheet (B8a).
    - `api-unreachable.tsx` (`"use client"`):
      - copy: "Couldn't reach the server · The API didn't answer after N tries." (the saved-copy sentence dropped, D-096);
-     - Retry: `startTransition(() => { router.refresh(); reset(); })`;
+     - Retry: `startTransition(() => router.refresh())`; in `error.tsx`, error.js's `retry()` (revised twice after approval, see the second revision under step 3);
      - auto-retry: "Trying again in 15s", then 30 s, per the board;
-     - Details: the request and the error digest.
-3. `web/app/teams/page.tsx`: one `getTeams()` call, then `raceWakeNote(call)`. Ready → AppShell + content. Waking → a `Suspense` with the loading shell + `WakeNote` as fallback, whose child awaits the same call. `loading.tsx`: AppShell (`loading`) around the existing skeleton. `error.tsx` (new): AppShell (`error`) + `ApiUnreachable request="GET /api/py/teams"`. Edit `team-table.tsx` only if its header has to move into the content slot.
+     - Details: the request, the result and the next retry (revised after approval (2): the result reads "no answer", since the server-drawn state has no error digest);
+3. `web/app/teams/page.tsx`: one `getTeams()` call, then `raceWakeNote(call)`. Ready → AppShell + content. Waking → a `Suspense` with the loading shell + `WakeNote` as fallback, whose child awaits the same call. `loading.tsx`: AppShell (`loading`) around the existing skeleton. **Revised after approval (2, from the first fixture Lighthouse run):** the page catches its call's failure and draws AppShell (`error`) + `ApiUnreachable` on the server, because a client `error.tsx` drawing AppShell shipped the whole shell's code to the browser (+27,202 JS bytes, +4 requests); `error.tsx` (new) is a shell-less fallback for errors the page doesn't catch, and `server-only-shell.test.ts` keeps client modules from importing the shell. Edit `team-table.tsx` only if its header has to move into the content slot.
 4. e2e: `web/e2e/switch-api.mjs` (new) proxies the e2e API. `POST /__e2e/down` / `up` switch it off and on (refused when down); `GET /__e2e/count` returns the number of proxied `/api/py/*` requests. `playwright.config.ts` starts it plus a third `next start` (port 3102) pointed at it, and `test-env.ts` names both URLs.
 5. Perf: re-measure `teams` from the PR's fixture Lighthouse run (`node scripts/perf/report.mjs budget …`). Write `scripts/perf/budget.json` and the 02 › Performance checks table, with a dated note giving the reason. No new route.
 6. `docs/decisions.md`: one D-### row (ID from `next-id.ps1`) for the three decisions above.
@@ -109,7 +116,7 @@ Test strategy (`web/e2e/shell.spec.ts` unless noted):
 - AC-6: `tokens-only.test.ts` scans `web/components/shell/`. Switch server: the count rises by exactly 1 per `/teams` load. `perf.test.ts` passes (no new top-level page).
 
 Risks / open questions:
-- `reset()` alone re-renders without refetching; Retry needs `router.refresh()` as well.
+- `reset()` alone re-renders without refetching. Retry uses `router.refresh()` (the page catches its own failure, so there is no boundary to reset); the shell-less `error.tsx` uses error.js's `retry()` (revised after approval (2)).
 - The switch server makes e2e start one more process; its tests run serially in the desktop project only.
 - The page holds the stream up to 1.5 s for the race; `loading.tsx` shows the shell during that time.
 - An off-season label beyond "2026" is TASK-057's (see TASK-053's follow-up).
@@ -120,13 +127,16 @@ Size check: 19–20 files, UI only (no schema) → passes at the 20-file limit. 
 
 _Filled by /implement-task. One line per round._
 
+Verify R1 PASS | Audit R1 PASS (no blocking; AC-6's one-call test is a regression guard, shown to fail with a second fetch) | Spec R1 APPROVE (plan step 5, the `teams` budget, pending the PR's fixture run) | UI R1 NOT RUN (dev DB behind on migrations) → R2 PASS on fixture production builds (AC-1, AC-2, AC-5 fresh side, AC-6 tokens); AC-5 stale side checked by hand, not independently
+Lighthouse R1 FAIL (teams 28,862 doc bytes, 16 requests; 164,917 JS from the client error.tsx) → plan revision 2 (error state on the server), Verify PASS, Spec R2 APPROVE → Lighthouse R2 FAIL on the old budget only (28,831 / 153,858 / 16) → `teams` budget written from that run (plan step 5)
+
 ## Blocked
 
 _Only if status is Blocked: what failed, what was tried, best hypothesis, decision needed._
 
 ## Metrics
 
-- Verify rounds:
-- Review rounds:
-- First-pass AC FAILs:
-- Plan revisions after approval:
+- Verify rounds: 1
+- Review rounds: 1 spec, 2 UI (the first blocked by the dev environment)
+- First-pass AC FAILs: 0
+- Plan revisions after approval: 2 (Retry used error.js's `retry()`; then, after the first fixture Lighthouse run, the error state moved to the server and Retry to `router.refresh()`, owner's choice 2026-11-05)
