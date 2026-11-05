@@ -62,10 +62,10 @@ Every signed-in screen sits in the designed app shell: a desktop sidebar with th
 
 _Work noticed during this task and deliberately left out. Each bullet ends `→ <path> § <section>` (where it was placed) or `→ not tracked: <reason>`. See `.claude/skills/track-follow-ups/classify.md`; the PR's Follow-ups section is copied from here._
 
-- Production builds hide server error messages, so `error.tsx` can't tell a down API from any other failure of the page's data (an expired token's 401, a 500). Every failure reads "Couldn't reach the server" → not tracked: the design draws one error state; a second one needs a design pass first
-- This Week sits in the shell the same way Teams does (`AppShell`, its `loading.tsx` / `error.tsx`, `raceWakeNote`), the shell draws the stale banner, and the top bar's week box is a static label where stepping arrows would go → docs/tasks/TASK-056-this-week-slate.md § Context
+- Every failure of the page's one call (a down API, an expired token's 401, a 500) reads "Couldn't reach the server" → not tracked: the design draws one error state; a second one needs a design pass first
+- This Week sits in the shell the same way Teams does (`AppShell` drawn by the page, its `loading.tsx`, the page drawing its own error state on the server with a shell-less `error.tsx`, `raceWakeNote`), the shell draws the stale banner, and the top bar's week box is a static label where stepping arrows would go → docs/tasks/TASK-056-this-week-slate.md § Context
 - The shell's Account row (the sidebar's bottom row and More's Account section, B8a) is left out: it needs the GitHub login and belongs with Account's Sign out → docs/08-tasklist.md § M8 › M8.8
-- How the shell is drawn (page not layout, More as a `popover` sheet, server-side wake note, `retry()`, `prefetch={false}` nav links) → docs/decisions.md § D-157
+- How the shell is drawn (page not layout, More as a `popover` sheet, server-side wake note, the error state drawn on the server with Retry as `router.refresh()`, no client module importing the shell, `prefetch={false}` nav links) → docs/decisions.md § D-157
 - The dev database is at migration 0003 while the code is at 0005, so `/teams` on `pnpm dev` returns a 500 from the API → not tracked: local dev database state, not code; `pnpm db:migrate` brings it up to date (owner's call)
 - ui-verifier's headless Chromium saw `next dev`'s HMR websocket fail (`ERR_INVALID_HTTP_RESPONSE`) and the page not hydrate → not tracked: seen in one `next dev` session with the cause unconfirmed (`proxy.ts` already skips `_next/`); the production build hydrates in e2e and in ui-verifier's second run
 - The stale banner's present side is proven by the component test, not e2e (the fixture at the slate's time isn't stale) → not tracked: AC-5 asks e2e for the fixture's own state; checked by hand on a production build with the API clock at Sat 2026-10-10 8:30 AM ET, where the newest pull (Thu 9:02 PM ET) is over 24 h old and the banner reads "Lines last updated Thu 9:02 PM ET · Refresh" at 1440 and 390
@@ -77,7 +77,7 @@ _Written by /plan-batch or /implement-task Phase 1. Approved by the user (plan_s
 Provisional: depends on TASK-053. It uses `ShellOut`'s field names, and AC-1's "Updated Sat 9:00 AM ET" is TASK-053's newest-pull time (its AC change, approved 2026-11-04; `stale` is false on the fixture).
 
 **Decisions:**
-- **Each page renders `<AppShell shell={data.shell}>` around its content; the layout doesn't.** A layout can't see which endpoint the page calls. It also persists across client navigation, so shell data rendered there would go stale. `loading.tsx` and `error.tsx` draw the same shell with no data.
+- **Each page renders `<AppShell shell={data.shell}>` around its content; the layout doesn't.** A layout can't see which endpoint the page calls. It also persists across client navigation, so shell data rendered there would go stale. `loading.tsx` draws the same shell with no data. (Revised after approval (2), see step 3: the page draws the error state in the shell itself, and `error.tsx` draws no shell.)
 - **More is a sheet using the HTML `popover` attribute**, not a route. It needs no client JS and no Lighthouse route.
 - **The wake note is server-side via `raceWakeNote`**, as `/login/continue` does it.
 
@@ -89,17 +89,17 @@ Steps:
    - the card: "Model · 2026 live" or "final", record, `formatWinRate(win_pct / 100)`, units, "CLV +0.9";
    - the Picks badge, and dashes when there's no data.
    Export `signed` from `web/lib/format.ts` for the card's CLV.
-2. Components in `web/components/shell/`. None imports server-only code, so the client `error.tsx` can render them.
+2. Components in `web/components/shell/`. (Revised after approval (2), see step 3: they are drawn on the server only; no client module imports them, `server-only-shell.test.ts`. `api-unreachable.tsx` is the one client component.)
    - `app-shell.tsx`: `AppShell({ active, shell, state: ready|loading|error, path, children })`. Sidebar at xl (1280+), top bar plus tablet nav at md (768+), tabs below that. Also holds `StaleBanner` ("Lines last updated <time> ET · Refresh", which reloads `path`) and `WakeNote` (D-097 copy).
    - `sidebar.tsx`: logo, sport switcher (college football; NFL "Later"; inert), nav (`aria-current`, Picks badge), track-record card linking to `/performance`.
    - `top-bar.tsx`: week label, an inert "Search teams ⌘K", "Updated …", or "Can't reach the server" in the error state. Also the C16c nav row at md.
    - `mobile-tabs.tsx`: 5 tabs, each ≥ 44px; More opens a `popover` sheet (B8a).
    - `api-unreachable.tsx` (`"use client"`):
      - copy: "Couldn't reach the server · The API didn't answer after N tries." (the saved-copy sentence dropped, D-096);
-     - Retry: `startTransition(() => retry())`, error.js's `retry` prop in Next 16.4, which re-fetches and re-renders the segment (revised after approval: it replaces `router.refresh()` + `reset()` and does both);
+     - Retry: `startTransition(() => router.refresh())`; in `error.tsx`, error.js's `retry()` (revised twice after approval, see the second revision under step 3);
      - auto-retry: "Trying again in 15s", then 30 s, per the board;
-     - Details: the request and the error digest.
-3. `web/app/teams/page.tsx`: one `getTeams()` call, then `raceWakeNote(call)`. Ready → AppShell + content. Waking → a `Suspense` with the loading shell + `WakeNote` as fallback, whose child awaits the same call. `loading.tsx`: AppShell (`loading`) around the existing skeleton. `error.tsx` (new): AppShell (`error`) + `ApiUnreachable request="GET /api/py/teams"`. Edit `team-table.tsx` only if its header has to move into the content slot.
+     - Details: the request, the result and the next retry (revised after approval (2): the result reads "no answer", since the server-drawn state has no error digest);
+3. `web/app/teams/page.tsx`: one `getTeams()` call, then `raceWakeNote(call)`. Ready → AppShell + content. Waking → a `Suspense` with the loading shell + `WakeNote` as fallback, whose child awaits the same call. `loading.tsx`: AppShell (`loading`) around the existing skeleton. **Revised after approval (2, from the first fixture Lighthouse run):** the page catches its call's failure and draws AppShell (`error`) + `ApiUnreachable` on the server, because a client `error.tsx` drawing AppShell shipped the whole shell's code to the browser (+27,202 JS bytes, +4 requests); `error.tsx` (new) is a shell-less fallback for errors the page doesn't catch, and `server-only-shell.test.ts` keeps client modules from importing the shell. Edit `team-table.tsx` only if its header has to move into the content slot.
 4. e2e: `web/e2e/switch-api.mjs` (new) proxies the e2e API. `POST /__e2e/down` / `up` switch it off and on (refused when down); `GET /__e2e/count` returns the number of proxied `/api/py/*` requests. `playwright.config.ts` starts it plus a third `next start` (port 3102) pointed at it, and `test-env.ts` names both URLs.
 5. Perf: re-measure `teams` from the PR's fixture Lighthouse run (`node scripts/perf/report.mjs budget …`). Write `scripts/perf/budget.json` and the 02 › Performance checks table, with a dated note giving the reason. No new route.
 6. `docs/decisions.md`: one D-### row (ID from `next-id.ps1`) for the three decisions above.
@@ -115,7 +115,7 @@ Test strategy (`web/e2e/shell.spec.ts` unless noted):
 - AC-6: `tokens-only.test.ts` scans `web/components/shell/`. Switch server: the count rises by exactly 1 per `/teams` load. `perf.test.ts` passes (no new top-level page).
 
 Risks / open questions:
-- `reset()` alone re-renders without refetching; Next 16.4's `retry()` re-fetches, so Retry uses it.
+- `reset()` alone re-renders without refetching. Retry uses `router.refresh()` (the page catches its own failure, so there is no boundary to reset); the shell-less `error.tsx` uses error.js's `retry()` (revised after approval (2)).
 - The switch server makes e2e start one more process; its tests run serially in the desktop project only.
 - The page holds the stream up to 1.5 s for the race; `loading.tsx` shows the shell during that time.
 - An off-season label beyond "2026" is TASK-057's (see TASK-053's follow-up).
@@ -137,4 +137,4 @@ _Only if status is Blocked: what failed, what was tried, best hypothesis, decisi
 - Verify rounds: 1
 - Review rounds: 1 spec, 2 UI (the first blocked by the dev environment)
 - First-pass AC FAILs: 0
-- Plan revisions after approval: 1 (Retry uses error.js's `retry()` instead of `router.refresh()` + `reset()`)
+- Plan revisions after approval: 2 (Retry used error.js's `retry()`; then, after the first fixture Lighthouse run, the error state moved to the server and Retry to `router.refresh()`, owner's choice 2026-11-05)

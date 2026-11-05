@@ -1,11 +1,15 @@
 "use client";
 
 import { ChevronDown, CircleAlert, LoaderCircle, RefreshCw } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState, useTransition } from "react";
 
 // "API unreachable" (App States Desktop / Mobile, frame "apierror"): the frame stays, the card
 // says what failed, and it retries on its own with backoff. D-096: there is no saved copy, so the
 // design's saved-copy sentence is dropped. D-097: the cold-start note gives no number.
+//
+// The only client code in the shell's error state (D-157): the page draws the shell around it on
+// the server, so the shell's own code never ships to the browser.
 
 /** Seconds before each automatic retry: 15 s, then 30 s, doubling up to 2 min. */
 export const BACKOFF_SECONDS = [15, 30, 60, 120] as const;
@@ -19,28 +23,23 @@ export const UNREACHABLE_COPY = {
   retrying: "Retrying…",
   countdown: (seconds: number) => `Trying again in ${seconds}s`,
   details: "Details",
+  result: "no answer",
   next: "auto-retry with backoff, up to 2 min",
   coldStart: "If the server was idle, the database can take a few seconds to start.",
 } as const;
 
-function digest(error: unknown): string | null {
-  if (error instanceof Error && "digest" in error && typeof error.digest === "string") {
-    return error.digest;
-  }
-  return null;
-}
-
 export function ApiUnreachable({
   request,
-  error,
   retry,
 }: {
   /** The page's one API call, e.g. "GET /api/py/teams". */
   request: string;
-  error: unknown;
-  /** error.js's `retry`: re-fetches and re-renders the segment. */
-  retry: () => void;
+  /** How to try again. Default: re-render the page on the server (its one API call again);
+   *  error.js passes its own `retry`, which also resets the boundary. */
+  retry?: () => void;
 }) {
+  const router = useRouter();
+  const refresh = useCallback(() => (retry ? retry() : router.refresh()), [retry, router]);
   const [{ attempts, left }, setRun] = useState<{ attempts: number; left: number }>({
     attempts: 1,
     left: FIRST_WAIT,
@@ -53,8 +52,8 @@ export function ApiUnreachable({
       attempts: run.attempts + 1,
       left: BACKOFF_SECONDS[Math.min(run.attempts, BACKOFF_SECONDS.length - 1)],
     }));
-    startTransition(() => retry());
-  }, [retry]);
+    startTransition(() => refresh());
+  }, [refresh]);
 
   useEffect(() => {
     if (pending) return;
@@ -65,7 +64,6 @@ export function ApiUnreachable({
     return () => clearTimeout(timer);
   }, [left, pending, again]);
 
-  const id = digest(error);
   const button =
     "inline-flex h-11 items-center justify-center gap-1.5 rounded-md px-3 text-body font-medium md:h-8 md:text-label";
 
@@ -119,7 +117,7 @@ export function ApiUnreachable({
             {open ? (
               <dl className="mt-1 flex flex-col gap-1 rounded-md border bg-background px-3 py-2.5 font-mono text-caption">
                 <Row term="request" value={request} />
-                <Row term="result" value={id ? `failed · error ${id}` : "no answer"} />
+                <Row term="result" value={UNREACHABLE_COPY.result} />
                 <Row term="next" value={UNREACHABLE_COPY.next} />
               </dl>
             ) : null}
