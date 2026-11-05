@@ -1,7 +1,7 @@
 ---
 id: TASK-055
 title: Build the /slate endpoint
-status: Review
+status: Done
 depends_on: [TASK-052, TASK-053]
 size: M
 model: opus
