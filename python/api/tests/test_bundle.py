@@ -69,6 +69,7 @@ def test_loading_the_api_loads_no_heavy_or_sport_module():
 def test_the_api_imports_only_the_engines_light_core():
     """Hard rule 5: `engine.core` and nothing else of the engine."""
     outside: list[str] = []
+    core: list[str] = []
     for path in API_SRC.rglob("*.py"):
         for node in ast.walk(ast.parse(path.read_text("utf-8"))):
             names = (
@@ -80,4 +81,6 @@ def test_the_api_imports_only_the_engines_light_core():
                 f"{path.name}: {n}" for n in names
                 if n.split(".")[0] == "engine" and not n.startswith("engine.core")
             ]
+            core += [n for n in names if n.startswith("engine.core")]
+    assert core, "the scan found no engine.core import, so it would miss one from elsewhere"
     assert outside == []
