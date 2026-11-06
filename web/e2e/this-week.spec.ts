@@ -64,6 +64,9 @@ test("AC-1: the header, the window headings in order, and a link to each game", 
   const hrefs = await rows.evaluateAll((links) => links.map((a) => a.getAttribute("href")));
   expect(hrefs.every((href) => /^\/games\/\d+$/.test(href ?? ""))).toBe(true);
   expect(new Set(hrefs).size).toBe(54);
+  // Each row links to its own game (the fixture's ids: UNLV @ Boise State is 1, Purdue @ Ohio State 2).
+  await expect(game(page, "UNLV", "Boise State")).toHaveAttribute("href", "/games/1");
+  await expect(game(page, "Purdue", "Ohio State")).toHaveAttribute("href", "/games/2");
   // The window headings sit between the rows they group: Purdue @ Ohio State is under SAT NOON.
   const noon = page.locator("section").filter({ has: page.getByRole("heading", { name: /SAT NOON/ }) });
   await expect(noon.locator(ROW).filter({ hasText: "Purdue" })).toHaveCount(1);
