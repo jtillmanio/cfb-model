@@ -1,7 +1,7 @@
 ---
 id: TASK-056
 title: Build the This Week slate
-status: In progress
+status: Review
 depends_on: [TASK-051, TASK-054, TASK-055]
 size: M
 model: sonnet
@@ -35,11 +35,11 @@ Signed in, the home page is This Week: the current week's games grouped by kicko
 
 ## Acceptance criteria
 
-- [ ] AC-1: Signed in on the seeded test DB at Sat 2026-10-10 2:15 PM ET, `/` shows the header "This Week · 2026 · Week 6 · 54 games · 9 picks" and rows grouped under day/time window headings ("FRI NIGHT", "SAT NOON", "SAT AFTERNOON", "SAT NIGHT", per the design's windows); each row links to `/games/<id>` for its game.
-- [ ] AC-2: Purdue @ Ohio State reads, left to right, "OSU −27.5", "OSU −31.2", a filled "+3.7 OSU" pill, "61%", tier "B" and "OSU 99%"; Kansas State @ Utah shows "+0.6 UTAH" as plain muted text and no tier; the footer legend prints the thresholds from the response's pick rules, not constants (a test with different thresholds changes the legend and the pill).
-- [ ] AC-3: Row states render as designed: UNLV @ Boise State "Final" with 24 / 31 and "✓ No pick · UNLV covered"; Purdue @ Ohio State live with the live dot, the text label "Live" and mono scores 3 beside Purdue and 24 beside Ohio State; Furman @ Clemson "No line" and "FCS · no lines yet"; Texas vs Oklahoma "N · Dallas"; Ole Miss @ LSU's pick note reads "Picked at −2.5 → now −3.5" over "CLV −1.0".
-- [ ] AC-4: The Market cell shows the opener and sparkline muted before the current line (Purdue @ Ohio State "−28 ⟍ OSU −27.5"); Texas vs Oklahoma's sparkline has one point per snapshot in the response; a game with an unchanged line draws a flat line; Furman @ Clemson shows no opener.
-- [ ] AC-5: At 1440 the table is compact (header 32px, rows 44px); from 768 to 1439 it shows the design's priority columns and drops Win %; at 390 each game is a card showing Market, Model and Edge without expanding, with no horizontal scroll and every tap target ≥ 44px (e2e journey 7).
+- [x] AC-1: Signed in on the seeded test DB at Sat 2026-10-10 2:15 PM ET, `/` shows the header "This Week · 2026 · Week 6 · 54 games · 9 picks" and rows grouped under day/time window headings ("FRI NIGHT", "SAT NOON", "SAT AFTERNOON", "SAT NIGHT", per the design's windows); each row links to `/games/<id>` for its game.
+- [x] AC-2: Purdue @ Ohio State reads, left to right, "OSU −27.5", "OSU −31.2", a filled "+3.7 OSU" pill, "61%", tier "B" and "OSU 99%"; Kansas State @ Utah shows "+0.6 UTAH" as plain muted text and no tier; the footer legend prints the thresholds from the response's pick rules, not constants (a test with different thresholds changes the legend and the pill).
+- [x] AC-3: Row states render as designed: UNLV @ Boise State "Final" with 24 / 31 and "✓ No pick · UNLV covered"; Purdue @ Ohio State live with the live dot, the text label "Live" and mono scores 3 beside Purdue and 24 beside Ohio State; Furman @ Clemson "No line" and "FCS · no lines yet"; Texas vs Oklahoma "N · Dallas"; Ole Miss @ LSU's pick note reads "Picked at −2.5 → now −3.5" over "CLV −1.0".
+- [x] AC-4: The Market cell shows the opener and sparkline muted before the current line (Purdue @ Ohio State "−28 ⟍ OSU −27.5"); Texas vs Oklahoma's sparkline has one point per snapshot in the response; a game with an unchanged line draws a flat line; Furman @ Clemson shows no opener.
+- [x] AC-5: At 1440 the table is compact (header 32px, rows 44px); from 768 to 1439 it shows the design's priority columns and drops Win %; at 390 each game is a card showing Market, Model and Edge without expanding, with no horizontal scroll and every tap target ≥ 44px (e2e journey 7).
 - [ ] AC-6: `/` has a `loading.tsx` drawn at the loaded size (header, window headings and rows as bars, pulse off under reduced motion) and an error state with no saved data; the route has its Lighthouse entry and a budget from the fixture run (`web/lib/perf.test.ts` passes, and `docs/02-architecture.md`'s table records the measured numbers).
 
 ## Out of scope
@@ -68,8 +68,12 @@ Signed in, the home page is This Week: the current week's games grouped by kicko
 
 _Work noticed during this task and deliberately left out. Each bullet ends `→ <path> § <section>` (where it was placed) or `→ not tracked: <reason>`. See `.claude/skills/track-follow-ups/classify.md`; the PR's Follow-ups section is copied from here._
 
-- Stepping weeks from the top bar's week selector (arrows and the season/week list; `/slate` already takes a week), and the past-season market cell (opening and closing line only, two dots, dashed join; `Market Extras.dc.html`) that only a past week needs, which answers TASK-051's open question: not this task → new Draft task and an M5 row in `docs/08-tasklist.md` (approved at plan)
+- Stepping weeks from the top bar's week selector (arrows and the season/week list; `/slate` already takes a week), and the past-season market cell (opening and closing line only, two dots, dashed join; `Market Extras.dc.html`) that only a past week needs, which answers TASK-051's open question: not this task → docs/tasks/TASK-061-this-week-week-stepping-and-past-season-market.md (new, Draft), with its row at docs/08-tasklist.md § M5 (M5.10) (approved at plan)
 - The design's TV network line under each kickoff (FS1, ESPN+) → not tracked: no network data is ingested or served, so it is left out (approved at plan)
+- The slate's structure for the record strip, filters and the footer's "Showing N of M" count, and TeamChip's rank having no fixed-width slot (an unranked FCS opponent's name sits left of its neighbour; the design gives the rank a 16px right-aligned slot) → docs/tasks/TASK-057-record-strip-filters-empty-states.md § Context
+- Candidate decision: one tree per game laid out per width, the named `wide` breakpoint (an arbitrary `min-[1440px]:` sorts before `md:` in Tailwind's CSS), and the stacked/inline market cell pair → docs/decisions.md § D-159
+- At 768 the footer's "Showing N of M games" and the legend wrap onto two lines each (ui-verifier R1) → not tracked: accepted as is; the board's own tablet note is a shorter sentence, and TASK-057 changes the footer's first half
+- Each game's market cell is in the HTML twice (inline and stacked, CSS shows one), which grows the document (ui-verifier R1) → not tracked: this PR's fixture Lighthouse run measures the document and sets the budget (AC-6)
 
 ## Plan
 
@@ -113,13 +117,15 @@ _Approved 2026-11-06 at the plan gate. The owner settled four points there: AC-2
 
 _Filled by /implement-task. One line per round._
 
+Verify R1 PASS | Audit R1 PASS (AC-6's budget values wait for this PR's fixture run; the AC-1 check now pins two rows to their game ids) | Spec R1 CHANGES (the `wide` revision wasn't in the Plan: recorded; follow-up wording: fixed at close-out) → R2 APPROVE (close-out check: placements, task list tick, no roadmap ticks) | UI R1 PASS (390, 768, 1440; AC-6's skeleton and error state are proved by the e2e spec, not the browser)
+
 ## Blocked
 
 _Only if status is Blocked: what failed, what was tried, best hypothesis, decision needed._
 
 ## Metrics
 
-- Verify rounds:
-- Review rounds:
-- First-pass AC FAILs:
-- Plan revisions after approval:
+- Verify rounds: 1
+- Review rounds: 2
+- First-pass AC FAILs: 0
+- Plan revisions after approval: 1 (the named `wide` breakpoint and `web/app/globals.css`, owner approved)
