@@ -68,6 +68,12 @@
   --text-title--line-height: 32px;
 }
 
+/* The desktop table's break (This Week, TASK-056). A named breakpoint sorts with md and xl in the
+   generated CSS; an arbitrary `min-[1440px]:` sorts before them, so md rules would win. */
+@theme {
+  --breakpoint-wide: 90rem;
+}
+
 @layer base {
   * {
     border-color: var(--border);

@@ -28,8 +28,7 @@ export type NavId =
 export type NavItem = { id: NavId; label: string; href: string };
 
 // design/README.md › Navigation, in the sidebar's order. Screens not built yet link to their
-// paths and 404 until their milestones (This Week takes `/` in TASK-056; until then it opens
-// Teams).
+// paths and 404 until their milestones (This Week is `/`, TASK-056).
 export const NAV: readonly NavItem[] = [
   { id: "this-week", label: "This Week", href: "/" },
   { id: "picks", label: "Picks", href: "/picks" },

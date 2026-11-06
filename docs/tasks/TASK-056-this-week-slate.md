@@ -1,14 +1,14 @@
 ---
 id: TASK-056
 title: Build the This Week slate
-status: Ready
+status: In progress
 depends_on: [TASK-051, TASK-054, TASK-055]
 size: M
 model: sonnet
 autonomy: attended
 ui: true
-plan_status: none
-planned_at_commit:
+plan_status: approved
+planned_at_commit: fe989d0
 ---
 
 # TASK-056 — Build the This Week slate
@@ -36,10 +36,10 @@ Signed in, the home page is This Week: the current week's games grouped by kicko
 ## Acceptance criteria
 
 - [ ] AC-1: Signed in on the seeded test DB at Sat 2026-10-10 2:15 PM ET, `/` shows the header "This Week · 2026 · Week 6 · 54 games · 9 picks" and rows grouped under day/time window headings ("FRI NIGHT", "SAT NOON", "SAT AFTERNOON", "SAT NIGHT", per the design's windows); each row links to `/games/<id>` for its game.
-- [ ] AC-2: Purdue @ Ohio State reads, left to right, "OSU −27.5", "OSU −31.2", a filled "+3.7 OSU" pill, "59%", tier "B" and "OSU 99%"; Kansas State @ Utah shows "+0.6 UTAH" as plain muted text and no tier; the footer legend prints the thresholds from the response's pick rules, not constants (a test with different thresholds changes the legend and the pill).
-- [ ] AC-3: Row states render as designed: UNLV @ Boise State "Final" with 24 / 31 and "✓ No pick · UNLV covered"; Purdue @ Ohio State live with the live dot, a text label and mono scores "PUR 3 · OSU 24"; Furman @ Clemson "No line" and "FCS · no lines yet"; Texas vs Oklahoma "N · Dallas"; Ole Miss @ LSU's second line "Picked at −2.5 → now −3.5 · CLV −1.0".
+- [ ] AC-2: Purdue @ Ohio State reads, left to right, "OSU −27.5", "OSU −31.2", a filled "+3.7 OSU" pill, "61%", tier "B" and "OSU 99%"; Kansas State @ Utah shows "+0.6 UTAH" as plain muted text and no tier; the footer legend prints the thresholds from the response's pick rules, not constants (a test with different thresholds changes the legend and the pill).
+- [ ] AC-3: Row states render as designed: UNLV @ Boise State "Final" with 24 / 31 and "✓ No pick · UNLV covered"; Purdue @ Ohio State live with the live dot, the text label "Live" and mono scores 3 beside Purdue and 24 beside Ohio State; Furman @ Clemson "No line" and "FCS · no lines yet"; Texas vs Oklahoma "N · Dallas"; Ole Miss @ LSU's pick note reads "Picked at −2.5 → now −3.5" over "CLV −1.0".
 - [ ] AC-4: The Market cell shows the opener and sparkline muted before the current line (Purdue @ Ohio State "−28 ⟍ OSU −27.5"); Texas vs Oklahoma's sparkline has one point per snapshot in the response; a game with an unchanged line draws a flat line; Furman @ Clemson shows no opener.
-- [ ] AC-5: At 1440 the table is compact (header 32px, rows 36px); at 768 it shows the design's priority columns and drops Win %; at 390 each game is a card showing Market, Model and Edge without expanding, with no horizontal scroll and every tap target ≥ 44px (e2e journey 7).
+- [ ] AC-5: At 1440 the table is compact (header 32px, rows 44px); from 768 to 1439 it shows the design's priority columns and drops Win %; at 390 each game is a card showing Market, Model and Edge without expanding, with no horizontal scroll and every tap target ≥ 44px (e2e journey 7).
 - [ ] AC-6: `/` has a `loading.tsx` drawn at the loaded size (header, window headings and rows as bars, pulse off under reduced motion) and an error state with no saved data; the route has its Lighthouse entry and a budget from the fixture run (`web/lib/perf.test.ts` passes, and `docs/02-architecture.md`'s table records the measured numbers).
 
 ## Out of scope
@@ -68,9 +68,46 @@ Signed in, the home page is This Week: the current week's games grouped by kicko
 
 _Work noticed during this task and deliberately left out. Each bullet ends `→ <path> § <section>` (where it was placed) or `→ not tracked: <reason>`. See `.claude/skills/track-follow-ups/classify.md`; the PR's Follow-ups section is copied from here._
 
+- Stepping weeks from the top bar's week selector (arrows and the season/week list; `/slate` already takes a week), and the past-season market cell (opening and closing line only, two dots, dashed join; `Market Extras.dc.html`) that only a past week needs, which answers TASK-051's open question: not this task → new Draft task and an M5 row in `docs/08-tasklist.md` (approved at plan)
+- The design's TV network line under each kickoff (FS1, ESPN+) → not tracked: no network data is ingested or served, so it is left out (approved at plan)
+
 ## Plan
 
-_Written by /plan-batch or /implement-task Phase 1. Approved by the user (plan_status: approved) before any code is written._
+_Approved 2026-11-06 at the plan gate. The owner settled four points there: AC-2 reads 61% (the fixture and `engine.core` give Φ(3.7/13.8) = 0.6057; the design's 59% is illustrative); AC-5's rows are 44px, as the board draws them, two stacked team lines per row, so the slate is its own grid rather than `DataTable`; the full desktop grid starts at 1440 and 768–1439 uses the tablet board's priority columns (the fixed columns need ~976px, and 1280's content column is ~992px); AC-3 follows the board (per-team mono scores, the moved-pick note on two lines)._
+
+**Steps**
+
+1. `web/lib/slate.ts` + `web/lib/slate.test.ts` (pure, clock-free):
+   - **Windows**, in ET (the shell's zone until M8.8): the kickoff's weekday, then a band: morning before 11:00 AM, noon 11:00 AM–1:59 PM, afternoon 2:00–5:59 PM, night from 6:00 PM ("FRI NIGHT", "SAT NOON", …). TBA kickoffs form a last window by `game_date`. Windows are in kickoff order. Heading time as the board writes it: the day's first window gets the date ("Fri 10/9 · 8:00 PM ET"), later ones only the time, one time or a range ("7:00 – 10:30 PM ET").
+   - **Row view** from one `SlateGameOut`: the status label ("Final", "Live", the kickoff time, "Postponed", "Canceled"); team lines with rank, FCS tag (division isn't `fbs`), neutral tag `N · <city>`, and scores for live and final games (winner bold, loser muted on finals); market (opener, snapshots, current); model line; edge, side and whether it clears `rules.min_edge_pts`; cover % (`model.cover_prob`); tier (the current pick's); win %.
+   - **Pick · result notes:** final, no pick: "No pick · UNLV covered" (check icon) or "No pick · push"; final with a pick: the result marker, the bet, the result and units; live with a pick: `<bet> · covering` or `<bet> · not yet, needs N+` for a favourite ("not yet" for an underdog), never "lost" (F-32); no line: "FCS · no lines yet" when a team is FCS, else "No line posted yet" (clock icon); a pick whose line hasn't moved: "Pick ND −17"; a pick whose line has moved: "Picked at −2.5 → now −3.5" (history icon) over "CLV −1.0" from `clv_so_far` (D-140's sign; "· moved our way" only when positive, pos/neg tone).
+   - **Header caption** "2026 · Week 6 · 54 games · 9 picks" ("2026 · Postseason" for the postseason) and the **footer legend** from `rules` ("Edge pill = clears 2.5 pts · Tier A ≥ 5.0 · B ≥ 3.5 · C ≥ 2.5 · Market = opening line, its moves, then now"); no rules, no thresholds printed.
+2. `web/lib/format.ts` + test: `formatBet(spreadHome, side, home, away)` writes a line as the bet from the picked side ("OU +6.5", "MISS +2.5", "BYU −6", "MISS PK").
+3. `web/components/market-cell.tsx` + test: a `stacked` layout for 768 and phones, the current line over "opened −28" or "no move" (with the sparkline on phones), as the tablet and mobile boards draw it. The inline layout (opener and sparkline before the current line) stays the default.
+4. `web/lib/api.ts`: `getSlate()`, the page's one call (`api/py/slate`, typed `SlateOut`).
+5. `web/app/(this-week)/page.tsx` (moved from `web/app/page.tsx` with `git mv`; a route group, so its `loading.tsx` and `error.tsx` never wrap `/login/continue` or any other route): `/teams`' pattern: `connection()`, `raceWakeNote`, the failure drawn as `<AppShell state="error">` around `ApiUnreachable`, `<AppShell active="this-week" path="/" shell={data.shell} state="ready">`. `web/app/(this-week)/slate.tsx`: the header, one section per window (an `h2` heading), one row per game and the footer (the legend, "Showing 54 of 54 games"). Each game is one DOM tree laid out by CSS per width: a card below 768, the tablet grid `24px 64px minmax(0,1fr) 108px 84px 92px 48px 24px 14px` (header 36, rows ≥ 56) from 768, the desktop grid `24px 100px minmax(0,1fr) 388px 92px 32px 76px 160px 16px` (header 32, rows 44, the muted number band) from 1440. One tree per game, not three, keeps the document small. Rows are `<Link prefetch={false}>` to `/games/<id>` (404 until M7.7). The star column keeps its space and draws nothing (F-14); Spread / Total / Both, weather and the TV line aren't drawn. `TeamChip`, `EdgePill`, `TierBadge`, `ResultMarker`, `MarketCell` and `format.ts` draw every piece.
+6. `web/app/(this-week)/loading.tsx`: the shell with no data around the same header and column headers (real), window headings and rows as bars at the loaded heights, `motion-reduce:animate-none`; the wake variant as `/teams` has. `web/app/(this-week)/error.tsx`: the shell-less fallback (D-157).
+7. Tests: `web/app/(this-week)/slate.test.tsx` (jsdom): the same game with thresholds 2.5 and 4.0 changes the legend text and the pill (AC-2). `web/e2e/this-week.spec.ts` on the fixture at 390 and 1440, plus a 768 describe: AC-1 to AC-5, AC-6's skeleton and its error state through the switchable API server. `web/e2e/teams.spec.ts` and `web/e2e/login.spec.ts`: `/` now lands on This Week.
+8. Lighthouse: `scripts/perf/routes.mjs` adds `{ id: "this-week", path: "/", signedIn: true }`; `scripts/perf/budget.json` gets `"this-week": {}` until this PR's fixture run, then that run's budget (median + 20%); `docs/02-architecture.md` › Performance checks records the measured numbers; `web/lib/perf.test.ts` drops its `/` exemption. `web/lib/shell.ts`'s "until then it opens Teams" comment is updated.
+
+**Files** (20, this project's limit; no schema): `web/app/(this-week)/page.tsx` (moved from `web/app/page.tsx`), `loading.tsx`, `error.tsx`, `slate.tsx`, `slate.test.tsx`; `web/lib/slate.ts`, `slate.test.ts`, `api.ts`, `format.ts`, `format.test.ts`, `shell.ts`, `perf.test.ts`; `web/components/market-cell.tsx`, `market-cell.test.tsx`; `web/e2e/this-week.spec.ts`, `teams.spec.ts`, `login.spec.ts`; `scripts/perf/routes.mjs`, `budget.json`; `docs/02-architecture.md`. Not in "Files likely touched": the route group (instead of `web/app/`), `format.ts`, `market-cell.tsx`, `shell.ts`, `perf.test.ts`, `login.spec.ts`; `auth.spec.ts` already checks signed-out `/` and needs no change.
+
+**Test strategy**
+
+| AC | Proved by |
+|---|---|
+| AC-1 | `this-week.spec.ts` › header caption and h1; the four window headings in order; a row's link is `/games/<its id>` |
+| AC-2 | `this-week.spec.ts` › Purdue @ Ohio State cells left to right, Kansas State @ Utah muted edge and no tier, the legend; `slate.test.tsx` › other thresholds change the legend and the pill; `slate.test.ts` › row view |
+| AC-3 | `this-week.spec.ts` › the five rows' states; `slate.test.ts` › notes, live status, FCS, neutral |
+| AC-4 | `this-week.spec.ts` › Purdue @ Ohio State's opener before the current line, Texas vs Oklahoma's polyline has one point per snapshot, a flat line on a game whose line didn't move, Furman with no opener; `market-cell.test.tsx` › stacked layout |
+| AC-5 | `this-week.spec.ts` › header 32 and rows 44 at 1440; 768: no Win % or Pick · result; 390: cards show Market, Model and Edge, `scrollWidth ≤ clientWidth`, every link and button ≥ 44px |
+| AC-6 | `this-week.spec.ts` › skeleton at the loaded size (rows' box heights), reduced motion stops the pulse, API stopped → "API unreachable" and no game rows; `perf.test.ts`; the fixture Lighthouse run and the docs/02 table |
+
+**Risks / open questions**
+
+- Document bytes for 54 games (HTML plus the RSC payload); the budget comes from this PR's run, and a row that repeats a piece per layout keeps the repeat small.
+- Accessibility stays at 100 with whole-row links (each link's text names the game).
+- `min-[1440px]:` is an arbitrary breakpoint; the README's breakpoints are 768 and 1280, and the owner set this one at the plan gate.
 
 ## Review log
 

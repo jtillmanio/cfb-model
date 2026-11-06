@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  formatBet,
+  formatClockTime,
   formatClv,
   formatCoverPct,
   formatEdge,
@@ -16,6 +18,7 @@ import {
   formatRating,
   formatRecord,
   formatSpread,
+  formatThreshold,
   formatUnits,
   formatWinPct,
   formatWinRate,
@@ -195,5 +198,30 @@ describe("formatLineNumber: the opener beside the current line (Market Extras.dc
     ["pick'em from a side", () => formatLineNumber(0, "home"), "PK"],
   ])("%s", (_name, run, expected) => {
     expect(run()).toBe(expected);
+  });
+});
+
+describe("formatBet: a line written as the bet from the picked side (TASK-056)", () => {
+  it.each([
+    ["home underdog", () => formatBet(6.5, "home", "OU", "TEX"), "OU +6.5"],
+    ["away underdog", () => formatBet(-2.5, "away", "LSU", "MISS"), "MISS +2.5"],
+    ["home favorite, whole number", () => formatBet(-6, "home", "BYU", "COLO"), "BYU −6"],
+    ["away favorite", () => formatBet(17, "away", "STAN", "ND"), "ND −17"],
+    ["pick'em", () => formatBet(0, "away", "LSU", "MISS"), "MISS PK"],
+  ])("%s", (_name, run, expected) => {
+    expect(run()).toBe(expected);
+  });
+});
+
+describe("formatClockTime and formatThreshold (TASK-056)", () => {
+  it("prints a kickoff as a clock time in the zone, with no weekday or zone", () => {
+    expect(formatClockTime("2026-10-10T16:00:00Z", "America/New_York")).toBe("12:00 PM");
+    expect(formatClockTime("2026-10-11T02:30:00Z", "America/New_York")).toBe("10:30 PM");
+    expect(formatClockTime("2026-10-10T14:00:00Z", "America/Chicago")).toBe("9:00 AM");
+  });
+
+  it("prints a pick threshold with one decimal", () => {
+    expect(formatThreshold(2.5)).toBe("2.5");
+    expect(formatThreshold(5)).toBe("5.0");
   });
 });

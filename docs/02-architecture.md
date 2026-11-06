@@ -373,6 +373,7 @@ Every PR is measured with Lighthouse automatically. The job **fails the PR only 
 | Route | Doc bytes | JS bytes | Requests | A11y |
 |---|---|---|---|---|
 | `login` | 10,000 | 166,000 | 15 | 100 |
+| `this-week` | – | – | – | – |
 | `teams` | 35,000 | 185,000 | 20 | 100 |
 | `design-system` | 13,000 | 190,000 | 17 | 100 |
 <!-- perf-budget:end -->

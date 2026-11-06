@@ -78,6 +78,44 @@ describe("MarketCell (AC-3, design/README.md › LineMovementCell)", () => {
   });
 });
 
+describe("MarketCell stacked (This Week at 768 and on phones, This Week Tablet / Mobile boards)", () => {
+  it("puts the current line over \"opened −28\", muted, with a sparkline that tablets hide", () => {
+    const { container } = render(
+      <MarketCell stacked opener={-28} snapshots={[-28, -27.5]} current={-27.5} home="OSU" away="PUR" />,
+    );
+    const current = screen.getByText("OSU −27.5");
+    const opened = screen.getByText("opened −28");
+    expect(current.compareDocumentPosition(opened) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(opened.closest("[data-slot=line-history]")!.className).toContain("text-muted-foreground");
+    expect(current.className).not.toContain("text-muted-foreground");
+    expect(points(container)).toHaveLength(2);
+    expect(container.querySelector("svg")!.getAttribute("class")).toContain("md:hidden");
+  });
+
+  it("reads \"no move\" when the line never moved", () => {
+    render(<MarketCell stacked opener={-9} snapshots={[-9, -9]} current={-9} home="MICH" away="NW" />);
+    expect(screen.getByText("no move")).toBeTruthy();
+    expect(screen.queryByText(/opened/)).toBeNull();
+  });
+
+  it("reads the opener from the current favorite's side", () => {
+    render(<MarketCell stacked opener={-1} snapshots={[]} current={1.5} home="TEX" away="OU" />);
+    expect(screen.getByText("opened +1")).toBeTruthy();
+    expect(screen.getByText("OU −1.5")).toBeTruthy();
+  });
+
+  it("shows no opener line when none was recorded, and No line without a current line", () => {
+    const { container } = render(
+      <MarketCell stacked opener={null} snapshots={[]} current={-3} home="CLEM" away="FUR" />,
+    );
+    expect(screen.getByText("CLEM −3")).toBeTruthy();
+    expect(container.querySelector("[data-slot=line-history]")).toBeNull();
+    cleanup();
+    render(<MarketCell stacked opener={null} snapshots={[]} current={null} home="CLEM" away="FUR" />);
+    expect(screen.getByText("No line")).toBeTruthy();
+  });
+});
+
 describe("Sparkline", () => {
   it("spans the box, one point per value, top = most favored", () => {
     const { container } = render(<Sparkline values={[-22.5, -22, -21.5, -21]} />);

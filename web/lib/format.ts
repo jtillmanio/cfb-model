@@ -59,6 +59,15 @@ export function formatLineNumber(spreadHome: number, side?: "home" | "away"): st
 }
 
 /**
+ * A line written as the bet from the picked side (`OU +6.5`, `BYU −6`, `MISS PK`).
+ * `spreadHome` is the line as stored (negative when home is favored).
+ */
+export function formatBet(spreadHome: number, side: "home" | "away", home: string, away: string): string {
+  const team = side === "home" ? home : away;
+  return `${team} ${formatLineNumber(spreadHome, side)}`;
+}
+
+/**
  * Model line from `pred_margin` (home − away, positive when home is favored).
  * Always one decimal, so a model line never looks like a market line.
  */
@@ -111,6 +120,11 @@ export function formatRankMove(change: number | null): string {
   return rounded > 0 ? `▲${rounded}` : `▼${Math.abs(rounded)}`;
 }
 
+/** A pick threshold from the spec (`2.5`, `5.0`): always one decimal, never a constant here. */
+export function formatThreshold(value: number): string {
+  return roundTo(value, 1).toFixed(1);
+}
+
 /** Win-loss record; the push count shows only when non-zero: `31-24-1`, `5-0`. */
 export function formatRecord(wins: number, losses: number, pushes = 0): string {
   return pushes ? `${wins}-${losses}-${pushes}` : `${wins}-${losses}`;
@@ -133,7 +147,8 @@ const ZONE_LABELS: Record<string, string> = {
   "America/Los_Angeles": "PT",
 };
 
-function zoneLabel(date: Date, zone: string): string {
+/** The zone as a short label (`ET`); a zone the table doesn't know falls back to Intl's generic name. */
+export function zoneLabel(date: Date, zone: string): string {
   const known = ZONE_LABELS[zone];
   if (known) return known;
   const parts = new Intl.DateTimeFormat("en-US", { timeZone: zone, timeZoneName: "shortGeneric" }).formatToParts(date);
@@ -167,6 +182,18 @@ export function formatKickoff(
   const get = (type: string) => parts.find((p) => p.type === type)?.value ?? "";
   const text = `${get("weekday")} ${get("hour")}:${get("minute")} ${get("dayPeriod")}`;
   return opts.inTable ? text : `${text} ${zoneLabel(date, opts.zone)}`;
+}
+
+/** A kickoff as a clock time in the zone, without weekday or zone: `12:00 PM`. */
+export function formatClockTime(kickoffAt: string, zone: string): string {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: zone,
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  }).formatToParts(new Date(kickoffAt));
+  const get = (type: string) => parts.find((p) => p.type === type)?.value ?? "";
+  return `${get("hour")}:${get("minute")} ${get("dayPeriod")}`;
 }
 
 /** Time until the pick lock: the two largest units, floored. `Locked` at or after kickoff. */

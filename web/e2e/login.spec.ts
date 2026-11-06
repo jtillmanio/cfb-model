@@ -84,10 +84,11 @@ test.describe("after sign-in (AC-3)", () => {
     await expect(page.getByText(WAKING)).toHaveCount(0);
   });
 
-  test("no target: lands on / (which opens Teams)", async ({ context, baseURL, page }) => {
+  test("no target: lands on / (This Week)", async ({ context, baseURL, page }) => {
     await context.addCookies([await mintSessionCookie({ baseURL: baseURL! })]);
     await page.goto("/login/continue");
-    await expect(page).toHaveURL(/\/teams$/);
+    await expect(page).toHaveURL(/\/$/);
+    await expect(page.getByRole("heading", { level: 1, name: "This Week" })).toBeVisible();
   });
 
   test("database waking: the card says so, then the page asked for opens", async ({
