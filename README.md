@@ -78,7 +78,9 @@ Merging to `main` doesn't deploy. Vercel builds every `main` commit without prom
    `commit` you name), refuses unless CI's `verify` passed on that exact commit, and lists the
    migrations production still needs (a read-only connection).
 2. **snapshot**: only when migrations are pending, creates the Neon branch
-   `release/<YYYYMMDD-HHMM>-<sha7>` from production's branch, as a restore point.
+   `release/<YYYYMMDD-HHMM>-<sha7>` from production's branch, as a restore point. First it deletes
+   older snapshots: past the newest two, any older than 14 days (D-160). A snapshot Neon won't
+   delete is named in the summary and the release goes on.
 3. **migrate**: runs the planned commit's `python -m db migrate --target live` on the unpooled URL,
    then re-applies `python/db/views/*.sql`.
 4. **promote**: points production's domains at the planned build.
@@ -103,7 +105,7 @@ Open the run's **Summary**: a refused step writes **Refused:** and the reason th
 | Failed job | What it means | What to do |
 |---|---|---|
 | plan | A real release started from a ref other than `main`, no ready build on `main`, CI didn't pass (or is still running) on that commit, or production is at a migration this commit doesn't know | Wait for CI or the Vercel build, or fix `main`; nothing changed |
-| snapshot | Neon refused the branch (often the branch limit) | Delete old `release/*` branches in Neon and re-run; nothing changed |
+| snapshot | Neon refused the branch (often the branch limit, if the summary says old snapshots couldn't be pruned) | Delete old `release/*` branches (or whatever else is filling the limit) in Neon and re-run; nothing changed |
 | migrate | A migration failed partway | Production may be partly migrated; the summary names the snapshot branch to restore from. Old code is still live |
 | promote | Vercel refused the promotion | Schema is migrated, old code still serves; re-run once fixed (migrations are then already applied) |
 | smoke | The live site isn't the planned commit, can't reach the DB, is on another migration head, or serves data without a token | Check `API_JWT_SECRET` and `LIVE=true` in Vercel Production; roll back in Vercel (Instant Rollback) if needed |

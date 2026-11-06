@@ -11,10 +11,11 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import time
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 from urllib.error import HTTPError
@@ -186,6 +187,37 @@ def snapshot_name(commit: str, now: datetime) -> str:
     return f"release/{now:%Y%m%d-%H%M}-{commit[:MIN_PREFIX]}"
 
 
+# Old snapshots count against Neon's branch limit. The newest few stay as restore points however
+# old they are; past two weeks the nightly backups (kept 14/90/365 days, D-124) cover a rollback.
+SNAPSHOT_PATTERN = re.compile(r"release/\d{8}-\d{4}-[0-9a-f]{7}")
+KEEP_SNAPSHOTS = 2
+SNAPSHOT_MAX_AGE = timedelta(days=14)
+
+
+def snapshots_to_prune(
+    branches: Sequence[Mapping[str, Any]], now: datetime
+) -> list[Mapping[str, Any]]:
+    """Release snapshots to delete, newest first: past the newest two, and older than two weeks.
+
+    Only branches named exactly as `snapshot_name` makes them; never a default or protected one.
+    """
+    snapshots = sorted(
+        (
+            b for b in branches
+            if SNAPSHOT_PATTERN.fullmatch(b.get("name") or "")
+            and not b.get("default") and not b.get("protected")
+        ),
+        key=lambda b: _created(b),
+        reverse=True,
+    )
+    cutoff = now - SNAPSHOT_MAX_AGE
+    return [b for b in snapshots[KEEP_SNAPSHOTS:] if _created(b) < cutoff]
+
+
+def _created(branch: Mapping[str, Any]) -> datetime:
+    return datetime.fromisoformat(branch["created_at"])
+
+
 def endpoint_id(url: str) -> str:
     """Neon's endpoint ID is the host's first label (`ep-…`), pooled or direct."""
     return (urlsplit(url).hostname or "").partition(".")[0].removesuffix("-pooler")
@@ -311,6 +343,21 @@ def create_snapshot(name: str, database_url: str) -> dict[str, str]:
     return {"id": made["branch"]["id"], "name": made["branch"]["name"], "parent": parent}
 
 
+def list_branches() -> list[dict[str, Any]]:
+    project = _need("NEON_PROJECT_ID")
+    return _call("GET", f"{NEON}/projects/{project}/branches", _need("NEON_API_KEY"))["branches"]
+
+
+def delete_branch(branch_id: str) -> None:
+    """Delete a Neon branch; one already gone counts as deleted."""
+    project = _need("NEON_PROJECT_ID")
+    try:
+        _call("DELETE", f"{NEON}/projects/{project}/branches/{branch_id}", _need("NEON_API_KEY"))
+    except ApiRefused as e:
+        if e.status != 404:
+            raise
+
+
 def current_heads(url: str) -> tuple[str, ...]:
     """Production's Alembic head(s), read in a read-only transaction. Empty on a new database."""
     with make_engine(url).connect() as conn:
@@ -405,9 +452,31 @@ def pending(args: argparse.Namespace) -> None:
     _output(head=head, pending=" ".join(todo))
 
 
+def prune_snapshots(now: datetime) -> None:
+    """Delete old release snapshots first, freeing room under Neon's branch limit.
+
+    Best effort: a branch Neon won't delete (it has children, or is busy) is named in the summary
+    and the release goes on; the new snapshot is what this step must not fail to make.
+    """
+    try:
+        old = snapshots_to_prune(list_branches(), now)
+    except ApiRefused as e:
+        _summary(f"**Warning:** Couldn't list Neon branches to prune old snapshots: {e}")
+        return
+    for branch in old:
+        try:
+            delete_branch(branch["id"])
+        except ApiRefused as e:
+            _summary(f"**Warning:** Couldn't prune `{branch['name']}` ({branch['id']}): {e}")
+        else:
+            _summary(f"Pruned Neon branch `{branch['name']}` ({branch['id']}).")
+
+
 @_refusing
 def snapshot(args: argparse.Namespace) -> None:
-    made = create_snapshot(snapshot_name(args.commit, datetime.now(UTC)), live_url(None))
+    now = datetime.now(UTC)
+    prune_snapshots(now)
+    made = create_snapshot(snapshot_name(args.commit, now), live_url(None))
     _summary(f"Snapshot: Neon branch `{made['name']}` ({made['id']}) of {made['parent']}.")
 
 
