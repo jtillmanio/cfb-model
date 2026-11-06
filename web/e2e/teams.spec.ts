@@ -11,8 +11,3 @@ test("Teams lists the seeded fixture teams", async ({ page }) => {
   await expect(ohioState).toBeVisible();
   await expect(ohioState).toContainText("Big Ten");
 });
-
-test("the root URL opens Teams", async ({ page }) => {
-  await page.goto("/");
-  await expect(page).toHaveURL(/\/teams$/);
-});

@@ -5,6 +5,7 @@ import { auth } from "@/auth";
 import type { components } from "./api-types";
 import { mintApiToken } from "./api-token";
 import { previewUserId } from "./preview";
+import type { Slate } from "./slate";
 import type { TeamsResponse } from "./teams";
 
 // On Vercel, API_URL is injected by the service binding in vercel.json; locally the API runs
@@ -42,6 +43,12 @@ async function signedGet<T>(path: string): Promise<T> {
 
 export function getTeams(): Promise<TeamsResponse> {
   return signedGet<TeamsResponse>("api/py/teams");
+}
+
+// This Week: the current week's games with the model's numbers and the shell block (TASK-055).
+// With no query the API picks the coming week; a week step (a later task) passes season, type, week.
+export function getSlate(): Promise<Slate> {
+  return signedGet<Slate>("api/py/slate");
 }
 
 // The only API route outside the auth gate; sign-in calls it to wake the database (TASK-002).

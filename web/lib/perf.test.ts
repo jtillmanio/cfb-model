@@ -729,9 +729,6 @@ describe("AC-5: the PR comment and the baseline", () => {
 });
 
 describe("AC-6: the route list (scripts/perf/routes.mjs)", () => {
-  // `/` only redirects to /teams until This Week takes it over in Phase 4; then it gets a route.
-  const EXEMPT = new Set(["/"]);
-
   // Top-level screens: web/app/page.tsx is `/`, and each web/app/<segment>/ with a page.tsx, directly
   // or under a (group). Route handlers (api), private folders and dynamic segments aren't screens.
   function topLevelScreens(appDir: string): string[] {
@@ -748,7 +745,7 @@ describe("AC-6: the route list (scripts/perf/routes.mjs)", () => {
 
   const unlisted = (appDir: string) => {
     const listed = new Set(ROUTES.map((r) => r.path));
-    return topLevelScreens(appDir).filter((s) => !listed.has(s) && !EXEMPT.has(s));
+    return topLevelScreens(appDir).filter((s) => !listed.has(s));
   };
 
   let tmp: string | undefined;
