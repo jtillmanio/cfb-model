@@ -25,6 +25,7 @@ from db.release import (
     single_head,
     smoke_check,
     snapshot_name,
+    snapshots_to_prune,
 )
 
 C1 = "1111111aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
@@ -320,6 +321,120 @@ def test_refuses_a_commit_with_two_heads(tmp_path):
 def test_snapshot_name_carries_the_time_and_short_commit():
     when = datetime(2026, 10, 12, 18, 5, tzinfo=UTC)
     assert snapshot_name(C2, when) == "release/20261012-1805-2222222"
+
+
+NOW = datetime(2026, 11, 6, 12, 0, tzinfo=UTC)
+
+
+def neon_branch(name: str, created: str, **extra):
+    return {"id": f"br-{name.replace('/', '-')}", "name": name, "created_at": created, **extra}
+
+
+def pruned(branches, now=NOW):
+    return [b["name"] for b in snapshots_to_prune(branches, now)]
+
+
+def test_prunes_release_snapshots_older_than_two_weeks_keeping_the_newest_two():
+    branches = [
+        neon_branch("release/20261001-1000-aaaaaaa", "2026-10-01T10:00:00Z"),
+        neon_branch("release/20261010-1000-bbbbbbb", "2026-10-10T10:00:00Z"),
+        neon_branch("release/20261020-1000-ccccccc", "2026-10-20T10:00:00Z"),
+        neon_branch("release/20261104-1933-bf52672", "2026-11-04T19:33:00Z"),
+    ]
+    # Two weeks before NOW is Oct 23; Oct 20 is old but is one of the newest two, so it stays.
+    assert pruned(branches) == ["release/20261010-1000-bbbbbbb", "release/20261001-1000-aaaaaaa"]
+
+
+def test_keeps_the_newest_two_snapshots_however_old():
+    branches = [
+        neon_branch("release/20260101-1000-aaaaaaa", "2026-01-01T10:00:00Z"),
+        neon_branch("release/20260201-1000-bbbbbbb", "2026-02-01T10:00:00Z"),
+    ]
+    assert pruned(branches) == []
+
+
+def test_keeps_snapshots_younger_than_two_weeks():
+    branches = [
+        neon_branch(f"release/202611{d:02}-1000-aaaaaaa", f"2026-11-{d:02}T10:00:00Z")
+        for d in (1, 2, 3, 4)
+    ]
+    assert pruned(branches) == []
+
+
+def test_never_prunes_branches_that_are_not_release_snapshots():
+    old = "2026-01-01T10:00:00Z"
+    branches = [
+        neon_branch("production", old, default=True),
+        neon_branch("preview/feat/056-this-week-slate", old),
+        neon_branch("release/hand-made", old),
+        neon_branch("release/20260101-1000-aaaaaaa-copy", old),
+        neon_branch("release/20261104-1933-bf52672", "2026-11-04T19:33:00Z"),
+        neon_branch("release/20261105-1933-bf52673", "2026-11-05T19:33:00Z"),
+    ]
+    assert pruned(branches) == []
+
+
+def test_never_prunes_a_protected_or_default_snapshot():
+    old = "2026-01-01T10:00:00Z"
+    branches = [
+        neon_branch("release/20260101-1000-aaaaaaa", old, protected=True),
+        neon_branch("release/20260102-1000-bbbbbbb", old, default=True),
+        neon_branch("release/20261104-1933-bf52672", "2026-11-04T19:33:00Z"),
+        neon_branch("release/20261105-1933-bf52673", "2026-11-05T19:33:00Z"),
+    ]
+    assert pruned(branches) == []
+
+
+def test_snapshot_command_prunes_old_snapshots_before_branching(monkeypatch, tmp_path):
+    summary = tmp_path / "summary.md"
+    monkeypatch.setenv("GITHUB_STEP_SUMMARY", str(summary))
+    monkeypatch.setattr(release, "live_url", lambda _: "postgresql://u:p@ep-x.neon.tech/db")
+    calls = []
+    branches = [
+        neon_branch("release/20261001-1000-aaaaaaa", "2026-10-01T10:00:00Z"),
+        neon_branch("release/20261020-1000-ccccccc", "2026-10-20T10:00:00Z"),
+        neon_branch("release/20261104-1933-bf52672", "2026-11-04T19:33:00Z"),
+    ]
+    monkeypatch.setattr(release, "list_branches", lambda: branches)
+    monkeypatch.setattr(release, "delete_branch", lambda id: calls.append(("delete", id)))
+
+    def create(name, url):
+        calls.append(("create", name))
+        return {"id": "br-new", "name": name, "parent": "br-prod"}
+
+    monkeypatch.setattr(release, "create_snapshot", create)
+    main(["release", "snapshot", "--commit", C2])
+
+    assert calls[0] == ("delete", "br-release-20261001-1000-aaaaaaa")
+    assert calls[1][0] == "create" and len(calls) == 2
+    assert "Pruned Neon branch `release/20261001-1000-aaaaaaa`" in summary.read_text()
+
+
+def test_a_failed_prune_warns_but_still_takes_the_snapshot(monkeypatch, tmp_path):
+    summary = tmp_path / "summary.md"
+    monkeypatch.setenv("GITHUB_STEP_SUMMARY", str(summary))
+    monkeypatch.setattr(release, "live_url", lambda _: "postgresql://u:p@ep-x.neon.tech/db")
+    branches = [
+        neon_branch(f"release/2026010{d}-1000-aaaaaaa", f"2026-01-0{d}T10:00:00Z")
+        for d in (1, 2, 3)
+    ]
+    monkeypatch.setattr(release, "list_branches", lambda: branches)
+
+    def refuse(id):
+        raise release.ApiRefused(f"DELETE {id} answered 422: has children", 422)
+
+    monkeypatch.setattr(release, "delete_branch", refuse)
+    made = []
+    monkeypatch.setattr(
+        release, "create_snapshot",
+        lambda name, url: made.append(name) or {"id": "br-new", "name": name, "parent": "br-p"},
+    )
+    main(["release", "snapshot", "--commit", C2])
+
+    assert len(made) == 1
+    text = summary.read_text()
+    assert "Couldn't prune `release/20260101-1000-aaaaaaa`" in text
+    assert "Snapshot: Neon branch" in text
 
 
 def test_endpoint_id_comes_from_the_host_with_the_pooler_suffix_folded():
