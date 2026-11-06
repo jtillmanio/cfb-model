@@ -40,7 +40,7 @@ Signed in, the home page is This Week: the current week's games grouped by kicko
 - [x] AC-3: Row states render as designed: UNLV @ Boise State "Final" with 24 / 31 and "✓ No pick · UNLV covered"; Purdue @ Ohio State live with the live dot, the text label "Live" and mono scores 3 beside Purdue and 24 beside Ohio State; Furman @ Clemson "No line" and "FCS · no lines yet"; Texas vs Oklahoma "N · Dallas"; Ole Miss @ LSU's pick note reads "Picked at −2.5 → now −3.5" over "CLV −1.0".
 - [x] AC-4: The Market cell shows the opener and sparkline muted before the current line (Purdue @ Ohio State "−28 ⟍ OSU −27.5"); Texas vs Oklahoma's sparkline has one point per snapshot in the response; a game with an unchanged line draws a flat line; Furman @ Clemson shows no opener.
 - [x] AC-5: At 1440 the table is compact (header 32px, rows 44px); from 768 to 1439 it shows the design's priority columns and drops Win %; at 390 each game is a card showing Market, Model and Edge without expanding, with no horizontal scroll and every tap target ≥ 44px (e2e journey 7).
-- [ ] AC-6: `/` has a `loading.tsx` drawn at the loaded size (header, window headings and rows as bars, pulse off under reduced motion) and an error state with no saved data; the route has its Lighthouse entry and a budget from the fixture run (`web/lib/perf.test.ts` passes, and `docs/02-architecture.md`'s table records the measured numbers).
+- [x] AC-6: `/` has a `loading.tsx` drawn at the loaded size (header, window headings and rows as bars, pulse off under reduced motion) and an error state with no saved data; the route has its Lighthouse entry and a budget from the fixture run (`web/lib/perf.test.ts` passes, and `docs/02-architecture.md`'s table records the measured numbers).
 
 ## Out of scope
 
