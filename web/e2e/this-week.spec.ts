@@ -202,6 +202,27 @@ test.describe("tablet table (AC-5)", () => {
   });
 });
 
+test.describe("tablet layout up to 1439 (AC-5)", () => {
+  test.use({ viewport: { width: 1280, height: 900 } });
+
+  // 1280 is the md-to-wide boundary the named breakpoint exists for: still the tablet board's
+  // columns (header 36px, no Win %), not the 1440 grid.
+  test("1280 still has the tablet columns", async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== "desktop", "the viewport is set here; one project is enough");
+    await openSlate(page);
+
+    await expect(page.locator("[data-slot=slate-header]")).toHaveText(
+      /^Kickoff ET\s+Matchup\s+Market\s+Model\s+Edge\s+Cover\s+Tier$/,
+      INNER,
+    );
+    expect((await page.locator("[data-slot=slate-header]").boundingBox())!.height).toBe(36);
+    const row = game(page, "Purdue", "Ohio State");
+    await expect(row.locator("[data-cell=win]")).toBeHidden();
+    expect((await row.boundingBox())!.height).toBeGreaterThanOrEqual(56);
+    await noSideScroll(page);
+  });
+});
+
 test.describe("phone cards (AC-5)", () => {
   test.skip(({ viewport }) => (viewport?.width ?? 0) >= 768, "cards are below 768");
 

@@ -90,7 +90,7 @@ _Approved 2026-11-06 at the plan gate. The owner settled four points there: AC-2
 7. Tests: `web/app/(this-week)/slate.test.tsx` (jsdom): the same game with thresholds 2.5 and 4.0 changes the legend text and the pill (AC-2). `web/e2e/this-week.spec.ts` on the fixture at 390 and 1440, plus a 768 describe: AC-1 to AC-5, AC-6's skeleton and its error state through the switchable API server. `web/e2e/teams.spec.ts` and `web/e2e/login.spec.ts`: `/` now lands on This Week.
 8. Lighthouse: `scripts/perf/routes.mjs` adds `{ id: "this-week", path: "/", signedIn: true }`; `scripts/perf/budget.json` gets `"this-week": {}` until this PR's fixture run, then that run's budget (median + 20%); `docs/02-architecture.md` › Performance checks records the measured numbers; `web/lib/perf.test.ts` drops its `/` exemption. `web/lib/shell.ts`'s "until then it opens Teams" comment is updated.
 
-**Files** (20, this project's limit; no schema): `web/app/(this-week)/page.tsx` (moved from `web/app/page.tsx`), `loading.tsx`, `error.tsx`, `slate.tsx`, `slate.test.tsx`; `web/lib/slate.ts`, `slate.test.ts`, `api.ts`, `format.ts`, `format.test.ts`, `shell.ts`, `perf.test.ts`; `web/components/market-cell.tsx`, `market-cell.test.tsx`; `web/e2e/this-week.spec.ts`, `teams.spec.ts`, `login.spec.ts`; `scripts/perf/routes.mjs`, `budget.json`; `docs/02-architecture.md`. Not in "Files likely touched": the route group (instead of `web/app/`), `format.ts`, `market-cell.tsx`, `shell.ts`, `perf.test.ts`, `login.spec.ts`; `auth.spec.ts` already checks signed-out `/` and needs no change.
+**Files** (21 after one plan revision, below; no schema): `web/app/(this-week)/page.tsx` (moved from `web/app/page.tsx`), `loading.tsx`, `error.tsx`, `slate.tsx`, `slate.test.tsx`; `web/lib/slate.ts`, `slate.test.ts`, `api.ts`, `format.ts`, `format.test.ts`, `shell.ts`, `perf.test.ts`; `web/components/market-cell.tsx`, `market-cell.test.tsx`; `web/e2e/this-week.spec.ts`, `teams.spec.ts`, `login.spec.ts`; `scripts/perf/routes.mjs`, `budget.json`; `docs/02-architecture.md`. Not in "Files likely touched": the route group (instead of `web/app/`), `format.ts`, `market-cell.tsx`, `shell.ts`, `perf.test.ts`, `login.spec.ts`; `auth.spec.ts` already checks signed-out `/` and needs no change.
 
 **Test strategy**
 
@@ -107,7 +107,7 @@ _Approved 2026-11-06 at the plan gate. The owner settled four points there: AC-2
 
 - Document bytes for 54 games (HTML plus the RSC payload); the budget comes from this PR's run, and a row that repeats a piece per layout keeps the repeat small.
 - Accessibility stays at 100 with whole-row links (each link's text names the game).
-- `min-[1440px]:` is an arbitrary breakpoint; the README's breakpoints are 768 and 1280, and the owner set this one at the plan gate.
+- The 1440 break is the owner's, set at the plan gate; the README's breakpoints are 768 and 1280. *Revised during implementation (owner approved, 2026-11-06):* an arbitrary `min-[1440px]:` variant is emitted before `md:` in Tailwind's CSS, so every `md:` rule beat its 1440 counterpart (rows rendered 56px, not 44px). The break is a named breakpoint instead, `--breakpoint-wide: 90rem` in a new `@theme` block in `web/app/globals.css` (the 21st file, over this project's 20-file limit), used as `wide:`.
 
 ## Review log
 
