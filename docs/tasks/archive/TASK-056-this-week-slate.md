@@ -1,7 +1,7 @@
 ---
 id: TASK-056
 title: Build the This Week slate
-status: Review
+status: Done
 depends_on: [TASK-051, TASK-054, TASK-055]
 size: M
 model: sonnet
