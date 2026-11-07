@@ -394,6 +394,34 @@ def _week_without_lines(conn: Connection, spec: dict[str, Any]) -> tuple[int, in
     return game, version
 
 
+def test_the_weeks_list_is_ordered_and_leaves_out_week_0(db_conn: Connection):
+    """A literal list, so the ordering (seasons ascending, regular before postseason, weeks
+    ascending, one entry per week) doesn't come from the query it checks (TASK-061)."""
+    m.sport(db_conn)
+    home, away = m.team(db_conn, "weeks-home"), m.team(db_conn, "weeks-away")
+    other_home, other_away = m.team(db_conn, "weeks-home-2"), m.team(db_conn, "weeks-away-2")
+    when = NOW + timedelta(days=5)
+    # (season, week, type); the teams differ so two games can share a week.
+    for (season, week, stype), (h, a) in [
+        ((2031, 3, "regular"), (home, away)),
+        ((2030, 0, "regular"), (home, away)),
+        ((2030, 2, "regular"), (home, away)),
+        ((2030, 2, "regular"), (other_home, other_away)),
+        ((2030, 1, "postseason"), (home, away)),
+        ((2030, 14, "regular"), (home, away)),
+    ]:  # fmt: skip
+        m.game(db_conn, h, a, when, week=week, season=season, season_type=stype)
+
+    got = slate.load(db_conn, NOW, m.SPORT).weeks
+
+    assert [(w.season, w.season_type, w.week) for w in got] == [
+        (2030, "regular", 2),
+        (2030, "regular", 14),
+        (2030, "postseason", 1),
+        (2031, "regular", 3),
+    ]
+
+
 def test_a_week_without_lines_gives_the_model_line_and_no_edge(db_conn: Connection):
     game_id, _ = _week_without_lines(db_conn, _v1_spec(db_conn))
 

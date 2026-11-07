@@ -297,11 +297,13 @@ RULES_SQL = text(
 
 
 # The week selector's list (TASK-061). Week 0 is left out: the route refuses `week < 1`.
+# A read of the sport's games grouped to its weeks (no index covers `season_type`); the result is
+# a handful of rows per season, and the table is small enough that the scan is accepted.
 WEEKS_SQL = text(
     """
     SELECT g.season, g.season_type, g.week
     FROM games g
-    WHERE g.sport_id = :sport AND g.week >= 1
+    WHERE g.sport_id = :sport AND g.week >= 1 AND g.season_type IN ('regular', 'postseason')
     GROUP BY g.season, g.season_type, g.week
     ORDER BY g.season, g.season_type <> 'regular', g.week
     """
