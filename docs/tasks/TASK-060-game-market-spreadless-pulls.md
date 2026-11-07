@@ -1,7 +1,7 @@
 ---
 id: TASK-060
 title: Keep game_market's spread when a pull quotes no spread
-status: In progress
+status: Review
 depends_on: []
 size: S
 model: sonnet
@@ -26,10 +26,10 @@ A game's opening, current and closing spreads stay the last ones a book quoted, 
 
 ## Acceptance criteria
 
-- [ ] AC-1: Given a game with a Sunday pull at −3.5 (total 48.5) and a newer pull before kickoff quoting only a total of 49.5, `game_market` gives `current_spread_home` −3.5 (expected: not NULL), and the current total the plan's rule gives.
-- [ ] AC-2: Given the same game after kickoff with no CFBD close, `closing_spread_home` is −3.5 and `closing_from` is `last_snapshot`; a pick at −2.5 home there has `clv` +1.0 in `pick_outcomes`.
-- [ ] AC-3: Given a game whose first snapshot quoted only a moneyline and whose second quoted −7, `opening_spread_home` is −7 when there is no untimed `opening` row.
-- [ ] AC-4: The view's `EXPLAIN` test still shows no full scan of `line_snapshots` for one game (`.claude/rules/database.md` › Views & queries), and the existing `game_market` tests pass unchanged.
+- [x] AC-1: Given a game with a Sunday pull at −3.5 (total 48.5) and a newer pull before kickoff quoting only a total of 49.5, `game_market` gives `current_spread_home` −3.5 (expected: not NULL), and the current total the plan's rule gives.
+- [x] AC-2: Given the same game after kickoff with no CFBD close, `closing_spread_home` is −3.5 and `closing_from` is `last_snapshot`; a pick at −2.5 home there has `clv` +1.0 in `pick_outcomes`.
+- [x] AC-3: Given a game whose first snapshot quoted only a moneyline and whose second quoted −7, `opening_spread_home` is −7 when there is no untimed `opening` row.
+- [x] AC-4: The view's `EXPLAIN` test still shows no full scan of `line_snapshots` for one game (`.claude/rules/database.md` › Views & queries), and the existing `game_market` tests pass unchanged.
 
 ## Out of scope
 
@@ -51,9 +51,9 @@ A game's opening, current and closing spreads stay the last ones a book quoted, 
 
 _Work noticed during this task and deliberately left out. Each bullet ends `→ <path> § <section>` (where it was placed) or `→ not tracked: <reason>`. See `.claude/skills/track-follow-ups/classify.md`; the PR's Follow-ups section is copied from here._
 
-- `docs/04-model.md` › Closing line (backtest): the "Live, the `game_market` view's closing line…" sentence becomes "…else the last snapshot *that quoted a spread* before kickoff…" (approved at plan)
-- Candidate decision, amends D-120: each of `game_market`'s prices is the newest pull (by its line's rule) that quoted that price; spread and total are chosen separately; `*_captured_at`, `*_source` and `closing_from` describe the spread's pull (approved at plan) → `docs/decisions.md` (ID from `next-id.ps1` at close-out)
-- `engine.transform.market.closing_lines()` says it applies `game_market`'s rule but still takes a last pull (or CFBD close) with no spread; make it skip spread-less pulls for the spread the same way, checking the backtest golden metrics (approved at plan) → new Draft task, `docs/08-tasklist.md` › M5 (M5.12)
+- `docs/04-model.md` › Closing line (backtest): the "Live, the `game_market` view's closing line…" sentence becomes "…else the last snapshot *that quoted a spread* before kickoff…" (approved at plan) → docs/04-model.md § Closing line (backtest)
+- Candidate decision, amends D-120: each of `game_market`'s prices is the newest pull (by its line's rule) that quoted that price; spread and total are chosen separately; `*_captured_at`, `*_source` and `closing_from` describe the spread's pull (approved at plan) → docs/decisions.md § D-162
+- `engine.transform.market.closing_lines()` says it applies `game_market`'s rule but still takes a last pull (or CFBD close) with no spread; make it skip spread-less pulls for the spread the same way, checking the backtest golden metrics (approved at plan) → docs/tasks/TASK-064-backtest-closing-lines-skip-spreadless-pulls.md (new, Draft)
 
 ## Plan
 
@@ -83,7 +83,7 @@ _Work noticed during this task and deliberately left out. Each bullet ends `→ 
 
 ## Review log
 
-_Filled by /implement-task. One line per round._
+Verify R1 PASS | Audit R1 PASS | Spec R1 APPROVE | Schema R1 APPROVE (two optional MINOR tests added after)
 
 ## Blocked
 
@@ -91,7 +91,7 @@ _Only if status is Blocked: what failed, what was tried, best hypothesis, decisi
 
 ## Metrics
 
-- Verify rounds:
-- Review rounds:
-- First-pass AC FAILs:
-- Plan revisions after approval:
+- Verify rounds: 1
+- Review rounds: 1
+- First-pass AC FAILs: 0
+- Plan revisions after approval: 0

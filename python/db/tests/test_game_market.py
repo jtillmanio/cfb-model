@@ -166,6 +166,32 @@ def test_opening_skips_a_moneyline_only_first_pull(db_conn: Connection):
     assert _market(db_conn, game)["opening_spread_home"] == Decimal("-7")
 
 
+def test_a_game_with_only_total_pulls_has_no_spread(db_conn: Connection):
+    """Only totals quoted: the spread and what describes it are NULL, the total is still set."""
+    game = _game(db_conn, "2025-10-11", _utc(2025, 10, 11, 23, 30))
+    _line(db_conn, game, None, _utc(2025, 10, 5, 10), total=48.5)
+
+    m = _market(db_conn, game)
+
+    assert m["current_total"] == Decimal("48.5")
+    for key in ("opening", "current", "closing"):
+        assert m[f"{key}_spread_home"] is None
+        assert m[f"{key}_source"] is None
+        assert m[f"{key}_captured_at"] is None
+    assert m["closing_from"] is None
+
+
+def test_a_total_only_cfbd_close_leaves_the_spread_to_the_last_snapshot(db_conn: Connection):
+    game = _game(db_conn, "2025-10-11", _utc(2025, 10, 11, 23, 30))
+    _line(db_conn, game, -3.5, _utc(2025, 10, 5, 10), total=48.5)
+    _line(db_conn, game, None, None, kind="closing", total=51)
+
+    m = _market(db_conn, game)
+
+    assert (m["closing_spread_home"], m["closing_from"]) == (Decimal("-3.5"), "last_snapshot")
+    assert m["closing_total"] == Decimal("51")
+
+
 def test_closing_null_before_kickoff(db_conn: Connection):
     game = _game(db_conn, "2099-10-10", _utc(2099, 10, 10, 23, 30))
     _line(db_conn, game, -3, _utc(2099, 10, 4, 10))
