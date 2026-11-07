@@ -1,3 +1,4 @@
+import { FilterChips } from "@/components/filter-chips";
 import { AppShell } from "@/components/shell/app-shell";
 import { cn } from "@/lib/utils";
 
@@ -34,10 +35,41 @@ function RowBars() {
   );
 }
 
+/** The record strip as a bar at its loaded heights: 56px on a phone, 44 at 768, 40 at 1440. */
+function StripBar() {
+  return (
+    <div
+      data-slot="skeleton-strip"
+      className="mb-3 flex h-14 items-center gap-3 rounded-lg border bg-card px-3 md:h-11 md:px-3.5 wide:h-10"
+    >
+      <span className={cn(BAR, "block h-3.5 w-24")} />
+      <span className={cn(BAR, "block h-3.5 w-40 md:w-64")} />
+    </div>
+  );
+}
+
 export function SlateLoading({ wake = false }: { wake?: boolean }) {
   return (
     <AppShell active="this-week" path="/" shell={null} state="loading" wake={wake}>
       <SlatePage caption={<span className={cn(BAR, "inline-block h-4 w-56 align-middle")} />}>
+        <StripBar />
+        <div className="mb-3">
+          <FilterChips
+            label="Filter games"
+            defaultSelected={["all"]}
+            options={[
+              { value: "all", label: "All" },
+              {
+                value: "picks",
+                label: (
+                  <>
+                    Picks<span className="max-md:hidden"> only</span>
+                  </>
+                ),
+              },
+            ]}
+          />
+        </div>
         <div role="status" aria-label="Loading this week's games">
           <SlateFrame>
             <SlateColumnHeader />

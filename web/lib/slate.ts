@@ -8,6 +8,7 @@ import {
   formatCoverPct,
   formatLineNumber,
   formatModelLine,
+  formatRecord,
   formatThreshold,
   formatUnits,
   formatWinPct,
@@ -20,7 +21,10 @@ import {
 // neither a clock nor a DOM. Thresholds come from the response's `rules` (D-055), never a
 // constant here.
 
-export type Slate = components["schemas"]["SlateOut"];
+export type Slate = components["schemas"]["SlateOut"] & {
+  /** The next season's first kickoff. The API doesn't send it yet; the line shows only when it does. */
+  next_kickoff_at?: string | null;
+};
 export type SlateGame = components["schemas"]["SlateGameOut"];
 export type SlateRules = components["schemas"]["SlateRulesOut"];
 
@@ -200,6 +204,10 @@ export type RowView = {
   coverProb: number | null;
   /** The current pick's tier. */
   tier: Tier | null;
+  /** The game has a current pick (the Picks only filter keeps it). */
+  hasPick: boolean;
+  /** A current market line exists; without one the empty cells print "—". */
+  hasLine: boolean;
   /** The model's favourite and its win %: `OSU 99%`. */
   win: string | null;
   notes: RowNote[];
@@ -255,6 +263,27 @@ const PICK_RESULT: Partial<Record<NonNullable<SlateGame["pick"]>["result"], keyo
   push: "push",
 };
 
+export type LiveCover = {
+  /** `push` is on the number. A live pick is never lost (F-32). */
+  state: "covering" | "push" | "not_yet";
+  /** The smallest whole margin that covers, for a favourite that is behind its line. */
+  needs: number | null;
+};
+
+/** Where a live pick stands against its line right now; null for a game that isn't live or has no pick. */
+export function liveCover(game: SlateGame): LiveCover | null {
+  const { pick } = game;
+  if (pick === null || game.status !== "in_progress") return null;
+  const margin = (game.home_points ?? 0) - (game.away_points ?? 0);
+  const pickMargin = pick.side === "home" ? margin : -margin;
+  const pickLine = pick.side === "home" ? pick.line : -pick.line;
+  const cushion = pickMargin + pickLine;
+  if (cushion > 0) return { state: "covering", needs: null };
+  if (cushion === 0) return { state: "push", needs: null };
+  // A favourite must win by more than its line: the smallest whole margin that covers.
+  return { state: "not_yet", needs: pickLine < 0 ? Math.floor(-pickLine) + 1 : null };
+}
+
 function notesFor(game: SlateGame, abbr: { home: string; away: string }): RowNote[] {
   const { pick, market } = game;
   const current = market.current_spread_home;
@@ -285,14 +314,10 @@ function notesFor(game: SlateGame, abbr: { home: string; away: string }): RowNot
 
   if (game.status === "in_progress") {
     // Never "lost" while a game is live (F-32): covering, or not yet.
-    const margin = (game.home_points ?? 0) - (game.away_points ?? 0);
-    const pickMargin = pick.side === "home" ? margin : -margin;
-    const pickLine = pick.side === "home" ? pick.line : -pick.line;
-    const cushion = pickMargin + pickLine;
-    if (cushion > 0) return [{ text: `${bet} · covering`, tone: "pos" }];
-    if (cushion === 0) return [{ text: `${bet} · on the number`, tone: "muted" }];
-    // A favourite must win by more than its line: the smallest whole margin that covers.
-    const needs = pickLine < 0 ? `, needs ${Math.floor(-pickLine) + 1}+` : "";
+    const cover = liveCover(game);
+    if (cover?.state === "covering") return [{ text: `${bet} · covering`, tone: "pos" }];
+    if (cover?.state === "push") return [{ text: `${bet} · on the number`, tone: "muted" }];
+    const needs = cover?.needs != null ? `, needs ${cover.needs}+` : "";
     return [{ text: `${bet} · not yet${needs}`, tone: "neg" }];
   }
 
@@ -347,6 +372,8 @@ export function rowView(game: SlateGame, rules: SlateRules | null, zone: string 
     cover: model?.cover_prob == null ? null : formatCoverPct(model.cover_prob),
     coverProb: model?.cover_prob ?? null,
     tier: game.pick?.tier ?? null,
+    hasPick: game.pick !== null,
+    hasLine: market.current_spread_home !== null,
     win: model ? formatWinPct(model.home_win_prob, home.abbr, away.abbr) : null,
     notes: notesFor(game, { home: home.abbr, away: away.abbr }),
   };
@@ -359,10 +386,28 @@ function count(n: number, noun: string): string {
   return `${n} ${noun}${n === 1 ? "" : "s"}`;
 }
 
+/** The season to name: the slate's own, or in the off-season (where it is null) the shell's. */
+export function offseasonSeason(slate: {
+  season: number | null;
+  shell?: { season: number | null } | null;
+}): number | null {
+  return slate.season ?? slate.shell?.season ?? null;
+}
+
 /** `2026 · Week 6 · 54 games · 9 picks` (`2026 · Postseason · …` after the regular season). */
-export function slateCaption(slate: Pick<Slate, "season" | "season_type" | "week" | "counts">): string {
+export function slateCaption(
+  slate: Pick<Slate, "season" | "season_type" | "week" | "counts"> & {
+    offseason?: boolean;
+    shell?: { season: number | null } | null;
+  },
+): string {
   const parts: string[] = [];
-  if (slate.season !== null) parts.push(String(slate.season));
+  const season = offseasonSeason(slate);
+  if (season !== null) parts.push(String(season));
+  if (slate.offseason) {
+    parts.push("off-season");
+    return parts.join(" · ");
+  }
   if (slate.season_type === "postseason") parts.push("Postseason");
   else if (slate.week !== null) parts.push(`Week ${slate.week}`);
   parts.push(count(slate.counts.games, "game"), count(slate.counts.picks, "pick"));
@@ -382,4 +427,144 @@ export function slateLegend(rules: SlateRules | null): string {
     `C ≥ ${formatThreshold(tiers.C)}`,
     LEGEND_MARKET,
   ].join(" · ");
+}
+
+// ---------------------------------------------------------------------------------------------
+// The record strip, the Picks only filter and the empty states (TASK-057)
+
+export type StripState = "won" | "lost" | "push" | "covering" | "push_live" | "not_yet" | "to_play";
+
+export type StripSegment = { state: StripState; label: string };
+
+export type RecordStrip = {
+  /** `1-0`, graded picks only. */
+  record: string;
+  live: number;
+  /** `IOWA covering, OSU not yet`; empty with nothing live. */
+  liveNote: string;
+  toPlay: number;
+  /** `+1.0u`. */
+  units: string;
+  /** One per pick, graded first, then live (covering first), then to play. Void picks are left out. */
+  segments: StripSegment[];
+};
+
+const GRADED_LABEL = { won: "Won", lost: "Lost", push: "Push" } as const;
+
+/** F-32's strip, from the week's picks. Pure: a live pick's state comes from `liveCover`. */
+export function recordStrip(games: SlateGame[]): RecordStrip {
+  let wins = 0;
+  let losses = 0;
+  let pushes = 0;
+  let units = 0;
+  const graded: StripSegment[] = [];
+  const covering: StripSegment[] = [];
+  const behind: StripSegment[] = [];
+  const toPlay: StripSegment[] = [];
+  const notes = { covering: [] as string[], behind: [] as string[], onTheNumber: [] as string[] };
+
+  for (const game of games) {
+    const { pick } = game;
+    if (pick === null || pick.result === "void") continue;
+    const home = game.home.abbreviation ?? game.home.school;
+    const away = game.away.abbreviation ?? game.away.school;
+    const bet = formatBet(pick.line, pick.side, home, away);
+    const team = pick.side === "home" ? home : away;
+    if (pick.result === "won" || pick.result === "lost" || pick.result === "push") {
+      if (pick.result === "won") wins += 1;
+      else if (pick.result === "lost") losses += 1;
+      else pushes += 1;
+      units += pick.units ?? 0;
+      graded.push({ state: pick.result, label: `${GRADED_LABEL[pick.result]} · ${bet}` });
+      continue;
+    }
+    const cover = liveCover(game);
+    if (cover === null) {
+      toPlay.push({ state: "to_play", label: `To play · ${bet}` });
+    } else if (cover.state === "covering") {
+      covering.push({ state: "covering", label: `Live · covering · ${bet}` });
+      notes.covering.push(team);
+    } else if (cover.state === "push") {
+      behind.push({ state: "push_live", label: `Live · on the number · ${bet}` });
+      notes.onTheNumber.push(team);
+    } else {
+      behind.push({ state: "not_yet", label: `Live · not covering yet · ${bet}` });
+      notes.behind.push(team);
+    }
+  }
+
+  const liveNote = [
+    ...notes.covering.map((t) => `${t} covering`),
+    ...notes.onTheNumber.map((t) => `${t} on the number`),
+    ...notes.behind.map((t) => `${t} not yet`),
+  ].join(", ");
+
+  return {
+    record: formatRecord(wins, losses, pushes),
+    live: covering.length + behind.length,
+    liveNote,
+    toPlay: toPlay.length,
+    units: formatUnits(units),
+    segments: [...graded, ...covering, ...behind, ...toPlay],
+  };
+}
+
+export type SlateFilter = "all" | "picks";
+
+/** The footer's left half: `Showing 54 of 54 games`, or `9 games with a pick · of 54`. */
+export function showingText(
+  filter: SlateFilter,
+  counts: { shown: number; games: number; picks: number },
+): string {
+  if (filter === "picks") return `${count(counts.picks, "game")} with a pick · of ${counts.games}`;
+  return `Showing ${counts.shown} of ${counts.games} games`;
+}
+
+/** The dashed note that replaces the strip when the week has no picks. */
+export function noPicksNote(slate: Pick<Slate, "games" | "week" | "rules">): {
+  title: string;
+  body: string;
+} {
+  const noLines =
+    slate.games.length > 0 && slate.games.every((g) => g.market.current_spread_home === null);
+  if (noLines) {
+    const week = slate.week === null ? "This week's" : `Week ${slate.week}`;
+    return {
+      title: "No picks yet",
+      body: `${week} lines haven't posted. Model lines are ready; picks appear when books open, usually Sun–Mon.`,
+    };
+  }
+  const why =
+    slate.rules === null
+      ? "No game qualifies as a pick."
+      : `No game clears ${formatThreshold(slate.rules.min_edge_pts)} pts.`;
+  return {
+    title: "No picks this week",
+    body: `${why} The record strip comes back with the first pick.`,
+  };
+}
+
+/** The off-season frame's copy. The season is the shell's, never guessed; the kickoff line needs the API's date. */
+export function offseasonNote(
+  season: number | null,
+  nextKickoffAt: string | null | undefined,
+  zone: string = SLATE_ZONE,
+): { title: string; body: string; kickoff: string | null } {
+  const ended = season === null ? "The season has ended." : `The ${season} season has ended.`;
+  const kickoff = nextKickoffAt
+    ? `Week 0 kicks off ${new Intl.DateTimeFormat("en-US", {
+        timeZone: zone,
+        weekday: "short",
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      })
+        .format(new Date(nextKickoffAt))
+        .replace(",", "")}`
+    : null;
+  return {
+    title: "No games this week",
+    body: `${ended} The next slate fills in when books post Week 0 lines, usually in early August.`,
+    kickoff,
+  };
 }

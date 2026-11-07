@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  liveCover,
+  noPicksNote,
+  offseasonNote,
+  recordStrip,
+  showingText,
   slateCaption,
   slateLegend,
   slateWindows,
@@ -490,5 +495,99 @@ describe("caption and legend", () => {
 
   it("with no rules the legend prints no threshold", () => {
     expect(slateLegend(null)).toBe("Market = opening line, its moves, then now");
+  });
+});
+
+
+// ---------------------------------------------------------------------------------------------
+// The record strip (TASK-057, F-32)
+
+const live = (home: number, away: number, over: Partial<SlateGame> = {}) =>
+  game({ status: "in_progress", home_points: home, away_points: away, ...over });
+
+describe("liveCover (AC-2: a live pick is covering, on the number or not yet, never lost)", () => {
+  it("a home favourite of 3.5 trailing by 7 is not yet, and needs 4+ to cover", () => {
+    const g = live(0, 7, { pick: pick({ side: "home", line: -3.5 }) });
+    expect(liveCover(g)).toEqual({ state: "not_yet", needs: 4 });
+  });
+
+  it("an away underdog at +1.5 ahead by 3 is covering; the cushion at 0 is on the number", () => {
+    const covering = live(7, 10, { pick: pick({ side: "away", line: -1.5 }) });
+    // away side line is the home spread flipped: home −1.5 → away +1.5
+    expect(liveCover(covering)?.state).toBe("covering");
+    const even = live(7, 10, { pick: pick({ side: "home", line: 3 }) });
+    expect(liveCover(even)?.state).toBe("push");
+  });
+
+  it("is null for a game that isn't live or has no pick", () => {
+    expect(liveCover(game({ pick: pick() }))).toBeNull();
+    expect(liveCover(live(0, 0))).toBeNull();
+  });
+});
+
+describe("recordStrip", () => {
+  const won = game({ id: 1, status: "final", home_points: 30, away_points: 10, pick: pick({ result: "won", units: 0.91 }) });
+  const iowa = live(14, 20, {
+    id: 2,
+    away: team("IOWA"),
+    home: team("WIS"),
+    pick: pick({ side: "away", line: -1.5, result: "pending" }),
+  });
+  const osu = live(0, 7, { id: 3, home: team("OSU"), away: team("PUR"), pick: pick({ side: "home", line: -27.5, result: "pending" }) });
+  const upcoming = (id: number) => game({ id, pick: pick({ result: "pending" }) });
+  const games = [osu, won, iowa, ...[4, 5, 6, 7, 8, 9].map(upcoming), game({ id: 10 })];
+
+  it("reads 1-0 · 2 live (IOWA covering, OSU not yet) · 6 to play · +0.9u", () => {
+    const strip = recordStrip(games);
+    expect(strip.record).toBe("1-0");
+    expect(strip.live).toBe(2);
+    expect(strip.liveNote).toBe("IOWA covering, OSU not yet");
+    expect(strip.toPlay).toBe(6);
+    expect(strip.units).toBe("+0.9u");
+  });
+
+  it("has one segment per pick, graded first, then live (covering first), then to play", () => {
+    const states = recordStrip(games).segments.map((s) => s.state);
+    expect(states).toEqual(["won", "covering", "not_yet", ...Array(6).fill("to_play")]);
+  });
+
+  it("a trailing live pick is never a lost segment", () => {
+    expect(recordStrip([osu]).segments[0].state).toBe("not_yet");
+    expect(recordStrip([osu]).record).toBe("0-0");
+  });
+
+  it("leaves void picks out and counts a loss and a push in the record", () => {
+    const lost = game({ id: 20, status: "final", pick: pick({ result: "lost", units: -1.1 }) });
+    const push = game({ id: 21, status: "final", pick: pick({ result: "push", units: 0 }) });
+    const voided = game({ id: 22, pick: pick({ result: "void" }) });
+    const strip = recordStrip([lost, push, voided]);
+    expect(strip.record).toBe("0-1-1");
+    expect(strip.segments.map((s) => s.state)).toEqual(["lost", "push"]);
+    expect(strip.units).toBe("−1.1u");
+  });
+});
+
+describe("showingText", () => {
+  it("prints both footers with their counts", () => {
+    expect(showingText("all", { shown: 54, games: 54, picks: 9 })).toBe("Showing 54 of 54 games");
+    expect(showingText("picks", { shown: 9, games: 54, picks: 9 })).toBe("9 games with a pick · of 54");
+    expect(showingText("picks", { shown: 1, games: 54, picks: 1 })).toBe("1 game with a pick · of 54");
+  });
+});
+
+describe("noPicksNote and offseasonNote", () => {
+  const base = { week: 6, rules: RULES } as const;
+  it("titles 'No picks yet' when no game has a line, 'No picks this week' when lines exist", () => {
+    const noLine = game({ market: { opening_spread_home: null, current_spread_home: null, closing_spread_home: null, snapshots: [] } });
+    expect(noPicksNote({ ...base, games: [noLine] }).title).toBe("No picks yet");
+    const note = noPicksNote({ ...base, games: [game()] });
+    expect(note.title).toBe("No picks this week");
+    expect(note.body).toContain("2.5 pts");
+  });
+
+  it("the off-season copy names the shell's season and shows the next kickoff only when given", () => {
+    expect(offseasonNote(2026, null).body).toContain("2026 season");
+    expect(offseasonNote(2026, null).kickoff).toBeNull();
+    expect(offseasonNote(2026, "2027-08-28T19:00:00Z").kickoff).toBe("Week 0 kicks off Sat Aug 28, 2027");
   });
 });
