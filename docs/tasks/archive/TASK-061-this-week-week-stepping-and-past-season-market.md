@@ -1,7 +1,7 @@
 ---
 id: TASK-061
 title: Step This Week through weeks and seasons and draw a past season's market cell
-status: Review
+status: Done
 depends_on: [TASK-056]
 size: M
 model: sonnet
