@@ -253,6 +253,70 @@ test.describe("phone cards (AC-5)", () => {
   });
 });
 
+const STRIP = "[data-slot=record-strip]";
+
+// TASK-057 on the same fixture: 9 picks = Thursday's win, Iowa covering and Ohio State not yet
+// (both live), and 6 to play.
+test.describe("record strip and Picks only (TASK-057)", () => {
+  test("AC-1, AC-2: the strip reads 1-0 · 2 live · 6 to play · +1.0u, with one segment per pick", async ({
+    page,
+    viewport,
+  }) => {
+    await openSlate(page);
+    const strip = page.locator(STRIP);
+    await expect(strip).toHaveAttribute(
+      "aria-label",
+      /^This week 1-0, 2 live \(IOWA covering, OSU not yet\), 6 to play, \+1\.0u\./,
+    );
+    await expect(strip.locator("[data-slot=strip-record]")).toHaveText("1-0");
+    await expect(strip).toContainText("2 live", INNER);
+    await expect(strip).toContainText("6", INNER);
+    await expect(strip).toContainText("+1.0u", INNER);
+    // The live note: beside the stats at 1440, under them on a phone, and absent at 768.
+    const width = viewport?.width ?? 0;
+    if (width >= 1440) await expect(strip).toContainText("(IOWA covering, OSU not yet)", INNER);
+    else if (width < 768) await expect(strip).toContainText("IOWA covering, OSU not yet", INNER);
+    else await expect(strip).not.toContainText("IOWA covering", INNER);
+
+    const segments = visible(strip.locator("[data-slot=strip-segments] > span"));
+    await expect(segments).toHaveCount(9);
+    const states = await segments.evaluateAll((els) => els.map((el) => el.getAttribute("data-state")));
+    expect(states).toEqual(["won", "covering", "not_yet", ...Array(6).fill("to_play")]);
+    // The fixture's OSU pick is live and behind its line: "not yet", never lost.
+    await expect(segments.nth(2)).toHaveAttribute("title", /Live · not covering yet · OSU/);
+    await noSideScroll(page);
+  });
+
+  test("AC-3: the strip and the chip each show only the 9 picks, then all 54", async ({ page }) => {
+    await openSlate(page);
+    const strip = page.locator(STRIP);
+    const chip = page.getByRole("button", { name: /^Picks/ });
+    await expect(visible(page.locator(ROW))).toHaveCount(54);
+    await expect(page.getByText("Showing 54 of 54 games")).toBeVisible();
+    await expect(chip).toHaveAttribute("aria-pressed", "false");
+
+    await strip.click();
+    await expect(visible(page.locator(ROW))).toHaveCount(9);
+    await expect(page.getByText("9 games with a pick · of 54")).toBeVisible();
+    await expect(chip).toHaveAttribute("aria-pressed", "true");
+    await expect(strip).toHaveAttribute("aria-pressed", "true");
+    // A window with no pick drops its heading too.
+    expect(await visible(page.getByRole("heading", { level: 2 })).count()).toBeLessThan(5);
+
+    await strip.click();
+    await expect(visible(page.locator(ROW))).toHaveCount(54);
+    await expect(page.getByText("Showing 54 of 54 games")).toBeVisible();
+
+    await chip.click();
+    await expect(visible(page.locator(ROW))).toHaveCount(9);
+    await expect(chip).toHaveAttribute("aria-pressed", "true");
+    await page.getByRole("button", { name: "All", exact: true }).click();
+    await expect(visible(page.locator(ROW))).toHaveCount(54);
+    await expect(chip).toHaveAttribute("aria-pressed", "false");
+    await noSideScroll(page);
+  });
+});
+
 test.describe("loading and error (AC-6)", () => {
   test("the skeleton is drawn at the loaded size and the pulse stops under reduced motion", async ({
     page,
@@ -277,6 +341,19 @@ test.describe("loading and error (AC-6)", () => {
 
     await expect(page.locator(ROW).first()).toBeVisible({ timeout: 15_000 });
     await expect(skeleton).toHaveCount(0);
+  });
+
+  test("AC-6: the skeleton's strip is as tall as the loaded strip, and the chips are already there", async ({
+    page,
+  }) => {
+    await page.goto(`${COLD_PREVIEW_URL}/`, { waitUntil: "commit" });
+    const bar = page.locator("[data-slot=skeleton-strip]");
+    await expect(bar).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByRole("group", { name: "Filter games" })).toBeVisible();
+    const drawn = (await bar.boundingBox())!.height;
+    await expect(page.locator(ROW).first()).toBeVisible({ timeout: 15_000 });
+    const loaded = (await page.locator(STRIP).boundingBox())!.height;
+    expect(Math.abs(loaded - drawn)).toBeLessThanOrEqual(1);
   });
 
   test("a loaded phone card is as tall as its skeleton card", async ({ page, viewport }) => {

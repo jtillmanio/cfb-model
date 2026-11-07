@@ -12,6 +12,8 @@ import {
   type RowView,
   type Slate,
   type SlateWindow,
+  noPicksNote,
+  recordStrip,
   rowView,
   slateCaption,
   slateLegend,
@@ -20,6 +22,10 @@ import {
   type Tone,
 } from "@/lib/slate";
 import { cn } from "@/lib/utils";
+
+import { NoPicksStrip } from "./record-strip";
+import { ShowingCount, SlateChips, SlateFilterRoot, SlateStrip } from "./slate-filters";
+import { SlateEmpty } from "./slate-empty";
 
 // This Week (S-01, TASK-056): the slate as one list of games grouped by kickoff window. Each game
 // is ONE tree of elements that CSS lays out per width, so the document stays small:
@@ -48,7 +54,7 @@ const TONE: Record<Tone, string> = {
 export function SlatePage({ caption, children }: { caption: ReactNode; children: ReactNode }) {
   return (
     <main className="mx-auto w-full max-w-304 px-4 py-6 md:px-6">
-      <header className="mb-6 flex flex-col gap-1 md:flex-row md:items-baseline md:gap-4">
+      <header className="mb-3 flex flex-col gap-1 md:flex-row md:items-baseline md:gap-4">
         <h1 className="text-section font-semibold tracking-[-0.005em] md:text-title">This Week</h1>
         <p className="text-caption text-muted-foreground md:text-body">{caption}</p>
       </header>
@@ -242,6 +248,7 @@ export function GameRow({ row, threshold }: { row: RowView; threshold: number })
       prefetch={false}
       data-slot="game-row"
       data-game={row.id}
+      data-pick={row.hasPick ? "" : undefined}
       className={cn(
         "flex flex-col gap-2.5 rounded-lg border bg-card px-3.5 pt-2.5 pb-3 active:bg-accent",
         "md:min-h-14 md:gap-0 md:rounded-none md:border-0 md:border-b md:bg-transparent md:py-1.5 md:hover:bg-accent",
@@ -331,7 +338,8 @@ export function GameRow({ row, threshold }: { row: RowView; threshold: number })
           {row.tier ? (
             <TierBadge tier={row.tier} />
           ) : (
-            <span className="wide:hidden">
+            // A lined row with no tier stays blank at 1440; a row with no line prints "—" there too.
+            <span className={cn(row.hasLine && "wide:hidden")}>
               <TierBadge tier={null} />
             </span>
           )}
@@ -357,8 +365,9 @@ export function GameRow({ row, threshold }: { row: RowView; threshold: number })
 
 function WindowSection({ window, rules }: { window: SlateWindow; rules: Slate["rules"] }) {
   const id = `window-${window.key}`;
+  const picks = window.games.filter((g) => g.pick !== null).length;
   return (
-    <section aria-labelledby={id}>
+    <section aria-labelledby={id} data-picks={picks}>
       <WindowHeading id={id} label={window.label} time={window.time} />
       <div className="flex flex-col gap-2.5 pb-3 md:block md:pb-0">
         {window.games.map((game) => (
@@ -373,25 +382,40 @@ function WindowSection({ window, rules }: { window: SlateWindow; rules: Slate["r
   );
 }
 
-/** The page's content for a loaded slate: the windows, then the footer with the printed legend. */
+/** The page's content for a loaded slate: the strip and chips, the windows, then the footer with the printed legend. */
 export function SlateView({ slate }: { slate: Slate }) {
+  if (slate.offseason) {
+    return (
+      <SlatePage caption={slateCaption(slate)}>
+        <SlateEmpty season={slate.season} nextKickoffAt={slate.next_kickoff_at} />
+      </SlatePage>
+    );
+  }
   const windows = slateWindows(slate.games);
+  const strip = recordStrip(slate.games);
+  const picks = slate.games.filter((g) => g.pick !== null).length;
   return (
     <SlatePage caption={slateCaption(slate)}>
-      <SlateFrame>
-        <SlateColumnHeader />
-        {windows.map((window) => (
-          <WindowSection key={window.key} window={window} rules={slate.rules} />
-        ))}
-        <div className="flex flex-col gap-1 px-1 pt-1 text-caption text-muted-foreground md:min-h-10 md:flex-row md:items-center md:justify-between md:gap-4 md:px-3 md:py-2 md:pl-11">
-          <span>
-            Showing {slate.games.length} of {slate.counts.games} games
-          </span>
-          <span data-slot="slate-legend" className="md:text-right">
-            {slateLegend(slate.rules)}
-          </span>
+      <SlateFilterRoot>
+        <div className="mb-3">
+          {strip.segments.length > 0 ? <SlateStrip strip={strip} /> : <NoPicksStrip {...noPicksNote(slate)} />}
         </div>
-      </SlateFrame>
+        <div className="mb-3">
+          <SlateChips />
+        </div>
+        <SlateFrame>
+          <SlateColumnHeader />
+          {windows.map((window) => (
+            <WindowSection key={window.key} window={window} rules={slate.rules} />
+          ))}
+          <div className="flex flex-col gap-1 px-1 pt-1 text-caption text-muted-foreground md:min-h-10 md:flex-row md:items-center md:justify-between md:gap-4 md:px-3 md:py-2 md:pl-11">
+            <ShowingCount shown={slate.games.length} total={slate.counts.games} picks={picks} />
+            <span data-slot="slate-legend" className="md:text-right">
+              {slateLegend(slate.rules)}
+            </span>
+          </div>
+        </SlateFrame>
+      </SlateFilterRoot>
     </SlatePage>
   );
 }

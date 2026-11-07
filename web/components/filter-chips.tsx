@@ -1,7 +1,7 @@
 "use client";
 
 import { Check } from "lucide-react";
-import { useState } from "react";
+import { type ReactNode, useState } from "react";
 
 import { Toggle } from "./ui/toggle";
 
@@ -9,7 +9,7 @@ import { Toggle } from "./ui/toggle";
 // real <button aria-pressed>, so Enter and Space toggle it. Controlled (`selected`) or
 // uncontrolled (`defaultSelected`); both report the new selection through `onChange`.
 
-export type ChipOption = { value: string; label: string };
+export type ChipOption = { value: string; label: ReactNode };
 
 type FilterChipsProps = {
   options: ChipOption[];

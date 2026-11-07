@@ -1,14 +1,14 @@
 ---
 id: TASK-057
 title: Add the record strip, filters and empty states to This Week
-status: Ready
+status: In progress
 depends_on: [TASK-056]
 size: M
 model: sonnet
 autonomy: unattended
 ui: true
-plan_status: none
-planned_at_commit:
+plan_status: approved
+planned_at_commit: df380c9
 ---
 
 # TASK-057 — Add the record strip, filters and empty states to This Week
@@ -65,9 +65,51 @@ This Week shows how the model's picks are doing this week at a glance (won, live
 
 _Work noticed during this task and deliberately left out. Each bullet ends `→ <path> § <section>` (where it was placed) or `→ not tracked: <reason>`. See `.claude/skills/track-follow-ups/classify.md`; the PR's Follow-ups section is copied from here._
 
+- The next season in the API: `/slate`'s `next_kickoff_at` (the next season's first kickoff, from `seasons.weeks`), the shell naming the next season and its week 0 off-season, and whether a season with no record yet shows the previous season's final record (TASK-053's open question): new Draft task, with its row in `docs/08-tasklist.md`, and a note under D-156 if the decision needs one (approved at plan)
+
 ## Plan
 
-_Written by /plan-batch or /implement-task Phase 1. Approved by the user (plan_status: approved) before any code is written._
+_Approved 2026-11-07 at the plan gate. The owner settled five points there:_
+
+1. _AC-4's no-lines note follows the design's two titles: "No picks yet" when no game has a line (the board's `noLines`), "No picks this week" when lines exist and nothing clears the threshold. AC-4's wording says "No picks this week" for the first case; this ruling wins over it, and the owner rewords the AC._
+2. _The "Week 0 kicks off …" line reads an optional `next_kickoff_at` the API doesn't send yet, proved with a test fixture, so it stays hidden until the follow-up task adds the field._
+3. _TASK-053's open question: the shell stays as it is, so the caption and top bar say 2026, not the design's "2027 · Week 0"; the web app never guesses the next season. The off-season copy drops "title game on Mon Jan 18" because the response has no such date. Both differ from `20-offseason-empty-desktop.png` and `21-offseason-empty-mobile.png` on purpose._
+4. _AC-5 is proved by a component test, not a third e2e server pair; `python/api/tests/test_api_slate.py` already covers the response at the off-season clock. The real page at that clock stays a manual check._
+5. _The other chips (FBS vs FBS, Starred, Conference, Window, Ranked) stay out, as Out of scope allows._
+
+**Steps**
+
+1. `web/lib/slate.ts` + `web/lib/slate.test.ts` (pure, clock-free):
+   - `liveCover(game)`, pulled out of `notesFor` so the row note and the strip share it: covering, on the number, or not yet, never lost (F-32).
+   - `recordStrip(games)`: one segment per pick (won, lost, push, live, to play; void picks are left out, since those games are never played), covering picks first among the live ones; the record through `formatRecord`, the live note ("IOWA covering, OSU not yet"), the to-play count, units through `formatUnits`, and a label per segment for its title.
+   - `showingText(filter, counts)`: "Showing 54 of 54 games", "9 games with a pick · of 54" ("1 game with a pick").
+   - The no-picks note from the response (the two titles above; the threshold printed from `rules`, D-055) and the off-season copy, from `shell.season`.
+2. `web/app/(this-week)/slate-filters.tsx` (new, thin client file): holds the All / Picks only state and renders the chips, the strip's button wrapper and the footer count. Rows stay server-rendered and CSS hides non-pick rows and windows with no pick, so 54 rows never become client props and the page keeps its one API call. The chips use `FilterChips` controlled: clicking Picks only again, or All, returns to all.
+3. `web/app/(this-week)/record-strip.tsx` (new): one tree at the boards' sizes (40px at 1440 with the live note and the "Show picks" / "Showing picks · show all" call to action, 44 at 768 without either, 56 on a phone on two lines). A real `<button>` with `aria-pressed`, whose `aria-label` is the full sentence. Segments are tokens only. With no picks, the dashed note replaces it and it isn't a button.
+4. `web/app/(this-week)/slate-empty.tsx` (new): the dashed "No games this week" frame with no table, chips or strip; its links go to `/rankings` and `/performance` (404 until those screens ship, as game rows do today).
+5. `web/app/(this-week)/slate.tsx`: the strip and chips under the header, the header gap at 12px as the board has it, the branch on `offseason`, the caption "2026 · off-season" through `slateCaption`, the footer through `slate-filters.tsx`, and Tier printing "—" at 1440 on no-line rows only (TASK-056's AC-2 keeps lined rows with no tier blank).
+6. `web/app/(this-week)/loading.tsx`: strip bars at the loaded heights; the chips stay real (Loading board).
+7. `web/components/filter-chips.tsx`: `label` takes a node, so phones read "Picks" as the board draws it.
+8. Lighthouse: `FilterChips` brings Radix Toggle onto `/`. If the fixture run breaks the 186,000 JS budget, re-measure and write the reason in `docs/02-architecture.md` › Performance checks.
+
+**Files** (12 at most; no schema or API change): `web/app/(this-week)/record-strip.tsx`, `slate-filters.tsx`, `slate-empty.tsx` (new); `slate.tsx`, `loading.tsx`, `slate.test.tsx`; `web/lib/slate.ts`, `slate.test.ts`; `web/components/filter-chips.tsx`; `web/e2e/this-week.spec.ts`; `scripts/perf/budget.json` and `docs/02-architecture.md` only if the budget moves. Not in "Files likely touched": `filter-chips.tsx`, `slate.test.tsx` and the `(this-week)` route group, which replaces `web/app/this-week/`, `web/app/page.tsx` and `web/app/loading.tsx`. `web/playwright.config.ts` and `web/e2e/test-env.ts` don't change (point 4 above).
+
+**Test strategy**
+
+| AC | Proved by |
+|---|---|
+| AC-1 | `this-week.spec.ts` › the strip's text and 9 segments in their states, at 390 and 1440; `slate.test.ts` › `recordStrip` |
+| AC-2 | `slate.test.ts` › a live pick trailing its line is live, never lost; `this-week.spec.ts` › the fixture's OSU pick reads "not yet" |
+| AC-3 | `this-week.spec.ts` › the strip and the chip each toggle: 9 then 54 visible rows, both footers, `aria-pressed` on the chip |
+| AC-4 | `slate.test.tsx` › a no-lines response: "No line", the model line, "—" for edge, cover and tier, the "No line posted yet" note, the dashed note; `slate.test.ts` › the two titles |
+| AC-5 | `slate.test.tsx` › the off-season response: "· off-season", the dashed frame, no table, no chips, no strip; the "Week 0 kicks off …" line only with `next_kickoff_at` |
+| AC-6 | `this-week.spec.ts` › the skeleton's strip is as tall as the loaded strip, the chips are present, the pulse stops under reduced motion; the fixture Lighthouse run |
+
+**Risks / open questions**
+
+- Tailwind's order can let `md:grid` beat the filter's `hidden` (TASK-056's `min-[1440px]:` problem), so the filter's rule uses `!important`.
+- The fixture hasn't been run for this plan: the Iowa and OSU live scores come from `design/sample-data.md` until e2e runs.
+- With no picks, the Picks only chip shows no rows and the footer "0 games with a pick · of 54"; the dashed note above says why.
 
 ## Review log
 

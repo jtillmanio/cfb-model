@@ -87,3 +87,10 @@
     outline-offset: 2px;
   }
 }
+
+/* This Week's Picks only filter (TASK-057): the rows are server-rendered, so the filter hides them
+   here. `!important` because a row's `md:grid` would otherwise beat `display: none`. */
+[data-filter="picks"] [data-slot="game-row"]:not([data-pick]),
+[data-filter="picks"] section[data-picks="0"] {
+  display: none !important;
+}
