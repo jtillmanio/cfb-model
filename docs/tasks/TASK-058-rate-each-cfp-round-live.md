@@ -67,19 +67,19 @@ _Written by /plan-batch or /implement-task Phase 1. Approved by the user (plan_s
 Re-planned 2026-11-07 (approved): the plan of 2026-11-02 went stale after TASK-048, and AC-3 was rewritten by the owner. Still decided (2026-11-02): a postseason round is stored as `model_runs.week`/`team_ratings.week` (no migration). Open question answered: a round is rated as soon as any of its games has both teams; games without both are left out, and a game's round can't change once both are known.
 
 **Steps**
-1. Tests first (below); see each fail, except the two guards named under Test strategy.
-2. `publish/models.py`: lift TASK-048's refusal. `fit_week` for a `rounds` spec and `season_type == "postseason"` reads round `week` from `History.rounds` (its `as_of`, its games); a `one_week` spec asked for postseason week > 1 is refused. The run and its ratings store `week` = the round. Add `coming_round(lake, season, now)`: the highest round with a game still to come whose teams are both known.
+1. Tests first (below); see each fail, except the three guards named under Test strategy.
+2. `publish/models.py`: lift TASK-048's refusal. `fit_week` for a `rounds` spec and `season_type == "postseason"` reads round `week` from `History.rounds` (its `as_of`, its games); a `one_week` spec asked for postseason week > 1 is refused. The run and its ratings store `week` = the round. Add `coming_round(history, season, now)` (revised at review: it takes the history, so the job reads the rebuilt lake once): the highest round with a game still to come whose teams are both known.
 3. `jobs.py`: `rate_and_predict`, after the rebuild, takes the round for a `rounds` version when the coming week is postseason, and writes nothing (with a note) if there is none. `due_weeks("lines")` keeps CFBD's postseason week 1. `reevaluate` re-picks every postseason round's newest scheduled run for a version whose newest scheduled run is postseason, so bowls still to come keep being re-picked once round 2 is rated.
 4. `publish/picks.py`, `cli.py`, `core/spec.py`: docstrings and `--week` help only.
 5. `.github/workflows/lines.yml`: header comment only.
 6. Docs: a decision amending D-150 and D-151 (ID from `next-id.ps1`); 04 § 9.2; 03 › Models & outputs; `model-guide.md`; README › Jobs.
 
-**Files**: the 14 in "Files likely touched", plus `python/engine/src/engine/core/spec.py` (docstring) and `README.md` (Jobs), and the new Draft task file. No migration and no view change: 020/030/040 work with `week` = round, and 070 reads `games`.
+**Files**: the 14 in "Files likely touched", plus `python/engine/src/engine/core/spec.py` (docstring) and `README.md` (Jobs), and the new Draft task file; at review, with the owner's OK, comments in `python/db/src/db/models.py` and views 020/030 and the `lines` row of `docs/02-architecture.md`. No migration and no view logic change: 020/030/040 work with `week` = round, and 070 reads `games`.
 
 **Test strategy**
 - AC-1: `test_rate_and_predict.py::test_rounds_version_rates_the_next_round`.
 - AC-2: `db/tests/test_team_rankings.py::test_postseason_round_2_ranks_against_round_1` (guard: passes on today's view).
-- AC-3: `test_publish_models.py::test_coming_round_rates_past_bowls_still_to_come`; `test_jobs.py::test_lines_stays_on_cfbd_week_1`; `test_rate_and_predict.py::test_no_round_with_both_teams_writes_nothing`, `::test_lines_reevaluates_every_open_round`; the existing D-150 tests unchanged.
+- AC-3: `test_publish_models.py::test_coming_round_rates_past_bowls_still_to_come`; `test_jobs.py::test_lines_stays_on_cfbd_week_1` (guard: `due_weeks` deliberately doesn't change); `test_rate_and_predict.py::test_a_known_round_is_rated_past_a_bowl_still_to_come` (added at the test audit), `::test_no_round_with_both_teams_writes_nothing`, `::test_lines_reevaluates_every_open_round`; the existing D-150 tests unchanged.
 - AC-4: `test_publish_models.py::test_rate_cli_fits_a_round`, `::test_rate_refuses_a_round_for_a_one_week_spec`; `test_publish_picks.py::test_round_picks_cover_only_its_games` (guard: passes on today's `write_picks`).
 - AC-5: read in review.
 

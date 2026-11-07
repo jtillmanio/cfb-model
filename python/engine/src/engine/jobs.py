@@ -108,7 +108,8 @@ SCHEDULED = ("scheduled",)  # the run type the jobs write, and the only one they
 
 @dataclass(frozen=True, slots=True)
 class Repicked:
-    """One version's picks re-evaluated by `lines`: the week of its newest scheduled run."""
+    """One week's picks of a version re-evaluated by `lines`: the week of its newest scheduled
+    run, or one of its postseason weeks when that run is postseason (D-161)."""
 
     version_id: int
     version: str
@@ -141,7 +142,7 @@ class Summary:
 
     def _repicks(self) -> list[str]:
         out = ["", "Picks re-evaluated against the newest lines (each version's newest scheduled "
-               "run this season):"]
+               "run this season, and in the postseason each round's):"]
         if self.repick_error is not None:
             out.append(
                 f"- **Not re-evaluated; the picks were rolled back:** {self.repick_error}. The "

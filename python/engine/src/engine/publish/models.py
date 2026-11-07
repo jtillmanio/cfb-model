@@ -150,7 +150,8 @@ def coming_round(history: harness.History, season: int, now: datetime) -> int | 
     the earliest kickoff: bowls are round 1 and run past the quarterfinals, so that rule would
     never reach them before they're played (D-161). A game's round is settled once both teams
     are known, since each reached it by the game that fixes its side of the bracket; until then
-    it's provisional and the game isn't rated, and the next Sunday's run takes it in."""
+    it's provisional and the game isn't rated. The next Sunday's run takes it in while its round
+    is still the highest open one; a round the job has moved past isn't rated again."""
     return max(
         (
             r.round

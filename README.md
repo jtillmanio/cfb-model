@@ -457,7 +457,8 @@ run the same week adds another run and its predictions, but no pick whose side a
 unchanged. Its **Summary** lists the version, the week rated (or why none), the run's id and
 status, its ratings and predictions, and the picks and passes written out of the predicted games
 still before kickoff (0 predicted games means nothing was rated; predictions with 0 picks means
-no game cleared the pick rules). `lines` adds one line per version re-evaluated. Locally:
+no game cleared the pick rules). `lines` adds one line per version re-evaluated, one per CFP
+round for a version with `postseason: rounds`. Locally:
 
 ```powershell
 uv --directory python run engine job rate-and-predict --target dev --spec engine/specs/efficiency-v1.json --choices engine/specs/efficiency-v1-2026.run.json
