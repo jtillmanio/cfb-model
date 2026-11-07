@@ -28,7 +28,7 @@ def _graded(
     status: str = "final",
     points: tuple[int, int] = (30, 20),
     kickoff: datetime = FUTURE,
-    lines: tuple[tuple[str, datetime | None, float], ...] = (),
+    lines: tuple[tuple[str, datetime | None, float | None], ...] = (),
 ) -> dict[str, Any]:
     """One game with one spread pick on `side` at `line` (a snapshot the morning of the week),
     plus any other `lines` (kind, captured_at, spread_home); its pick_outcomes row."""
@@ -42,7 +42,7 @@ def _graded(
     book_id = m.book(conn)
     snapshot = m.line(conn, game_id, book_id, picked_at, line)
     for kind, at, spread in lines:
-        m.line(conn, game_id, book_id, at, spread, kind)
+        m.line(conn, game_id, book_id, at, spread, kind, total=49.5 if spread is None else None)
     m.pick(conn, m.prediction(conn, run_id, version_id, game_id), version_id, game_id, snapshot,
            picked_at, side=side, line=line, edge_pts=4.0 if side == "home" else -4.0)  # fmt: skip
     return dict(
@@ -101,6 +101,18 @@ def test_clv_has_d132s_sign(db_conn: Connection):
 
     assert (home["closing_spread_home"], home["clv"]) == (Decimal("-3.5"), Decimal("1.0"))
     assert (away["closing_spread_home"], away["clv"]) == (Decimal("-3.5"), Decimal("-1.0"))
+
+
+def test_clv_skips_a_total_only_last_pull(db_conn: Connection):
+    """AC-2: the last pull before kickoff quoted only a total; the close is the pull before it
+    (−3.5, last_snapshot), so a home pick at −2.5 has clv +1.0."""
+    pulls = (
+        ("snapshot", PAST.replace(day=PAST.day - 2), -3.5),
+        ("snapshot", PAST.replace(day=PAST.day - 1), None),
+    )
+    graded = _graded(db_conn, "home", -2.5, kickoff=PAST, lines=pulls)
+
+    assert (graded["closing_spread_home"], graded["clv"]) == (Decimal("-3.5"), Decimal("1.0"))
 
 
 def test_clv_is_null_until_the_close(db_conn: Connection):
