@@ -57,6 +57,7 @@ From the top bar's week selector, step This Week to the previous or next week an
 _Work noticed during this task and deliberately left out. Each bullet ends `→ <path> § <section>` (where it was placed) or `→ not tracked: <reason>`. See `.claude/skills/track-follow-ups/classify.md`; the PR's Follow-ups section is copied from here._
 
 - Candidate decision (next free ID from `next-id.ps1`): the week URL scheme, `/slate`'s `weeks` list, and when the past-season market cell is drawn. The owner overrode this task's "any change to `/slate`'s response" out-of-scope line at the plan gate (2026-11-07) → `docs/decisions.md` § D-163 (approved at plan)
+- `weeks` is a grouped read of the sport's games (no index covers `season_type`); a `(sport_id, season, season_type, week)` index is a schema change → not tracked: accepted while the table is small
 - The top bar's week selector on the other screens (it stays a static label there) → not tracked: each screen's own task decides (approved at plan)
 
 ## Plan
