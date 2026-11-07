@@ -436,6 +436,8 @@ test.describe("week stepping (TASK-061)", () => {
       await expect(first.locator("line")).toHaveCount(1);
       await expect(first.locator("polyline")).toHaveCount(0);
       await expect(cells.first()).toHaveAttribute("title", "Past season: opening and closing line only");
+      // The close is printed as the current line is: a team and its number.
+      await expect(visible(page.locator("[data-cell=market]")).first()).toContainText(/[A-Z&]+ [−+]?\d+(\.\d)?/, INNER);
 
       await openSlate(page, "/");
       await expect(page.locator("[data-slot=line-history][title^='Past season']")).toHaveCount(0);
@@ -461,7 +463,10 @@ test.describe("week stepping (TASK-061)", () => {
       page,
     }) => {
       await openSlate(page);
-      await page.getByRole("banner").getByRole("button", { name: "2026 · Week 6" }).click();
+      // The label that opens the sheet is a 44px target too.
+      const label = page.getByRole("banner").getByRole("button", { name: "2026 · Week 6" });
+      expect((await label.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+      await label.click();
       const sheet = page.locator(PICKER);
       await expect(sheet).toBeVisible();
       for (const target of await sheet.locator("a:visible, button:visible").all()) {
