@@ -1,7 +1,7 @@
 ---
 id: TASK-058
 title: Rate, predict and pick each CFP round live after the rounds before it
-status: Review
+status: Done
 depends_on: [TASK-048]
 size: M
 model: opus
