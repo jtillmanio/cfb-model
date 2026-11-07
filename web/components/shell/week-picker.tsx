@@ -42,16 +42,11 @@ export type WeekNav = {
   weeks: SlateWeek[];
 };
 
-function weekText(week: SlateWeek): string {
-  return week.season_type === "postseason" ? "Post" : String(week.week);
-}
-
 export function WeekPicker({ nav }: { nav: WeekNav }) {
   const { shown, coming, weeks } = nav;
   const router = useRouter();
   const panel = useRef<HTMLDivElement>(null);
-  const anchor = shown ?? coming ?? weeks[weeks.length - 1] ?? null;
-  const [season, setSeason] = useState<number | null>(anchor?.season ?? null);
+  const [season, setSeason] = useState<number | undefined>((shown ?? coming)?.season);
   const [pending, setPending] = useState<SlateWeek | null>(shown);
 
   const seasons = [...new Set(weeks.map((w) => w.season))].sort((a, b) => b - a);
@@ -64,13 +59,10 @@ export function WeekPicker({ nav }: { nav: WeekNav }) {
   function opening(event: React.ToggleEvent<HTMLDivElement>) {
     const el = panel.current;
     if (event.newState !== "open" || el === null) return;
-    setSeason(shown?.season ?? anchor?.season ?? null);
+    setSeason((shown ?? coming)?.season);
     setPending(shown);
-    if (!window.matchMedia(WIDE).matches) {
-      el.style.top = "";
-      el.style.left = "";
-      return;
-    }
+    el.style.top = el.style.left = "";
+    if (!window.matchMedia(WIDE).matches) return;
     const trigger = [
       ...document.querySelectorAll<HTMLElement>(`[popovertarget="${WEEK_PICKER_ID}"]`),
     ].find((t) => t.offsetParent !== null);
@@ -165,7 +157,7 @@ export function WeekPicker({ nav }: { nav: WeekNav }) {
                     marked ? "border-foreground bg-accent font-semibold" : "border-input hover:bg-accent",
                   )}
                 >
-                  {weekText(week)}
+                  {week.season_type === "postseason" ? "Post" : week.week}
                   {live ? <LiveDot className="size-1.5" /> : null}
                 </button>
               );
