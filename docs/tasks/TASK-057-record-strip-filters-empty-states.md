@@ -1,7 +1,7 @@
 ---
 id: TASK-057
 title: Add the record strip, filters and empty states to This Week
-status: In progress
+status: Review
 depends_on: [TASK-056]
 size: M
 model: sonnet
@@ -32,11 +32,11 @@ This Week shows how the model's picks are doing this week at a glance (won, live
 
 ## Acceptance criteria
 
-- [ ] AC-1: On the seeded test DB at Sat 2026-10-10 2:15 PM ET, the record strip under the header reads "This week 1-0 · 2 live (IOWA covering, OSU not yet) · 6 to play · +1.0u", with one segment per pick (9) in won, live and to-play states.
-- [ ] AC-2: A live pick that's behind on the score renders as live ("not yet"), never as lost (a `web/lib` test with a live pick trailing its line, and the fixture's OSU pick).
-- [ ] AC-3: Clicking the strip, or the "Picks only" chip, shows only the 9 games with a pick and the footer "9 games with a pick · of 54"; clicking again (or "All") shows all 54 with "Showing 54 of 54 games"; the chip's `aria-pressed` follows.
-- [ ] AC-4: Given a `/slate` response whose games have no lines (a test fixture of the response), every row shows "No line" in Market, the model line, "—" for edge, cover and tier, and the "No line posted yet" note; the strip shows the dashed "No picks this week" note.
-- [ ] AC-5: Given the off-season response, This Week shows the header "· off-season" and the dashed "No games this week" frame with no table; the "Week 0 kicks off …" line appears only when the response gives the next season's first kickoff.
+- [x] AC-1: On the seeded test DB at Sat 2026-10-10 2:15 PM ET, the record strip under the header reads "This week 1-0 · 2 live (IOWA covering, OSU not yet) · 6 to play · +1.0u", with one segment per pick (9) in won, live and to-play states.
+- [x] AC-2: A live pick that's behind on the score renders as live ("not yet"), never as lost (a `web/lib` test with a live pick trailing its line, and the fixture's OSU pick).
+- [x] AC-3: Clicking the strip, or the "Picks only" chip, shows only the 9 games with a pick and the footer "9 games with a pick · of 54"; clicking again (or "All") shows all 54 with "Showing 54 of 54 games"; the chip's `aria-pressed` follows.
+- [x] AC-4: Given a `/slate` response whose games have no lines (a test fixture of the response), every row shows "No line" in Market, the model line, "—" for edge, cover and tier, and the "No line posted yet" note; the strip shows the dashed "No picks this week" note.
+- [x] AC-5: Given the off-season response, This Week shows the header "· off-season" and the dashed "No games this week" frame with no table; the "Week 0 kicks off …" line appears only when the response gives the next season's first kickoff.
 - [ ] AC-6: The loading skeleton (`web/app/loading.tsx`) includes the record strip and filter chips at their loaded size, pulse off under reduced motion; the page's Lighthouse budget still passes on the fixture build, or is re-measured with the written reason `docs/02-architecture.md` › Performance checks asks for.
 
 ## Out of scope
@@ -65,7 +65,7 @@ This Week shows how the model's picks are doing this week at a glance (won, live
 
 _Work noticed during this task and deliberately left out. Each bullet ends `→ <path> § <section>` (where it was placed) or `→ not tracked: <reason>`. See `.claude/skills/track-follow-ups/classify.md`; the PR's Follow-ups section is copied from here._
 
-- The next season in the API: `/slate`'s `next_kickoff_at` (the next season's first kickoff, from `seasons.weeks`), the shell naming the next season and its week 0 off-season, and whether a season with no record yet shows the previous season's final record (TASK-053's open question): new Draft task, with its row in `docs/08-tasklist.md`, and a note under D-156 if the decision needs one (approved at plan)
+- The next season in the API: `/slate`'s `next_kickoff_at` (the next season's first kickoff, from `seasons.weeks`), the shell naming the next season and its week 0 off-season, and whether a season with no record yet shows the previous season's final record (TASK-053's open question) → docs/tasks/TASK-062-name-the-next-season-in-the-off-season.md (new, Draft), docs/08-tasklist.md § M5.11
 
 ## Plan
 
@@ -92,7 +92,7 @@ _Approved 2026-11-07 at the plan gate. The owner settled five points there:_
 7. `web/components/filter-chips.tsx`: `label` takes a node, so phones read "Picks" as the board draws it.
 8. Lighthouse: `FilterChips` brings Radix Toggle onto `/`. If the fixture run breaks the 186,000 JS budget, re-measure and write the reason in `docs/02-architecture.md` › Performance checks.
 
-**Files** (12 at most; no schema or API change): `web/app/(this-week)/record-strip.tsx`, `slate-filters.tsx`, `slate-empty.tsx` (new); `slate.tsx`, `loading.tsx`, `slate.test.tsx`; `web/lib/slate.ts`, `slate.test.ts`; `web/components/filter-chips.tsx`; `web/e2e/this-week.spec.ts`; `scripts/perf/budget.json` and `docs/02-architecture.md` only if the budget moves. Not in "Files likely touched": `filter-chips.tsx`, `slate.test.tsx` and the `(this-week)` route group, which replaces `web/app/this-week/`, `web/app/page.tsx` and `web/app/loading.tsx`. `web/playwright.config.ts` and `web/e2e/test-env.ts` don't change (point 4 above).
+**Files** (12 at most; no schema or API change): `web/app/(this-week)/record-strip.tsx`, `slate-filters.tsx`, `slate-empty.tsx` (new); `slate.tsx`, `loading.tsx`, `slate.test.tsx`; `web/lib/slate.ts`, `slate.test.ts`; `web/components/filter-chips.tsx`; `web/app/globals.css` (the filter's `display: none !important` rule, added during Phase 2; plan revision 1); `web/e2e/this-week.spec.ts`; `scripts/perf/budget.json` and `docs/02-architecture.md` only if the budget moves. Not in "Files likely touched": `filter-chips.tsx`, `slate.test.tsx` and the `(this-week)` route group, which replaces `web/app/this-week/`, `web/app/page.tsx` and `web/app/loading.tsx`. `web/playwright.config.ts` and `web/e2e/test-env.ts` don't change (point 4 above).
 
 **Test strategy**
 
@@ -113,7 +113,7 @@ _Approved 2026-11-07 at the plan gate. The owner settled five points there:_
 
 ## Review log
 
-_Filled by /implement-task. One line per round._
+Verify R1 PASS | Audit R1 PASS | Spec R1 CHANGES (AC-5 off-season season from `shell.season`; reduced-motion check on the strip bars) → fixed in 276ef90 | UI: not run by ui-verifier (needs the e2e session signing); the Playwright spec checks the strip, filter and skeleton at 390 and 1440 (not independent)
 
 ## Blocked
 
@@ -121,7 +121,7 @@ _Only if status is Blocked: what failed, what was tried, best hypothesis, decisi
 
 ## Metrics
 
-- Verify rounds:
-- Review rounds:
-- First-pass AC FAILs:
-- Plan revisions after approval:
+- Verify rounds: 1
+- Review rounds: 1 (one fix commit)
+- First-pass AC FAILs: 1 (AC-5, found by the spec review)
+- Plan revisions after approval: 1 (`globals.css` added to Files)
