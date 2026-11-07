@@ -1,7 +1,7 @@
 ---
 id: TASK-061
 title: Step This Week through weeks and seasons and draw a past season's market cell
-status: In progress
+status: Review
 depends_on: [TASK-056]
 size: M
 model: sonnet
@@ -28,11 +28,11 @@ From the top bar's week selector, step This Week to the previous or next week an
 
 ## Acceptance criteria
 
-- [ ] AC-1: Signed in on the seeded test DB at Sat 2026-10-10 2:15 PM ET, pressing the left arrow in the top bar opens Week 5 (expected: the caption reads "2026 · Week 5 · …" with that week's game and pick counts from `/slate`, and the arrows and label show Week 5).
-- [ ] AC-2: The season/week list opens from the label and lists the seasons and weeks that have games (expected: choosing 2026 · Week 3 shows Week 3's games and no other week's).
-- [ ] AC-3: A past week's final games show their closing line in the market cell as the past-season variant (expected: opening and closing line, two dots joined by a dashed line, title "Past season"); a game with no line draws "No line".
-- [ ] AC-4: At 390 the selector opens as the design's sheet and every target is ≥ 44px; at 768 and 1440 nothing scrolls sideways.
-- [ ] AC-5: With the API stopped, a stepped week shows "API unreachable" with Retry and no saved copy (D-096).
+- [x] AC-1: Signed in on the seeded test DB at Sat 2026-10-10 2:15 PM ET, pressing the left arrow in the top bar opens Week 5 (expected: the caption reads "2026 · Week 5 · …" with that week's game and pick counts from `/slate`, and the arrows and label show Week 5).
+- [x] AC-2: The season/week list opens from the label and lists the seasons and weeks that have games (expected: choosing 2026 · Week 3 shows Week 3's games and no other week's).
+- [x] AC-3: A past week's final games show their closing line in the market cell as the past-season variant (expected: opening and closing line, two dots joined by a dashed line, title "Past season"); a game with no line draws "No line".
+- [x] AC-4: At 390 the selector opens as the design's sheet and every target is ≥ 44px; at 768 and 1440 nothing scrolls sideways.
+- [x] AC-5: With the API stopped, a stepped week shows "API unreachable" with Retry and no saved copy (D-096).
 
 ## Out of scope
 
@@ -56,12 +56,14 @@ From the top bar's week selector, step This Week to the previous or next week an
 
 _Work noticed during this task and deliberately left out. Each bullet ends `→ <path> § <section>` (where it was placed) or `→ not tracked: <reason>`. See `.claude/skills/track-follow-ups/classify.md`; the PR's Follow-ups section is copied from here._
 
-- Candidate decision (next free ID from `next-id.ps1`): the week URL scheme, `/slate`'s `weeks` list, and when the past-season market cell is drawn. The owner overrode this task's "any change to `/slate`'s response" out-of-scope line at the plan gate (2026-11-07) → `docs/decisions.md` (approved at plan)
+- Candidate decision (next free ID from `next-id.ps1`): the week URL scheme, `/slate`'s `weeks` list, and when the past-season market cell is drawn. The owner overrode this task's "any change to `/slate`'s response" out-of-scope line at the plan gate (2026-11-07) → `docs/decisions.md` § D-163 (approved at plan)
 - The top bar's week selector on the other screens (it stays a static label there) → not tracked: each screen's own task decides (approved at plan)
 
 ## Plan
 
 _Approved by the owner 2026-11-07 at `5a65e90`._
+
+_Note: the plan's step 1 said the weeks query runs on the `(sport_id, season, week)` index; it is a grouped read of the sport's games (the index doesn't cover `season_type`), accepted because the table is small (schema review)._
 
 **Owner's answers at the plan gate (2026-11-07):**
 - The week list's data: add `weeks` to `/slate` (a sixth query in its wave), overriding the Out of scope line "any change to `/slate`'s response".
@@ -103,7 +105,7 @@ _Approved by the owner 2026-11-07 at `5a65e90`._
 
 ## Review log
 
-_Filled by /implement-task. One line per round._
+Verify R1 FAIL(1: `isPastWeek` on a null shell) → R2 PASS | Audit R1 CHANGES (e2e not discriminable on base; all passed on the branch; 2 assertions added) → PASS | Spec R1 CHANGES (follow-up destination) → fixed | Schema R1 APPROVE (3 minors: literal-order test and `season_type` guard added, index wording corrected) | UI R1 PASS (AC-1 to AC-4; AC-5 by e2e)
 
 ## Blocked
 
@@ -111,7 +113,7 @@ _Only if status is Blocked: what failed, what was tried, best hypothesis, decisi
 
 ## Metrics
 
-- Verify rounds:
-- Review rounds:
-- First-pass AC FAILs:
-- Plan revisions after approval:
+- Verify rounds: 2
+- Review rounds: 1
+- First-pass AC FAILs: 0
+- Plan revisions after approval: 0
