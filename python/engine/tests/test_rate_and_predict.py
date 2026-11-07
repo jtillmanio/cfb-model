@@ -509,6 +509,27 @@ def test_rounds_version_rates_the_next_round(
     assert "Week rated: postseason week 2" in summary.read_text("utf-8")
 
 
+def test_a_known_round_is_rated_past_a_bowl_still_to_come(
+    rounds_weekly: Path, db_conn: Connection, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """AC-3: the earliest game to come is a round-1 game, but the January game's teams are both
+    known, so the job rates round 2. The round of the earliest kickoff would rate round 1, and
+    the 12-team quarterfinals would never be rated before they're played."""
+    first_bowl = min(datetime.fromisoformat(g["startDate"]) for g in BOWLS)
+    second_game = first_bowl + timedelta(hours=1)  # after the first's kickoff, before the next's
+    monkeypatch.setenv("FIXTURE_NOW", second_game.isoformat())
+    assert jobs.due_weeks(
+        "lines", (g for g, _ in jobs._games(LocalLake(tmp_path / "published"), SEASON).values()),
+        second_game,
+    ) == [("postseason", 1)]  # fmt: skip
+
+    assert _job(_run_file(tmp_path, spec=ROUNDS), spec_file=rounds_weekly) == 0
+
+    (run,) = _runs(db_conn)
+    assert (run.season_type, run.week) == ("postseason", 2)
+    assert _predicted(db_conn, run.id) == {JANUARY}
+
+
 def test_no_round_with_both_teams_writes_nothing(
     rounds_weekly: Path,
     lake: LocalLake,
