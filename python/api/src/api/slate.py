@@ -330,8 +330,8 @@ def _distribution(params: Mapping[str, Any], sd: float | None) -> MarginDistribu
 def _market(row: Row[Any], snapshots: list[SlateLineOut]) -> SlateMarketOut:
     """game_market's lines as of the API's clock: the close once the game has started, and the
     current line the newest pull with a spread by now, else the close, else the open. With the
-    real clock this is game_market's current line, except after a pull that quoted only totals or
-    moneylines: game_market then reports its NULL spread, and this the pull before it."""
+    real clock this is game_market's current line (which also skips pulls that quoted only totals
+    or moneylines, TASK-060)."""
     opening = _float(row.opening_spread_home)
     closing = _float(row.closing_spread_home) if row.started else None
     if snapshots:

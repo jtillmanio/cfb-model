@@ -174,16 +174,25 @@ def line(
     game_id: int,
     book_id: int,
     captured_at: datetime | None,
-    spread_home: float,
+    spread_home: float | None,
     kind: str = "snapshot",
+    total: float | None = None,
 ) -> int:
-    """One book's line for a game; an untimed (`captured_at` None) `closing` row is CFBD's close."""
+    """One book's line for a game; an untimed (`captured_at` None) `closing` row is CFBD's close.
+    `spread_home` None is a pull that quoted only a total."""
     return conn.execute(
         text(
-            "INSERT INTO line_snapshots (game_id, book_id, source, kind, captured_at, spread_home)"
-            " VALUES (:g, :b, 'manual', :kind, :c, :s) RETURNING id"
+            "INSERT INTO line_snapshots (game_id, book_id, source, kind, captured_at, spread_home,"
+            " total) VALUES (:g, :b, 'manual', :kind, :c, :s, :t) RETURNING id"
         ),
-        {"g": game_id, "b": book_id, "kind": kind, "c": captured_at, "s": spread_home},
+        {
+            "g": game_id,
+            "b": book_id,
+            "kind": kind,
+            "c": captured_at,
+            "s": spread_home,
+            "t": total,
+        },
     ).scalar_one()
 
 

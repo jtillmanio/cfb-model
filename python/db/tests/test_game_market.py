@@ -61,7 +61,7 @@ def _book(conn: Connection, source_id: str) -> int:
 def _line(
     conn: Connection,
     game: int,
-    spread: float,
+    spread: float | None,
     at: datetime | None,
     kind: str = "snapshot",
     book: str = "consensus",
@@ -130,6 +130,66 @@ def test_opening_row_and_cfbd_close_win_over_snapshots(db_conn: Connection):
     assert m["opening_captured_at"] is None
     assert (m["closing_spread_home"], m["closing_from"]) == (Decimal("-5"), "cfbd_close")
     assert m["current_spread_home"] == Decimal("-4")
+
+
+def test_current_spread_skips_a_total_only_pull(db_conn: Connection):
+    """AC-1: the newest pull quoted only a total; the spread stays the Sunday pull's, the total
+    is the newest pull that quoted one."""
+    game = _game(db_conn, "2025-10-11", _utc(2025, 10, 11, 23, 30))
+    _line(db_conn, game, -3.5, _utc(2025, 10, 5, 10), total=48.5)
+    _line(db_conn, game, None, _utc(2025, 10, 11, 13), total=49.5)
+
+    m = _market(db_conn, game)
+
+    assert (m["current_spread_home"], m["current_total"]) == (Decimal("-3.5"), Decimal("49.5"))
+    assert m["current_captured_at"] == _utc(2025, 10, 5, 10)
+
+
+def test_closing_skips_a_total_only_last_pull(db_conn: Connection):
+    """AC-2 (view side): after kickoff, no CFBD close; the close is the last spread-quoting pull."""
+    game = _game(db_conn, "2025-10-11", _utc(2025, 10, 11, 23, 30))
+    _line(db_conn, game, -3.5, _utc(2025, 10, 5, 10), total=48.5)
+    _line(db_conn, game, None, _utc(2025, 10, 11, 13), total=49.5)
+
+    m = _market(db_conn, game)
+
+    assert (m["closing_spread_home"], m["closing_from"]) == (Decimal("-3.5"), "last_snapshot")
+    assert m["closing_total"] == Decimal("49.5")
+
+
+def test_opening_skips_a_moneyline_only_first_pull(db_conn: Connection):
+    """AC-3: the first snapshot has no spread (a moneyline only); opening is the next pull."""
+    game = _game(db_conn, "2025-10-11", _utc(2025, 10, 11, 23, 30))
+    _line(db_conn, game, None, _utc(2025, 10, 4, 10))
+    _line(db_conn, game, -7, _utc(2025, 10, 5, 10))
+
+    assert _market(db_conn, game)["opening_spread_home"] == Decimal("-7")
+
+
+def test_a_game_with_only_total_pulls_has_no_spread(db_conn: Connection):
+    """Only totals quoted: the spread and what describes it are NULL, the total is still set."""
+    game = _game(db_conn, "2025-10-11", _utc(2025, 10, 11, 23, 30))
+    _line(db_conn, game, None, _utc(2025, 10, 5, 10), total=48.5)
+
+    m = _market(db_conn, game)
+
+    assert m["current_total"] == Decimal("48.5")
+    for key in ("opening", "current", "closing"):
+        assert m[f"{key}_spread_home"] is None
+        assert m[f"{key}_source"] is None
+        assert m[f"{key}_captured_at"] is None
+    assert m["closing_from"] is None
+
+
+def test_a_total_only_cfbd_close_leaves_the_spread_to_the_last_snapshot(db_conn: Connection):
+    game = _game(db_conn, "2025-10-11", _utc(2025, 10, 11, 23, 30))
+    _line(db_conn, game, -3.5, _utc(2025, 10, 5, 10), total=48.5)
+    _line(db_conn, game, None, None, kind="closing", total=51)
+
+    m = _market(db_conn, game)
+
+    assert (m["closing_spread_home"], m["closing_from"]) == (Decimal("-3.5"), "last_snapshot")
+    assert m["closing_total"] == Decimal("51")
 
 
 def test_closing_null_before_kickoff(db_conn: Connection):
