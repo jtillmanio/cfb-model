@@ -37,7 +37,7 @@ This Week shows how the model's picks are doing this week at a glance (won, live
 - [x] AC-3: Clicking the strip, or the "Picks only" chip, shows only the 9 games with a pick and the footer "9 games with a pick · of 54"; clicking again (or "All") shows all 54 with "Showing 54 of 54 games"; the chip's `aria-pressed` follows.
 - [x] AC-4: Given a `/slate` response whose games have no lines (a test fixture of the response), every row shows "No line" in Market, the model line, "—" for edge, cover and tier, and the "No line posted yet" note; the strip shows the dashed "No picks this week" note.
 - [x] AC-5: Given the off-season response, This Week shows the header "· off-season" and the dashed "No games this week" frame with no table; the "Week 0 kicks off …" line appears only when the response gives the next season's first kickoff.
-- [ ] AC-6: The loading skeleton (`web/app/loading.tsx`) includes the record strip and filter chips at their loaded size, pulse off under reduced motion; the page's Lighthouse budget still passes on the fixture build, or is re-measured with the written reason `docs/02-architecture.md` › Performance checks asks for.
+- [x] AC-6: The loading skeleton (`web/app/loading.tsx`) includes the record strip and filter chips at their loaded size, pulse off under reduced motion; the page's Lighthouse budget still passes on the fixture build, or is re-measured with the written reason `docs/02-architecture.md` › Performance checks asks for.
 
 ## Out of scope
 
