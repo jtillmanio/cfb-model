@@ -20,7 +20,7 @@ The backtest's closing line uses the last pull that quoted a spread, the way `ga
 ## Context
 
 - Task list: `docs/08-tasklist.md` › M5 › M5.12.
-- *From TASK-060 (fix/060-game-market-spreadless-pulls):* `engine.transform.market.closing_lines()` (`python/engine/src/engine/transform/market.py`) says it applies `game_market`'s rule but takes the last pull (or CFBD's close) even when it has no spread, giving the game a NULL closing spread. `game_market` now skips such pulls for the spread (D-162). `test_closing_lines_equal_game_market` compares the two.
+- *From TASK-060 (PR #143):* `engine.transform.market.closing_lines()` (`python/engine/src/engine/transform/market.py`) says it applies `game_market`'s rule but takes the last pull (or CFBD's close) even when it has no spread, giving the game a NULL closing spread. `game_market` now skips such pulls for the spread (D-162). `test_closing_lines_equal_game_market` compares the two.
 - Check the backtest golden metrics (`python/engine/tests/test_backtest_golden.py`) before and after: if they move, say so in the plan.
 - Decisions: D-120, D-121, D-162.
 
