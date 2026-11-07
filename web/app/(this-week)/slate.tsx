@@ -13,6 +13,7 @@ import {
   type Slate,
   type SlateWindow,
   noPicksNote,
+  offseasonSeason,
   recordStrip,
   rowView,
   slateCaption,
@@ -387,7 +388,7 @@ export function SlateView({ slate }: { slate: Slate }) {
   if (slate.offseason) {
     return (
       <SlatePage caption={slateCaption(slate)}>
-        <SlateEmpty season={slate.season} nextKickoffAt={slate.next_kickoff_at} />
+        <SlateEmpty season={offseasonSeason(slate)} nextKickoffAt={slate.next_kickoff_at} />
       </SlatePage>
     );
   }

@@ -350,6 +350,9 @@ test.describe("loading and error (AC-6)", () => {
     const bar = page.locator("[data-slot=skeleton-strip]");
     await expect(bar).toBeVisible({ timeout: 10_000 });
     await expect(page.getByRole("group", { name: "Filter games" })).toBeVisible();
+    // The strip's bars stop pulsing under reduced motion, like the rows'.
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await expect(bar.locator(".animate-pulse").first()).toHaveCSS("animation-name", "none");
     const drawn = (await bar.boundingBox())!.height;
     await expect(page.locator(ROW).first()).toBeVisible({ timeout: 15_000 });
     const loaded = (await page.locator(STRIP).boundingBox())!.height;

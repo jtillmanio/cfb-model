@@ -137,12 +137,23 @@ describe("a week with no lines (AC-4)", () => {
 
 describe("the off-season (AC-5)", () => {
   const off = (extra: Record<string, unknown> = {}) =>
-    response({ offseason: true, week: null, season_type: null, counts: { games: 0, picks: 0 }, games: [], ...extra });
+    // As the API sends it: season is null and the season is only the shell's (test_api_slate.py).
+    response({
+      offseason: true,
+      season: null,
+      week: null,
+      season_type: null,
+      counts: { games: 0, picks: 0 },
+      games: [],
+      shell: { season: 2026 },
+      ...extra,
+    });
 
   it("shows '· off-season' and the dashed frame with no table, chips or strip", () => {
     const { container } = render(<SlateView slate={off()} />);
     expect(screen.getByText("2026 · off-season")).toBeTruthy();
     expect(screen.getByText("No games this week")).toBeTruthy();
+    expect(screen.getByText(/The 2026 season has ended/)).toBeTruthy();
     expect(container.querySelector("[data-slot=slate-header]")).toBeNull();
     expect(container.querySelector("a[data-slot=game-row]")).toBeNull();
     expect(container.querySelector("[data-slot=record-strip]")).toBeNull();

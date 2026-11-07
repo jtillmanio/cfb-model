@@ -386,12 +386,24 @@ function count(n: number, noun: string): string {
   return `${n} ${noun}${n === 1 ? "" : "s"}`;
 }
 
+/** The season to name: the slate's own, or in the off-season (where it is null) the shell's. */
+export function offseasonSeason(slate: {
+  season: number | null;
+  shell?: { season: number | null } | null;
+}): number | null {
+  return slate.season ?? slate.shell?.season ?? null;
+}
+
 /** `2026 · Week 6 · 54 games · 9 picks` (`2026 · Postseason · …` after the regular season). */
 export function slateCaption(
-  slate: Pick<Slate, "season" | "season_type" | "week" | "counts"> & { offseason?: boolean },
+  slate: Pick<Slate, "season" | "season_type" | "week" | "counts"> & {
+    offseason?: boolean;
+    shell?: { season: number | null } | null;
+  },
 ): string {
   const parts: string[] = [];
-  if (slate.season !== null) parts.push(String(slate.season));
+  const season = offseasonSeason(slate);
+  if (season !== null) parts.push(String(season));
   if (slate.offseason) {
     parts.push("off-season");
     return parts.join(" · ");
