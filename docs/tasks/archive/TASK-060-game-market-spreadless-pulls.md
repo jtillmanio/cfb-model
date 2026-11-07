@@ -1,7 +1,7 @@
 ---
 id: TASK-060
 title: Keep game_market's spread when a pull quotes no spread
-status: Review
+status: Done
 depends_on: []
 size: S
 model: sonnet
