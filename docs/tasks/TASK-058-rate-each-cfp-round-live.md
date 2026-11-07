@@ -1,14 +1,14 @@
 ---
 id: TASK-058
 title: Rate, predict and pick each CFP round live after the rounds before it
-status: Ready
+status: In progress
 depends_on: [TASK-048]
 size: M
 model: opus
 autonomy: attended
 ui: false
 plan_status: approved
-planned_at_commit: faea7a4
+planned_at_commit: 6cc4dae
 ---
 
 # TASK-058 — Rate, predict and pick each CFP round live after the rounds before it
@@ -31,7 +31,7 @@ During the postseason, each College Football Playoff round is rated, predicted a
 
 - [ ] AC-1: Given a version whose spec has `postseason: rounds` and staged postseason games where round 1 is final and both teams of a round-2 game are known, the weekly `rate-and-predict` job inserts a `scheduled` run with `season_type` postseason and week 2, `as_of` the round's first kickoff, ratings that count the round-1 games, and predictions for the round-2 games; the round-1 run and its rows are untouched (hard rule 2).
 - [ ] AC-2: `team_rankings` for postseason week 2 gives each team's `previous_rank` from postseason week 1 of the same version.
-- [ ] AC-3: The coming week (`jobs.due_weeks("lines")` and the job's rated week) during the postseason is the round of the earliest postseason kickoff still to come; with a `one_week` version, the job rates postseason week 1 exactly as D-150 does now (existing tests unchanged).
+- [ ] AC-3: During the postseason `jobs.due_weeks("lines")` stays `("postseason", 1)`. For a `rounds` version the job's rated week is the highest round with a game still to come whose teams are both known; on the 2025 dates, the Sundays Dec 21 and 28 rate round 2, Jan 4 round 3, Jan 11 and 18 round 4. With no such game it writes nothing and says why. A `one_week` version rates postseason week 1 exactly as D-150 does now (existing tests unchanged). *(Rewritten by the owner at the re-plan, 2026-11-07: the original named `due_weeks` as the round, which would stop the CFP line pulls, and "the earliest kickoff", which never rates the quarterfinals.)*
 - [ ] AC-4: `engine rate --season-type postseason --week 2` fits round 2 for a `rounds` spec and refuses (exit 2) for a `one_week` spec; `engine pick` writes picks for the round-2 run's games only, and none for a game past its cutoff (D-148).
 - [ ] AC-5: The header comment of `.github/workflows/lines.yml` states the D-150 coming-week rule and the round rule.
 
@@ -57,37 +57,39 @@ During the postseason, each College Football Playoff round is rated, predicted a
 
 _Work noticed during this task and deliberately left out. Each bullet ends `→ <path> § <section>` (where it was placed) or `→ not tracked: <reason>`. See `.claude/skills/track-follow-ups/classify.md`; the PR's Follow-ups section is copied from here._
 
+- New Draft task, "Run a version on `postseason: rounds` live": `/slate` reads each game's round run, plus a new version (`efficiency-v1` is `one_week`, `rounds` changes the spec hash, so it needs its own `run.json` and new arguments in `rate-and-predict.yml`); the owner wants it landed before the first 2026 bowl (approved at plan)
+- Candidate decision: the coming-round rule and the bowl re-picks, amending D-150 and D-151 (approved at plan)
+
 ## Plan
 
 _Written by /plan-batch or /implement-task Phase 1. Approved by the user (plan_status: approved) before any code is written._
 
-Provisional: depends on TASK-048 (its `History.rounds`, the spec setting and the refusal this lifts). Re-plan if TASK-048 changes those names. Decided at the plan gate (2026-11-02): a postseason round is stored as `model_runs.week`/`team_ratings.week` (no migration).
+Re-planned 2026-11-07 (approved): the plan of 2026-11-02 went stale after TASK-048, and AC-3 was rewritten by the owner. Still decided (2026-11-02): a postseason round is stored as `model_runs.week`/`team_ratings.week` (no migration). Open question answered: a round is rated as soon as any of its games has both teams; games without both are left out, and a game's round can't change once both are known.
 
 **Steps**
-1. Tests first (below); see each fail.
-2. `publish/models.py`: `fit_week(…, season_type, week)` for a `rounds` spec and `season_type == "postseason"` reads round `week` from `History.rounds` (its `as_of`, its games); a `one_week` spec asked for postseason week > 1 is refused. Lift TASK-048's refusal. The run and its ratings store `week` = the round (the proposed storage).
-3. `publish/picks.py`: `_run` already selects by `(season, season_type, week)`; picks cover the run's own games only (round r's), not every postseason game.
-4. `jobs.py`: during the postseason, the rated week for a `rounds` version is the round of the earliest postseason kickoff still to come whose teams are both known (from `History.rounds`); `due_weeks("lines")` keeps pulling CFBD's postseason week 1 (the pulls name CFBD's week, `run()` passes it straight through); `reevaluate` re-picks the newest scheduled run's `(season_type, week)` as now. Docstring updated.
-5. `cli.py`: help text for `--week` says it is the round for a postseason `rounds` spec.
-6. `.github/workflows/lines.yml`: header comment only.
-7. Docs: a decision amending D-150 (ID from `next-id.ps1`); 04 § 9.2; 03 › Models & outputs (`model_runs.week` is the round for a postseason `rounds` run); `model-guide.md`.
+1. Tests first (below); see each fail, except the two guards named under Test strategy.
+2. `publish/models.py`: lift TASK-048's refusal. `fit_week` for a `rounds` spec and `season_type == "postseason"` reads round `week` from `History.rounds` (its `as_of`, its games); a `one_week` spec asked for postseason week > 1 is refused. The run and its ratings store `week` = the round. Add `coming_round(lake, season, now)`: the highest round with a game still to come whose teams are both known.
+3. `jobs.py`: `rate_and_predict`, after the rebuild, takes the round for a `rounds` version when the coming week is postseason, and writes nothing (with a note) if there is none. `due_weeks("lines")` keeps CFBD's postseason week 1. `reevaluate` re-picks every postseason round's newest scheduled run for a version whose newest scheduled run is postseason, so bowls still to come keep being re-picked once round 2 is rated.
+4. `publish/picks.py`, `cli.py`, `core/spec.py`: docstrings and `--week` help only.
+5. `.github/workflows/lines.yml`: header comment only.
+6. Docs: a decision amending D-150 and D-151 (ID from `next-id.ps1`); 04 § 9.2; 03 › Models & outputs; `model-guide.md`; README › Jobs.
 
-**Files**: the 14 in "Files likely touched". No migration and no view change with the proposed storage; the column alternative adds the migration, `python/db/src/db/models.py` and four views (about 20).
+**Files**: the 14 in "Files likely touched", plus `python/engine/src/engine/core/spec.py` (docstring) and `README.md` (Jobs), and the new Draft task file. No migration and no view change: 020/030/040 work with `week` = round, and 070 reads `games`.
 
 **Test strategy**
 - AC-1: `test_rate_and_predict.py::test_rounds_version_rates_the_next_round`.
-- AC-2: `db/tests/test_team_rankings.py::test_postseason_round_2_ranks_against_round_1`.
-- AC-3: `test_jobs.py::test_coming_week_is_the_next_round`; the existing D-150 tests unchanged.
-- AC-4: `test_publish_models.py::test_rate_cli_fits_a_round`, `::test_rate_refuses_a_round_for_a_one_week_spec`; `test_publish_picks.py::test_round_picks_cover_only_its_games`.
-- AC-5: manual check of the comment in review.
+- AC-2: `db/tests/test_team_rankings.py::test_postseason_round_2_ranks_against_round_1` (guard: passes on today's view).
+- AC-3: `test_publish_models.py::test_coming_round_rates_past_bowls_still_to_come`; `test_jobs.py::test_lines_stays_on_cfbd_week_1`; `test_rate_and_predict.py::test_no_round_with_both_teams_writes_nothing`, `::test_lines_reevaluates_every_open_round`; the existing D-150 tests unchanged.
+- AC-4: `test_publish_models.py::test_rate_cli_fits_a_round`, `::test_rate_refuses_a_round_for_a_one_week_spec`; `test_publish_picks.py::test_round_picks_cover_only_its_games` (guard: passes on today's `write_picks`).
+- AC-5: read in review.
 
 **Risks / open questions**
-- Storage (Context): the owner picks `week` = round (proposed) or a new column.
-- Reader drift: anything that joins a postseason run's `week` to `games.week` would miss rounds 2–4; today nothing does (predictions and picks join by game id). Screen endpoints must read the newest postseason run, not week 1's.
-- Cadence: the job runs Sundays; a 12-team bracket's rounds are a week or more apart, so each round is rated before it kicks off. A round whose teams are known only the day before (none in 2024–2025) would wait for an ad hoc run.
-- `lines.yml` ready gate: running `lines` on the branch writes to production; the owner decides.
+- Live vs backtest: the Sunday run for a round misses games played between Sunday and the round's `as_of`, which the backtest counts (D-151's revisit trigger). Recorded in the decision.
+- Two Sunday runs of a round share an `as_of` but can differ in ratings, unlike D-150's identical re-runs. Both are point-in-time clean.
+- `/slate` reads a run by `games.week`, so rounds 2+ show no prediction until the new Draft task lands; no live version is `rounds` until then.
+- `lines.yml` ready gate: the owner waived the branch run (comment-only change; `lines` writes to production).
 
-**Size check:** 14 files, engine plus docs and one workflow comment; no schema with the proposed storage. M, attended.
+**Size check:** about 17 files, engine plus docs and one workflow comment; no schema. Under the 20-file limit. M, attended.
 
 ## Review log
 

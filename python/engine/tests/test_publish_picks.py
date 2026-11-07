@@ -676,6 +676,24 @@ def test_the_run_is_the_weeks_of_its_season_type(world: World) -> None:
     assert rows == {bowl: "home", opener: "away"}
 
 
+def test_round_picks_cover_only_its_games(world: World) -> None:
+    """TASK-058 AC-4: CFBD files a round-2 game under postseason week 1, like the bowls, so the
+    games of round 2 are its run's predictions: a bowl of round 1 isn't picked from it, and a
+    quarterfinal past its cutoff gets no row (D-148)."""
+    world.run = _run(world.conn, world.version, season_type="postseason", week=1)
+    bowl = world.game(10.0, season_type="postseason", week=1)
+    world.run = _run(world.conn, world.version, season_type="postseason", week=2)
+    quarterfinal = world.game(10.0, season_type="postseason", week=1)
+    started = world.game(10.0, NOW - timedelta(hours=1), season_type="postseason", week=1)
+    for game in (bowl, quarterfinal, started):
+        _line(world.conn, game, "DraftKings", NOW - timedelta(hours=2), -3.0)
+
+    summary = picks.write_picks(world.conn, world.version, SEASON, 2, NOW, season_type="postseason")
+
+    assert (summary.run_id, summary.picks, summary.games, summary.open) == (world.run, 1, 2, 1)
+    assert [r.game_id for r in _rows(world.conn, world.version)] == [quarterfinal]
+
+
 def test_pick_cli_takes_the_season_type(
     world: World, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:

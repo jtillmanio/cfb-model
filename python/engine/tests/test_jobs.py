@@ -408,6 +408,17 @@ def test_lines_takes_the_week_of_the_earliest_kickoff_to_come() -> None:
     assert jobs.due_weeks("lines", games, after_army_navy) == [("postseason", 1)]
 
 
+def test_lines_stays_on_cfbd_week_1() -> None:
+    """TASK-058 AC-3: `lines` pulls the week CFBD files a game under, and it files every bowl and
+    CFP round under postseason week 1: a rated round is never a week to pull."""
+    now = datetime(2025, 12, 28, 14, tzinfo=UTC)
+    games = [
+        {**game(1, now + timedelta(days=1), "postseason"), "id": 10},  # a bowl (round 1)
+        {**game(1, now + timedelta(days=3), "postseason"), "id": 11},  # a quarterfinal (round 2)
+    ]
+    assert jobs.due_weeks("lines", games, now) == [("postseason", 1)]
+
+
 def test_canceled_lists_unscored_games_counted_as_done() -> None:
     start = datetime(2025, 10, 4, 16, tzinfo=UTC)
     played = {**game(6, start), "completed": True, "homePoints": 21, "awayPoints": 7}

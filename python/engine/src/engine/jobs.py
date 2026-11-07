@@ -18,9 +18,10 @@
 
 
 `lines` then re-evaluates picks (TASK-045's writer) in a second transaction, once the snapshots
-are committed: for each version, its newest `scheduled` run in the season (a regular week's or
-the postseason's), at the job's clock. A pick that fails rolls back the picks alone and the run
-exits 1; the snapshots stay published.
+are committed: for each version, its newest `scheduled` run in the season, and when that run is
+a postseason one, the newest of every postseason round, since bowls still to come belong to round
+1's run after round 2 is rated (D-161); at the job's clock. A pick that fails rolls back the picks
+alone and the run exits 1; the snapshots stay published.
 
 `Summary` is what the run did: the calls spent, the month's total, rows staged and new per table,
 and the games counted as done only because they're unscored a week after their start (D-121):
@@ -32,7 +33,11 @@ CFBD call: it reads the lake the morning's `results` and `lines` filled. It take
 when no game is still to come. From the first bowl to the title game that's postseason week 1,
 every bowl and CFP game: each Sunday rates it again at the same `as_of`, the first bowl's
 kickoff, so the ratings don't change and the CFP games are predicted once their teams are known
-(D-131, D-150). It resolves the season's settings from a backtest's `run.json`, copies every
+(D-131, D-150). A `rounds` version rates a CFP round instead: once the rebuild has placed each
+game in its round, the highest round with a game still to come whose teams are both known, at the
+round's `as_of`; with none it writes nothing (D-161). `lines` keeps pulling CFBD's week, which is
+postseason week 1 whichever round is rated. The job resolves the season's settings from a
+backtest's `run.json`, copies every
 season's raw files into a scratch lake and rebuilds it (the prior and the margin model read every
 earlier season), checks it, and fits the week before opening the database; then one transaction
 inserts a `scheduled` run with its ratings and predictions (creating the named version as
@@ -53,6 +58,7 @@ from sqlalchemy import Connection, text
 
 from db.session import make_engine
 from engine import clock
+from engine.backtest import harness
 from engine.core.spec import ModelSpec
 from engine.ingest import endpoints
 from engine.ingest.backfill import ONCE, RAW, season_types, sync_raw
@@ -349,17 +355,26 @@ def run(
 def reevaluate(conn: Connection, season: int, now: datetime) -> list[Repicked]:
     """Each live, unretired version's picks, from its newest succeeded `scheduled` run in
     `season` finished by `now` (the week the weekly job last rated), against the newest
-    snapshots, in the caller's transaction. The writer skips games already past their cutoff."""
+    snapshots, in the caller's transaction. When that run is postseason, every postseason week
+    the version rated is re-picked from its own newest run: a `rounds` version's bowls are round
+    1's, still to come after round 2 is rated (D-161). The writer skips games already past their
+    cutoff."""
     rows = conn.execute(
         text(
-            "SELECT DISTINCT ON (r.model_version_id) r.model_version_id, r.season_type, r.week,"
-            " v.name, v.version FROM model_runs r"
-            " JOIN model_versions v ON v.id = r.model_version_id"
+            "SELECT DISTINCT model_version_id, season_type, week, name, version FROM ("
+            "SELECT r.model_version_id, r.season_type, r.week, v.name, v.version,"
+            " first_value(r.season_type) OVER newest AS newest_type,"
+            " first_value(r.week) OVER newest AS newest_week"
+            " FROM model_runs r JOIN model_versions v ON v.id = r.model_version_id"
             " WHERE v.sport_id = :sport AND v.market = :market AND v.deleted_at IS NULL"
             " AND v.status <> 'retired'"
             " AND r.run_type = ANY(:types) AND r.status = 'succeeded' AND r.season = :season"
             " AND r.finished_at <= :now"
-            " ORDER BY r.model_version_id, r.finished_at DESC, r.id DESC"
+            " WINDOW newest AS (PARTITION BY r.model_version_id"
+            " ORDER BY r.finished_at DESC, r.id DESC)"
+            ") runs WHERE season_type = newest_type"
+            " AND (season_type = 'postseason' OR week = newest_week)"
+            " ORDER BY model_version_id, week"
         ),
         {
             "sport": picks.SPORT,
@@ -443,8 +458,24 @@ def rate_and_predict(
         if not report.ok:
             summary.report = report
             raise JobFailed(report)
+        history = None
+        if season_type == "postseason" and spec.postseason == "rounds":
+            history = harness.load(scratch)
+            coming = models.coming_round(history, season, now)
+            if coming is None:
+                summary.week = None
+                summary.note = "no postseason game still to come has both teams known"
+                return summary
+            week = (week[0], coming)
+            summary.week = week
         fitted = models.fit_week(
-            scratch, spec, choices, season=season, week=week[1], season_type=season_type
+            scratch,
+            spec,
+            choices,
+            season=season,
+            week=week[1],
+            season_type=season_type,
+            history=history,
         )
 
     db = _engine(url)

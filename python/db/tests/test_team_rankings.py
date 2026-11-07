@@ -169,6 +169,32 @@ def test_postseason_change_is_from_the_last_rated_regular_week(db_conn: Connecti
     }
 
 
+def test_postseason_round_2_ranks_against_round_1(db_conn: Connection):
+    """TASK-058 AC-2: a postseason run's `week` is its CFP round, so round 2's week before is
+    round 1 of the same version, never the last regular week or another version's round 1."""
+    m.sport(db_conn)
+    a, b, c = (m.team(db_conn, s) for s in "abc")
+    v, other = m.version(db_conn), m.version(db_conn, "pytest-other")
+    w14, bowls, quarters = m.utc(2030, 11, 30, 16), m.utc(2030, 12, 20, 17), m.utc(2030, 12, 31, 19)
+    regular = {a: 1.0, b: 2.0, c: 3.0}
+    m.ratings(db_conn, m.run(db_conn, v, 14, w14), v, 14, w14, regular)
+    first = m.run(db_conn, v, 1, bowls, season_type="postseason")
+    m.ratings(db_conn, first, v, 1, bowls, {a: 3.0, b: 2.0, c: 1.0}, season_type="postseason")
+    rival = m.run(db_conn, other, 1, bowls, season_type="postseason")
+    m.ratings(db_conn, rival, other, 1, bowls, regular, season_type="postseason")
+    second = m.run(db_conn, v, 2, quarters, season_type="postseason", run_type="scheduled")
+    m.ratings(db_conn, second, v, 2, quarters, {a: 2.0, b: 3.0, c: 1.0}, season_type="postseason")
+
+    ranks = _ranked(db_conn, "team_rankings", v, "postseason", 2)
+
+    assert {t: (r["rank"], r["previous_rank"], r["rank_change"]) for t, r in ranks.items()} == {
+        b: (1, 2, 1),
+        a: (2, 1, -1),
+        c: (3, 3, 0),
+    }
+    assert {r["model_run_id"] for r in ranks.values()} == {second}
+
+
 def test_seeded_week_6_order_and_change(db_conn: Connection):
     """AC-2: v1.0's week-6 order and changes are the seed's week-5 and week-6 ratings ranked
     among its FBS teams."""

@@ -5,12 +5,15 @@ The week is the feature week of D-127: its `as_of` is its first kickoff, and the
 backtest's (`harness.fit_games`: every final game that finished, kickoff + 4 h, by `as_of`), so a
 published week is the week the backtest scored. A week is `(season_type, week)`: postseason
 week 1 holds every bowl and CFP game, all predicted from the ratings entering the first bowl, as
-the backtest scores them (D-131, D-150); a spec with `postseason: rounds`, which the backtest can
-walk round by round (TASK-048), is refused until TASK-058 rates each round live. Its predictions
-are the week's staged contexts as `harness.load` keeps them (`Week.contexts`): every game of the
-week with both teams that isn't canceled or postponed, played or not, its TBA kickoff placed as
-`features.KICKOFF` places it. The transform stages a game `canceled` when CFBD still lists it
-unscored and uncompleted a week after its start (D-121, TASK-044).
+the backtest scores them (D-131, D-150). A spec with `postseason: rounds` rates each CFP round
+after the rounds before it, as the backtest walks them (TASK-048, TASK-058): its postseason `week`
+is the round (`History.rounds`), which is what the run and its ratings store, with the round's
+`as_of` and only the round's games; CFBD's own week stays on `games`, always 1 (D-161). A `one_week`
+spec has no postseason week but 1. Its predictions are the week's staged contexts as `harness.load`
+keeps them (`Week.contexts`): every game of the week with both teams that isn't canceled or
+postponed, played or not, its TBA kickoff placed as `features.KICKOFF` places it. The transform
+stages a game `canceled` when CFBD still lists it unscored and uncompleted a week after its start
+(D-121, TASK-044).
 
 The lake is read and the model fit before any database transaction opens (`fit_week`); `write`
 then inserts in one short transaction. `engine rate` writes an `adhoc` run and creates a missing
@@ -117,20 +120,45 @@ def settings(spec: ModelSpec, run: Mapping[str, Any] | None, season: int) -> dic
 
 
 def _week(
-    history: harness.History, season: int, season_type: SeasonType, week: int
+    history: harness.History,
+    season: int,
+    season_type: SeasonType,
+    week: int,
+    postseason: harness.Postseason = "one_week",
 ) -> harness.Week:
-    """The harness's week: its `as_of` and its staged games that will be played (`contexts`)."""
-    found = next(
-        (
-            w
-            for w in history.weeks
-            if (w.season, w.season_type, w.week) == (season, season_type, week)
-        ),
-        None,
-    )
+    """The harness's week, or for a `rounds` spec its postseason round: its `as_of` and its staged
+    games that will be played (`contexts`)."""
+    if season_type == "postseason" and postseason == "rounds":
+        found = next((r for r in history.rounds if (r.season, r.round) == (season, week)), None)
+    else:
+        found = next(
+            (
+                w
+                for w in history.weeks
+                if (w.season, w.season_type, w.week) == (season, season_type, week)
+            ),
+            None,
+        )
     if found is None:
         raise RateRefused(f"no staged games in {season} {season_type} week {week}")
     return found
+
+
+def coming_round(history: harness.History, season: int, now: datetime) -> int | None:
+    """The round a `rounds` spec rates at `now`: the highest with a game still to come whose teams
+    are both known (`Week.contexts` holds no other game), None if there's none. Not the round of
+    the earliest kickoff: bowls are round 1 and run past the quarterfinals, so that rule would
+    never reach them before they're played (D-161). A game's round is settled once both teams
+    are known, since each reached it by the game that fixes its side of the bracket; until then
+    it's provisional and the game isn't rated, and the next Sunday's run takes it in."""
+    return max(
+        (
+            r.round
+            for r in history.rounds
+            if r.season == season and any(c.kickoff > now for c in r.contexts)
+        ),
+        default=None,
+    )
 
 
 def _fit(
@@ -190,13 +218,15 @@ def fit_week(
     season: int,
     week: int,
     season_type: SeasonType = "regular",
+    history: harness.History | None = None,
 ) -> FittedWeek:
-    """Read the lake and fit `spec` (resolved with `choices`) entering `week`; no database is
-    opened. A fit that fails is returned with its error, to be recorded; a refusal raises."""
-    if spec.postseason != "one_week":
+    """Read the lake (or take `history`, already read from it) and fit `spec` (resolved with
+    `choices`) entering `week`, a postseason round for a `rounds` spec; no database is opened. A
+    fit that fails is returned with its error, to be recorded; a refusal raises."""
+    if season_type == "postseason" and week > 1 and spec.postseason == "one_week":
         raise RateRefused(
-            f"the spec's postseason is {spec.postseason!r}: only the backtest walks CFP rounds "
-            "so far; rating each round live is TASK-058's (rate with postseason one_week)"
+            f"the spec's postseason is one_week, so postseason week {week} doesn't exist: every "
+            "bowl and CFP game is week 1 (a spec with postseason rounds rates each round)"
         )
     try:
         resolved = spec.resolve(choices)
@@ -207,8 +237,8 @@ def fit_week(
     factory = MODELS.get(spec.base)
     if factory is None:
         raise RateRefused(f"no model is registered as {spec.base!r}")
-    history = harness.load(lake)
-    found = _week(history, season, season_type, week)
+    history = history or harness.load(lake)
+    found = _week(history, season, season_type, week, spec.postseason)
     model = factory(resolved)
     harness.check_reads(model)
     harness.give_inputs(model, history)

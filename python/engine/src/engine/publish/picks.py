@@ -4,7 +4,8 @@ line, re-evaluated when the line moves (TASK-045; D-140, D-142, D-148).
 Everything is read from the database, so the `lines` job re-evaluates without refitting: the
 version's newest succeeded run for the week (`adhoc` or `scheduled`, by `finished_at`, then id;
 the scheduled jobs read `scheduled` only, TASK-046; a week is `(season_type, week)`, so the bowls'
-postseason week 1 is never the season's regular week 1, D-150),
+postseason week 1 is never the season's regular week 1, D-150, and a `rounds` version's postseason
+week is the CFP round, whose games are its run's predictions, not `games.week`, D-161),
 its predictions, the pick rules (the version's spec resolved with the `choices` the run stored),
 the margin distribution (the run's `fitted_params`: the empirical weights, else a normal margin at
 the prediction's σ) and each team's division that season. A game is picked through
