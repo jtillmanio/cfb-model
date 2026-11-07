@@ -98,6 +98,26 @@ def test_the_fixture_slate_at_the_slate_time(
     assert (body["shell"]["week"], body["shell"]["picks"]) == (6, 9)
 
 
+def test_the_weeks_with_games_are_listed(
+    client: TestClient, make_token: MakeToken, monkeypatch: pytest.MonkeyPatch, db_conn: Connection
+):
+    """The list the week selector offers (TASK-061): every season, type and week that has a game,
+    oldest first, regular season before postseason; the same whichever week is asked for."""
+    expected = db_conn.execute(
+        text(
+            "SELECT season, season_type, week FROM games WHERE sport_id = 'cfb' AND week >= 1"
+            " GROUP BY season, season_type, week"
+            " ORDER BY season, season_type <> 'regular', week"
+        )
+    ).all()
+    asked = _get(client, make_token, monkeypatch, query="?season=2026&season_type=regular&week=3")
+    coming = _get(client, make_token, monkeypatch)
+
+    assert [(w["season"], w["season_type"], w["week"]) for w in coming["weeks"]] == expected
+    assert coming["weeks"] == asked["weeks"]
+    assert [w["week"] for w in coming["weeks"] if w["season"] == 2026] == [1, 2, 3, 4, 5, 6]
+
+
 def test_games_come_in_kickoff_order(
     client: TestClient, make_token: MakeToken, monkeypatch: pytest.MonkeyPatch
 ):
@@ -461,7 +481,7 @@ def test_slate_runs_its_queries_in_one_concurrent_wave(
     finally:
         event.remove(engine, "before_cursor_execute", counted)
 
-    assert len(statements) == len(slate.QUERIES) == 5
+    assert len(statements) == len(slate.QUERIES) == 6
     assert len(statements) <= wave.QUERY_BUDGET
 
 

@@ -1,17 +1,21 @@
-import { ChevronDown, Menu, Search } from "lucide-react";
+import { ChevronDown, ChevronLeft, ChevronRight, Menu, Search } from "lucide-react";
 import Link from "next/link";
 
+import { weekHref, weekLabel, weekNeighbours } from "@/lib/slate";
 import { activeTab, MOBILE_TABS, type NavId, SHELL_COPY, type ShellView } from "@/lib/shell";
 import { cn } from "@/lib/utils";
 
 import { MORE_SHEET_ID } from "./mobile-tabs";
 import { Bar, LiveDot, LogoMark, NAV_ICONS, type ShellState } from "./sidebar";
+import { WEEK_PICKER_ID, WeekPicker, type WeekNav } from "./week-picker";
 
 // The top bar at every width (design/README.md › Navigation):
 // - xl (This Week Desktop): week label, the "Search teams ⌘K" box, "Updated …".
 // - md (This Week Tablet, C16c): logo, "CFB · 2026 · Week 6", "Updated …", then a nav row.
 // - phone (This Week Mobile): "CFB" | week, search.
-// The week label only names the week (no stepping until a screen needs it, TASK-056); search is
+// The week label names the week; on This Week (which passes `weekNav`, TASK-061) it steps: arrows
+// at xl and a label that opens the season/week list at every width. Other screens keep the static
+// label until their own tasks need it. Search is
 // inert until the ⌘K palette (M8.6, D-088); the alerts bell is hidden until F-14.
 
 function Status({ view, state }: { view: ShellView; state: ShellState }) {
@@ -77,15 +81,53 @@ function SectionsNav({ active }: { active: NavId }) {
   );
 }
 
+// The desktop week box: [‹][2026 · Week 5 ⌄][›]. An arrow at either end of the list is disabled.
+function DesktopWeek({ nav }: { nav: WeekNav & { shown: NonNullable<WeekNav["shown"]> } }) {
+  const { previous, next } = weekNeighbours(nav.weeks, nav.shown);
+  const arrow = "inline-flex size-8 items-center justify-center text-muted-foreground";
+  const step = (to: typeof previous, label: string, Icon: typeof ChevronLeft) =>
+    to === null ? (
+      <span role="link" aria-disabled="true" aria-label={label} className={cn(arrow, "opacity-40")}>
+        <Icon aria-hidden className="size-4" />
+      </span>
+    ) : (
+      <Link
+        href={weekHref(to, nav.coming)}
+        prefetch={false}
+        aria-label={label}
+        className={cn(arrow, "hover:bg-accent hover:text-foreground")}
+      >
+        <Icon aria-hidden className="size-4" />
+      </Link>
+    );
+  return (
+    <span className="hidden h-8 items-center overflow-hidden rounded-md border border-input xl:inline-flex">
+      {step(previous, "Previous week", ChevronLeft)}
+      <button
+        type="button"
+        popoverTarget={WEEK_PICKER_ID}
+        className="inline-flex h-8 items-center gap-1.5 border-x border-input px-3 text-label font-semibold whitespace-nowrap hover:bg-accent"
+      >
+        {weekLabel(nav.shown)}
+        <ChevronDown aria-hidden className="size-3.5 shrink-0 text-muted-foreground" />
+      </button>
+      {step(next, "Next week", ChevronRight)}
+    </span>
+  );
+}
+
 export function TopBar({
   active,
   view,
   state,
+  weekNav,
 }: {
   active: NavId;
   view: ShellView;
   state: ShellState;
+  weekNav?: WeekNav;
 }) {
+  const nav = weekNav?.shown ? { ...weekNav, shown: weekNav.shown } : null;
   return (
     <header className="sticky top-0 z-10 border-b bg-card xl:bg-background">
       <div className="flex h-13 items-center gap-1 pl-3 pr-1 md:h-14 md:gap-2.5 md:px-6 xl:gap-3">
@@ -97,25 +139,51 @@ export function TopBar({
         {state === "loading" || view.week ? (
           <span aria-hidden className="h-5 w-px bg-border md:hidden" />
         ) : null}
-        <Week
-          week={view.week}
-          state={state}
-          className="inline-flex h-11 items-center px-2 text-body font-semibold md:hidden"
-        />
+        {nav ? (
+          <button
+            type="button"
+            popoverTarget={WEEK_PICKER_ID}
+            className="inline-flex h-11 items-center gap-1 px-2 text-body font-semibold md:hidden"
+          >
+            {weekLabel(nav.shown)}
+            <ChevronDown aria-hidden className="size-3.5 shrink-0 text-muted-foreground" />
+          </button>
+        ) : (
+          <Week
+            week={view.week}
+            state={state}
+            className="inline-flex h-11 items-center px-2 text-body font-semibold md:hidden"
+          />
+        )}
 
         {/* Tablet: logo, then sport and week in one box. */}
         <span className="hidden md:inline-flex xl:hidden">
           <LogoMark />
         </span>
-        <span className="hidden h-8 items-center gap-1.5 rounded-md border border-input px-2.5 text-label font-semibold md:inline-flex xl:hidden">
-          <LiveDot className="size-1.75" />
-          {SHELL_COPY.sportShort}
-          {state !== "loading" && view.week ? ` · ${view.week}` : null}
-          <ChevronDown aria-hidden className="size-3.5 shrink-0 text-muted-foreground" />
-        </span>
+        {(() => {
+          const box = (
+            <>
+              <LiveDot className="size-1.75" />
+              {SHELL_COPY.sportShort}
+              {nav ? ` · ${weekLabel(nav.shown)}` : state !== "loading" && view.week ? ` · ${view.week}` : null}
+              <ChevronDown aria-hidden className="size-3.5 shrink-0 text-muted-foreground" />
+            </>
+          );
+          const cls =
+            "hidden h-8 items-center gap-1.5 rounded-md border border-input px-2.5 text-label font-semibold md:inline-flex xl:hidden";
+          return nav ? (
+            <button type="button" popoverTarget={WEEK_PICKER_ID} className={cn(cls, "hover:bg-accent")}>
+              {box}
+            </button>
+          ) : (
+            <span className={cls}>{box}</span>
+          );
+        })()}
 
         {/* Desktop: the week box (none with no week to name) and the search box. */}
-        {state === "loading" || view.week ? (
+        {nav ? (
+          <DesktopWeek nav={nav} />
+        ) : state === "loading" || view.week ? (
           <span className="hidden h-8 items-center rounded-md border border-input px-3 text-label font-semibold whitespace-nowrap xl:inline-flex">
             <Week week={view.week} state={state} />
           </span>
@@ -141,6 +209,7 @@ export function TopBar({
         </span>
       </div>
       <SectionsNav active={active} />
+      {weekNav?.shown ? <WeekPicker nav={weekNav} /> : null}
     </header>
   );
 }

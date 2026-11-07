@@ -27,6 +27,7 @@ export type Slate = components["schemas"]["SlateOut"] & {
 };
 export type SlateGame = components["schemas"]["SlateGameOut"];
 export type SlateRules = components["schemas"]["SlateRulesOut"];
+export type SlateWeek = components["schemas"]["SlateWeekOut"];
 
 /** Every time on the page is Eastern until Settings' time zone lands (M8.8), as the shell's. */
 export const SLATE_ZONE = "America/New_York";
@@ -194,7 +195,10 @@ export type RowView = {
   neutral: { city: string | null } | null;
   away: TeamLine;
   home: TeamLine;
-  market: { opener: number | null; snapshots: number[]; current: number | null };
+  /**
+   * `past`: a final game in a past week, drawn open → close only (`current` is the close).
+   */
+  market: { opener: number | null; snapshots: number[]; current: number | null; past: boolean };
   /** `OSU −31.2`; null when the run made no prediction. */
   modelLine: string | null;
   /** `pts` is `edge_pts` (positive likes home); `clears` is the raw edge against the threshold. */
@@ -340,8 +344,16 @@ function notesFor(game: SlateGame, abbr: { home: string; away: string }): RowNot
   return [moved, clv];
 }
 
-/** One game's row, from its `/slate` entry and the shown version's rules. */
-export function rowView(game: SlateGame, rules: SlateRules | null, zone: string = SLATE_ZONE): RowView {
+/**
+ * One game's row, from its `/slate` entry and the shown version's rules. `past`: the week is
+ * before the coming week (`isPastWeek`), so a final game's market cell is its open and its close.
+ */
+export function rowView(
+  game: SlateGame,
+  rules: SlateRules | null,
+  zone: string = SLATE_ZONE,
+  past: boolean = false,
+): RowView {
   const status = STATUS[game.status];
   const final = status === "final" && game.away_points !== null && game.home_points !== null;
   const awayWon = final && game.away_points! > game.home_points!;
@@ -350,6 +362,7 @@ export function rowView(game: SlateGame, rules: SlateRules | null, zone: string 
   const home = teamLine(game.home, game.home_points, final ? (homeWon ? "winner" : "loser") : "normal");
 
   const { model, market } = game;
+  const pastCell = past && status === "final";
   const edgePts = model?.edge ?? null;
   return {
     id: game.id,
@@ -361,8 +374,11 @@ export function rowView(game: SlateGame, rules: SlateRules | null, zone: string 
     home,
     market: {
       opener: market.opening_spread_home,
-      snapshots: market.snapshots.map((s) => s.spread_home),
-      current: market.current_spread_home,
+      snapshots: pastCell ? [] : market.snapshots.map((s) => s.spread_home),
+      current: pastCell
+        ? (market.closing_spread_home ?? market.current_spread_home)
+        : market.current_spread_home,
+      past: pastCell,
     },
     modelLine: model ? formatModelLine(model.pred_margin, home.abbr, away.abbr) : null,
     edge: {
@@ -377,6 +393,97 @@ export function rowView(game: SlateGame, rules: SlateRules | null, zone: string 
     win: model ? formatWinPct(model.home_win_prob, home.abbr, away.abbr) : null,
     notes: notesFor(game, { home: home.abbr, away: away.abbr }),
   };
+}
+
+// ---------------------------------------------------------------------------------------------
+// Stepping through weeks (TASK-061)
+
+type Params = Record<string, string | string[] | undefined>;
+
+/**
+ * The week a URL names: `?season=2026&week=5`, plus `&type=postseason` for the postseason. Null
+ * (the coming week) when a parameter is missing, repeated or not a whole number, or the type is
+ * anything else; the API refuses a partial or a week below 1, so a bad URL never reaches it.
+ */
+export function parseWeekParams(params: Params): SlateWeek | null {
+  const one = (key: string): string | null => {
+    const value = params[key];
+    return typeof value === "string" ? value : null;
+  };
+  const whole = (text: string | null): number | null =>
+    text !== null && /^\d{1,4}$/.test(text) ? Number(text) : null;
+  const season = whole(one("season"));
+  const week = whole(one("week"));
+  if (season === null || week === null || week < 1) return null;
+  const type = params.type;
+  if (type !== undefined && type !== "postseason") return null;
+  return { season, season_type: type === "postseason" ? "postseason" : "regular", week };
+}
+
+/** Order: season, regular before postseason, week. */
+function weekKey(w: SlateWeek): number {
+  return w.season * 1000 + (w.season_type === "postseason" ? 500 : 0) + w.week;
+}
+
+export function isShownWeek(a: SlateWeek, b: SlateWeek | null): boolean {
+  return b !== null && weekKey(a) === weekKey(b);
+}
+
+/** `/` for the coming week, else `/?season=2026&week=5` (`&type=postseason` after the regular season). */
+export function weekHref(week: SlateWeek, coming: SlateWeek | null): string {
+  if (isShownWeek(week, coming)) return "/";
+  const type = week.season_type === "postseason" ? "&type=postseason" : "";
+  return `/?season=${week.season}&week=${week.week}${type}`;
+}
+
+/** The nearest week with games before and after `current`, across seasons; null at either end. */
+export function weekNeighbours(
+  weeks: SlateWeek[],
+  current: SlateWeek,
+): { previous: SlateWeek | null; next: SlateWeek | null } {
+  const here = weekKey(current);
+  let previous: SlateWeek | null = null;
+  let next: SlateWeek | null = null;
+  for (const week of weeks) {
+    const key = weekKey(week);
+    if (key < here && (previous === null || key > weekKey(previous))) previous = week;
+    if (key > here && (next === null || key < weekKey(next))) next = week;
+  }
+  return { previous, next };
+}
+
+/** `2026 · Week 5`, `2025 · Postseason`: the same words the shell's label uses. */
+export function weekLabel(week: SlateWeek): string {
+  return week.season_type === "postseason"
+    ? `${week.season} · Postseason`
+    : `${week.season} · Week ${week.week}`;
+}
+
+/** The slate's own week, null in the off-season. */
+export function shownWeek(slate: Pick<Slate, "season" | "season_type" | "week">): SlateWeek | null {
+  if (slate.season === null || slate.season_type === null || slate.week === null) return null;
+  return { season: slate.season, season_type: slate.season_type, week: slate.week };
+}
+
+type ShellWeek = { season: number | null; season_type: SlateWeek["season_type"] | null; week: number | null };
+
+/** The shell's coming week: what the shell block names; null in the off-season. */
+export function comingWeek(shell: ShellWeek): SlateWeek | null {
+  return shownWeek(shell);
+}
+
+/**
+ * The shown week is before the coming week, so its games are over and a final's market is its
+ * open and close. With no coming week (the off-season) every week is past.
+ */
+export function isPastWeek(
+  slate: Pick<Slate, "season" | "season_type" | "week"> & { shell?: ShellWeek | null },
+): boolean {
+  const shown = shownWeek(slate);
+  // No shell block at all (never in a real response) says nothing about the coming week.
+  if (shown === null || !slate.shell) return false;
+  const coming = comingWeek(slate.shell);
+  return coming === null || weekKey(shown) < weekKey(coming);
 }
 
 // ---------------------------------------------------------------------------------------------

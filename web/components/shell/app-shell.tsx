@@ -6,6 +6,7 @@ import { type NavId, type Shell, SHELL_COPY, shellView } from "@/lib/shell";
 import { MobileTabs, MoreSheet } from "./mobile-tabs";
 import { Sidebar, type ShellState } from "./sidebar";
 import { TopBar } from "./top-bar";
+import type { WeekNav } from "./week-picker";
 
 // S-16 app shell (TASK-054). Each page draws it around its own content with its response's
 // `shell` block, so the shell costs no API call of its own (hard rule 5, D-156); loading.tsx
@@ -21,6 +22,7 @@ export function AppShell({
   state,
   path,
   wake = false,
+  weekNav,
   children,
 }: {
   /** The screen the nav marks as current. */
@@ -32,6 +34,8 @@ export function AppShell({
   path: string;
   /** Show the "Waking up the database…" note (the page is still loading after 1.5 s). */
   wake?: boolean;
+  /** The week selector (TASK-061): only This Week passes it; every other screen keeps the static label. */
+  weekNav?: WeekNav;
   children: ReactNode;
 }) {
   const view = shellView(state === "ready" ? shell : null);
@@ -39,7 +43,7 @@ export function AppShell({
     <div className="flex min-h-dvh">
       <Sidebar active={active} card={view.card} picks={view.picks} state={state} />
       <div className="flex min-w-0 flex-1 flex-col pb-16 md:pb-0">
-        <TopBar active={active} view={view} state={state} />
+        <TopBar active={active} view={view} state={state} weekNav={state === "ready" ? weekNav : undefined} />
         {view.stale ? <StaleBanner text={view.stale} path={path} /> : null}
         {children}
       </div>

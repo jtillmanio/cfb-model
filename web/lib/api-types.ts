@@ -35,7 +35,7 @@ export interface paths {
         /**
          * Get Slate
          * @description This Week (slate.py): the week asked for, all three of season, season type and week, or
-         *     with none of them the coming week. Five queries in one wave (budget: ≤ 6).
+         *     with none of them the coming week. Six queries in one wave (budget: ≤ 6).
          */
         get: operations["get_slate_api_py_slate_get"];
         put?: never;
@@ -209,6 +209,8 @@ export interface components {
             shell: components["schemas"]["ShellOut"];
             /** Week */
             week: number | null;
+            /** Weeks */
+            weeks: components["schemas"]["SlateWeekOut"][];
         };
         /** SlatePickOut */
         SlatePickOut: {
@@ -289,6 +291,18 @@ export interface components {
             name: string;
             /** State */
             state: string | null;
+        };
+        /** SlateWeekOut */
+        SlateWeekOut: {
+            /** Season */
+            season: number;
+            /**
+             * Season Type
+             * @enum {string}
+             */
+            season_type: "regular" | "postseason";
+            /** Week */
+            week: number;
         };
         /** TeamOut */
         TeamOut: {

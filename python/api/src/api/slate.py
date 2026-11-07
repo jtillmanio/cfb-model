@@ -17,6 +17,8 @@ Non-functional requirements: ≤ 6).
 - **Pick:** the version's current market pick (`pick_outcomes` where `is_current`, the row
   `current_picks` shows), with the line it was made at, its own edge and probability, its result,
   units, CLV against the close and `clv_so_far` against the current line (D-142, D-140's sign).
+- **Weeks:** every season, type and week with a game (week 0 left out), for the week selector
+  (TASK-061).
 - **Line history:** one entry per pull (`kind = 'snapshot'`) captured by now, priced like
   `game_market` (consensus, else the median of the pull's books).
 - **Cover** on a final game is the side that covered the close (the current line when there's
@@ -55,7 +57,7 @@ from .wave import Query
 
 SeasonType = Literal["regular", "postseason"]
 Side = Literal["home", "away"]
-QUERIES = ("shell", "games", "lines", "picks", "rules")
+QUERIES = ("shell", "games", "lines", "picks", "rules", "weeks")
 
 
 class SlateTeamOut(BaseModel):
@@ -144,6 +146,12 @@ class SlateCountsOut(BaseModel):
     picks: int
 
 
+class SlateWeekOut(BaseModel):
+    season: int
+    season_type: SeasonType
+    week: int
+
+
 class SlateOut(BaseModel):
     season: int | None
     season_type: SeasonType | None
@@ -152,6 +160,7 @@ class SlateOut(BaseModel):
     rules: SlateRulesOut | None
     counts: SlateCountsOut
     games: list[SlateGameOut]
+    weeks: list[SlateWeekOut]  # every week with a game, oldest first: the week selector's list
     shell: ShellOut
 
 
@@ -287,6 +296,18 @@ RULES_SQL = text(
 )
 
 
+# The week selector's list (TASK-061). Week 0 is left out: the route refuses `week < 1`.
+WEEKS_SQL = text(
+    """
+    SELECT g.season, g.season_type, g.week
+    FROM games g
+    WHERE g.sport_id = :sport AND g.week >= 1
+    GROUP BY g.season, g.season_type, g.week
+    ORDER BY g.season, g.season_type <> 'regular', g.week
+    """
+)
+
+
 def queries(now: datetime, sport: str = shell.SPORT, week: Week | None = None) -> dict[str, Query]:
     """The wave's statements by name, in `QUERIES` order."""
     season, season_type, number = week or (None, None, None)
@@ -298,6 +319,7 @@ def queries(now: datetime, sport: str = shell.SPORT, week: Week | None = None) -
         "lines": (LINES_SQL, params),
         "picks": (PICKS_SQL, params),
         "rules": (RULES_SQL, params),
+        "weeks": (WEEKS_SQL, {"sport": sport}),
     }
 
 
@@ -480,6 +502,10 @@ def slate_from(
         rules=_rules_out(rules),
         counts=SlateCountsOut(games=len(games), picks=sum(g.pick is not None for g in games)),
         games=games,
+        weeks=[
+            SlateWeekOut(season=r.season, season_type=r.season_type, week=r.week)
+            for r in found["weeks"]
+        ],
         shell=shell_out,
     )
 

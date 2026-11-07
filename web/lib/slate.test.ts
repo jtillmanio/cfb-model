@@ -1,15 +1,22 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  isPastWeek,
+  isShownWeek,
   liveCover,
   noPicksNote,
   offseasonNote,
+  parseWeekParams,
   recordStrip,
   showingText,
   slateCaption,
   slateLegend,
   slateWindows,
   rowView,
+  weekHref,
+  weekLabel,
+  weekNeighbours,
+  type SlateWeek,
   type Slate,
   type SlateGame,
   type SlateRules,
@@ -239,7 +246,7 @@ describe("rowView: market, model and edge", () => {
       RULES,
       ET,
     );
-    expect(row.market).toEqual({ opener: 7, snapshots: [7, 6.5, 6], current: 6.5 });
+    expect(row.market).toEqual({ opener: 7, snapshots: [7, 6.5, 6], current: 6.5, past: false });
   });
 
   it("writes the model line, the edge, the cover % and the favourite's win %", () => {
@@ -285,7 +292,7 @@ describe("rowView: market, model and edge", () => {
       RULES,
       ET,
     );
-    expect(row.market).toEqual({ opener: null, snapshots: [], current: null });
+    expect(row.market).toEqual({ opener: null, snapshots: [], current: null, past: false });
     expect(row.modelLine).toBe("HOME −34.0");
     expect(row.edge).toEqual({ pts: null, clears: false });
     expect(row.cover).toBeNull();
@@ -589,5 +596,153 @@ describe("noPicksNote and offseasonNote", () => {
     expect(offseasonNote(2026, null).body).toContain("2026 season");
     expect(offseasonNote(2026, null).kickoff).toBeNull();
     expect(offseasonNote(2026, "2027-08-28T19:00:00Z").kickoff).toBe("Week 0 kicks off Sat Aug 28, 2027");
+  });
+});
+
+// ---------------------------------------------------------------------------------------------
+// Stepping through weeks and a past season's market (TASK-061)
+
+const W = (season: number, week: number, season_type: SlateWeek["season_type"] = "regular"): SlateWeek => ({
+  season,
+  season_type,
+  week,
+});
+
+describe("parseWeekParams (the URL for a chosen week)", () => {
+  it("reads ?season=2026&week=5 as that regular-season week and ?type=postseason as the postseason", () => {
+    expect(parseWeekParams({ season: "2026", week: "5" })).toEqual(W(2026, 5));
+    expect(parseWeekParams({ season: "2025", week: "1", type: "postseason" })).toEqual(W(2025, 1, "postseason"));
+  });
+
+  it("falls back (null) on a partial, non-numeric, out-of-range or repeated parameter", () => {
+    expect(parseWeekParams({})).toBeNull();
+    expect(parseWeekParams({ season: "2026" })).toBeNull();
+    expect(parseWeekParams({ week: "5" })).toBeNull();
+    expect(parseWeekParams({ season: "2026", week: "0" })).toBeNull();
+    expect(parseWeekParams({ season: "2026", week: "5.5" })).toBeNull();
+    expect(parseWeekParams({ season: "twenty", week: "5" })).toBeNull();
+    expect(parseWeekParams({ season: "2026", week: "5", type: "bowl" })).toBeNull();
+    expect(parseWeekParams({ season: ["2026", "2025"], week: "5" })).toBeNull();
+  });
+});
+
+describe("weekHref", () => {
+  it("sends the coming week to / and any other week to its query", () => {
+    expect(weekHref(W(2026, 6), W(2026, 6))).toBe("/");
+    expect(weekHref(W(2026, 5), W(2026, 6))).toBe("/?season=2026&week=5");
+    expect(weekHref(W(2025, 1, "postseason"), W(2026, 6))).toBe("/?season=2025&week=1&type=postseason");
+    expect(weekHref(W(2026, 5), null)).toBe("/?season=2026&week=5");
+  });
+});
+
+describe("weekNeighbours (previous and next week with games, across seasons)", () => {
+  const weeks = [W(2025, 14), W(2025, 15), W(2025, 1, "postseason"), W(2026, 1), W(2026, 2), W(2026, 6)];
+
+  it("steps within a season and skips a week with no games", () => {
+    expect(weekNeighbours(weeks, W(2026, 2))).toEqual({ previous: W(2026, 1), next: W(2026, 6) });
+  });
+
+  it("steps from one season into the previous season's postseason, and back", () => {
+    expect(weekNeighbours(weeks, W(2026, 1))).toEqual({ previous: W(2025, 1, "postseason"), next: W(2026, 2) });
+    expect(weekNeighbours(weeks, W(2025, 1, "postseason")).next).toEqual(W(2026, 1));
+  });
+
+  it("has no previous at the first week and no next at the last", () => {
+    expect(weekNeighbours(weeks, W(2025, 14)).previous).toBeNull();
+    expect(weekNeighbours(weeks, W(2026, 6)).next).toBeNull();
+  });
+
+  it("places a week that has no games between its neighbours", () => {
+    expect(weekNeighbours(weeks, W(2026, 4))).toEqual({ previous: W(2026, 2), next: W(2026, 6) });
+  });
+});
+
+describe("weekLabel", () => {
+  it("names a regular week and the postseason", () => {
+    expect(weekLabel(W(2026, 5))).toBe("2026 · Week 5");
+    expect(weekLabel(W(2025, 1, "postseason"))).toBe("2025 · Postseason");
+  });
+});
+
+describe("isPastWeek and isShownWeek", () => {
+  const slate = (shown: SlateWeek | null, coming: SlateWeek | null) => ({
+    season: shown?.season ?? null,
+    season_type: shown?.season_type ?? null,
+    week: shown?.week ?? null,
+    shell: { season: coming?.season ?? null, season_type: coming?.season_type ?? null, week: coming?.week ?? null },
+  });
+
+  it("is past when the shown week is before the shell's coming week", () => {
+    expect(isPastWeek(slate(W(2026, 5), W(2026, 6)))).toBe(true);
+    expect(isPastWeek(slate(W(2025, 1, "postseason"), W(2026, 1)))).toBe(true);
+    expect(isPastWeek(slate(W(2026, 6), W(2026, 6)))).toBe(false);
+    expect(isPastWeek(slate(W(2026, 7), W(2026, 6)))).toBe(false);
+  });
+
+  it("is past for every week in the off-season, when there is no coming week", () => {
+    expect(isPastWeek(slate(W(2026, 15), null))).toBe(true);
+  });
+
+  it("is not past when the response carries no shell block", () => {
+    expect(isPastWeek({ season: 2026, season_type: "regular", week: 5, shell: null })).toBe(false);
+  });
+
+  it("is never past with no shown week", () => {
+    expect(isPastWeek(slate(null, null))).toBe(false);
+  });
+
+  it("matches a listed week to the shown one", () => {
+    expect(isShownWeek(W(2026, 5), W(2026, 5))).toBe(true);
+    expect(isShownWeek(W(2026, 5), W(2026, 6))).toBe(false);
+    expect(isShownWeek(W(2026, 5), null)).toBe(false);
+  });
+});
+
+describe("rowView: a past week's market", () => {
+  const final = {
+    status: "final" as const,
+    away_points: 20,
+    home_points: 27,
+    market: {
+      opening_spread_home: -3.5,
+      current_spread_home: -2.5,
+      closing_spread_home: -2,
+      snapshots: [
+        { captured_at: "2026-10-01T00:00:00Z", spread_home: -3 },
+        { captured_at: "2026-10-05T00:00:00Z", spread_home: -2.5 },
+      ],
+    },
+  };
+
+  it("draws a final game open → close as the past variant, ignoring the snapshots", () => {
+    const row = rowView(game(final), RULES, ET, true);
+    expect(row.market).toEqual({ opener: -3.5, snapshots: [], current: -2, past: true });
+    expect(row.hasLine).toBe(true);
+  });
+
+  it("falls back to the current line when a final has no close", () => {
+    const row = rowView(
+      game({ ...final, market: { ...final.market, closing_spread_home: null } }),
+      RULES,
+      ET,
+      true,
+    );
+    expect(row.market).toMatchObject({ current: -2.5, past: true });
+  });
+
+  it("keeps the usual cell for a game that isn't final, and in the coming week", () => {
+    expect(rowView(game({ ...final, status: "postponed" }), RULES, ET, true).market.past).toBe(false);
+    const usual = rowView(game(final), RULES, ET, false);
+    expect(usual.market).toEqual({ opener: -3.5, snapshots: [-3, -2.5], current: -2.5, past: false });
+  });
+
+  it("a final game with no line at all draws no line", () => {
+    const bare = game({
+      status: "final",
+      away_points: 1,
+      home_points: 2,
+      market: { opening_spread_home: null, current_spread_home: null, closing_spread_home: null, snapshots: [] },
+    });
+    expect(rowView(bare, RULES, ET, true).market).toEqual({ opener: null, snapshots: [], current: null, past: true });
   });
 });
