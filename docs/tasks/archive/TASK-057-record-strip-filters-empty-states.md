@@ -1,7 +1,7 @@
 ---
 id: TASK-057
 title: Add the record strip, filters and empty states to This Week
-status: Review
+status: Done
 depends_on: [TASK-056]
 size: M
 model: sonnet
@@ -35,9 +35,9 @@ This Week shows how the model's picks are doing this week at a glance (won, live
 - [x] AC-1: On the seeded test DB at Sat 2026-10-10 2:15 PM ET, the record strip under the header reads "This week 1-0 · 2 live (IOWA covering, OSU not yet) · 6 to play · +1.0u", with one segment per pick (9) in won, live and to-play states.
 - [x] AC-2: A live pick that's behind on the score renders as live ("not yet"), never as lost (a `web/lib` test with a live pick trailing its line, and the fixture's OSU pick).
 - [x] AC-3: Clicking the strip, or the "Picks only" chip, shows only the 9 games with a pick and the footer "9 games with a pick · of 54"; clicking again (or "All") shows all 54 with "Showing 54 of 54 games"; the chip's `aria-pressed` follows.
-- [x] AC-4: Given a `/slate` response whose games have no lines (a test fixture of the response), every row shows "No line" in Market, the model line, "—" for edge, cover and tier, and the "No line posted yet" note; the strip shows the dashed "No picks this week" note.
-- [x] AC-5: Given the off-season response, This Week shows the header "· off-season" and the dashed "No games this week" frame with no table; the "Week 0 kicks off …" line appears only when the response gives the next season's first kickoff.
-- [x] AC-6: The loading skeleton (`web/app/loading.tsx`) includes the record strip and filter chips at their loaded size, pulse off under reduced motion; the page's Lighthouse budget still passes on the fixture build, or is re-measured with the written reason `docs/02-architecture.md` › Performance checks asks for.
+- [x] AC-4: Given a `/slate` response whose games have no lines (a test fixture of the response), every row shows "No line" in Market, the model line, "—" for edge, cover and tier, and the "No line posted yet" note; the strip shows the dashed "No picks yet" note when no game has a line, and "No picks this week" when lines exist but no game clears `rules.min_edge_pts`.
+- [x] AC-5: Given the off-season response, This Week shows the header "<shell.season> · off-season" (2026 on the fixture) and the dashed "No games this week" frame with no table; the "Week 0 kicks off …" line appears only when the response gives the next season's first kickoff.
+- [x] AC-6: The loading skeleton (`web/app/(this-week)/loading.tsx`) includes the record strip and filter chips at their loaded size, pulse off under reduced motion; the page's Lighthouse budget still passes on the fixture build, or is re-measured with the written reason `docs/02-architecture.md` › Performance checks asks for.
 
 ## Out of scope
 
