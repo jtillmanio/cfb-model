@@ -23,6 +23,7 @@ from lake_fixture import (
     backtest_game,
     engine,
     fixture_key,
+    rematch_game_id,
     write_backtest_repull,
     write_backtest_seasons,
 )
@@ -36,7 +37,7 @@ from engine.backtest import harness
 from engine.core.spec import ModelSpec
 from engine.ingest import backfill
 from engine.ingest.backfill import sync_raw
-from engine.ingest.lake import LocalLake
+from engine.ingest.lake import LocalLake, decode_raw, fetched_at_of, latest_raw, raw_folder
 from engine.publish import models
 from engine.publish.staging import publish_lake
 from engine.transform import rebuild
@@ -95,13 +96,14 @@ def _savepoint_engine(conn: Connection, opened: Opened) -> Any:
     return _Engine()
 
 
-@pytest.fixture
-def weekly(
-    lake: LocalLake, db_conn: Connection, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+def _open_weekly(
+    lake: LocalLake,
+    db_conn: Connection,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    cfp_rematch: bool = False,
 ) -> Opened:
-    """The shared lake with two seasons and week 5's canceled game, its reference rows published,
-    the clock on the Sunday before week 5, and the job's database the test connection."""
-    write_backtest_seasons(lake)
+    write_backtest_seasons(lake, cfp_rematch=cfp_rematch)
     game = backtest_game(SEASON, "regular", WEEK, CANCELED)
     start = datetime.fromisoformat(game["startDate"])
     unplayed = {**game, "completed": False, "homePoints": None, "awayPoints": None}
@@ -129,18 +131,29 @@ def weekly(
     return opened
 
 
-def _run_file(tmp_path: Path, choices: dict[str, Any] | None = None) -> Path:
+@pytest.fixture
+def weekly(
+    lake: LocalLake, db_conn: Connection, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> Opened:
+    """The shared lake with two seasons and week 5's canceled game, its reference rows published,
+    the clock on the Sunday before week 5, and the job's database the test connection."""
+    return _open_weekly(lake, db_conn, monkeypatch, tmp_path)
+
+
+def _run_file(
+    tmp_path: Path, choices: dict[str, Any] | None = None, spec: ModelSpec = SPEC
+) -> Path:
     path = tmp_path / "run.json"
     chosen = {str(SEASON): CHOICES} if choices is None else choices
-    path.write_text(json.dumps({"spec_hash": harness.spec_hash(SPEC), "choices": chosen}), "utf-8")
+    path.write_text(json.dumps({"spec_hash": harness.spec_hash(spec), "choices": chosen}), "utf-8")
     return path
 
 
-def _job(run_file: Path, *extra: str) -> int:
+def _job(run_file: Path, *extra: str, spec_file: Path = SPEC_FILE) -> int:
     return engine(
         "job",
         "rate-and-predict",
-        *("--target", "dev", "--spec", str(SPEC_FILE), "--choices", str(run_file)),
+        *("--target", "dev", "--spec", str(spec_file), "--choices", str(run_file)),
         *("--name", NAME),
         *extra,
     )
@@ -399,6 +412,161 @@ def test_postseason_week_1_is_rated_beside_regular_week_1(
     assert f"{len(bowls)} picks, 0 passes" in text_
 
 
+# TASK-058: a `rounds` version rates each CFP round from the rounds before it. The rematch
+# fixture: two December games (round 1) and the January game between their winners (round 2).
+
+ROUNDS = SPEC.model_copy(update={"postseason": "rounds"})
+JANUARY = rematch_game_id(SEASON)
+
+
+@pytest.fixture
+def rounds_weekly(
+    lake: LocalLake, db_conn: Connection, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> Path:
+    """`weekly` on the rematch fixture; the `rounds` spec's file."""
+    _open_weekly(lake, db_conn, monkeypatch, tmp_path, cfp_rematch=True)
+    spec_file = tmp_path / "rounds.json"
+    spec_file.write_text(ROUNDS.model_dump_json(), "utf-8")
+    return spec_file
+
+
+def _january_kickoff(conn: Connection) -> datetime:
+    return conn.execute(
+        text("SELECT kickoff_at FROM games WHERE source = :s AND source_id = :g"),
+        {"s": PUBLISH, "g": JANUARY},
+    ).scalar_one()
+
+
+def _rows_of(conn: Connection, run_id: int) -> tuple[list[Any], list[Any]]:
+    ratings = conn.execute(
+        text("SELECT * FROM team_ratings WHERE model_run_id = :r ORDER BY team_id"), {"r": run_id}
+    ).all()
+    predictions = conn.execute(
+        text("SELECT * FROM predictions WHERE model_run_id = :r ORDER BY game_id"), {"r": run_id}
+    ).all()
+    return list(ratings), list(predictions)
+
+
+def test_rounds_version_rates_the_next_round(
+    rounds_weekly: Path, db_conn: Connection, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """AC-1: with round 1 final and both teams of the January game known, the job inserts a
+    scheduled round-2 run: `as_of` its kickoff, ratings counting round 1, predictions for that
+    game, and a pick from them. The round-1 run and its rows stay as they were."""
+    run_file = _run_file(tmp_path, spec=ROUNDS)
+    fits: list[set[int]] = []
+    fit_games = harness.fit_games
+
+    def recording(history: harness.History, as_of: datetime) -> Any:
+        found = fit_games(history, as_of)
+        fits.append({g.game_id for g in found})
+        return found
+
+    monkeypatch.setattr(harness, "fit_games", recording)
+    # The fixture holds the January game's teams from the start, so round 1 comes from the job's
+    # own writer: on the Sunday before the first bowl they aren't known yet.
+    fitted = models.fit_week(
+        LocalLake(tmp_path / "published"),
+        ROUNDS,
+        CHOICES,
+        season=SEASON,
+        week=1,
+        season_type="postseason",
+    )
+    models.write(
+        db_conn, fitted, ROUNDS, name=NAME, version="v1.0", run_type="scheduled", status="candidate"
+    )
+    first = _runs(db_conn)[-1]
+    assert (first.season_type, first.week) == ("postseason", 1)
+    december = _predicted(db_conn, first.id)
+    assert JANUARY not in december and len(december) == 2
+    before = _rows_of(db_conn, first.id)
+
+    kickoff = _january_kickoff(db_conn)
+    now = _sunday_before(kickoff)
+    january = _postseason_games(db_conn)[JANUARY]
+    _line(db_conn, january.id, "DraftKings", now - timedelta(days=1), 40.0)
+    monkeypatch.setenv("FIXTURE_NOW", now.isoformat())
+    summary = tmp_path / "summary.md"
+
+    assert _job(run_file, "--summary", str(summary), spec_file=rounds_weekly) == 0
+
+    second = _runs(db_conn)[-1]
+    assert (second.run_type, second.status, second.season_type, second.week) == (
+        "scheduled", "succeeded", "postseason", 2,
+    )  # fmt: skip
+    assert second.as_of == kickoff
+    assert _predicted(db_conn, second.id) == {JANUARY}
+    assert {int(g) for g in december} <= fits[-1] and int(JANUARY) not in fits[-1]
+    assert not {int(g) for g in december} & fits[0]
+    rated, predicted = _rows_of(db_conn, second.id)
+    assert {(r.season_type, r.week) for r in rated} == {("postseason", 2)}
+    moved = {r.team_id: r.rating for r in before[0]}
+    assert any(moved[r.team_id] != r.rating for r in rated)
+    (pick,) = [p for p in _picks(db_conn) if p.source_id == JANUARY]
+    assert pick.prediction_id == predicted[0].id
+    assert _rows_of(db_conn, first.id) == before  # hard rule 2
+    assert "Week rated: postseason week 2" in summary.read_text("utf-8")
+
+
+def test_a_known_round_is_rated_past_a_bowl_still_to_come(
+    rounds_weekly: Path, db_conn: Connection, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """AC-3: the earliest game to come is a round-1 game, but the January game's teams are both
+    known, so the job rates round 2. The round of the earliest kickoff would rate round 1, and
+    the 12-team quarterfinals would never be rated before they're played."""
+    first_bowl = min(datetime.fromisoformat(g["startDate"]) for g in BOWLS)
+    second_game = first_bowl + timedelta(hours=1)  # after the first's kickoff, before the next's
+    monkeypatch.setenv("FIXTURE_NOW", second_game.isoformat())
+    assert jobs.due_weeks(
+        "lines", (g for g, _ in jobs._games(LocalLake(tmp_path / "published"), SEASON).values()),
+        second_game,
+    ) == [("postseason", 1)]  # fmt: skip
+
+    assert _job(_run_file(tmp_path, spec=ROUNDS), spec_file=rounds_weekly) == 0
+
+    (run,) = _runs(db_conn)
+    assert (run.season_type, run.week) == ("postseason", 2)
+    assert _predicted(db_conn, run.id) == {JANUARY}
+
+
+def test_no_round_with_both_teams_writes_nothing(
+    rounds_weekly: Path,
+    lake: LocalLake,
+    db_conn: Connection,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """AC-3: the title game is still to come and one of its teams isn't known: nothing to rate,
+    so no run, and the summary says why."""
+    pulled = latest_raw(lake, raw_folder("games", SEASON, 1, "postseason"))
+    assert pulled is not None
+    saved = fetched_at_of(pulled) + timedelta(days=1)
+    start = saved + timedelta(days=10)  # after the pull, so it's staged scheduled, not canceled
+    unknown = {
+        "awayId": None,
+        "awayTeam": None,
+        "homePoints": None,
+        "awayPoints": None,
+        "completed": False,
+        "startDate": start.strftime("%Y-%m-%dT%H:%M:%S.000Z"),
+    }
+    repull = [
+        {**g, **unknown} if str(g["id"]) == JANUARY else g for g in decode_raw(lake.read(pulled))
+    ]
+    write_backtest_repull(lake, SEASON, "postseason", 1, repull, saved)
+    monkeypatch.setenv("FIXTURE_NOW", _sunday_before(start).isoformat())
+    summary = tmp_path / "summary.md"
+
+    code = _job(
+        _run_file(tmp_path, spec=ROUNDS), "--summary", str(summary), spec_file=rounds_weekly
+    )
+
+    assert code == 0, summary.read_text("utf-8") if summary.exists() else ""
+    assert _runs(db_conn) == []
+    assert "both teams" in summary.read_text("utf-8")
+
+
 # AC-3: the `lines` job re-evaluates each version's newest scheduled run
 
 
@@ -542,6 +710,34 @@ def test_lines_reevaluates_the_postseason_week(world: World) -> None:
         if r.version_id == world.version
     ]  # fmt: skip
     assert [(r.week, r.summary.passes) for r in later] == [(("postseason", 1), 1)]
+
+
+def test_lines_reevaluates_every_open_round(world: World) -> None:
+    """TASK-058 AC-3: bowls run past the quarterfinals, so once round 2 is rated the bowls still
+    to come stay re-picked from round 1's run, each round from its own newest run; a regular
+    week rated earlier isn't."""
+    _scheduled(world, finished_at=LINES_NOW - timedelta(days=30), week=1)
+    opener = world.game(10.0, week=1)
+    _line(world.conn, opener, "DraftKings", LINES_NOW - timedelta(days=1), -3.0)
+    _scheduled(world, finished_at=LINES_NOW - timedelta(days=9), week=1, season_type="postseason")
+    first = _scheduled(
+        world, finished_at=LINES_NOW - timedelta(days=8), week=1, season_type="postseason"
+    )
+    bowl = world.game(10.0, season_type="postseason", week=1)
+    second = _scheduled(
+        world, finished_at=LINES_NOW - timedelta(days=2), week=2, season_type="postseason"
+    )
+    quarterfinal = world.game(10.0, season_type="postseason", week=1)
+    for game in (bowl, quarterfinal):
+        _line(world.conn, game, "DraftKings", LINES_NOW - timedelta(days=1), -3.0)
+
+    results = [r for r in _reevaluate(world, LINES_NOW) if r.version_id == world.version]
+
+    assert [(r.week, r.summary.run_id, r.summary.picks) for r in results] == [
+        (("postseason", 1), first, 1),
+        (("postseason", 2), second, 1),
+    ]
+    assert _pick_rows(world, opener) == []
 
 
 @pytest.fixture

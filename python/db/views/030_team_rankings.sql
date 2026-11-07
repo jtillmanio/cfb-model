@@ -4,7 +4,9 @@
 -- Both weeks come from latest_team_ratings (each week's newest succeeded run of the version).
 -- The week before is week - 1 of the same season type, except entering postseason week 1 (every
 -- bowl and CFP game, TASK-047, D-150): there it is the last regular week the version has a
--- succeeded run of, so the bowl ranks show the moves of championship week and Army-Navy.
+-- succeeded run of, so the bowl ranks show the moves of championship week and Army-Navy. A
+-- version with postseason rounds stores the CFP round as the week, so a round's week before is
+-- the round before it (D-161).
 -- rank_change = previous_rank - rank, so a team that climbed is positive; both are NULL entering
 -- regular week 1, or when the team had no FBS rank the week before. season_type is the last
 -- column because CREATE OR REPLACE VIEW can only add columns at the end. Never stored (hard

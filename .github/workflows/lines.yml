@@ -1,10 +1,14 @@
 # The lines job (TASK-022, docs/02-architecture.md › Components › 4 Jobs): daily at 08:00 ET,
-# plus Thursday and Friday at 19:00 ET (the pick window), a snapshot of CFBD's lines for the next
+# plus Thursday and Friday at 19:00 ET (the pick window), a snapshot of CFBD's lines for the coming
 # week's games, published to production:
 #
-#   pull the earliest week with a game not yet kicked off (/games and /lines) into the R2 lake
-#   → stage the season in a scratch lake on the runner → data-quality checks → publish in one
-#   transaction
+#   pull the week of the earliest kickoff still to come (/games and /lines, D-150) into the R2
+#   lake → stage the season in a scratch lake on the runner → data-quality checks → publish in
+#   one transaction
+#
+# The week pulled is CFBD's: from the first bowl to the title game it's postseason week 1, which
+# holds every bowl and CFP game, whichever CFP round rate-and-predict rates for a version with
+# postseason rounds (the highest round with a game to come and both teams known, D-161).
 #
 # A failed check ends the run before production is opened, so nothing partial is published. The
 # dispatcher (infra/dispatcher, D-122) starts it on time with workflow_dispatch; the crons below

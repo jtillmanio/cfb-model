@@ -19,6 +19,7 @@ import pytest
 from lake_fixture import (
     backtest_game,
     engine,
+    rematch_game_id,
     staged,
     write_backtest_repull,
     write_backtest_seasons,
@@ -482,33 +483,211 @@ def test_rate_cli_refuses_a_tuned_spec_without_choices(
     assert "--choices" in capsys.readouterr().err
 
 
-def test_rate_refuses_a_rounds_spec(
-    lake: LocalLake,
+# TASK-058: a `rounds` spec rates each CFP round live. The rematch fixture: two December games
+# (round 1) and the January game between their winners (round 2).
+
+ROUNDS = SPEC.resolve(CHOICES).model_copy(update={"postseason": "rounds"})
+JANUARY = rematch_game_id(SEASON)
+DECEMBER = {str(backtest_game(SEASON, "postseason", 1, i)["id"]) for i in (CANCELED, TBA)}
+
+
+@pytest.fixture
+def rematch(lake: LocalLake, db_conn: Connection) -> LocalLake:
+    write_backtest_seasons(lake, cfp_rematch=True)
+    rebuild(lake)
+    publish_lake(lake, db_conn, PUBLISH)
+    return lake
+
+
+def _commit_to(
+    monkeypatch: pytest.MonkeyPatch, db_conn: Connection, tmp_path: Path, spec: ModelSpec
+) -> Path:
+    """`engine rate`'s target is the rolled-back test connection; the path of `spec`'s file."""
+
+    class _Engine:
+        def begin(self) -> Any:
+            from contextlib import nullcontext
+
+            return nullcontext(db_conn)
+
+    monkeypatch.setattr(models, "make_engine", lambda _url: _Engine())
+    monkeypatch.setattr(models, "SOURCE", PUBLISH)
+    monkeypatch.setenv("TEST_DATABASE_URL", "postgresql://test-host/cfb_test")
+    monkeypatch.delenv("DATABASE_URL", raising=False)
+    monkeypatch.delenv("DATABASE_URL_UNPOOLED", raising=False)
+    spec_file = tmp_path / "spec.json"
+    spec_file.write_text(spec.model_dump_json(), "utf-8")
+    return spec_file
+
+
+def _rate_round(spec_file: Path, week: int) -> int:
+    return engine(
+        "rate",
+        *("--spec", str(spec_file)),
+        *("--season", "2023", "--season-type", "postseason", "--week", str(week)),
+        *("--target", "test", "--name", NAME),
+    )
+
+
+def test_rate_cli_fits_a_round(
+    rematch: LocalLake,
+    db_conn: Connection,
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    """TASK-048 AC-5: rating each CFP round live is TASK-058's, so a spec with `postseason:
-    rounds` is refused (exit 2) before the lake is read or a database opened, in `engine rate`
-    and in `fit_week`, which the weekly job calls too."""
-    rounds = SPEC.resolve(CHOICES).model_copy(update={"postseason": "rounds"})
-    spec_file = tmp_path / "rounds.json"
-    spec_file.write_text(rounds.model_dump_json(), "utf-8")
-    _refuse_postgres(monkeypatch)
+    """AC-4: round 2 is fit at its own kickoff on the December games and predicts the January
+    game alone; `week` stores the round on the run and its ratings; round 1 predicts December."""
+    spec_file = _commit_to(monkeypatch, db_conn, tmp_path, ROUNDS)
+    fits: list[tuple[datetime, set[int]]] = []
+    fit_games = harness.fit_games
+
+    def recording(history: harness.History, as_of: datetime) -> Any:
+        found = fit_games(history, as_of)
+        fits.append((as_of, {g.game_id for g in found}))
+        return found
+
+    monkeypatch.setattr(harness, "fit_games", recording)
+
+    assert _rate_round(spec_file, 2) == 0, capsys.readouterr().err
+    assert "2023 postseason week 2 succeeded" in capsys.readouterr().out
+    assert _rate_round(spec_file, 1) == 0, capsys.readouterr().err
+
+    (first, second) = db_conn.execute(
+        text(
+            "SELECT r.id, r.season_type, r.week, r.as_of FROM model_runs r"
+            " JOIN model_versions v ON v.id = r.model_version_id WHERE v.name = :n"
+            " ORDER BY r.week"
+        ),
+        {"n": NAME},
+    ).all()
+    kickoffs = {g["source_id"]: g["kickoff_at"] for g in staged(rematch, "games").to_pylist()}
+    assert (second.season_type, second.week, second.as_of) == (
+        "postseason", 2, kickoffs[JANUARY],
+    )  # fmt: skip
+    assert _predicted(db_conn, second.id) == {JANUARY}
+    assert (first.week, first.as_of) == (1, min(kickoffs[g] for g in DECEMBER))
+    assert _predicted(db_conn, first.id) == DECEMBER
+    weeks = db_conn.execute(
+        text("SELECT DISTINCT week, season_type FROM team_ratings WHERE model_run_id = :r"),
+        {"r": second.id},
+    ).all()
+    assert [tuple(w) for w in weeks] == [(2, "postseason")]
+    as_of, games = fits[0]
+    assert as_of == kickoffs[JANUARY]
+    assert {int(g) for g in DECEMBER} <= games and int(JANUARY) not in games
+
+
+def test_a_rounds_spec_rates_regular_weeks_as_any_other(rematch: LocalLake) -> None:
+    """The setting is about the postseason alone: week 5 reads the regular week, not a round."""
+    fitted = models.fit_week(rematch, ROUNDS, {}, season=SEASON, week=WEEK)
+    plain = models.fit_week(rematch, SPEC.resolve(CHOICES), {}, season=SEASON, week=WEEK)
+
+    assert fitted.as_of == plain.as_of
+    assert fitted.outputs is not None and plain.outputs is not None
+    assert fitted.outputs[0].teams == plain.outputs[0].teams
+
+
+def test_a_round_the_bracket_doesnt_have_is_refused(rematch: LocalLake) -> None:
+    with pytest.raises(models.RateRefused, match="no staged games in 2023 postseason week 3"):
+        models.fit_week(rematch, ROUNDS, {}, season=SEASON, week=3, season_type="postseason")
+
+
+def test_rate_refuses_a_round_for_a_one_week_spec(
+    rematch: LocalLake,
+    db_conn: Connection,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """AC-4: a `one_week` spec has no round 2, before the lake is read or a database opened."""
+    spec_file = _commit_to(monkeypatch, db_conn, tmp_path, SPEC.resolve(CHOICES))
 
     def no_lake(*args: Any, **kwargs: Any) -> Any:
         raise AssertionError("engine rate read the lake")
 
     monkeypatch.setattr(harness, "load", no_lake)
-    monkeypatch.setenv("DATABASE_URL_UNPOOLED", "postgresql://nowhere.invalid/dev")
-    code = engine(
-        "rate", "--spec", str(spec_file), "--season", "2023", "--week", "5", "--target", "dev"
-    )
 
-    assert code == 2
-    assert "TASK-058" in capsys.readouterr().err
-    with pytest.raises(models.RateRefused, match="TASK-058"):
-        models.fit_week(lake, rounds, {}, season=2023, week=1, season_type="postseason")
+    assert _rate_round(spec_file, 2) == 2
+    assert "one_week" in capsys.readouterr().err
+    versions = db_conn.execute(
+        text("SELECT count(*) FROM model_versions WHERE name = :n"), {"n": NAME}
+    ).scalar_one()
+    assert versions == 0
+
+
+def _round(season: int, number: int, kickoffs: list[datetime]) -> harness.Week:
+    """A postseason round of a season as `harness.load` builds it, CFBD's week 1."""
+    contexts = tuple(
+        GameContext(
+            game_id=number * 10 + i,
+            season=season,
+            season_type="postseason",
+            week=1,
+            kickoff=kickoff,
+            home_team=1,
+            away_team=2,
+            neutral_site=True,
+        )
+        for i, kickoff in enumerate(kickoffs)
+    )
+    return harness.Week(season, "postseason", 1, min(kickoffs), (), contexts, number)
+
+
+ET = ZoneInfo("America/New_York")
+# 2025's kickoffs on the dev lake: bowls run past the quarterfinals. Round -> the day its teams
+# are both known, and its games' kickoffs.
+CALENDAR = {
+    1: (
+        datetime(2025, 12, 7, tzinfo=ET),
+        [
+            datetime(2025, 12, 13, 20, tzinfo=ET),
+            datetime(2025, 12, 29, 14, tzinfo=ET),
+            datetime(2026, 1, 2, 20, tzinfo=ET),
+        ],
+    ),
+    2: (
+        datetime(2025, 12, 21, tzinfo=ET),
+        [datetime(2025, 12, 31, 19, 30, tzinfo=ET), datetime(2026, 1, 1, 20, tzinfo=ET)],
+    ),
+    3: (
+        datetime(2026, 1, 2, tzinfo=ET),
+        [datetime(2026, 1, 8, 19, 30, tzinfo=ET), datetime(2026, 1, 9, 19, 30, tzinfo=ET)],
+    ),
+    4: (datetime(2026, 1, 10, tzinfo=ET), [datetime(2026, 1, 19, 19, 30, tzinfo=ET)]),
+}
+
+
+def _bracket(now: datetime) -> harness.History:
+    """The rounds as they stood at `now`: a game with a team unknown has no context."""
+    known = [_round(2025, n, ks) for n, (known_at, ks) in CALENDAR.items() if known_at <= now]
+    return harness.History((), (), (), rounds=tuple(known))
+
+
+@pytest.mark.parametrize(
+    ("sunday", "expected"),
+    [
+        ((2025, 12, 14), 1),
+        ((2025, 12, 21), 2),  # a bowl is the earliest game to come; the quarterfinals are known
+        ((2025, 12, 28), 2),  # and the next Sunday is after them
+        ((2026, 1, 4), 3),
+        ((2026, 1, 11), 4),
+        ((2026, 1, 18), 4),
+    ],
+)
+def test_coming_round_rates_past_bowls_still_to_come(
+    sunday: tuple[int, int, int], expected: int
+) -> None:
+    """AC-3: the highest round with a game to come whose teams are both known, on 2025's dates."""
+    now = datetime(*sunday, 9, tzinfo=ET)
+    assert models.coming_round(_bracket(now), 2025, now) == expected
+
+
+def test_coming_round_is_the_seasons_and_none_without_a_game_to_come() -> None:
+    now = datetime(2026, 1, 11, 9, tzinfo=ET)
+    assert models.coming_round(_bracket(now), 2024, now) is None
+    after = datetime(2026, 1, 20, 9, tzinfo=ET)
+    assert models.coming_round(_bracket(after), 2025, after) is None
 
 
 def test_rate_cli_refuses_without_the_dev_url(

@@ -12,8 +12,7 @@ model-builder form, so the form can't offer what the engine doesn't support.
   average team, or `tier`, the level of the team's group (CFB: Power 4, G5, FCS).
 - `postseason` is how the backtest walks a postseason week (04 § 9.2): `one_week` predicts every
   bowl and CFP round from the ratings entering the first bowl; `rounds` refits entering each CFP
-  round, on the rounds before it (TASK-048). Only the backtest runs `rounds` so far: `engine rate`
-  refuses it until TASK-058 rates each round live.
+  round, on the rounds before it (TASK-048), in `engine rate` and the weekly job too (TASK-058).
 - `spec_schema_version` travels inside the spec, so a stored spec says which shape it has. A new
   optional field whose default reproduces the old behaviour keeps the version; changing what an
   existing field means bumps it.

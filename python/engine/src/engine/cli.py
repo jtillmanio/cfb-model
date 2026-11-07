@@ -747,7 +747,12 @@ def main(argv: list[str] | None = None) -> None:
     )
     rate.add_argument("--spec", required=True, metavar="FILE", help="A ModelSpec as JSON")
     rate.add_argument("--season", type=int, required=True)
-    rate.add_argument("--week", type=int, required=True, help="Rate entering this week")
+    rate.add_argument(
+        "--week",
+        type=int,
+        required=True,
+        help="Rate entering this week; the CFP round for a postseason spec with postseason rounds",
+    )
     rate.add_argument("--season-type", default="regular", choices=SEASON_TYPES)
     rate.add_argument("--target", required=True, choices=["dev", "test"])
     rate.add_argument(
@@ -772,7 +777,12 @@ def main(argv: list[str] | None = None) -> None:
         "are skipped. A refusal writes nothing (exit 2). Refused under LIVE=true.",
     )
     pick.add_argument("--season", type=int, required=True)
-    pick.add_argument("--week", type=int, required=True, help="The week the run rated")
+    pick.add_argument(
+        "--week",
+        type=int,
+        required=True,
+        help="The week the run rated; the CFP round for a postseason run of a rounds spec",
+    )
     pick.add_argument("--season-type", default="regular", choices=SEASON_TYPES)
     pick.add_argument("--target", required=True, choices=["dev", "test"])
     pick.add_argument("--name", required=True, help="The model version's name")

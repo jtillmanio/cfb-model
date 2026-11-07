@@ -406,7 +406,10 @@ season's settings (`python/engine/specs/efficiency-v1-2026.run.json`, D-149). Ea
    `/games` files, as `lines` chooses it. From the first bowl to the title game that's postseason
    week 1, every bowl and CFP game, rated each Sunday at the same cutoff (the first bowl's
    kickoff), so the ratings don't change and a CFP game is predicted once its teams are known
-   (D-150). When the season is over, the run says so and ends without opening production.
+   (D-150). A version with `postseason: rounds` rates a CFP round instead, chosen after the
+   rebuild: the highest round with a game to come whose teams are both known; with none, the run
+   says so and writes nothing (D-161). `efficiency v1.0` is `one_week`. When the season is over,
+   the run says so and ends without opening production.
 2. **resolve the settings** the season runs with from the `run.json`; one that didn't score the
    season is refused (exit 2).
 3. **rebuild every season**: every raw file in R2 is copied into a scratch lake on the runner,
@@ -454,7 +457,8 @@ run the same week adds another run and its predictions, but no pick whose side a
 unchanged. Its **Summary** lists the version, the week rated (or why none), the run's id and
 status, its ratings and predictions, and the picks and passes written out of the predicted games
 still before kickoff (0 predicted games means nothing was rated; predictions with 0 picks means
-no game cleared the pick rules). `lines` adds one line per version re-evaluated. Locally:
+no game cleared the pick rules). `lines` adds one line per version re-evaluated, one per CFP
+round for a version with `postseason: rounds`. Locally:
 
 ```powershell
 uv --directory python run engine job rate-and-predict --target dev --spec engine/specs/efficiency-v1.json --choices engine/specs/efficiency-v1-2026.run.json

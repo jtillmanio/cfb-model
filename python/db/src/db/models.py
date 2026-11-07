@@ -343,9 +343,9 @@ def _run_fk() -> ForeignKeyConstraint:
 
 class TeamRating(Base):
     """Insert-only (hard rule 2): triggers refuse UPDATE, DELETE and TRUNCATE. `week` N means
-    entering week N of `season_type` (postseason week 1 is every bowl and CFP game). A re-run
-    adds rows under its own run, so the run is in the key. Rank is the `team_rankings` view,
-    never a column."""
+    entering week N of `season_type` (postseason week 1 is every bowl and CFP game, or for a
+    version with `postseason: rounds` N is the CFP round, D-161). A re-run adds rows under its
+    own run, so the run is in the key. Rank is the `team_rankings` view, never a column."""
 
     __tablename__ = "team_ratings"
     __table_args__ = (

@@ -6,7 +6,8 @@
 -- run may carry a season and week but writes no ratings). fbs is the team's division
 -- that season (false with no team_seasons row); rank is NULL for a team that isn't FBS, and ties
 -- share a rank (RANK: 1, 2, 2, 4). A week is (season_type, week): postseason week 1, every bowl
--- and CFP game, isn't the season's regular week 1 (TASK-047, D-150). season_type is the last
+-- and CFP game, isn't the season's regular week 1 (TASK-047, D-150); for a version with
+-- postseason rounds a postseason week is the CFP round (D-161). season_type is the last
 -- column because CREATE OR REPLACE VIEW can only add columns at the end. The rank partition
 -- holds model_version_id, season, season_type and week, so a read filtered by them reads only
 -- that week's rows, through the (model_version_id, season, season_type, week) index.
