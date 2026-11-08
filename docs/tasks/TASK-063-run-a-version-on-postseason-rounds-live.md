@@ -81,8 +81,8 @@ _Approved 2026-11-08 at `ff61b81`. Owner's choices at the gate: switch to v1.1 n
 **Test strategy**
 - AC-1: `test_api_slate.py::test_each_postseason_game_reads_the_newest_run_that_predicted_it`: round-1 and round-2 runs with different weights and choices; the bowl's `pred_margin` and edge match round 1's run, the quarterfinal's round 2's (values from `engine.core`), and the quarterfinal's rank is round 2's.
 - AC-2: `test_jobs.py::test_the_committed_settings_match_the_spec_the_workflow_runs` on v1.1, also asserting `postseason == "rounds"`; manual `engine job rate-and-predict --target dev --dry-run` → exit 0.
-- AC-3: `test_jobs.py::test_rate_and_predict_workflow_runs_the_weekly_job` on v1.1 and `--version v1.1`; `SHOWN` is the shell tests'.
-- AC-4: `test_api_slate.py::test_a_postseason_slate_stays_in_the_query_budget` counts a postseason `load`'s statements (≤ `QUERY_BUDGET`); an EXPLAIN test that predictions are read by `game_id`.
+- AC-3: `test_jobs.py::test_rate_and_predict_workflow_runs_the_weekly_job` on v1.1 and `--version v1.1`; `test_api_slate.py::test_v1_1_replaces_v1_0_on_the_slate` (added after the test audit): with an older v1.0 candidate and a newer v1.1 candidate both rating the postseason, the shell names v1.1 and each game shows v1.1's rounds.
+- AC-4: `test_api_slate.py::test_a_postseason_slate_stays_in_the_query_budget` counts a postseason `load`'s statements (≤ `QUERY_BUDGET`); an EXPLAIN test that predictions are read by `game_id`. Both are regression guards: the old slate also ran six statements, so they pass on the base too.
 - Warning: `test_rate_and_predict.py::test_the_summary_names_postseason_games_with_no_prediction`, and a "none" line asserted in `test_rounds_version_rates_the_next_round` (revised in Phase 2: the job's rounds fixtures live in `test_rate_and_predict.py`, not `test_jobs.py`; that file is added to Files).
 
 **Risks:** the record strip restarts and earlier weeks show no model line (accepted); by-game reads mean a regular-week game the newest run left out shows an earlier run's prediction instead of none; the Dec 6 timing above.
