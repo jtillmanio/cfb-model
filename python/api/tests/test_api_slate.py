@@ -377,15 +377,23 @@ def test_the_offseason_slate_carries_the_next_kickoff(
 NOW = m.utc(m.SEASON, 9, 1, 12)
 
 
-def _shown_version(conn: Connection, spec: dict[str, Any]) -> int:
+def _shown_version(
+    conn: Connection,
+    spec: dict[str, Any],
+    name: str = "slate",
+    version: str = "v1",
+    status: str = "production",
+    created_at: datetime = NOW,
+) -> int:
     return conn.execute(
         text(
             "INSERT INTO model_versions (sport_id, market, name, version, spec,"
-            " spec_schema_version, created_by, status)"
-            " VALUES (:sport, 'spread', 'slate', 'v1', CAST(:spec AS jsonb), 1, 'user',"
-            " 'production') RETURNING id"
+            " spec_schema_version, created_by, status, created_at)"
+            " VALUES (:sport, 'spread', :name, :version, CAST(:spec AS jsonb), 1, 'user',"
+            " :status, :created_at) RETURNING id"
         ),
-        {"sport": m.SPORT, "spec": json.dumps(spec)},
+        {"sport": m.SPORT, "spec": json.dumps(spec), "name": name, "version": version,
+         "status": status, "created_at": created_at},  # fmt: skip
     ).scalar_one()
 
 
@@ -492,6 +500,139 @@ def test_rules_the_run_never_resolved_leave_the_edge_out(db_conn: Connection):
     assert (game.model.edge, game.model.cover_prob) == (None, None)
 
 
+# TASK-063: a `postseason: rounds` version predicts each CFP round in its own run, whose week is
+# the round (D-161), while every postseason game is CFBD's week 1.
+
+POSTSEASON = (m.SEASON, "postseason", 1)
+
+
+def _postseason_run(
+    conn: Connection, version: int, round_: int, as_of: datetime, k: float,
+    by_team: dict[int, float],
+) -> int:  # fmt: skip
+    """A succeeded scheduled run of round `round_` whose choices fix the market shrinkage at `k`,
+    with its ratings."""
+    run = m.run(conn, version, round_, as_of, run_type="scheduled", season_type="postseason",
+                home_field=None)  # fmt: skip
+    conn.execute(
+        text("UPDATE model_runs SET fitted_params = CAST(:p AS jsonb) WHERE id = :r"),
+        {"r": run, "p": json.dumps({"choices": {"picks.market_shrinkage_k": k}})},
+    )
+    if by_team:
+        m.ratings(conn, run, version, round_, as_of, by_team, season_type="postseason")
+    return run
+
+
+def _predict(conn: Connection, run: int, version: int, game: int, margin: float) -> None:
+    conn.execute(
+        text(
+            "INSERT INTO predictions (model_run_id, model_version_id, game_id, pred_margin,"
+            " home_win_prob, margin_sd) VALUES (:r, :v, :g, :m, 0.6, 13.8)"
+        ),
+        {"r": run, "v": version, "g": game, "m": margin},
+    )
+
+
+def _rounds(conn: Connection, **shown: Any) -> dict[str, Any]:
+    """A bowl predicted in round 1's run and a quarterfinal in round 2's, with lines on both. The
+    runs fix different market shrinkages, and the quarterfinal's home team moves from 3rd entering
+    round 1 to 1st entering round 2. `shown` overrides `_shown_version`'s defaults."""
+    spec = _v1_spec(conn)
+    spec["picks"]["market_shrinkage_k"] = {"tune": [0.5, 0.8]}
+    m.sport(conn)
+    bowl_home, bowl_away = m.team(conn, "bowl-home"), m.team(conn, "bowl-away")
+    qf_home, qf_away = m.team(conn, "qf-home"), m.team(conn, "qf-away")
+    bowl = m.game(conn, bowl_home, bowl_away, NOW + timedelta(days=3), week=1,
+                  season_type="postseason", status="scheduled")  # fmt: skip
+    qf = m.game(conn, qf_home, qf_away, NOW + timedelta(days=10), week=1,
+                season_type="postseason", status="scheduled")  # fmt: skip
+    version = _shown_version(conn, spec, **shown)
+    first = _postseason_run(
+        conn, version, 1, NOW - timedelta(days=8), 0.5,
+        {bowl_home: 5.0, bowl_away: 4.0, qf_home: 3.0, qf_away: 2.0},
+    )  # fmt: skip
+    second = _postseason_run(
+        conn, version, 2, NOW - timedelta(days=1), 0.8,
+        {qf_home: 9.0, bowl_home: 5.0, bowl_away: 4.0, qf_away: 2.0},
+    )  # fmt: skip
+    _predict(conn, first, version, bowl, 4.5)
+    _predict(conn, second, version, qf, -2.0)
+    book = m.book(conn)
+    m.line(conn, bowl, book, NOW - timedelta(hours=1), -3.0)
+    m.line(conn, qf, book, NOW - timedelta(hours=1), 1.5)
+    return {"spec": spec, "bowl": bowl, "qf": qf, "first": first, "second": second,
+            "version": version}  # fmt: skip
+
+
+def test_each_postseason_game_reads_the_newest_run_that_predicted_it(db_conn: Connection):
+    """AC-1: the bowl's prediction and edge are round 1's run's, the quarterfinal's round 2's
+    (each with its run's choices), and each team's rank is the one entering its game's round."""
+    made = _rounds(db_conn)
+
+    got = slate.load(db_conn, NOW, m.SPORT, POSTSEASON)
+
+    games = {g.id: g for g in got.games}
+    assert set(games) == {made["bowl"], made["qf"]}
+    expected: list[tuple[int, float, float, float, slate.Side]] = [
+        (made["bowl"], 4.5, -3.0, 0.5, "home"),  # edge k × (pred + line) = 0.5 × 1.5 = +0.75
+        (made["qf"], -2.0, 1.5, 0.8, "away"),  # 0.8 × −0.5 = −0.4
+    ]
+    for game, margin, line, k, side in expected:
+        model = games[game].model
+        assert model is not None, game
+        assert (model.pred_margin, model.side) == (margin, side)
+        assert model.edge == pytest.approx(blended_margin(margin, line, k) + line)
+        rules = ModelSpec.model_validate(made["spec"]).resolve(
+            {"picks.market_shrinkage_k": k}
+        ).picks  # fmt: skip
+        assert model.cover_prob == pytest.approx(
+            displayed_prob(margin, line, side, rules, NormalMargin(13.8))
+        )
+    assert (games[made["bowl"]].home.rank, games[made["bowl"]].away.rank) == (1, 2)
+    assert (games[made["qf"]].home.rank, games[made["qf"]].away.rank) == (1, 4)
+
+
+def test_v1_1_replaces_v1_0_on_the_slate(db_conn: Connection):
+    """AC-3: v1.0 (`one_week`, created first) predicted both games in its postseason week-1 run;
+    v1.1, the version the workflow now names, is created by its first run, so it's the newest
+    candidate: the shell names it and each game shows its rounds' predictions, not v1.0's."""
+    made = _rounds(db_conn, name="efficiency", version="v1.1", status="candidate")
+    old = _shown_version(db_conn, made["spec"], name="efficiency", version="v1.0",
+                         status="candidate", created_at=NOW - timedelta(days=60))  # fmt: skip
+    one_week = _postseason_run(db_conn, old, 1, NOW - timedelta(days=8), 0.5, {})
+    db_conn.execute(  # newer than either v1.1 run, so only the version can choose v1.1's
+        text("UPDATE model_runs SET finished_at = :t WHERE id = :r"),
+        {"r": one_week, "t": NOW - timedelta(hours=2)},
+    )
+    for game in (made["bowl"], made["qf"]):
+        _predict(db_conn, one_week, old, game, 10.0)
+
+    got = slate.load(db_conn, NOW, m.SPORT, POSTSEASON)
+
+    assert got.shell.model is not None
+    assert (got.shell.model.name, got.shell.model.version) == ("efficiency", "v1.1")
+    margins = {g.id: g.model.pred_margin if g.model else None for g in got.games}
+    assert margins == {made["bowl"]: 4.5, made["qf"]: -2.0}
+
+
+def test_a_postseason_slate_stays_in_the_query_budget(db_conn: Connection):
+    """AC-4: the rounds don't add statements: a postseason week is one wave of `QUERIES`."""
+    _rounds(db_conn)
+    statements: list[str] = []
+
+    def counted(conn, cursor, statement, parameters, context, executemany):
+        statements.append(statement)
+
+    event.listen(db_conn, "before_cursor_execute", counted)
+    try:
+        slate.load(db_conn, NOW, m.SPORT, POSTSEASON)
+    finally:
+        event.remove(db_conn, "before_cursor_execute", counted)
+
+    assert len(statements) == len(slate.queries(NOW, m.SPORT, POSTSEASON)) == len(slate.QUERIES)
+    assert len(statements) <= wave.QUERY_BUDGET
+
+
 # AC-6
 
 
@@ -568,6 +709,13 @@ def _conds(nodes: list[dict[str, Any]]) -> list[str]:
 def test_the_ranks_are_read_for_the_week_alone(db_conn: Connection):
     conds = _conds(m.scans(_plan(db_conn, "games"), "team_ratings"))
     assert conds and all("week" in c for c in conds), conds
+
+
+def test_the_predictions_are_read_for_the_weeks_games_alone(db_conn: Connection):
+    """TASK-063: each game's run is found from its predictions, so they're read by game, not
+    across the version's runs."""
+    conds = _conds(m.scans(_plan(db_conn, "games"), "predictions"))
+    assert conds and all("game_id" in c for c in conds), conds
 
 
 def test_the_picks_are_read_for_the_weeks_games_alone(db_conn: Connection):

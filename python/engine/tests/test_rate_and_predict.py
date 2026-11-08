@@ -507,6 +507,8 @@ def test_rounds_version_rates_the_next_round(
     assert pick.prediction_id == predicted[0].id
     assert _rows_of(db_conn, first.id) == before  # hard rule 2
     assert "Week rated: postseason week 2" in summary.read_text("utf-8")
+    # TASK-063: every game still to come is predicted, by round 1's run or this one.
+    assert "Postseason games still to come with no prediction: none" in summary.read_text("utf-8")
 
 
 def test_a_known_round_is_rated_past_a_bowl_still_to_come(
@@ -528,6 +530,29 @@ def test_a_known_round_is_rated_past_a_bowl_still_to_come(
     (run,) = _runs(db_conn)
     assert (run.season_type, run.week) == ("postseason", 2)
     assert _predicted(db_conn, run.id) == {JANUARY}
+
+
+def test_the_summary_names_postseason_games_with_no_prediction(
+    rounds_weekly: Path, db_conn: Connection, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """TASK-063: the job rates round 2 while the second bowl is still to come and no run of the
+    version predicted it, and it won't be rated again (D-161), so the summary names it. The
+    first bowl has kicked off and the January game is this run's, so neither is named."""
+    first, second = sorted(BOWLS, key=lambda g: g["startDate"])
+    now = datetime.fromisoformat(first["startDate"]) + timedelta(hours=1)
+    monkeypatch.setenv("FIXTURE_NOW", now.isoformat())
+    summary = tmp_path / "summary.md"
+
+    assert _job(
+        _run_file(tmp_path, spec=ROUNDS), "--summary", str(summary), spec_file=rounds_weekly
+    ) == 0  # fmt: skip
+
+    (line,) = [
+        s for s in summary.read_text("utf-8").splitlines() if "with no prediction" in s
+    ]  # fmt: skip
+    assert f"{second['awayTeam']} at {second['homeTeam']}" in line
+    assert f"{first['awayTeam']} at {first['homeTeam']}" not in line
+    assert line.count(" at ") == 1  # the January game isn't named
 
 
 def test_no_round_with_both_teams_writes_nothing(

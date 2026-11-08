@@ -61,7 +61,8 @@ jobs:
         uses: ./.github/actions/skip-if-dispatched
 
       # `uv run` installs the dev group, which holds the engine's pyarrow, boto3, duckdb and numpy
-      # (D-114). The version and its 2026 settings are pinned here (D-149).
+      # (D-114). The version and its 2026 settings are pinned here (D-149): efficiency v1.1, v1's
+      # spec with each CFP round rated after the rounds before it (postseason: rounds, TASK-063).
       - name: Rate, predict and pick on production
         if: ${{ steps.guard.outputs.skip != 'true' }}
         env:
@@ -71,4 +72,4 @@ jobs:
           R2_DATA_LAKE_ACCESS_KEY_ID: ${{ secrets.R2_DATA_LAKE_ACCESS_KEY_ID }}
           R2_DATA_LAKE_SECRET_ACCESS_KEY: ${{ secrets.R2_DATA_LAKE_SECRET_ACCESS_KEY }}
           PRODUCTION_DATABASE_URL_UNPOOLED: ${{ secrets.PRODUCTION_DATABASE_URL_UNPOOLED }}
-        run: uv --directory python run engine job rate-and-predict --target live --spec engine/specs/efficiency-v1.json --choices engine/specs/efficiency-v1-2026.run.json --version v1.0 --summary "$GITHUB_STEP_SUMMARY" ${{ inputs.dry_run == 'true' && '--dry-run' || '' }}
+        run: uv --directory python run engine job rate-and-predict --target live --spec engine/specs/efficiency-v1.1.json --choices engine/specs/efficiency-v1.1-2026.run.json --version v1.1 --summary "$GITHUB_STEP_SUMMARY" ${{ inputs.dry_run == 'true' && '--dry-run' || '' }}
