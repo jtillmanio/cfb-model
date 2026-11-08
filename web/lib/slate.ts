@@ -21,10 +21,7 @@ import {
 // neither a clock nor a DOM. Thresholds come from the response's `rules` (D-055), never a
 // constant here.
 
-export type Slate = components["schemas"]["SlateOut"] & {
-  /** The next season's first kickoff. The API doesn't send it yet; the line shows only when it does. */
-  next_kickoff_at?: string | null;
-};
+export type Slate = components["schemas"]["SlateOut"];
 export type SlateGame = components["schemas"]["SlateGameOut"];
 export type SlateRules = components["schemas"]["SlateRulesOut"];
 export type SlateWeek = components["schemas"]["SlateWeekOut"];
@@ -501,14 +498,24 @@ export function offseasonSeason(slate: {
   return slate.season ?? slate.shell?.season ?? null;
 }
 
-/** `2026 · Week 6 · 54 games · 9 picks` (`2026 · Postseason · …` after the regular season). */
+/**
+ * `2026 · Week 6 · 54 games · 9 picks` (`2026 · Postseason · …` after the regular season). In the
+ * off-season it names the coming season and its first week when the shell has them (D-164),
+ * else the season that ended: `2027 · Week 1 · off-season`, `2026 · off-season`.
+ */
 export function slateCaption(
   slate: Pick<Slate, "season" | "season_type" | "week" | "counts"> & {
     offseason?: boolean;
-    shell?: { season: number | null } | null;
+    shell?: { season: number | null; next_season?: number | null; next_week?: number | null } | null;
   },
 ): string {
   const parts: string[] = [];
+  if (slate.offseason && slate.shell?.next_season != null) {
+    parts.push(String(slate.shell.next_season));
+    if (slate.shell.next_week != null) parts.push(`Week ${slate.shell.next_week}`);
+    parts.push("off-season");
+    return parts.join(" · ");
+  }
   const season = offseasonSeason(slate);
   if (season !== null) parts.push(String(season));
   if (slate.offseason) {
@@ -651,15 +658,17 @@ export function noPicksNote(slate: Pick<Slate, "games" | "week" | "rules">): {
   };
 }
 
-/** The off-season frame's copy. The season is the shell's, never guessed; the kickoff line needs the API's date. */
+/** The off-season frame's copy. The season and week come from the API, never guessed; the kickoff line needs its date. */
 export function offseasonNote(
   season: number | null,
   nextKickoffAt: string | null | undefined,
+  nextWeek: number | null = null,
   zone: string = SLATE_ZONE,
 ): { title: string; body: string; kickoff: string | null } {
+  const week = nextWeek === null ? "The next season" : `Week ${nextWeek}`;
   const ended = season === null ? "The season has ended." : `The ${season} season has ended.`;
   const kickoff = nextKickoffAt
-    ? `Week 0 kicks off ${new Intl.DateTimeFormat("en-US", {
+    ? `${week} kicks off ${new Intl.DateTimeFormat("en-US", {
         timeZone: zone,
         weekday: "short",
         month: "short",
@@ -671,7 +680,7 @@ export function offseasonNote(
     : null;
   return {
     title: "No games this week",
-    body: `${ended} The next slate fills in when books post Week 0 lines, usually in early August.`,
+    body: `${ended} The next slate fills in when books post ${nextWeek === null ? "its" : `Week ${nextWeek}`} lines, usually in early August.`,
     kickoff,
   };
 }

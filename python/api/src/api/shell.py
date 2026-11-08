@@ -55,6 +55,10 @@ class ShellOut(BaseModel):
     lines_updated_at: datetime | None
     stale: bool
     picks: int | None
+    # The off-season (no coming week): the next season and its first week still ahead, from
+    # `seasons.weeks` (D-164). None in season, or when no later season's calendar is stored.
+    next_season: int | None
+    next_week: int | None
 
 
 # Each CTE reads only the ones before it, and each is one row at most. The record and pick reads
@@ -104,11 +108,27 @@ SHOWN = """shown AS (
         LIMIT 1
     )"""
 
+# The earliest week still ahead in a season after `season`, only with no coming week (D-164).
+# CFBD's calendar `start` is UTC ISO text; weeks are numbered as CFBD does (opening Saturday: 1).
+NEXT_WEEK = """next_week AS (
+        SELECT s.year AS season, (w.value ->> 'week')::int AS week,
+            (w.value ->> 'start')::timestamptz AS start
+        FROM seasons s
+        CROSS JOIN LATERAL jsonb_array_elements(s.weeks) AS w
+        WHERE s.sport_id = :sport
+            AND s.year > (SELECT season FROM season)
+            AND (w.value ->> 'start')::timestamptz > :now
+            AND NOT EXISTS (SELECT 1 FROM coming)
+        ORDER BY start, s.year
+        LIMIT 1
+    )"""
+
 SHELL_SQL = text(
     f"""
     WITH {COMING},
     {SEASON},
     {SHOWN},
+    {NEXT_WEEK},
     record AS (
         SELECT r.wins, r.losses, r.pushes, r.win_pct, r.units, r.avg_clv
         FROM model_record r
@@ -149,11 +169,15 @@ SHELL_SQL = text(
         rec.units,
         rec.avg_clv,
         (SELECT n FROM week_picks) AS picks,
-        (SELECT at FROM lines) AS lines_updated_at
+        (SELECT at FROM lines) AS lines_updated_at,
+        nw.season AS next_season,
+        nw.week AS next_week,
+        nw.start AS next_start
     FROM season s
     LEFT JOIN coming c ON true
     LEFT JOIN shown sh ON true
     LEFT JOIN record rec ON true
+    LEFT JOIN next_week nw ON true
     """
 )
 
@@ -191,6 +215,8 @@ def shell_from(row: Row[Any], now: datetime) -> ShellOut:
         lines_updated_at=updated,
         stale=has_week and updated is not None and now - updated > STALE_AFTER,
         picks=row.picks if has_week and has_model else None,
+        next_season=row.next_season,
+        next_week=row.next_week,
     )
 
 

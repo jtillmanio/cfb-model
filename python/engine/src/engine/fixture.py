@@ -147,6 +147,20 @@ def _seed_week(
     )
     book_id = upsert_sportsbooks(conn, SOURCE, data["sportsbooks"])[BOOK]
     venue_ids = upsert_venues(conn, SOURCE, data["venues"])
+    # The next season's calendar alone (no games yet), so the off-season names it (TASK-062).
+    coming = data["next_season"]
+    upsert_season(
+        conn,
+        {
+            "sport_id": SPORT,
+            "year": coming["year"],
+            "source": SOURCE,
+            "start_date": date.fromisoformat(coming["start_date"]),
+            "end_date": date.fromisoformat(coming["end_date"]),
+            "current_week": coming["current_week"],
+            "weeks": coming["weeks"],
+        },
+    )
     game_ids = _upsert_games(conn, season["year"], data["games"], team_ids, venue_ids)
     return game_ids, _insert_lines(conn, data["games"], game_ids, book_id), book_id
 

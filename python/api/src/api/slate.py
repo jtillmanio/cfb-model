@@ -162,6 +162,8 @@ class SlateOut(BaseModel):
     games: list[SlateGameOut]
     weeks: list[SlateWeekOut]  # every week with a game, oldest first: the week selector's list
     shell: ShellOut
+    # The off-season: when the next season's first week starts (`shell.next_week`), else None.
+    next_kickoff_at: datetime | None
 
 
 Week = tuple[int, SeasonType, int]
@@ -509,6 +511,7 @@ def slate_from(
             for r in found["weeks"]
         ],
         shell=shell_out,
+        next_kickoff_at=found["shell"][0].next_start,
     )
 
 

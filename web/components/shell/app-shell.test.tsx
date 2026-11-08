@@ -31,6 +31,8 @@ const SHELL: Shell = {
   lines_updated_at: "2026-10-10T13:00:00+00:00",
   stale: false,
   picks: 9,
+  next_season: null,
+  next_week: null,
 };
 
 function renderShell(shell: Shell | null, state: "ready" | "loading" | "error" = "ready") {

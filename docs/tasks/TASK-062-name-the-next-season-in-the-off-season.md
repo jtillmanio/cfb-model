@@ -1,14 +1,14 @@
 ---
 id: TASK-062
 title: Name the next season in the off-season
-status: Draft
+status: In progress
 depends_on: [TASK-057]
 size: M
 model: sonnet
 autonomy: attended
 ui: true
-plan_status: none
-planned_at_commit:
+plan_status: approved
+planned_at_commit: 2ec3c70
 ---
 
 # TASK-062 — Name the next season in the off-season
@@ -53,9 +53,35 @@ In the off-season the app names the coming season and its week 0 (the design's "
 
 _Work noticed during this task and deliberately left out._
 
+- Pull the next season's calendar in the off-season so the kickoff line and the next season's name show before July (the jobs pull a season's calendar only from July, with its games) — new Draft task (approved at plan)
+- The design's "The 2026 season ended with the title game on Mon Jan 18" line: the response would carry the last game's date — new Draft task (approved at plan)
+- D-164: the off-season shell names the next season and its first week from `seasons.weeks` (amends D-156) — `docs/decisions.md` (approved at plan)
+
 ## Plan
 
-_Written by /plan-batch or /implement-task Phase 1. Approved by the user (plan_status: approved) before any code is written._
+**Ruling (AC-3, D-164, amends D-156):** the shell keeps `season` as the season that just ended (its record stays "Model · 2026 final", as the design draws it) and gains `next_season` and `next_week`, set only when there is no coming week and `seasons` holds a later season whose first week starts after now. `/slate` gains `next_kickoff_at`, that week's `start`. Week numbers come from the data: CFBD numbers the opening Saturday week 1, so "2027 · Week 1 · off-season" and "Week 1 kicks off Sat Aug 28, 2027", not the design's fixed "Week 0" (owner, plan gate). The "season ended with the title game on …" line stays out (follow-up).
+
+**Findings:** `/slate`'s wave is at the 6-query budget (D-163), so the fields ride in the shell statement as one more CTE over `seasons`. CFBD's calendar `start` equals its `firstGameStart` (Sat 07:00Z, 3 AM ET), so its Eastern date is the opening Saturday. Production pulls a season's calendar only from July (`jobs.current_season`), with its games, so until then the next season is unknown and the app shows "2026 · off-season" with no kickoff line.
+
+**Steps**
+
+1. Tests first (AC-1, AC-4): API tests at the off-season clock; see them fail.
+2. `SHELL_SQL`: a `next_week` CTE (the earliest week `start` after now in a season after `season`, only with no coming week); `ShellOut.next_season`, `next_week`; `SlateOut.next_kickoff_at` from the shell row (no new query).
+3. Fixture: `week6.json` gains `next_season` (2027, CFBD-shaped, week 1 from Sat 2027-08-28 07:00Z); `engine/fixture.py` upserts it.
+4. `pnpm api:types`; drop the optional `next_kickoff_at` type in `web/lib/slate.ts`.
+5. Web: `shell.ts` `weekLabel` and `slateCaption` name the next season and week ("2027 · Week 1 · off-season"); the empty frame's kickoff line and copy use the data's week and season.
+6. D-164 in `docs/decisions.md`; D-156 "Amended by D-164".
+
+**Files:** `python/api/src/api/shell.py`, `python/api/src/api/slate.py`, `python/api/tests/test_api_shell.py`, `python/api/tests/test_api_slate.py`, `python/db/seeds/fixture/week6.json`\*, `python/engine/src/engine/fixture.py`\*, `web/lib/api-types.ts`, `web/lib/slate.ts`, `web/lib/slate.test.ts`, `web/lib/shell.ts`\*, `web/lib/shell.test.ts`\*, `web/app/(this-week)/slate-empty.tsx`, `web/app/(this-week)/slate.tsx`\*, `web/app/(this-week)/slate.test.tsx`, `docs/decisions.md` (\* not in Files likely touched).
+
+**Test strategy**
+
+- AC-1: `test_api_slate.py`: the off-season clock gives `next_kickoff_at` 2027-08-28T07:00Z; null with no later season (a `load` test); null in season.
+- AC-2: `slate.test.tsx` off-season cases on the required type: the line shows with the field, hidden when null.
+- AC-3: the D-164 row (spec-reviewer).
+- AC-4: `test_api_shell.py` next-season fields at the off-season clock and null otherwise; `shell.test.ts` label; `slate.test.tsx` caption "2027 · Week 1 · off-season".
+
+**Risks:** no schema change (reads `seasons.weeks`). The e2e clock is in season, where the CTE gives null.
 
 ## Review log
 

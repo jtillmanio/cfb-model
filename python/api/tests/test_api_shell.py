@@ -7,6 +7,7 @@ sport inside db_conn's rolled-back transaction."""
 
 from __future__ import annotations
 
+import json
 import threading
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
@@ -248,6 +249,65 @@ def test_the_offseason_shell_names_the_last_season(
     assert (body["stale"], body["picks"]) == (False, None)
 
 
+def test_the_offseason_shell_names_the_next_season_and_its_first_week(
+    client: TestClient, make_token: MakeToken, monkeypatch: pytest.MonkeyPatch
+):
+    """TASK-062, D-164: `season` stays the season that ended; the coming one is `next_season`,
+    its first week after now `next_week` (CFBD numbers the opening Saturday week 1)."""
+    body = _get_shell(client, make_token, monkeypatch, OFFSEASON_NOW)
+
+    assert (body["next_season"], body["next_week"]) == (2027, 1)
+
+
+def test_in_season_the_shell_names_no_next_season(
+    client: TestClient, make_token: MakeToken, monkeypatch: pytest.MonkeyPatch
+):
+    body = _get_shell(client, make_token, monkeypatch, SLATE_NOW)
+
+    assert (body["next_season"], body["next_week"]) == (None, None)
+
+
+def _season_row(conn: Connection, year: int, starts: list[datetime]) -> None:
+    weeks = [
+        {"week": i + 1, "season_type": "regular", "start": s.isoformat(), "end": s.isoformat()}
+        for i, s in enumerate(starts)
+    ]
+    conn.execute(
+        text(
+            "INSERT INTO seasons (sport_id, year, source, start_date, end_date, weeks)"
+            " VALUES (:sport, :year, 'test', :d, :d, CAST(:weeks AS jsonb))"
+        ),
+        {"sport": m.SPORT, "year": year, "d": starts[0].date(), "weeks": json.dumps(weeks)},
+    )
+
+
+def test_the_next_week_is_the_earliest_later_week_after_now(db_conn: Connection):
+    """A later season's first week still ahead is named; a week that has started is not, and a
+    season with no weeks to come names nothing."""
+    m.sport(db_conn)
+    home, away = m.team(db_conn, "home-next"), m.team(db_conn, "away-next")
+    m.game(db_conn, home, away, m.utc(2030, 9, 7, 16), week=1, season=2030)
+    _season_row(db_conn, 2031, [m.utc(2031, 8, 30, 7), m.utc(2031, 9, 6, 7)])
+    _season_row(db_conn, 2032, [m.utc(2032, 8, 28, 7)])
+
+    got = shell.load(db_conn, m.utc(2031, 9, 1), m.SPORT)
+    assert (got.season, got.week, got.next_season, got.next_week) == (2030, None, 2031, 2)
+
+    later = shell.load(db_conn, m.utc(2032, 1, 1), m.SPORT)
+    assert (later.next_season, later.next_week) == (2032, 1)
+
+
+def test_no_later_season_names_no_next_season(db_conn: Connection):
+    m.sport(db_conn)
+    home, away = m.team(db_conn, "home-none"), m.team(db_conn, "away-none")
+    m.game(db_conn, home, away, m.utc(2030, 9, 7, 16), week=1, season=2030)
+    _season_row(db_conn, 2030, [m.utc(2030, 9, 7, 7)])
+
+    got = shell.load(db_conn, m.utc(2031, 1, 1), m.SPORT)
+
+    assert (got.next_season, got.next_week) == (None, None)
+
+
 def test_after_the_last_game_the_shell_names_the_latest_season(db_conn: Connection):
     """Every game of 2030 and 2031 has started: the season is 2031, with no week, and the shown
     version's 2031 record is final."""
@@ -371,6 +431,7 @@ def test_the_record_keeps_decimals_out_of_the_response():
         "model_version": "v1.0", "wins": 1, "losses": 0, "pushes": 0,
         "win_pct": Decimal("100.0"), "units": Decimal("1.0"), "avg_clv": None, "picks": 1,
         "lines_updated_at": datetime(2026, 10, 10, 13, tzinfo=UTC),
+        "next_season": None, "next_week": None,
     }.items():  # fmt: skip
         setattr(row, name, value)
 

@@ -485,6 +485,16 @@ describe("caption and legend", () => {
     );
   });
 
+  it("names the coming season and week in the off-season, else the season that ended", () => {
+    const off = { season: null, season_type: null, week: null, counts: { games: 0, picks: 0 }, offseason: true };
+    expect(slateCaption({ ...off, shell: { season: 2026, next_season: 2027, next_week: 1 } })).toBe(
+      "2027 · Week 1 · off-season",
+    );
+    expect(slateCaption({ ...off, shell: { season: 2026, next_season: null, next_week: null } })).toBe(
+      "2026 · off-season",
+    );
+  });
+
   it("without a week the caption is just the counts", () => {
     expect(slateCaption(slate({ season: null, season_type: null, week: null, counts: { games: 0, picks: 0 } }))).toBe(
       "0 games · 0 picks",
@@ -595,7 +605,8 @@ describe("noPicksNote and offseasonNote", () => {
   it("the off-season copy names the shell's season and shows the next kickoff only when given", () => {
     expect(offseasonNote(2026, null).body).toContain("2026 season");
     expect(offseasonNote(2026, null).kickoff).toBeNull();
-    expect(offseasonNote(2026, "2027-08-28T19:00:00Z").kickoff).toBe("Week 0 kicks off Sat Aug 28, 2027");
+    expect(offseasonNote(2026, "2027-08-28T19:00:00Z", 1).kickoff).toBe("Week 1 kicks off Sat Aug 28, 2027");
+    expect(offseasonNote(2026, null, 1).body).toContain("Week 1 lines");
   });
 });
 

@@ -145,7 +145,8 @@ describe("the off-season (AC-5)", () => {
       season_type: null,
       counts: { games: 0, picks: 0 },
       games: [],
-      shell: { season: 2026 },
+      shell: { season: 2026, next_season: null, next_week: null },
+      next_kickoff_at: null,
       ...extra,
     });
 
@@ -158,12 +159,21 @@ describe("the off-season (AC-5)", () => {
     expect(container.querySelector("a[data-slot=game-row]")).toBeNull();
     expect(container.querySelector("[data-slot=record-strip]")).toBeNull();
     expect(screen.queryByRole("group", { name: "Filter games" })).toBeNull();
-    expect(screen.queryByText(/Week 0 kicks off/)).toBeNull();
+    expect(screen.queryByText(/kicks off/)).toBeNull();
   });
 
-  it("prints the Week 0 kickoff only when the response gives it", () => {
-    render(<SlateView slate={off({ next_kickoff_at: "2027-08-28T19:00:00Z" })} />);
-    expect(screen.getByText("Week 0 kicks off Sat Aug 28, 2027")).toBeTruthy();
+  it("names the next season and prints its kickoff only when the response gives it (D-164)", () => {
+    render(
+      <SlateView
+        slate={off({
+          next_kickoff_at: "2027-08-28T07:00:00Z",
+          shell: { season: 2026, next_season: 2027, next_week: 1 },
+        })}
+      />,
+    );
+    expect(screen.getByText("2027 · Week 1 · off-season")).toBeTruthy();
+    expect(screen.getByText("Week 1 kicks off Sat Aug 28, 2027")).toBeTruthy();
+    expect(screen.getByText(/The 2026 season has ended/)).toBeTruthy();
   });
 });
 

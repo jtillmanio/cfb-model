@@ -103,6 +103,12 @@ export type ShellView = {
 
 function weekLabel(shell: Shell): string | null {
   if (shell.season === null) return null;
+  // The off-season names the coming season and its first week (D-164); the card keeps the last.
+  if (shell.week === null && shell.next_season !== null) {
+    return shell.next_week === null
+      ? String(shell.next_season)
+      : `${shell.next_season} · Week ${shell.next_week}`;
+  }
   if (shell.season_type === "postseason") return `${shell.season} · Postseason`;
   if (shell.week === null) return String(shell.season);
   return `${shell.season} · Week ${shell.week}`;

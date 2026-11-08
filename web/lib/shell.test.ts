@@ -14,6 +14,8 @@ const FIXTURE: Shell = {
   lines_updated_at: "2026-10-10T13:00:00+00:00",
   stale: false,
   picks: 9,
+  next_season: null,
+  next_week: null,
 };
 
 const EMPTY: Shell = {
@@ -26,6 +28,8 @@ const EMPTY: Shell = {
   lines_updated_at: null,
   stale: false,
   picks: null,
+  next_season: null,
+  next_week: null,
 };
 
 describe("nav", () => {
@@ -100,6 +104,13 @@ describe("shellView", () => {
     });
     expect(view.week).toBe("2026");
     expect(view.picks).toBeNull();
+    // The off-season top bar names the coming season and week; the card keeps the last record.
+    const next = shellView({
+      ...FIXTURE, week: null, season_type: null, record_label: "final", picks: null,
+      next_season: 2027, next_week: 1,
+    });
+    expect(next.week).toBe("2027 · Week 1");
+    expect(next.card?.label).toBe("Model · 2026 final");
     expect(view.card).toMatchObject({
       label: "Model · 2026 final",
       record: "20-30",
