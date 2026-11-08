@@ -1,7 +1,7 @@
 ---
 id: TASK-062
 title: Name the next season in the off-season
-status: Review
+status: Done
 depends_on: [TASK-057]
 size: M
 model: sonnet
