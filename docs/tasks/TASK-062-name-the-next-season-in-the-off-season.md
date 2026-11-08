@@ -1,7 +1,7 @@
 ---
 id: TASK-062
 title: Name the next season in the off-season
-status: In progress
+status: Review
 depends_on: [TASK-057]
 size: M
 model: sonnet
@@ -27,10 +27,10 @@ In the off-season the app names the coming season and its week 0 (the design's "
 
 ## Acceptance criteria
 
-- [ ] AC-1: Given the API at the off-season clock (Mon 2027-02-08 6:00 AM ET), `/slate` carries `next_kickoff_at`, the next season's first kickoff from `seasons.weeks` (expected: the fixture's value; null when the next season has no weeks yet).
-- [ ] AC-2: At that clock This Week's frame shows "Week 0 kicks off <weekday> <month> <day>, <year>" from that field, and hides the line when the field is null.
-- [ ] AC-3: The plan settles and records (a decisions-log row, if it needs one) whether the shell's season and week name the next season, and AC-4 follows that ruling.
-- [ ] AC-4: The caption and top bar name the season the ruling picks (expected: "2027 · Week 0 · off-season" if the next season is named).
+- [x] AC-1: Given the API at the off-season clock (Mon 2027-02-08 6:00 AM ET), `/slate` carries `next_kickoff_at`, the next season's first kickoff from `seasons.weeks` (expected: the fixture's value; null when the next season has no weeks yet).
+- [x] AC-2: At that clock This Week's frame shows "Week 0 kicks off <weekday> <month> <day>, <year>" from that field, and hides the line when the field is null.
+- [x] AC-3: The plan settles and records (a decisions-log row, if it needs one) whether the shell's season and week name the next season, and AC-4 follows that ruling.
+- [x] AC-4: The caption and top bar name the season the ruling picks (expected: "2027 · Week 0 · off-season" if the next season is named).
 
 ## Out of scope
 
@@ -53,9 +53,11 @@ In the off-season the app names the coming season and its week 0 (the design's "
 
 _Work noticed during this task and deliberately left out._
 
-- Pull the next season's calendar in the off-season so the kickoff line and the next season's name show before July (the jobs pull a season's calendar only from July, with its games) — new Draft task (approved at plan)
-- The design's "The 2026 season ended with the title game on Mon Jan 18" line: the response would carry the last game's date — new Draft task (approved at plan)
-- D-164: the off-season shell names the next season and its first week from `seasons.weeks` (amends D-156) — `docs/decisions.md` (approved at plan)
+- Pull the next season's calendar in the off-season so the kickoff line and the next season's name show before July (the jobs pull a season's calendar only from July, with its games) → docs/tasks/TASK-065-pull-next-seasons-calendar-in-the-off-season.md (new, Draft)
+- The design's "The 2026 season ended with the title game on Mon Jan 18" line: the response would carry the last game's date → docs/tasks/TASK-066-carry-the-last-games-date-for-the-season-ended-line.md (new, Draft)
+- D-164: the off-season shell names the next season and its first week from `seasons.weeks` (amends D-156) → docs/decisions.md § D-164
+- `docs/02-architecture.md` § Seed data said `"offseason": 2027 week 0`; D-164's fixture is week 1 → docs/02-architecture.md § Seed data (approved at close-out)
+- AC-2 and AC-4 still quote "Week 0"; the owner's ruling at the plan gate (D-164) made it "Week 1". The ACs are the owner's to reword → not tracked: owner's ACs; raised in the PR
 
 ## Plan
 
@@ -85,7 +87,7 @@ _Work noticed during this task and deliberately left out._
 
 ## Review log
 
-_Filled by /implement-task. One line per round._
+Verify R1 PASS | Audit R1 PASS | Spec R1 CHANGES (follow-up paths, frame body names 2027) → fixed | Schema R1 APPROVE | UI not run (no off-season clock in the dev server; covered by component tests)
 
 ## Blocked
 
@@ -93,7 +95,7 @@ _Only if status is Blocked: what failed, what was tried, best hypothesis, decisi
 
 ## Metrics
 
-- Verify rounds:
-- Review rounds:
-- First-pass AC FAILs:
-- Plan revisions after approval:
+- Verify rounds: 1
+- Review rounds: 2
+- First-pass AC FAILs: 0
+- Plan revisions after approval: 0
