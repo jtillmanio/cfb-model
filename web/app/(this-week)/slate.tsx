@@ -397,7 +397,11 @@ export function SlateView({ slate }: { slate: Slate }) {
   if (slate.offseason) {
     return (
       <SlatePage caption={slateCaption(slate)}>
-        <SlateEmpty season={offseasonSeason(slate)} nextKickoffAt={slate.next_kickoff_at} />
+        <SlateEmpty
+          season={offseasonSeason(slate)}
+          nextKickoffAt={slate.next_kickoff_at}
+          next={{ season: slate.shell.next_season, week: slate.shell.next_week }}
+        />
       </SlatePage>
     );
   }

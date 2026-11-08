@@ -93,6 +93,10 @@ export interface components {
             /** Lines Updated At */
             lines_updated_at: string | null;
             model: components["schemas"]["ShellModelOut"] | null;
+            /** Next Season */
+            next_season: number | null;
+            /** Next Week */
+            next_week: number | null;
             /** Picks */
             picks: number | null;
             record: components["schemas"]["ShellRecordOut"] | null;
@@ -199,6 +203,8 @@ export interface components {
             counts: components["schemas"]["SlateCountsOut"];
             /** Games */
             games: components["schemas"]["SlateGameOut"][];
+            /** Next Kickoff At */
+            next_kickoff_at: string | null;
             /** Offseason */
             offseason: boolean;
             rules: components["schemas"]["SlateRulesOut"] | null;

@@ -363,6 +363,17 @@ def test_the_offseason_answers_200_with_no_games(
     assert body["rules"] is not None and body["rules"]["min_edge_pts"] == 2.5
 
 
+def test_the_offseason_slate_carries_the_next_kickoff(
+    client: TestClient, make_token: MakeToken, monkeypatch: pytest.MonkeyPatch
+):
+    """TASK-062 AC-1: the next season's first week start from `seasons.weeks`; null in season."""
+    body = _get(client, make_token, monkeypatch, OFFSEASON_NOW)
+    assert body["next_kickoff_at"] == "2027-08-28T07:00:00Z"
+    assert (body["shell"]["next_season"], body["shell"]["next_week"]) == (2027, 1)
+
+    assert _get(client, make_token, monkeypatch)["next_kickoff_at"] is None
+
+
 NOW = m.utc(m.SEASON, 9, 1, 12)
 
 

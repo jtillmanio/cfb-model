@@ -8,16 +8,18 @@ const LINK =
 
 // The off-season frame (TASK-057, AC-5; design: App States › offseason): a dashed "No games this
 // week" with no table, chips or strip. It says which rule produced it and what comes next. The
-// season is the shell's, never a guess at the next one.
+// season is the one that ended; the next season's week and kickoff come from the API (D-164).
 
 export function SlateEmpty({
   season,
   nextKickoffAt,
+  next,
 }: {
   season: number | null;
-  nextKickoffAt: string | null | undefined;
+  nextKickoffAt: string | null;
+  next: { season: number | null; week: number | null };
 }) {
-  const note = offseasonNote(season, nextKickoffAt);
+  const note = offseasonNote(season, nextKickoffAt, next);
   return (
     <div className="rounded-lg border bg-card p-4">
       <div

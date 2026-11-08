@@ -324,7 +324,7 @@ Screen and feature IDs: [05 › Screen inventory](05-ui-design-brief.md#screen-i
 | Contest | "Splash work league" with the Splash preset rules; week 6 contest lines from the Week 6 paste; entries OU +7 (Thu 9:14 PM) and BUF −3 (Thu 9:20 PM); weeks 1–5 entries giving you 12-8 and the model top 4 11-9; standing 3rd of 14 | (03, 04) |
 | User | One allowlisted user; theme dark, time zone America/New_York, default contest "Splash work league" | — |
 | Phase 5 rows (added with their migrations) | Season simulations per §5 (no P(CFP) until Phase 7); weather snapshots (Iowa @ Wisconsin: wind 17 mph, gusts 26; Kentucky @ Georgia: rain 80%); the BYU alert; Texas vs Oklahoma and Iowa @ Wisconsin starred | (01, 18) |
-| State fixtures | "offseason": 2027 week 0, no games, 2026 final record 61-48-2, +8.2u, CLV +0.8. "preseason team": Ohio State before week 1. Loaded per test | (20, 21) |
+| State fixtures | "offseason": 2027 week 1, no games, 2026 final record 61-48-2, +8.2u, CLV +0.8. "preseason team": Ohio State before week 1. Loaded per test | (20, 21) |
 
 ### Performance checks (Lighthouse)
 

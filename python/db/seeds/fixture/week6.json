@@ -24,6 +24,16 @@
       {"week": 1, "season_type": "postseason", "start": "2026-12-13T05:00:00Z", "end": "2026-12-20T04:59:59Z"}
     ]
   },
+  "next_season": {
+    "year": 2027,
+    "start_date": "2027-08-28",
+    "end_date": "2027-12-18",
+    "current_week": null,
+    "weeks": [
+      {"week": 1, "season_type": "regular", "start": "2027-08-28T07:00:00Z", "end": "2027-09-05T03:59:59Z"},
+      {"week": 2, "season_type": "regular", "start": "2027-09-05T04:00:00Z", "end": "2027-09-12T03:59:59Z"}
+    ]
+  },
   "sportsbooks": [{"source_id": "consensus", "name": "Consensus"}],
   "venues": [{"source_id": "cotton-bowl", "name": "Cotton Bowl", "city": "Dallas", "state": "TX", "timezone": "America/Chicago", "dome": false}],
   "games": [
