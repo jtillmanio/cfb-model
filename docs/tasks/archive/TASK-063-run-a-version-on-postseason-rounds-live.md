@@ -1,7 +1,7 @@
 ---
 id: TASK-063
 title: Run a version on postseason rounds live and show each round's predictions
-status: Review
+status: Done
 depends_on: [TASK-058]
 size: M
 model: opus
