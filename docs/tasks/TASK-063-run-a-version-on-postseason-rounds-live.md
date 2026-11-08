@@ -1,7 +1,7 @@
 ---
 id: TASK-063
 title: Run a version on postseason rounds live and show each round's predictions
-status: In progress
+status: Review
 depends_on: [TASK-058]
 size: M
 model: opus
@@ -33,10 +33,10 @@ The paper-traded model rates each College Football Playoff round after the round
 
 ## Acceptance criteria
 
-- [ ] AC-1: Given postseason games predicted in a round-1 run and a round-2 run of the shown version, `/slate` for postseason week 1 returns each game's `pred_margin` from the newest succeeded run that predicted it (expected: a bowl's from round 1's run, a quarterfinal's from round 2's), and each game's blended line is computed with that run's `fitted_params`.
-- [ ] AC-2: A spec file with `postseason: rounds` and a `run.json` with its `spec_hash` and a 2026 entry exist under `python/engine/specs/`, and `engine job rate-and-predict --dry-run` with them exits 0 on the dev database.
-- [ ] AC-3: `.github/workflows/rate-and-predict.yml` names the chosen spec, choices and version, and the shown version on `/slate` is the one the owner chose at the plan gate.
-- [ ] AC-4: `/slate`'s query count for a postseason week stays within `QUERY_BUDGET` (`api/wave.py`).
+- [x] AC-1: Given postseason games predicted in a round-1 run and a round-2 run of the shown version, `/slate` for postseason week 1 returns each game's `pred_margin` from the newest succeeded run that predicted it (expected: a bowl's from round 1's run, a quarterfinal's from round 2's), and each game's blended line is computed with that run's `fitted_params`.
+- [x] AC-2: A spec file with `postseason: rounds` and a `run.json` with its `spec_hash` and a 2026 entry exist under `python/engine/specs/`, and `engine job rate-and-predict --dry-run` with them exits 0 on the dev database.
+- [x] AC-3: `.github/workflows/rate-and-predict.yml` names the chosen spec, choices and version, and the shown version on `/slate` is the one the owner chose at the plan gate.
+- [x] AC-4: `/slate`'s query count for a postseason week stays within `QUERY_BUDGET` (`api/wave.py`).
 
 ## Out of scope
 
@@ -60,10 +60,11 @@ The paper-traded model rates each College Football Playoff round after the round
 
 _Work noticed during this task and deliberately left out. Each bullet ends `→ <path> § <section>` (where it was placed) or `→ not tracked: <reason>`. See `.claude/skills/track-follow-ups/classify.md`; the PR's Follow-ups section is copied from here._
 
-- Sun 2026-12-06's 09:00 ET run comes before the CFP and bowl announcements: if CFBD has no postseason game with both teams by then it rates nothing, and the next Sunday (12-13) is after any bowl on Sat 12-12; hand-dispatch `rate-and-predict` that evening once CFBD lists the bowls (approved at plan)
-- v1.1 takes over the shown version only from its first production run, which needs a Release run after this merges and before the Sunday the owner wants the switch (approved at plan)
-- Candidate decision: efficiency v1.1, the switch, `/slate` reading each game's run by game id, the summary's warning (approved at plan)
-- `engine job … --summary` crashes with `UnicodeEncodeError` printing the summary's "→" when stdout is redirected on Windows (cp1252); the job's work is done by then, and `PYTHONIOENCODING=utf-8` avoids it
+- The first postseason run's timing (approved at plan as "Sun 2026-12-06 comes before the bowl announcements"; corrected at close-out: the coming week turns postseason only once Army–Navy has kicked off, D-150, so the first postseason run is the Sunday after it, and round 1 is rated then, once). A bowl before that Sunday gets no prediction; the hand dispatch after Army–Navy that the existing item asks for now rates round 1 → not tracked: already tracked in docs/owner-checklist.md § Actions ("Before the 2026 bowls", from TASK-047)
+- v1.1 takes over at the first Sunday `rate-and-predict` run after this merges (the workflow checks out `main`; no Release needed for that), but production's `/slate` reads each round's run only after a Release run, which has to come before round 2 is rated (approved at plan; corrected at close-out, which first said the switch itself needed the Release) → docs/owner-checklist.md § Actions
+- Candidate decision: efficiency v1.1, the switch, `/slate` reading each game's run by game id, the summary's warning (approved at plan) → docs/decisions.md § D-165
+- The roadmap and the task list planned "v1.1" for the inputs variant (M19.1); production's `efficiency v1.1` is now the CFP-rounds variant, so that variant is renumbered v1.2 (owner approved at close-out) → docs/06-roadmap.md § Phase 5 (Model v1.2 item); the same note in docs/08-tasklist.md § M19 (heading and M19.1)
+- `engine job … --summary` crashes with `UnicodeEncodeError` printing the summary's "→" when stdout is redirected on Windows (cp1252); the job's work is done by then, and `PYTHONIOENCODING=utf-8` avoids it → not tracked: a local Windows console with redirected output only (CI runs on Linux, and an interactive Windows console prints UTF-8); noted in the PR
 
 ## Plan
 
@@ -91,13 +92,15 @@ _Approved 2026-11-08 at `ff61b81`. Owner's choices at the gate: switch to v1.1 n
 
 _Filled by /implement-task. One line per round._
 
+Verify R1 PASS | Audit R1 CHANGES (AC-3's shown version proven only by the workflow text) → R2 PASS | Spec R1 APPROVE | Schema R1 not independent (the agent stopped on an API rate limit; its checklist run by the implementer: plans on the test DB, no change needed) APPROVE
+
 ## Blocked
 
 _Only if status is Blocked: what failed, what was tried, best hypothesis, decision needed._
 
 ## Metrics
 
-- Verify rounds:
-- Review rounds:
-- First-pass AC FAILs:
-- Plan revisions after approval:
+- Verify rounds: 1
+- Review rounds: 1
+- First-pass AC FAILs: 0
+- Plan revisions after approval: 2 (the warning's tests in `test_rate_and_predict.py`; `test_v1_1_replaces_v1_0_on_the_slate` added after the test audit)

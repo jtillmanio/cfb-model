@@ -137,7 +137,7 @@ Phase 8  Multi-sport (NFL)
 - [ ] Weekly SOR and remaining/full-season SOS (schema proposal reviewed before migration)
 - [ ] Team stats in Postgres with views for season-to-date and opponent-removed stats (schema proposal reviewed before migration)
 - [ ] Rankings › Units, the SOR column, and the team page's Stats module
-- [ ] Model v1.1: the new units, special teams, opponent-removed stats, SOS/SOR and conference shrinkage tested as inputs, each kept only if it wins; game-specific σ kept only if calibration improves
+- [ ] Model v1.2 (v1.1 is the CFP-rounds variant paper-traded from November 2026, D-165): the new units, special teams, opponent-removed stats, SOS/SOR and conference shrinkage tested as inputs, each kept only if it wins; game-specific σ kept only if calibration improves
 - [ ] Confidence plays: levels from the calibrated cover %, each with its backtest hit rate and reasons
 - [ ] Model Lab › Inputs: the inputs explainer
 - [ ] Research, moved from Phase 7 on 2026-11-01 (D-146): position-group ratings from player-level data (estimate the player endpoints' call cost first; shown on the team profile either way; enters a model only if it wins) _(M19.6)_
