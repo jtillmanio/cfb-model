@@ -173,7 +173,7 @@ describe("the off-season (AC-5)", () => {
     );
     expect(screen.getByText("2027 · Week 1 · off-season")).toBeTruthy();
     expect(screen.getByText("Week 1 kicks off Sat Aug 28, 2027")).toBeTruthy();
-    expect(screen.getByText(/The 2026 season has ended/)).toBeTruthy();
+    expect(screen.getByText(/The 2026 season has ended\. The 2027 slate fills in when books post Week 1 lines/)).toBeTruthy();
   });
 });
 

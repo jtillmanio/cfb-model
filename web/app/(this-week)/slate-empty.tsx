@@ -13,13 +13,13 @@ const LINK =
 export function SlateEmpty({
   season,
   nextKickoffAt,
-  nextWeek,
+  next,
 }: {
   season: number | null;
   nextKickoffAt: string | null;
-  nextWeek: number | null;
+  next: { season: number | null; week: number | null };
 }) {
-  const note = offseasonNote(season, nextKickoffAt, nextWeek);
+  const note = offseasonNote(season, nextKickoffAt, next);
   return (
     <div className="rounded-lg border bg-card p-4">
       <div

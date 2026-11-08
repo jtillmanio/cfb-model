@@ -605,8 +605,10 @@ describe("noPicksNote and offseasonNote", () => {
   it("the off-season copy names the shell's season and shows the next kickoff only when given", () => {
     expect(offseasonNote(2026, null).body).toContain("2026 season");
     expect(offseasonNote(2026, null).kickoff).toBeNull();
-    expect(offseasonNote(2026, "2027-08-28T19:00:00Z", 1).kickoff).toBe("Week 1 kicks off Sat Aug 28, 2027");
-    expect(offseasonNote(2026, null, 1).body).toContain("Week 1 lines");
+    expect(offseasonNote(2026, "2027-08-28T19:00:00Z", { season: 2027, week: 1 }).kickoff).toBe("Week 1 kicks off Sat Aug 28, 2027");
+    expect(offseasonNote(2026, null, { season: 2027, week: 1 }).body).toBe(
+      "The 2026 season has ended. The 2027 slate fills in when books post Week 1 lines, usually in early August.",
+    );
   });
 });
 

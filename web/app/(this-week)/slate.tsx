@@ -400,7 +400,7 @@ export function SlateView({ slate }: { slate: Slate }) {
         <SlateEmpty
           season={offseasonSeason(slate)}
           nextKickoffAt={slate.next_kickoff_at}
-          nextWeek={slate.shell.next_week}
+          next={{ season: slate.shell.next_season, week: slate.shell.next_week }}
         />
       </SlatePage>
     );

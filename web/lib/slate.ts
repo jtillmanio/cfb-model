@@ -662,9 +662,10 @@ export function noPicksNote(slate: Pick<Slate, "games" | "week" | "rules">): {
 export function offseasonNote(
   season: number | null,
   nextKickoffAt: string | null | undefined,
-  nextWeek: number | null = null,
+  next: { season: number | null; week: number | null } | null = null,
   zone: string = SLATE_ZONE,
 ): { title: string; body: string; kickoff: string | null } {
+  const nextWeek = next?.week ?? null;
   const week = nextWeek === null ? "The next season" : `Week ${nextWeek}`;
   const ended = season === null ? "The season has ended." : `The ${season} season has ended.`;
   const kickoff = nextKickoffAt
@@ -680,7 +681,7 @@ export function offseasonNote(
     : null;
   return {
     title: "No games this week",
-    body: `${ended} The next slate fills in when books post ${nextWeek === null ? "its" : `Week ${nextWeek}`} lines, usually in early August.`,
+    body: `${ended} The ${next?.season ?? "next"} slate fills in when books post ${nextWeek === null ? "its" : `Week ${nextWeek}`} lines, usually in early August.`,
     kickoff,
   };
 }
