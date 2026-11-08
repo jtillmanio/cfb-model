@@ -372,6 +372,128 @@ test.describe("loading and error (AC-6)", () => {
   });
 });
 
+const WEEK_5 = "/?season=2026&week=5";
+const PICKER = "dialog[aria-label='Choose a week'], [role=dialog][aria-label='Choose a week']";
+
+// TASK-061: stepping through weeks and a past season's market cell, on the same fixture (Week 5
+// is 15 final games with 15 picks; the coming week is Week 6).
+test.describe("week stepping (TASK-061)", () => {
+  test.describe("desktop", () => {
+    test.skip(({ viewport }) => (viewport?.width ?? 0) < 1440, "the arrows start at 1280; one width is enough");
+
+    test("AC-1: the left arrow opens Week 5, and the label and arrows show it", async ({ page }) => {
+      await openSlate(page);
+      const bar = page.getByRole("banner");
+      await expect(bar.getByRole("button", { name: "2026 · Week 6" })).toBeVisible();
+
+      await bar.getByRole("link", { name: "Previous week" }).click();
+
+      await expect(page.getByText("2026 · Week 5 · 15 games · 15 picks")).toBeVisible();
+      await expect(page).toHaveURL(/\/\?season=2026&week=5$/);
+      await expect(bar.getByRole("button", { name: "2026 · Week 5" })).toBeVisible();
+      // The right arrow goes forward to the coming week, which is `/`.
+      await bar.getByRole("link", { name: "Next week" }).click();
+      await expect(page.getByText(/^2026 · Week 6 · 54 games/)).toBeVisible();
+      await expect(page).toHaveURL(/\/$/);
+    });
+
+    test("the arrows stop at the first and last week", async ({ page }) => {
+      await openSlate(page, "/?season=2026&week=1");
+      const bar = page.getByRole("banner");
+      await expect(bar.getByRole("link", { name: "Previous week" })).toHaveAttribute("aria-disabled", "true");
+      await expect(bar.getByRole("link", { name: "Next week" })).not.toHaveAttribute("aria-disabled", "true");
+    });
+
+    test("AC-2: the list opens from the label; 2026 · Week 3 shows Week 3's games alone", async ({ page }) => {
+      await openSlate(page);
+      await page.getByRole("banner").getByRole("button", { name: "2026 · Week 6" }).click();
+      const picker = page.locator(PICKER);
+      await expect(picker).toBeVisible();
+      // Weeks 1-6 have games; there is no Week 7 to pick.
+      await expect(picker.getByRole("button", { name: /^2026 · Week \d+$/ })).toHaveCount(6);
+      await picker.getByRole("button", { name: "2026 · Week 3" }).click();
+
+      await expect(page.getByText("2026 · Week 3 · 15 games · 15 picks")).toBeVisible();
+      await expect(page.locator(ROW)).toHaveCount(15);
+      await expect(picker).toBeHidden();
+    });
+
+    test("a bad week in the URL falls back to the coming week", async ({ page }) => {
+      await openSlate(page, "/?season=2026&week=banana");
+      await expect(page.getByText(/^2026 · Week 6 · 54 games/)).toBeVisible();
+    });
+
+    test("AC-3: a past week's finals draw open → close as the past-season cell; the coming week does not", async ({
+      page,
+    }) => {
+      await openSlate(page, WEEK_5);
+      const cells = visible(page.locator("[data-cell=market] [data-slot=line-history][title^='Past season']"));
+      await expect(cells.first()).toBeVisible();
+      expect(await cells.count()).toBeGreaterThan(0);
+      // Each game draws a layout per width and hides the others: read the one on screen.
+      const first = cells.first();
+      await expect(first.locator("circle")).toHaveCount(2);
+      await expect(first.locator("line")).toHaveCount(1);
+      await expect(first.locator("polyline")).toHaveCount(0);
+      await expect(cells.first()).toHaveAttribute("title", "Past season: opening and closing line only");
+      // The close is printed as the current line is: a team and its number.
+      await expect(visible(page.locator("[data-cell=market]")).first()).toContainText(/[A-Z&]+ [−+]?\d+(\.\d)?/, INNER);
+
+      await openSlate(page, "/");
+      await expect(page.locator("[data-slot=line-history][title^='Past season']")).toHaveCount(0);
+    });
+
+    test("AC-4: nothing scrolls sideways at 1440 and 768, the list open or not", async ({ page }) => {
+      for (const width of [1440, 768]) {
+        await page.setViewportSize({ width, height: 900 });
+        await openSlate(page, WEEK_5);
+        await noSideScroll(page);
+        await page.getByRole("banner").getByRole("button", { name: /2026 · Week 5/ }).filter({ visible: true }).click();
+        await expect(page.locator(PICKER)).toBeVisible();
+        await noSideScroll(page);
+        await page.keyboard.press("Escape");
+      }
+    });
+  });
+
+  test.describe("phone", () => {
+    test.skip(({ viewport }) => (viewport?.width ?? 0) >= 768, "the sheet is below 768");
+
+    test("AC-4: the label opens the sheet, every target is 44px, and Show opens the chosen week", async ({
+      page,
+    }) => {
+      await openSlate(page);
+      // The label that opens the sheet is a 44px target too.
+      const label = page.getByRole("banner").getByRole("button", { name: "2026 · Week 6" });
+      expect((await label.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+      await label.click();
+      const sheet = page.locator(PICKER);
+      await expect(sheet).toBeVisible();
+      for (const target of await sheet.locator("a:visible, button:visible").all()) {
+        const box = await target.boundingBox();
+        expect(box!.height, (await target.getAttribute("aria-label")) ?? (await target.innerText())).toBeGreaterThanOrEqual(44);
+      }
+      await noSideScroll(page);
+
+      // A tap only marks the week; Show goes there.
+      await sheet.getByRole("button", { name: "2026 · Week 3" }).click();
+      await expect(page.getByText(/^2026 · Week 6 · 54 games/)).toBeVisible();
+      await sheet.getByRole("link", { name: "Show 2026 · Week 3" }).click();
+      await expect(page.getByText("2026 · Week 3 · 15 games · 15 picks")).toBeVisible();
+      await expect(page.locator(ROW)).toHaveCount(15);
+      await noSideScroll(page);
+    });
+
+    test("a past week's card draws the past-season cell, close over \"opened …\"", async ({ page }) => {
+      await openSlate(page, WEEK_5);
+      const history = visible(page.locator("[data-cell=market] [data-slot=line-history]")).first();
+      await expect(history).toHaveAttribute("title", /^Past season/);
+      await expect(history.locator("circle")).toHaveCount(2);
+      await expect(history).toContainText(/opened|no move/, INNER);
+    });
+  });
+});
+
 // One switch server for every test below, so they run one at a time in the desktop project only.
 test.describe("API switched off and on (AC-6)", () => {
   test.describe.configure({ mode: "serial" });
@@ -414,5 +536,24 @@ test.describe("API switched off and on (AC-6)", () => {
     await alert.getByRole("button", { name: "Retry" }).click();
     await expect(page.locator(ROW).first()).toBeVisible();
     await expect(alert).toHaveCount(0);
+  });
+
+  test("AC-5: a stepped week with the API stopped shows API unreachable with Retry and no games", async ({
+    page,
+    request,
+  }) => {
+    await control(request, "down");
+    await page.goto(`${SWITCH_WEB_URL}${WEEK_5}`);
+
+    const alert = page.getByRole("alert").filter({ hasText: "Couldn't reach the server" });
+    await expect(alert).toBeVisible();
+    await expect(alert.getByRole("button", { name: "Retry" })).toBeVisible();
+    await expect(page.locator(ROW)).toHaveCount(0);
+    await expect(page.getByText(/saved copy/i)).toHaveCount(0);
+
+    // Retry reloads the stepped week, not the coming one.
+    await control(request, "up");
+    await alert.getByRole("button", { name: "Retry" }).click();
+    await expect(page.getByText("2026 · Week 5 · 15 games · 15 picks")).toBeVisible();
   });
 });

@@ -130,6 +130,7 @@ def game(
     status: str = "final",
     game_date: str | None = None,
     season: int = SEASON,
+    season_type: str = "regular",
     points: tuple[int, int] = (30, 20),
 ) -> int:
     """`points` is (home, away), kept only for a final game."""
@@ -139,13 +140,14 @@ def game(
             "INSERT INTO games (sport_id, source, source_id, season, week, season_type, game_date,"
             " kickoff_at, neutral_site, conference_game, home_team_id, away_team_id, home_points,"
             " away_points, status)"
-            " VALUES (:sport, 'pytest', :sid, :season, :week, 'regular', :d, :k, :n, false, :h,"
+            " VALUES (:sport, 'pytest', :sid, :season, :week, :stype, :d, :k, :n, false, :h,"
             " :a, :hp, :ap, :status) RETURNING id"
         ),
         {
             "sport": SPORT,
-            "sid": f"{home}-{away}-{season}-{week}",
+            "sid": f"{home}-{away}-{season}-{week}-{season_type}",
             "season": season,
+            "stype": season_type,
             "week": week,
             "d": game_date or (kickoff_at.date().isoformat() if kickoff_at else None),
             "k": kickoff_at,

@@ -14,6 +14,7 @@ import {
   type SlateWindow,
   noPicksNote,
   offseasonSeason,
+  isPastWeek,
   recordStrip,
   rowView,
   slateCaption,
@@ -241,7 +242,7 @@ function CoverBar({ prob, clears }: { prob: number; clears: boolean }) {
 export function GameRow({ row, threshold }: { row: RowView; threshold: number }) {
   const home = row.home.abbr;
   const away = row.away.abbr;
-  const { current, opener, snapshots } = row.market;
+  const { current, opener, snapshots, past } = row.market;
   const clears = row.edge.clears;
   return (
     <Link
@@ -289,10 +290,10 @@ export function GameRow({ row, threshold }: { row: RowView; threshold: number })
           </span>
           <div data-cell="market" className="px-1.5 md:flex md:justify-end md:px-0 wide:px-2.5">
             <span className="wide:hidden">
-              <MarketCell stacked opener={opener} snapshots={snapshots} current={current} home={home} away={away} />
+              <MarketCell stacked past={past} opener={opener} snapshots={snapshots} current={current} home={home} away={away} />
             </span>
             <span className="hidden wide:block">
-              <MarketCell opener={opener} snapshots={snapshots} current={current} home={home} away={away} />
+              <MarketCell past={past} opener={opener} snapshots={snapshots} current={current} home={home} away={away} />
             </span>
           </div>
           <span
@@ -364,7 +365,15 @@ export function GameRow({ row, threshold }: { row: RowView; threshold: number })
   );
 }
 
-function WindowSection({ window, rules }: { window: SlateWindow; rules: Slate["rules"] }) {
+function WindowSection({
+  window,
+  rules,
+  past,
+}: {
+  window: SlateWindow;
+  rules: Slate["rules"];
+  past: boolean;
+}) {
   const id = `window-${window.key}`;
   const picks = window.games.filter((g) => g.pick !== null).length;
   return (
@@ -374,7 +383,7 @@ function WindowSection({ window, rules }: { window: SlateWindow; rules: Slate["r
         {window.games.map((game) => (
           <GameRow
             key={game.id}
-            row={rowView(game, rules)}
+            row={rowView(game, rules, undefined, past)}
             threshold={rules?.min_edge_pts ?? Number.POSITIVE_INFINITY}
           />
         ))}
@@ -392,6 +401,7 @@ export function SlateView({ slate }: { slate: Slate }) {
       </SlatePage>
     );
   }
+  const past = isPastWeek(slate);
   const windows = slateWindows(slate.games);
   const strip = recordStrip(slate.games);
   const picks = slate.games.filter((g) => g.pick !== null).length;
@@ -407,7 +417,7 @@ export function SlateView({ slate }: { slate: Slate }) {
         <SlateFrame>
           <SlateColumnHeader />
           {windows.map((window) => (
-            <WindowSection key={window.key} window={window} rules={slate.rules} />
+            <WindowSection key={window.key} window={window} rules={slate.rules} past={past} />
           ))}
           <div className="flex flex-col gap-1 px-1 pt-1 text-caption text-muted-foreground md:min-h-10 md:flex-row md:items-center md:justify-between md:gap-4 md:px-3 md:py-2 md:pl-11">
             <ShowingCount shown={slate.games.length} total={slate.counts.games} picks={picks} />

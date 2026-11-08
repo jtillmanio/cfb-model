@@ -102,7 +102,7 @@ def get_slate(
     week: Annotated[int | None, Query(ge=1)] = None,
 ) -> SlateOut:
     """This Week (slate.py): the week asked for, all three of season, season type and week, or
-    with none of them the coming week. Five queries in one wave (budget: ≤ 6)."""
+    with none of them the coming week. Six queries in one wave (budget: ≤ 6)."""
     asked = (season, season_type, week)
     if any(v is None for v in asked) and any(v is not None for v in asked):
         raise HTTPException(422, "give season, season_type and week together, or none of them")

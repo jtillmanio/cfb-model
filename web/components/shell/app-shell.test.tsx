@@ -16,6 +16,9 @@ vi.mock("next/link", () => ({
   ),
 }));
 
+// The week picker is a client island that uses the router.
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn() }) }));
+
 afterEach(cleanup);
 
 const SHELL: Shell = {
@@ -84,5 +87,42 @@ describe("app shell", () => {
     expect(screen.getAllByText("Can't reach the server").length).toBeGreaterThan(0);
     expect(screen.getByText("Unavailable until the server answers")).toBeTruthy();
     expect(screen.queryByText(/Updated /)).toBeNull();
+  });
+});
+
+describe("week selector (TASK-061)", () => {
+  const W = (week: number) => ({ season: 2026, season_type: "regular" as const, week });
+  const nav = { shown: W(5), coming: W(6), weeks: [1, 2, 3, 4, 5, 6].map(W) };
+
+  function renderThisWeek(weekNav?: typeof nav) {
+    return render(
+      <AppShell active="this-week" path="/" shell={SHELL} state="ready" weekNav={weekNav}>
+        <main>content</main>
+      </AppShell>,
+    );
+  }
+
+  it("names the shown week, steps with arrows and sends the coming week to /", () => {
+    renderThisWeek(nav);
+    const bar = screen.getByRole("banner");
+    expect(within(bar).getAllByText(/2026 · Week 5/).length).toBeGreaterThan(0);
+    expect(within(bar).queryByText(/2026 · Week 6/)).toBeNull();
+    expect(within(bar).getByRole("link", { name: "Previous week" }).getAttribute("href")).toBe(
+      "/?season=2026&week=4",
+    );
+    expect(within(bar).getByRole("link", { name: "Next week" }).getAttribute("href")).toBe("/");
+  });
+
+  it("disables the arrow at the end of the list", () => {
+    renderThisWeek({ ...nav, shown: W(1) });
+    expect(screen.getByRole("link", { name: "Previous week" }).getAttribute("aria-disabled")).toBe("true");
+    expect(screen.getByRole("link", { name: "Previous week" }).getAttribute("href")).toBeNull();
+  });
+
+  it("keeps the static label on a screen that passes no weekNav", () => {
+    renderThisWeek();
+    expect(screen.queryByRole("link", { name: "Previous week" })).toBeNull();
+    expect(screen.queryByRole("button", { name: /2026 · Week/ })).toBeNull();
+    expect(screen.getAllByText("2026 · Week 6").length).toBeGreaterThan(0);
   });
 });
