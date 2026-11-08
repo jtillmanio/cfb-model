@@ -492,6 +492,114 @@ def test_rules_the_run_never_resolved_leave_the_edge_out(db_conn: Connection):
     assert (game.model.edge, game.model.cover_prob) == (None, None)
 
 
+# TASK-063: a `postseason: rounds` version predicts each CFP round in its own run, whose week is
+# the round (D-161), while every postseason game is CFBD's week 1.
+
+POSTSEASON = (m.SEASON, "postseason", 1)
+
+
+def _postseason_run(
+    conn: Connection, version: int, round_: int, as_of: datetime, k: float,
+    by_team: dict[int, float],
+) -> int:  # fmt: skip
+    """A succeeded scheduled run of round `round_` whose choices fix the market shrinkage at `k`,
+    with its ratings."""
+    run = m.run(conn, version, round_, as_of, run_type="scheduled", season_type="postseason",
+                home_field=None)  # fmt: skip
+    conn.execute(
+        text("UPDATE model_runs SET fitted_params = CAST(:p AS jsonb) WHERE id = :r"),
+        {"r": run, "p": json.dumps({"choices": {"picks.market_shrinkage_k": k}})},
+    )
+    m.ratings(conn, run, version, round_, as_of, by_team, season_type="postseason")
+    return run
+
+
+def _predict(conn: Connection, run: int, version: int, game: int, margin: float) -> None:
+    conn.execute(
+        text(
+            "INSERT INTO predictions (model_run_id, model_version_id, game_id, pred_margin,"
+            " home_win_prob, margin_sd) VALUES (:r, :v, :g, :m, 0.6, 13.8)"
+        ),
+        {"r": run, "v": version, "g": game, "m": margin},
+    )
+
+
+def _rounds(conn: Connection) -> dict[str, Any]:
+    """A bowl predicted in round 1's run and a quarterfinal in round 2's, with lines on both. The
+    runs fix different market shrinkages, and the quarterfinal's home team moves from 3rd entering
+    round 1 to 1st entering round 2."""
+    spec = _v1_spec(conn)
+    spec["picks"]["market_shrinkage_k"] = {"tune": [0.5, 0.8]}
+    m.sport(conn)
+    bowl_home, bowl_away = m.team(conn, "bowl-home"), m.team(conn, "bowl-away")
+    qf_home, qf_away = m.team(conn, "qf-home"), m.team(conn, "qf-away")
+    bowl = m.game(conn, bowl_home, bowl_away, NOW + timedelta(days=3), week=1,
+                  season_type="postseason", status="scheduled")  # fmt: skip
+    qf = m.game(conn, qf_home, qf_away, NOW + timedelta(days=10), week=1,
+                season_type="postseason", status="scheduled")  # fmt: skip
+    version = _shown_version(conn, spec)
+    first = _postseason_run(
+        conn, version, 1, NOW - timedelta(days=8), 0.5,
+        {bowl_home: 5.0, bowl_away: 4.0, qf_home: 3.0, qf_away: 2.0},
+    )  # fmt: skip
+    second = _postseason_run(
+        conn, version, 2, NOW - timedelta(days=1), 0.8,
+        {qf_home: 9.0, bowl_home: 5.0, bowl_away: 4.0, qf_away: 2.0},
+    )  # fmt: skip
+    _predict(conn, first, version, bowl, 4.5)
+    _predict(conn, second, version, qf, -2.0)
+    book = m.book(conn)
+    m.line(conn, bowl, book, NOW - timedelta(hours=1), -3.0)
+    m.line(conn, qf, book, NOW - timedelta(hours=1), 1.5)
+    return {"spec": spec, "bowl": bowl, "qf": qf, "first": first, "second": second}
+
+
+def test_each_postseason_game_reads_the_newest_run_that_predicted_it(db_conn: Connection):
+    """AC-1: the bowl's prediction and edge are round 1's run's, the quarterfinal's round 2's
+    (each with its run's choices), and each team's rank is the one entering its game's round."""
+    made = _rounds(db_conn)
+
+    got = slate.load(db_conn, NOW, m.SPORT, POSTSEASON)
+
+    games = {g.id: g for g in got.games}
+    assert set(games) == {made["bowl"], made["qf"]}
+    expected: list[tuple[int, float, float, float, slate.Side]] = [
+        (made["bowl"], 4.5, -3.0, 0.5, "home"),  # edge k × (pred + line) = 0.5 × 1.5 = +0.75
+        (made["qf"], -2.0, 1.5, 0.8, "away"),  # 0.8 × −0.5 = −0.4
+    ]
+    for game, margin, line, k, side in expected:
+        model = games[game].model
+        assert model is not None, game
+        assert (model.pred_margin, model.side) == (margin, side)
+        assert model.edge == pytest.approx(blended_margin(margin, line, k) + line)
+        rules = ModelSpec.model_validate(made["spec"]).resolve(
+            {"picks.market_shrinkage_k": k}
+        ).picks  # fmt: skip
+        assert model.cover_prob == pytest.approx(
+            displayed_prob(margin, line, side, rules, NormalMargin(13.8))
+        )
+    assert (games[made["bowl"]].home.rank, games[made["bowl"]].away.rank) == (1, 2)
+    assert (games[made["qf"]].home.rank, games[made["qf"]].away.rank) == (1, 4)
+
+
+def test_a_postseason_slate_stays_in_the_query_budget(db_conn: Connection):
+    """AC-4: the rounds don't add statements: a postseason week is one wave of `QUERIES`."""
+    _rounds(db_conn)
+    statements: list[str] = []
+
+    def counted(conn, cursor, statement, parameters, context, executemany):
+        statements.append(statement)
+
+    event.listen(db_conn, "before_cursor_execute", counted)
+    try:
+        slate.load(db_conn, NOW, m.SPORT, POSTSEASON)
+    finally:
+        event.remove(db_conn, "before_cursor_execute", counted)
+
+    assert len(statements) == len(slate.queries(NOW, m.SPORT, POSTSEASON)) == len(slate.QUERIES)
+    assert len(statements) <= wave.QUERY_BUDGET
+
+
 # AC-6
 
 
@@ -568,6 +676,13 @@ def _conds(nodes: list[dict[str, Any]]) -> list[str]:
 def test_the_ranks_are_read_for_the_week_alone(db_conn: Connection):
     conds = _conds(m.scans(_plan(db_conn, "games"), "team_ratings"))
     assert conds and all("week" in c for c in conds), conds
+
+
+def test_the_predictions_are_read_for_the_weeks_games_alone(db_conn: Connection):
+    """TASK-063: each game's run is found from its predictions, so they're read by game, not
+    across the version's runs."""
+    conds = _conds(m.scans(_plan(db_conn, "games"), "predictions"))
+    assert conds and all("game_id" in c for c in conds), conds
 
 
 def test_the_picks_are_read_for_the_weeks_games_alone(db_conn: Connection):

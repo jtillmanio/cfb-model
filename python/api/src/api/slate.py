@@ -6,9 +6,11 @@ Non-functional requirements: ≤ 6).
 - **Week:** the one asked for, else the coming week (`shell.COMING`, D-150); with neither (the
   off-season) no games and `offseason`.
 - **Version and run:** the shell's shown version (`shell.SEASON` and `shell.SHOWN`, TASK-053,
-  whatever week is asked for), and its newest
-  succeeded `scheduled` or `adhoc` run for the week finished by now, as `engine pick` reads it
-  (D-140). Each game's prediction is that run's.
+  whatever week is asked for). Each game's prediction is from the version's newest succeeded
+  `scheduled` or `adhoc` run finished by now that predicted it (D-140), found by game id (D-161),
+  so each CFP round of a `postseason: rounds` version comes from its own run (TASK-063); a
+  team's rank is entering that run's week. Each game's edge uses its run's choices and weights;
+  the week's pick rules are its newest run's.
 - **Edge, side and cover** are against the current line, for every game, through `engine.core`:
   the spec's pick rules resolved with the run's `choices`, and the run's empirical margin weights,
   else a normal margin at the prediction's σ, as `engine.publish.picks` picks with. The side is
@@ -168,10 +170,21 @@ class SlateOut(BaseModel):
 
 Week = tuple[int, SeasonType, int]
 
-# The week, the shown version and its run for the week; each statement starts with it, so the
+_IN_WEEK = """g.sport_id = :sport
+        AND g.season = (SELECT season FROM slate_week)
+        AND g.season_type = (SELECT season_type FROM slate_week)
+        AND g.week = (SELECT week FROM slate_week)"""
+
+# The week, the shown version and its runs for the week; each statement starts with it, so the
 # wave needs nothing from a statement before it. CTEs a statement doesn't read aren't run. The
 # week's filters on the views are scalar subqueries (InitPlans), which Postgres applies at the
 # base tables' scans, below the views' windows (.claude/rules/database.md › Views & queries).
+#
+# `slate_runs`: the shown version's succeeded runs, finished by now, that predicted a game of the
+# week. A game's run is the newest of them that predicted it, found by game id (D-161): a
+# `postseason: rounds` version predicts each CFP round in its own run, whose `week` is the round,
+# while every postseason game is CFBD's week 1 (TASK-063). For a week rated in one run, as every
+# regular week is, that is the week's run.
 _PREFIX = f"""
     WITH {shell.COMING},
     slate_week AS (
@@ -184,24 +197,22 @@ _PREFIX = f"""
     ),
     {shell.SEASON},
     {shell.SHOWN},
-    week_run AS (
-        SELECT r.id, r.fitted_params
+    slate_runs AS (
+        SELECT r.id, r.week, r.finished_at, r.fitted_params
         FROM model_runs r
-        WHERE r.model_version_id = (SELECT id FROM shown)
+        WHERE r.id = ANY(ARRAY(
+                SELECT DISTINCT p.model_run_id
+                FROM predictions p
+                WHERE p.model_version_id = (SELECT id FROM shown)
+                    AND p.game_id = ANY(ARRAY(SELECT g.id FROM games g WHERE {_IN_WEEK}))
+            ))
+            AND r.model_version_id = (SELECT id FROM shown)
             AND r.season = (SELECT season FROM slate_week)
             AND r.season_type = (SELECT season_type FROM slate_week)
-            AND r.week = (SELECT week FROM slate_week)
             AND r.status = 'succeeded'
             AND r.run_type IN ('scheduled', 'adhoc')
             AND r.finished_at <= :now
-        ORDER BY r.finished_at DESC, r.id DESC
-        LIMIT 1
     )"""
-
-_IN_WEEK = """g.sport_id = :sport
-        AND g.season = (SELECT season FROM slate_week)
-        AND g.season_type = (SELECT season_type FROM slate_week)
-        AND g.week = (SELECT week FROM slate_week)"""
 
 
 def _team_columns(side: str, team: str, season: str, rank: str) -> str:
@@ -215,16 +226,19 @@ def _team_columns(side: str, team: str, season: str, rank: str) -> str:
 
 # `started`: the game's cutoff has passed by the API's clock. game_market dates its close by the
 # database's clock, which is ahead of the API's under a fixture time (FIXTURE_NOW), so the close
-# is read only once `started` (slate_from).
+# is read only once `started` (slate_from). A team's rank is entering its game's run's week (a
+# quarterfinal's is entering round 2), else entering the slate's week.
 GAMES_SQL = text(
     f"""{_PREFIX},
     ranks AS (
-        SELECT r.team_id, r.rank
+        SELECT r.team_id, r.week, r.rank
         FROM team_rankings r
         WHERE r.model_version_id = (SELECT id FROM shown)
             AND r.season = (SELECT season FROM slate_week)
             AND r.season_type = (SELECT season_type FROM slate_week)
-            AND r.week = (SELECT week FROM slate_week)
+            AND r.week = ANY(ARRAY(
+                SELECT week FROM slate_runs UNION SELECT week FROM slate_week
+            ))
     )
     SELECT
         g.id, g.kickoff_at, g.game_date, g.status, g.neutral_site, g.home_points, g.away_points,
@@ -233,17 +247,26 @@ GAMES_SQL = text(
         {_team_columns("home", "ht", "hs", "hr")},
         {_team_columns("away", "awt", "aws", "ar")},
         gm.opening_spread_home, gm.current_spread_home, gm.closing_spread_home,
-        p.pred_margin, p.home_win_prob, p.margin_sd
+        p.pred_margin, p.home_win_prob, p.margin_sd, p.model_run_id
     FROM games g
     JOIN teams ht ON ht.id = g.home_team_id
     JOIN teams awt ON awt.id = g.away_team_id
     LEFT JOIN team_seasons hs ON hs.team_id = g.home_team_id AND hs.season = g.season
     LEFT JOIN team_seasons aws ON aws.team_id = g.away_team_id AND aws.season = g.season
+    LEFT JOIN LATERAL (
+        SELECT p.pred_margin, p.home_win_prob, p.margin_sd, p.model_run_id, r.week AS run_week
+        FROM predictions p
+        JOIN slate_runs r ON r.id = p.model_run_id
+        WHERE p.game_id = g.id AND p.model_version_id = (SELECT id FROM shown)
+        ORDER BY r.finished_at DESC, r.id DESC
+        LIMIT 1
+    ) p ON true
     LEFT JOIN ranks hr ON hr.team_id = g.home_team_id
+        AND hr.week = coalesce(p.run_week, (SELECT week FROM slate_week))
     LEFT JOIN ranks ar ON ar.team_id = g.away_team_id
+        AND ar.week = coalesce(p.run_week, (SELECT week FROM slate_week))
     LEFT JOIN venues vn ON vn.id = g.venue_id
     LEFT JOIN game_market gm ON gm.game_id = g.id
-    LEFT JOIN predictions p ON p.model_run_id = (SELECT id FROM week_run) AND p.game_id = g.id
     WHERE {_IN_WEEK}
     ORDER BY {shell.CUTOFF}, g.id
     """
@@ -288,12 +311,15 @@ PICKS_SQL = text(
     """
 )
 
+# The version's spec with each of the week's runs' fitted params, newest run first: one row with
+# no run when none predicted a game of the week.
 RULES_SQL = text(
     f"""{_PREFIX}
-    SELECT v.spec, r.fitted_params
+    SELECT v.spec, r.id AS run_id, r.fitted_params
     FROM shown s
     JOIN model_versions v ON v.id = s.id
-    LEFT JOIN week_run r ON true
+    LEFT JOIN slate_runs r ON true
+    ORDER BY r.finished_at DESC NULLS LAST, r.id DESC
     """
 )
 
@@ -459,6 +485,12 @@ def slate_from(
     found: Mapping[str, list[Row[Any]]], now: datetime, week: Week | None = None
 ) -> SlateOut:
     shell_out = shell.shell_from(found["shell"][0], now)
+    # Each run's fitted params and pick rules; the week's rules are its newest run's.
+    runs: dict[int, tuple[Mapping[str, Any], PickRules | None]] = {}
+    for row in found["rules"]:
+        if row.run_id is not None:
+            run_params: Mapping[str, Any] = row.fitted_params or {}
+            runs[row.run_id] = (run_params, _rules(row.spec, run_params))
     version = found["rules"][0] if found["rules"] else None
     params: Mapping[str, Any] = (version.fitted_params or {}) if version else {}
     rules = _rules(version.spec, params) if version else None
@@ -473,6 +505,7 @@ def slate_from(
     for r in found["games"]:
         market = _market(r, lines.get(r.id, []))
         picked = picks.get(r.id)
+        game_params, game_rules = runs.get(r.model_run_id, (params, rules))
         games.append(SlateGameOut(
             id=r.id,
             kickoff_at=r.kickoff_at,
@@ -488,7 +521,7 @@ def slate_from(
             home_points=r.home_points,
             cover=_cover(r, market),
             market=market,
-            model=_model(r, market.current_spread_home, rules, params),
+            model=_model(r, market.current_spread_home, game_rules, game_params),
             pick=None if picked is None else _pick(picked, market),
         ))  # fmt: skip
 

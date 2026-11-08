@@ -469,12 +469,13 @@ def test_rate_and_predict_workflow_runs_the_weekly_job() -> None:
     assert run, "no engine job rate-and-predict step"
     command = run.group(1)
     assert "--target live" in command
-    assert "--spec engine/specs/efficiency-v1.json" in command
-    assert "--choices engine/specs/efficiency-v1-2026.run.json" in command
+    assert "--spec engine/specs/efficiency-v1.1.json" in command  # TASK-063: postseason rounds
+    assert "--choices engine/specs/efficiency-v1.1-2026.run.json" in command
+    assert "--version v1.1 " in command
     assert re.search(r"^      dry_run:\n(        .*\n)*        default: \"false\"$", text, re.M)
     assert "inputs.dry_run == 'true' && '--dry-run' || ''" in command
     python = WORKFLOWS.parent.parent / "python"
-    for path in ("engine/specs/efficiency-v1.json", "engine/specs/efficiency-v1-2026.run.json"):
+    for path in ("engine/specs/efficiency-v1.1.json", "engine/specs/efficiency-v1.1-2026.run.json"):
         assert (python / path).is_file(), path
 
 
@@ -486,9 +487,15 @@ def test_the_committed_settings_match_the_spec_the_workflow_runs() -> None:
     from engine.publish import models
 
     specs = WORKFLOWS.parent.parent / "python" / "engine" / "specs"
-    spec = ModelSpec.model_validate_json((specs / "efficiency-v1.json").read_text("utf-8"))
-    run = json.loads((specs / "efficiency-v1-2026.run.json").read_text("utf-8"))
+    spec = ModelSpec.model_validate_json((specs / "efficiency-v1.1.json").read_text("utf-8"))
+    run = json.loads((specs / "efficiency-v1.1-2026.run.json").read_text("utf-8"))
 
+    # TASK-063: v1's spec with each CFP round rated after the rounds before it (D-151, D-161).
+    v1 = json.loads((specs / "efficiency-v1.json").read_text("utf-8"))
+    assert json.loads((specs / "efficiency-v1.1.json").read_text("utf-8")) == {
+        **v1, "postseason": "rounds"
+    }
+    assert spec.postseason == "rounds"
     assert run["spec_hash"] == harness.spec_hash(spec)
     assert run["tuned_on"]["2026"] == list(range(2015, 2024))  # never a holdout season
     assert set(models.settings(spec, run, 2026)) == set(spec.tunables())

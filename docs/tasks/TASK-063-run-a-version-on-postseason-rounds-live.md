@@ -1,14 +1,14 @@
 ---
 id: TASK-063
 title: Run a version on postseason rounds live and show each round's predictions
-status: Draft
+status: In progress
 depends_on: [TASK-058]
 size: M
 model: opus
 autonomy: attended
 ui: false
-plan_status: none
-planned_at_commit:
+plan_status: approved
+planned_at_commit: ff61b81
 ---
 
 # TASK-063 — Run a version on postseason rounds live and show each round's predictions
@@ -60,9 +60,32 @@ The paper-traded model rates each College Football Playoff round after the round
 
 _Work noticed during this task and deliberately left out. Each bullet ends `→ <path> § <section>` (where it was placed) or `→ not tracked: <reason>`. See `.claude/skills/track-follow-ups/classify.md`; the PR's Follow-ups section is copied from here._
 
+- Sun 2026-12-06's 09:00 ET run comes before the CFP and bowl announcements: if CFBD has no postseason game with both teams by then it rates nothing, and the next Sunday (12-13) is after any bowl on Sat 12-12; hand-dispatch `rate-and-predict` that evening once CFBD lists the bowls (approved at plan)
+- v1.1 takes over the shown version only from its first production run, which needs a Release run after this merges and before the Sunday the owner wants the switch (approved at plan)
+- Candidate decision: efficiency v1.1, the switch, `/slate` reading each game's run by game id, the summary's warning (approved at plan)
+- `engine job … --summary` crashes with `UnicodeEncodeError` printing the summary's "→" when stdout is redirected on Windows (cp1252); the job's work is done by then, and `PYTHONIOENCODING=utf-8` avoids it
+
 ## Plan
 
-_Written by /plan-batch or /implement-task Phase 1. Approved by the user (plan_status: approved) before any code is written._
+_Approved 2026-11-08 at `ff61b81`. Owner's choices at the gate: switch to v1.1 now (record restarts, weeks before its first run show no model line); the job warns about postseason games with no prediction._
+
+**Steps**
+1. **Spec and settings:** `python/engine/specs/efficiency-v1.1.json` = `efficiency-v1.json` + `"postseason": "rounds"` (hash `1d0d7c48c354`, D-151's); `efficiency-v1.1-2026.run.json` copied from `backtests/20261108T062910249111Z-1d0d7c48c354/run.json` (tuned on 2015–2023: α 2, half-life 16, min edge 8, display k 0.1, as v1.0's).
+2. **Workflow:** `rate-and-predict.yml` passes `--spec engine/specs/efficiency-v1.1.json --choices engine/specs/efficiency-v1.1-2026.run.json --version v1.1`; v1.1 becomes the shown version (`shell.SHOWN`: the newest candidate with a scheduled run) from its first run; v1.0 stops being rated, its rows stay.
+3. **`/slate`:** `week_run` becomes `slate_runs`: the shown version's succeeded `scheduled`/`adhoc` runs of the week's season and season type, finished by now, that predicted a game of the week. Each game's prediction is from the newest of them that predicted it (by game id, D-161); its rank is entering that run's week (a quarterfinal shows the rank entering round 2), else the slate week's; `RULES_SQL` returns one row per run (id, `fitted_params`), newest first, so each game's edge uses its run's choices and weights and the top-level `rules` are the newest run's. Still 6 statements.
+4. **Job warning:** when the week rated is postseason, the weekly summary lists postseason games of the season still to come with no prediction in any of the version's succeeded runs that postseason (one read-only query in the job's transaction).
+5. **Docs:** a decision row (v1.1, the switch, by-game reads, the warning), amending D-149 and D-158; `docs/model-guide.md` (v1.1's status); `README.md` › Jobs.
+
+**Files:** `python/api/src/api/slate.py`, `python/api/tests/test_api_slate.py`, `python/engine/specs/efficiency-v1.1.json`, `python/engine/specs/efficiency-v1.1-2026.run.json`, `.github/workflows/rate-and-predict.yml`, `python/engine/src/engine/jobs.py` (not in Files likely touched: the warning), `python/engine/tests/test_jobs.py` (not listed: it pins the workflow's arguments), `python/engine/tests/test_rate_and_predict.py` (added in Phase 2: the warning's tests), `docs/decisions.md`, `docs/model-guide.md`, `README.md`.
+
+**Test strategy**
+- AC-1: `test_api_slate.py::test_each_postseason_game_reads_the_newest_run_that_predicted_it`: round-1 and round-2 runs with different weights and choices; the bowl's `pred_margin` and edge match round 1's run, the quarterfinal's round 2's (values from `engine.core`), and the quarterfinal's rank is round 2's.
+- AC-2: `test_jobs.py::test_the_committed_settings_match_the_spec_the_workflow_runs` on v1.1, also asserting `postseason == "rounds"`; manual `engine job rate-and-predict --target dev --dry-run` → exit 0.
+- AC-3: `test_jobs.py::test_rate_and_predict_workflow_runs_the_weekly_job` on v1.1 and `--version v1.1`; `SHOWN` is the shell tests'.
+- AC-4: `test_api_slate.py::test_a_postseason_slate_stays_in_the_query_budget` counts a postseason `load`'s statements (≤ `QUERY_BUDGET`); an EXPLAIN test that predictions are read by `game_id`.
+- Warning: `test_rate_and_predict.py::test_the_summary_names_postseason_games_with_no_prediction`, and a "none" line asserted in `test_rounds_version_rates_the_next_round` (revised in Phase 2: the job's rounds fixtures live in `test_rate_and_predict.py`, not `test_jobs.py`; that file is added to Files).
+
+**Risks:** the record strip restarts and earlier weeks show no model line (accepted); by-game reads mean a regular-week game the newest run left out shows an earlier run's prediction instead of none; the Dec 6 timing above.
 
 ## Review log
 

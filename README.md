@@ -398,8 +398,9 @@ predict** (below) rates, predicts and picks the coming week. The
 
 The **Rate and predict** workflow (`.github/workflows/rate-and-predict.yml`, TASK-046) is the
 weekly cycle: Sunday at 09:00 ET it rates the coming week, predicts it and picks it, from the model
-version the workflow names (`efficiency v1.0`, paper-traded as `candidate`, D-144) with that
-season's settings (`python/engine/specs/efficiency-v1-2026.run.json`, D-149). Each run of
+version the workflow names (`efficiency v1.1`, v1 with `postseason: rounds`, paper-traded as
+`candidate`, D-144, D-165) with that season's settings
+(`python/engine/specs/efficiency-v1.1-2026.run.json`, D-149). Each run of
 `engine job rate-and-predict` does, in order:
 
 1. **choose the week**: the week of the earliest kickoff still to come, from the R2 lake's
@@ -408,7 +409,8 @@ season's settings (`python/engine/specs/efficiency-v1-2026.run.json`, D-149). Ea
    kickoff), so the ratings don't change and a CFP game is predicted once its teams are known
    (D-150). A version with `postseason: rounds` rates a CFP round instead, chosen after the
    rebuild: the highest round with a game to come whose teams are both known; with none, the run
-   says so and writes nothing (D-161). `efficiency v1.0` is `one_week`. When the season is over,
+   says so and writes nothing (D-161). `efficiency v1.1` rates rounds (v1.0, `one_week`, isn't run once
+   v1.1 takes over). When the season is over,
    the run says so and ends without opening production.
 2. **resolve the settings** the season runs with from the `run.json`; one that didn't score the
    season is refused (exit 2).
@@ -457,11 +459,14 @@ run the same week adds another run and its predictions, but no pick whose side a
 unchanged. Its **Summary** lists the version, the week rated (or why none), the run's id and
 status, its ratings and predictions, and the picks and passes written out of the predicted games
 still before kickoff (0 predicted games means nothing was rated; predictions with 0 picks means
-no game cleared the pick rules). `lines` adds one line per version re-evaluated, one per CFP
+no game cleared the pick rules). A postseason run also lists the postseason games still to come
+that no run of the version predicted: a round the job has moved past isn't rated again (D-161),
+so such a game gets no prediction or pick, and the list says so rather than leaving it silent
+("none" when every game is covered). `lines` adds one line per version re-evaluated, one per CFP
 round for a version with `postseason: rounds`. Locally:
 
 ```powershell
-uv --directory python run engine job rate-and-predict --target dev --spec engine/specs/efficiency-v1.json --choices engine/specs/efficiency-v1-2026.run.json
+uv --directory python run engine job rate-and-predict --target dev --spec engine/specs/efficiency-v1.1.json --choices engine/specs/efficiency-v1.1-2026.run.json --version v1.1
 ```
 
 ### Read a failed run

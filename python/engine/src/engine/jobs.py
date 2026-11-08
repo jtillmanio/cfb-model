@@ -41,8 +41,11 @@ backtest's `run.json`, copies every
 season's raw files into a scratch lake and rebuilds it (the prior and the margin model read every
 earlier season), checks it, and fits the week before opening the database; then one transaction
 inserts a `scheduled` run with its ratings and predictions (creating the named version as
-`candidate` the first time) and the picks from it. A dry run does all of it and rolls the
-transaction back.
+`candidate` the first time) and the picks from it. When the week is postseason the summary also
+names the postseason games still to come that no succeeded run of the version predicted: a
+`rounds` version doesn't rate a round again once it has moved past it, so a bowl whose teams
+appeared after that Sunday is never predicted (D-161, TASK-063). A dry run does all of it and
+rolls the transaction back.
 """
 
 from __future__ import annotations
@@ -65,6 +68,7 @@ from engine.ingest.backfill import ONCE, RAW, season_types, sync_raw
 from engine.ingest.cfbd import MONTHLY_LIMIT, CallBudget, CfbdClient
 from engine.ingest.lake import Lake, LocalLake, decode_raw, fetched_at_of, latest_raw, raw_folder
 from engine.publish import models, picks
+from engine.publish.lines import cutoff
 from engine.publish.staging import TABLES as PUBLISHED
 from engine.publish.staging import publish_lake
 from engine.transform import quality, rebuild
@@ -206,6 +210,8 @@ class WeeklySummary:
     report: quality.Report | None = None
     run: models.RunSummary | None = None
     picks: picks.PickSummary | None = None
+    # Postseason weeks only: "Away at Home (date)" for each game still to come with no prediction.
+    unpredicted: list[str] | None = None
 
     def render(self) -> str:
         rated = f"{self.week[0]} week {self.week[1]}" if self.week else f"none: {self.note}"
@@ -230,6 +236,13 @@ class WeeklySummary:
                 out.append(f"- **The fit failed** (recorded as a failed run): {run.error}")
         if self.picks is not None:
             out.append(f"- Picks: {_picked(self.picks)}")
+        if self.unpredicted == []:
+            out.append("- Postseason games still to come with no prediction: none")
+        elif self.unpredicted:
+            out.append(
+                "- **Postseason games still to come with no prediction** (a round the job has "
+                f"moved past isn't rated again, D-161): {'; '.join(self.unpredicted)}"
+            )
         if self.dry_run and self.run is not None:
             out += ["", "**Dry run: the transaction was rolled back, so nothing was written.**"]
         return "\n".join(out)
@@ -418,6 +431,46 @@ class _DryRun(Exception):
     """Raised inside a dry run's transaction so it rolls back."""
 
 
+# The season's postseason games, not canceled, that no succeeded run of the version predicted,
+# read in the job's transaction so its own run counts. Whether each is still to come is its
+# cutoff (`lines.cutoff`, as the pick writer reads it) against the clock, not its status.
+_UNPREDICTED = text(
+    """
+    SELECT g.kickoff_at, g.game_date, awt.school AS away, ht.school AS home
+    FROM games g
+    JOIN teams ht ON ht.id = g.home_team_id
+    JOIN teams awt ON awt.id = g.away_team_id
+    WHERE g.sport_id = :sport
+        AND g.season = :season
+        AND g.season_type = 'postseason'
+        AND g.status <> 'canceled'
+        AND NOT EXISTS (
+            SELECT 1
+            FROM predictions p
+            JOIN model_runs r ON r.id = p.model_run_id
+            WHERE p.game_id = g.id
+                AND p.model_version_id = :version
+                AND r.status = 'succeeded'
+                AND r.run_type IN ('scheduled', 'adhoc')
+        )
+    ORDER BY g.game_date, g.kickoff_at NULLS LAST, g.id
+    """
+)
+
+
+def _unpredicted(conn: Connection, version_id: int, season: int, now: datetime) -> list[str]:
+    """Each postseason game still to come that the version never predicted, as "Away at Home
+    (date)"."""
+    rows = conn.execute(
+        _UNPREDICTED, {"sport": models.SPORT, "season": season, "version": version_id}
+    ).all()
+    return [
+        f"{r.away} at {r.home} ({r.game_date.isoformat()})"
+        for r in rows
+        if cutoff(r.kickoff_at, r.game_date) > now
+    ]
+
+
 def coming_week(lake: Lake, season: int, now: datetime) -> Week | None:
     """The week `lines` would pull: the week of the earliest kickoff still to come."""
     due = due_weeks("lines", (g for g, _ in _games(lake, season).values()), now)
@@ -500,6 +553,10 @@ def rate_and_predict(
                     clock.now(),
                     run_types=SCHEDULED,
                     season_type=season_type,
+                )
+            if season_type == "postseason":
+                summary.unpredicted = _unpredicted(
+                    conn, picks.version_id(conn, name, version), season, clock.now()
                 )
             if dry_run:
                 raise _DryRun
