@@ -200,7 +200,7 @@ jobs:
         with:
           database: cfb_test
 
-      - uses: astral-sh/setup-uv@v10.3.2
+      - uses: astral-sh/setup-uv@v10.3.3
         with:
           enable-cache: true
           cache-dependency-glob: python/uv.lock
