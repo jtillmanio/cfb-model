@@ -1,7 +1,7 @@
 ---
 id: TASK-066
 title: Carry the last game's date for the "season ended" line
-status: Draft
+status: Ready
 depends_on: [TASK-062]
 size: S
 model: sonnet

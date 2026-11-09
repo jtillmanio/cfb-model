@@ -1,7 +1,7 @@
 ---
 id: TASK-064
 title: Skip spread-less pulls in the backtest's closing_lines()
-status: Draft             # Draft | Ready | In progress | Review | Done | Blocked
+status: Ready             # Draft | Ready | In progress | Review | Done | Blocked
 depends_on: [TASK-060]            # e.g. [TASK-012, TASK-013]
 size: S                   # S (<=3 files, one layer) | M (<=8 files, <=2 adjacent layers) | split if larger; L only with workflow.splitPolicy never-split
 model: sonnet             # implementation model; planning always uses Opus

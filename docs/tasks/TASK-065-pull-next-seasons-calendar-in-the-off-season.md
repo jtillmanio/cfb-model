@@ -1,7 +1,7 @@
 ---
 id: TASK-065
 title: Pull the next season's calendar in the off-season
-status: Draft
+status: Ready
 depends_on: [TASK-062]
 size: S
 model: sonnet
