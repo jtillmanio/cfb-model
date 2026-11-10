@@ -39,7 +39,9 @@ def game(kickoff_at: datetime | None = KICKOFF, game_date: date = date(2025, 9, 
 
 
 def lines(
-    *rows: tuple[str, datetime, float | None], opens: tuple[float | None, ...] = ()
+    *rows: tuple[str, datetime, float | None],
+    opens: tuple[float | None, ...] = (),
+    totals: tuple[float | None, ...] = (),
 ) -> pa.Table:
     return pa.table(
         {
@@ -48,7 +50,7 @@ def lines(
             "fetched_at": [at for _, at, _ in rows],
             "spread_home": pa.array([s for _, _, s in rows], pa.float64()),
             "spread_home_open": pa.array(opens or [None] * len(rows), pa.float64()),
-            "total": pa.array([None] * len(rows), pa.float64()),
+            "total": pa.array(totals or [None] * len(rows), pa.float64()),
             "total_open": pa.array([None] * len(rows), pa.float64()),
             "ml_home": pa.array([None] * len(rows), pa.int32()),
             "ml_away": pa.array([None] * len(rows), pa.int32()),
@@ -114,6 +116,68 @@ def test_without_a_close_the_opener_books_are_those_in_the_last_pull() -> None:
     assert (row["spread_home_open"], row["spread_home_open_close"]) == (-6.0, -6.0)
 
 
+def test_a_spreadless_last_snapshot_keeps_the_earlier_spread() -> None:
+    """The last pull before kickoff quoted only a total: the spread comes from the last pull that
+    quoted one, as `game_market` does (D-162), and so does the total from its own latest pull."""
+    early, late = KICKOFF - timedelta(days=3), KICKOFF - timedelta(hours=5)
+    table = lines(("Bovada", early, -3.5), ("Bovada", late, None), totals=(None, 50.0))
+
+    (row,) = closing_lines(game(), table, at=KICKOFF + timedelta(days=1)).to_pylist()
+
+    assert (row["spread_home"], row["closing_from"], row["source"]) == (
+        -3.5,
+        "last_snapshot",
+        "median",
+    )
+    assert row["total"] == 50.0
+
+
+def test_a_spreadless_cfbd_close_falls_to_the_last_snapshot() -> None:
+    """CFBD's close quotes only a total: the spread falls to the last snapshot that quoted one,
+    while the total still comes from the close."""
+    snapshot, after = KICKOFF - timedelta(hours=5), KICKOFF + timedelta(days=2)
+    table = lines(("Bovada", snapshot, -4.0), ("Bovada", after, None), totals=(None, 48.0))
+
+    (row,) = closing_lines(game(), table).to_pylist()
+
+    assert (row["spread_home"], row["closing_from"]) == (-4.0, "last_snapshot")
+    assert row["total"] == 48.0
+
+
+def test_a_spreadless_final_pull_keeps_the_opener_and_its_close() -> None:
+    """The CLV pair reads the spread's pull, so a last pull with only a total doesn't empty it
+    (D-162, D-132)."""
+    early, late = KICKOFF - timedelta(days=3), KICKOFF - timedelta(hours=5)
+    table = lines(
+        ("Bovada", early, -3.5),
+        ("Bovada", late, None),
+        opens=(-2.0, None),
+        totals=(None, 50.0),
+    )
+
+    (row,) = closing_lines(game(), table, at=KICKOFF + timedelta(days=1)).to_pylist()
+
+    assert (row["spread_home_open"], row["spread_home_open_close"]) == (-2.0, -3.5)
+
+
+def test_a_game_priced_only_by_a_total_has_a_row_without_a_spread() -> None:
+    table = lines(("Bovada", KICKOFF + timedelta(days=2), None), totals=(47.0,))
+
+    (row,) = closing_lines(game(), table).to_pylist()
+
+    assert (row["spread_home"], row["source"], row["closing_from"]) == (None, None, None)
+    assert row["total"] == 47.0
+
+
+def test_a_game_priced_only_by_a_moneyline_has_no_closing_row() -> None:
+    table = lines(("Bovada", KICKOFF + timedelta(days=2), None))
+    table = table.set_column(
+        table.schema.get_field_index("ml_home"), "ml_home", pa.array([-150], pa.int32())
+    )
+
+    assert closing_lines(game(), table).num_rows == 0
+
+
 def test_no_closing_line_before_the_cutoff() -> None:
     table = lines(("Bovada", KICKOFF - timedelta(hours=5), -6.0))
     tba = game(kickoff_at=None)  # cutoff: the end of 2025-09-06 Eastern, 04:00Z on the 7th
@@ -135,7 +199,7 @@ def _team(conn: Connection, source_id: str) -> int:
     ).scalar_one()
 
 
-def _pull(game: str, at: datetime, *books: tuple[str, float, float | None]) -> list[dict]:
+def _pull(game: str, at: datetime, *books: tuple[str, float | None, float | None]) -> list[dict]:
     return [
         {
             "game_source_id": game,
@@ -157,7 +221,13 @@ def test_closing_lines_equal_game_market(db_conn: Connection) -> None:
     the last snapshot when there's no close, and a TBA kickoff's end-of-day cutoff."""
     home, away = _team(db_conn, "eq-home"), _team(db_conn, "eq-away")
     day = date(2025, 9, 6)
-    games = {"eq-consensus": KICKOFF, "eq-median": KICKOFF, "eq-snapshot": KICKOFF, "eq-tba": None}
+    games = {
+        "eq-consensus": KICKOFF,
+        "eq-median": KICKOFF,
+        "eq-snapshot": KICKOFF,
+        "eq-tba": None,
+        "eq-spreadless": KICKOFF,
+    }
     before, after = KICKOFF - timedelta(hours=6), KICKOFF + timedelta(days=2)
     tba_before = datetime(2025, 9, 7, 3, 30, tzinfo=UTC)  # 23:30 Eastern on game day
     rows = [
@@ -175,6 +245,10 @@ def test_closing_lines_equal_game_market(db_conn: Connection) -> None:
         *_pull("eq-snapshot", before, ("A", -6.0, 60.0), ("B", -5.0, 61.0)),
         *_pull("eq-tba", tba_before, ("A", 2.5, 55.0)),
         *_pull("eq-tba", tba_before + timedelta(days=1), ("A", 1.5, 54.0)),
+        # Later pulls that quote only a total: the spread keeps the earlier pull (D-162).
+        *_pull("eq-spreadless", before - timedelta(days=1), ("A", -7.0, 55.0)),
+        *_pull("eq-spreadless", before, ("A", None, 56.0)),
+        *_pull("eq-spreadless", after, ("A", None, 57.0)),
     ]
     staged_games = [{"source_id": g, "kickoff_at": k, "game_date": day} for g, k in games.items()]
     ids = upsert_games(
@@ -227,3 +301,4 @@ def test_closing_lines_equal_game_market(db_conn: Connection) -> None:
     assert actual["eq-median"] == (-5.0, 42.5, "median", "cfbd_close")
     assert actual["eq-snapshot"] == (-5.5, 60.5, "median", "last_snapshot")
     assert actual["eq-tba"] == (1.5, 54.0, "median", "cfbd_close")
+    assert actual["eq-spreadless"] == (-7.0, 57.0, "median", "last_snapshot")

@@ -245,7 +245,7 @@ Rung 1 and 2 both end in the same formula, `margin = home field + home rating âˆ
 3. **Staging** (`transform/staging.py`, `stats.py`): DuckDB reads the raw files and builds clean tables: latest version of each game, team names resolved to ids, advanced stats per team-game. Rebuilding from raw needs zero API calls.
 4. **Quality checks** (`transform/quality.py`): e.g. every backtest game has a closing line; publishing refuses if a check fails.
 5. **Point-in-time features** (`transform/features.py`): each week gets an `as_of` (its first kickoff); a game counts as finished 4 hours after kickoff (`GAME_HOURS`); a team's row for week N reads only games finished by `as_of`, and the build fails if any row didn't. This is the first line of defense against leakage.
-6. **Closing lines** (`transform/market.py`): the consensus book's spread, else the median across books.
+6. **Closing lines** (`transform/market.py`): the consensus book's spread, else the median across books. The spread and the total each come from the last pull that quoted that price (CFBD's close, else the last snapshot before kickoff), so a final pull with only a total doesn't blank the spread, the same rule the app's `game_market` view applies (D-162).
 
 ---
 
