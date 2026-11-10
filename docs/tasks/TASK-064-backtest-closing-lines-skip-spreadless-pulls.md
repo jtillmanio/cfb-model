@@ -1,7 +1,7 @@
 ---
 id: TASK-064
 title: Skip spread-less pulls in the backtest's closing_lines()
-status: In progress             # Draft | Ready | In progress | Review | Done | Blocked
+status: Review             # Draft | Ready | In progress | Review | Done | Blocked
 depends_on: [TASK-060]            # e.g. [TASK-012, TASK-013]
 size: S                   # S (<=3 files, one layer) | M (<=8 files, <=2 adjacent layers) | split if larger; L only with workflow.splitPolicy never-split
 model: sonnet             # implementation model; planning always uses Opus
@@ -28,9 +28,9 @@ The backtest's closing line uses the last pull that quoted a spread, the way `ga
 
 Each item names an observable result and an expected value or state.
 
-- [ ] AC-1: Given a game whose last pre-kickoff pull quoted only a total and whose earlier pull quoted −3.5, `closing_lines()` gives `spread_home` −3.5 and `closing_from` `last_snapshot` (expected: not NULL).
-- [ ] AC-2: Given a game whose untimed CFBD `closing` rows quote no spread, the spread falls to the last snapshot that did, as in `game_market`.
-- [ ] AC-3: `test_closing_lines_equal_game_market` also covers a spread-less pull, and the backtest golden metrics are unchanged, or the plan names each change and the owner approves it.
+- [x] AC-1: Given a game whose last pre-kickoff pull quoted only a total and whose earlier pull quoted −3.5, `closing_lines()` gives `spread_home` −3.5 and `closing_from` `last_snapshot` (expected: not NULL).
+- [x] AC-2: Given a game whose untimed CFBD `closing` rows quote no spread, the spread falls to the last snapshot that did, as in `game_market`.
+- [x] AC-3: `test_closing_lines_equal_game_market` also covers a spread-less pull, and the backtest golden metrics are unchanged, or the plan names each change and the owner approves it.
 
 ## Out of scope
 
@@ -49,6 +49,9 @@ Each item names an observable result and an expected value or state.
 ## Follow-ups
 
 _Work noticed during this task and deliberately left out. Each bullet ends `→ <path> § <section>` (where it was placed) or `→ not tracked: <reason>`. See `.claude/skills/track-follow-ups/classify.md`; the PR's Follow-ups section is copied from here._
+
+- A book whose first pull after the cutoff quotes no spread keeps that row as its close, and `map_lines` drops that book's later pulls; the view and `closing_lines()` still agree on it. → not tracked: already a D-120 revisit trigger (schema review R1 noted it as unchanged by this PR)
+- Schema review R1 (MINOR): no test for the opener/CLV pair after a spread-less final pull, nor for total-only and moneyline-only games. → not tracked: done in this PR (plan revision), three tests in `test_market.py`, each failing on main's `market.py`
 
 ## Plan
 
@@ -84,13 +87,15 @@ Approved by the owner in session, 2026-11-10.
 
 _Filled by /implement-task. One line per round._
 
+Verify R1 PASS | Audit R1 PASS | Spec R1 APPROVE | Schema R1 APPROVE (2 MINOR test gaps, fixed in this PR)
+
 ## Blocked
 
 _Only if status is Blocked: what failed, what was tried, best hypothesis, decision needed._
 
 ## Metrics
 
-- Verify rounds:
-- Review rounds:
-- First-pass AC FAILs:
-- Plan revisions after approval:
+- Verify rounds: 1
+- Review rounds: 1
+- First-pass AC FAILs: 0
+- Plan revisions after approval: 1 (three reviewer-requested tests added to `test_market.py`; no new file, no change to the approach)
