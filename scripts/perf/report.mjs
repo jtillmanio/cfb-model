@@ -16,6 +16,7 @@ import { join } from "node:path";
 
 import {
   aggregateRoute,
+  aggregateTap,
   BASELINE_EVENT,
   baselineCandidates,
   budgetFrom,
@@ -182,13 +183,18 @@ async function baseline() {
 }
 
 /**
- * A metrics.json (this run's or the baseline's) as per-route results.
+ * A metrics.json (this run's or the baseline's) as per-route and per-tap results. A tap's requests
+ * are judged against the app's own origin, the URL the run measured.
  * @param {string} file
  */
 function load(file) {
   /** @type {import("./lib/perf.mjs").Metrics} */
   const m = readJson(file);
-  return { ...m, routes: Object.fromEntries(Object.entries(m.routes).map(([id, r]) => [id, aggregateRoute(r)])) };
+  return {
+    ...m,
+    routes: Object.fromEntries(Object.entries(m.routes).map(([id, r]) => [id, aggregateRoute(r)])),
+    taps: Object.fromEntries(Object.entries(m.taps ?? {}).map(([id, t]) => [id, aggregateTap(t, m.url)])),
+  };
 }
 
 async function report() {
@@ -199,7 +205,13 @@ async function report() {
   const before = env.BASELINE_METRICS && existsSync(env.BASELINE_METRICS) ? load(env.BASELINE_METRICS) : null;
   const baseline = before ? { ...before, pr: env.BASELINE_PR ?? "?", at: before.measuredAt } : null;
   const kind = mode();
-  const { problems, noticed } = checkRun({ mode: kind, routes: current.routes, budget, expected: ROUTES.map((r) => r.id) });
+  const { problems, noticed } = checkRun({
+    mode: kind,
+    routes: current.routes,
+    budget,
+    expected: ROUTES.map((r) => r.id),
+    taps: current.taps,
+  });
   const body = renderComment({
     mode: kind,
     current,

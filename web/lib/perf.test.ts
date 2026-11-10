@@ -9,6 +9,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { SKIP_PREFIXES } from "../../scripts/lib/ci-scope.mjs";
 import {
   aggregateRoute,
+  aggregateTap,
   BASELINE_EVENT,
   BUDGETED,
   baselineCandidates,
@@ -40,9 +41,14 @@ import {
   sessionCookieName,
   sessionHeaders,
   summariseLhr,
+  tapEmulation,
+  tapProblems,
+  tapSession,
+  tapsFor,
   unbudgeted,
+  unknownTapRoutes,
 } from "../../scripts/perf/lib/perf.mjs";
-import { ROUTES } from "../../scripts/perf/routes.mjs";
+import { ROUTES, TAPS } from "../../scripts/perf/routes.mjs";
 import { TEST_API_JWT_SECRET, TEST_AUTH_SECRET, TEST_GITHUB_ID } from "../e2e/test-env";
 
 // The Lighthouse job's decisions (02 › Performance checks (Lighthouse), D-101), fed fixture
@@ -774,6 +780,180 @@ describe("AC-6: the route list (scripts/perf/routes.mjs)", () => {
     mkdirSync(join(tmp, "rankings/(list)"), { recursive: true });
     writeFileSync(join(tmp, "rankings/(list)/page.tsx"), "");
     expect(unlisted(tmp)).toEqual(["/rankings"]);
+  });
+});
+
+// TASK-014: screen-to-screen taps on the fixture build, reported and never gated on time.
+
+const tapLoad = (ms: number, loadedMs: number, requests: string[] = []) => ({ ms, loadedMs, requests });
+const measuredTap = (loads: Parameters<typeof aggregateTap>[0]["loads"]) => ({ from: "this-week", to: "teams", loads });
+
+describe("TASK-014 AC-1: the tap list (scripts/perf/routes.mjs)", () => {
+  it("times This Week → Teams through the More sheet, and Teams → This Week from the tabs", () => {
+    expect(TAPS.map((t) => [t.id, t.from, t.to, t.heading])).toEqual([
+      ["this-week→teams", "this-week", "teams", "Teams"],
+      ["teams→this-week", "teams", "this-week", "This Week"],
+    ]);
+    // Teams isn't one of the phone's bottom tabs (MOBILE_TABS): the sheet opens first, untimed.
+    expect(TAPS[0].via).toContain('popovertarget="shell-more"');
+    expect(TAPS[0].link).toContain('#shell-more a[href="/teams"]');
+    expect(TAPS[1].via).toBeUndefined();
+    expect(TAPS[1].link).toContain('nav[aria-label="Tabs"] a[href="/"]');
+  });
+
+  it("names only signed-in routes from ROUTES", () => {
+    expect(unknownTapRoutes(TAPS, ROUTES)).toEqual([]);
+  });
+
+  it("catches a tap from or to a route that isn't listed, or is signed out", () => {
+    const bad = [
+      { id: "a", from: "teams", to: "rankings", heading: "Rankings", link: "a" },
+      { id: "b", from: "login", to: "teams", heading: "Teams", link: "a" },
+    ];
+    expect(unknownTapRoutes(bad, ROUTES)).toEqual([
+      'a: to "rankings" is not a signed-in route in scripts/perf/routes.mjs',
+      'b: from "login" is not a signed-in route in scripts/perf/routes.mjs',
+    ]);
+  });
+});
+
+describe("TASK-014 AC-2: the tap runner's profile and session", () => {
+  // The shape of lighthouse/core/config/constants.js (13.x): the runner passes the real module.
+  const LH = {
+    throttling: {
+      mobileSlow4G: {
+        rttMs: 150,
+        throughputKbps: 1638.4,
+        requestLatencyMs: 562.5,
+        downloadThroughputKbps: 1474.56,
+        uploadThroughputKbps: 675,
+        cpuSlowdownMultiplier: 4,
+      },
+    },
+    screenEmulationMetrics: { mobile: { mobile: true, width: 412, height: 823, deviceScaleFactor: 1.75, disabled: false } },
+    userAgents: { mobile: "Mozilla/5.0 (Linux; Android 11; moto g power (2022)) Mobile" },
+  };
+
+  it("uses Lighthouse's mobile screen and Slow 4G, 4× CPU, as its devtools throttling sends them", () => {
+    expect(tapEmulation(LH)).toEqual({
+      viewport: { width: 412, height: 823, deviceScaleFactor: 1.75, isMobile: true, hasTouch: true },
+      userAgent: LH.userAgents.mobile,
+      // Lighthouse's emulation.js: latency in ms, throughput in bytes per second.
+      network: { offline: false, latency: 562.5, downloadThroughput: 188743, uploadThroughput: 86400 },
+      cpuRate: 4,
+    });
+  });
+
+  it("signs in with the minted cookie and keeps the other headers", () => {
+    expect(
+      tapSession({ "x-vercel-skip-toolbar": "1", Cookie: "authjs.session-token=abc.def=" }, FIXTURE_URL),
+    ).toEqual({
+      cookie: { name: "authjs.session-token", value: "abc.def=", url: FIXTURE_URL },
+      headers: { "x-vercel-skip-toolbar": "1" },
+    });
+    expect(tapSession({ "x-vercel-skip-toolbar": "1" }, FIXTURE_URL).cookie).toBeNull();
+  });
+
+  it("pins puppeteer-core to the one copy Lighthouse already installs", () => {
+    const pkg = JSON.parse(readFileSync(join(ROOT, "scripts/perf/package.json"), "utf8"));
+    const lock = JSON.parse(readFileSync(join(ROOT, "scripts/perf/package-lock.json"), "utf8"));
+    expect(pkg.dependencies["puppeteer-core"]).toMatch(/^\d+\.\d+\.\d+$/);
+    expect(lock.packages["node_modules/puppeteer-core"].version).toBe(pkg.dependencies["puppeteer-core"]);
+    expect(Object.keys(lock.packages).filter((p) => p.endsWith("node_modules/puppeteer-core"))).toEqual([
+      "node_modules/puppeteer-core",
+    ]);
+  });
+});
+
+describe("TASK-014 AC-3: a tap's loads, reduced", () => {
+  it("keeps the first hit and the median of heading and loaded", () => {
+    const r = aggregateTap(measuredTap([tapLoad(900, 1500), tapLoad(400, 700), tapLoad(500, 800)]), FIXTURE_URL);
+    expect(r).toMatchObject({ from: "this-week", to: "teams", runs: 3, errors: [], forbidden: [] });
+    expect(r.first).toEqual(tapLoad(900, 1500));
+    expect(r.median).toEqual({ ms: 500, loadedMs: 800 });
+  });
+
+  it("leaves a failed load out and lists it; a failed first load is no first hit", () => {
+    const r = aggregateTap(measuredTap([{ error: "timed out" }, tapLoad(400, 700), tapLoad(600, 900)]), FIXTURE_URL);
+    expect(r.runs).toBe(2);
+    expect(r.errors).toEqual(["timed out"]);
+    expect(r.first).toBeNull();
+    expect(r.median).toEqual({ ms: 500, loadedMs: 800 });
+  });
+});
+
+describe("TASK-014 AC-4: the taps table in the fixture comment", () => {
+  const taps = {
+    "this-week→teams": aggregateTap(measuredTap([tapLoad(1500, 2500), tapLoad(400, 700), tapLoad(500, 800)]), FIXTURE_URL),
+  };
+  const current = { url: FIXTURE_URL, sha: "abcdef1234", routes: {}, taps };
+
+  it("shows first hit / median for heading and loaded, and the baseline's medians", () => {
+    const baseline = { pr: 47, at: "2026-10-05T12:00:00Z", routes: {}, taps: { "this-week→teams": { median: { ms: 450, loadedMs: 1200 } } } };
+    const md = renderComment({ current, baseline, budget: {}, problems: [] });
+    expect(md).toContain("**Taps, reported, never gated**");
+    expect(md).toContain("| Tap | Heading | Loaded |");
+    expect(md).toContain("| `this-week→teams` | 1.50 s / 500 ms (base 450 ms) | 2.50 s / 800 ms (base 1.20 s) |");
+  });
+
+  it("says no baseline for a tap the baseline didn't time", () => {
+    const md = renderComment({ current, baseline: { pr: 47, at: "2026-10-05", routes: {} }, budget: {}, problems: [] });
+    expect(md).toContain("| `this-week→teams` | 1.50 s / 500 ms (no baseline) | 2.50 s / 800 ms (no baseline) |");
+  });
+
+  it("never fails on a tap's time, however slow", () => {
+    const slow = { "this-week→teams": aggregateTap(measuredTap([tapLoad(60_000, 90_000)]), FIXTURE_URL) };
+    expect(tapProblems(slow)).toEqual([]);
+    expect(checkRun({ mode: "fixture", routes: {}, budget: {}, taps: slow }).problems).toEqual([]);
+  });
+});
+
+describe("TASK-014 AC-5: taps that never land, and forbidden requests during a tap", () => {
+  it("lists a tap that never landed under the runs that didn't finish, without failing", () => {
+    const stuck = { "teams→this-week": aggregateTap(measuredTap([{ error: "the <h1> never showed This Week" }]), FIXTURE_URL) };
+    expect(checkRun({ mode: "fixture", routes: {}, budget: {}, taps: stuck }).problems).toEqual([]);
+    const md = renderComment({ current: { url: FIXTURE_URL, routes: {}, taps: stuck }, baseline: null, budget: {}, problems: [] });
+    expect(md).toContain("**Runs that didn't finish**");
+    expect(md).toContain("- tap teams→this-week: the <h1> never showed This Week");
+    expect(md).toContain("| `teams→this-week` | – / – | – / – |");
+  });
+
+  it("fails the fixture run on an /api/py request or another host during a tap, naming it", () => {
+    const loads = [
+      tapLoad(400, 700, [`${FIXTURE_URL}/teams?_rsc=abc`, `${FIXTURE_URL}/api/py/teams`]),
+      tapLoad(400, 700, ["https://cdn.collegefootballdata.com/logos/500/194.png", "data:image/png;base64,AA"]),
+    ];
+    const taps = { "this-week→teams": aggregateTap(measuredTap(loads), FIXTURE_URL) };
+    expect(taps["this-week→teams"].forbidden).toEqual(["/api/py/teams", "https://cdn.collegefootballdata.com/logos/500/194.png"]);
+    const { problems } = checkRun({ mode: "fixture", routes: {}, budget: {}, taps });
+    expect(problems).toHaveLength(2);
+    expect(problems[0]).toMatch(/^this-week→teams: requested \/api\/py\/teams during a tap\. The browser never calls the API \(hard rule 5\)/);
+    expect(problems[1]).toMatch(/^this-week→teams: requested https:\/\/cdn\.collegefootballdata\.com\/logos\/500\/194\.png during a tap, from another host/);
+  });
+
+  it("leaves Vercel's preview extras out", () => {
+    const taps = { t: aggregateTap(measuredTap([tapLoad(1, 2, ["https://vercel.live/_next-live/feedback.js"])]), BASE) };
+    expect(taps.t.forbidden).toEqual([]);
+  });
+});
+
+describe("TASK-014 AC-6: the preview run times no taps", () => {
+  it("hands the runner the taps on the fixture run only", () => {
+    expect(tapsFor("fixture", TAPS)).toEqual(TAPS);
+    expect(tapsFor("preview", TAPS)).toEqual([]);
+  });
+
+  it("draws no taps table in the preview comment, even if handed taps", () => {
+    const taps = { t: aggregateTap(measuredTap([tapLoad(400, 700)]), BASE) };
+    const md = renderComment({ mode: "preview", current: { url: BASE, routes: {}, taps }, baseline: null, budget: {}, problems: [] });
+    expect(md).not.toContain("Taps, reported");
+  });
+
+  it("carries the fixture job's taps through the merge, and adds none to a preview's", () => {
+    const part = { url: FIXTURE_URL, measuredAt: "2026-11-10T05:00:00Z", routes: {} };
+    const taps = { t: measuredTap([tapLoad(400, 700)]) };
+    expect(mergeMetrics([{ ...part, taps }], []).taps).toEqual(taps);
+    expect(mergeMetrics([part, part], [])).not.toHaveProperty("taps");
   });
 });
 

@@ -15,6 +15,10 @@
 // and compares). Lighthouse's raw output carries the headers it was given, so it is written under
 // HEADERS_DIR, never the reports folder, and deleted as soon as it is read. A run that fails is
 // recorded, not thrown: report.mjs fails the route.
+//
+// The fixture run then times the screen-to-screen taps in routes.mjs (taps.mjs, TASK-014) and
+// writes them to metrics.json's `taps`; a preview times none (tapsFor). PERF_TAPS narrows them
+// by id, as PERF_ROUTES does the routes.
 import { spawnSync } from "node:child_process";
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
@@ -22,8 +26,9 @@ import { fileURLToPath } from "node:url";
 
 import { ReportGenerator } from "lighthouse/report/generator/report-generator.js";
 
-import { chromeVersion, headerSecrets, scrubLhr, scrubText, summariseLhr } from "./lib/perf.mjs";
-import { ROUTES } from "./routes.mjs";
+import { chromeVersion, headerSecrets, scrubLhr, scrubText, summariseLhr, tapsFor } from "./lib/perf.mjs";
+import { ROUTES, TAPS } from "./routes.mjs";
+import { timeTaps } from "./taps.mjs";
 
 const env = process.env;
 for (const k of ["TARGET_URL", "HEADERS_DIR", "OUT_DIR", "CHROME_PATH", "PERF_MODE"]) {
@@ -131,6 +136,20 @@ try {
   }
 } finally {
   rmSync(raw, { recursive: true, force: true });
+}
+const onlyTaps = env.PERF_TAPS?.split(",");
+const taps = tapsFor(metrics.mode, TAPS).filter((t) => !onlyTaps || onlyTaps.includes(t.id));
+if (taps.length) {
+  metrics.taps = await timeTaps({
+    base,
+    taps,
+    routes: ROUTES,
+    runs: RUNS,
+    chromePath: /** @type {string} */ (env.CHROME_PATH),
+    ci: env.CI === "true",
+    headers: JSON.parse(readFileSync(headerFile(true), "utf8")),
+    secrets,
+  });
 }
 metrics.chrome = chrome ?? undefined;
 writeFileSync(join(outDir, "metrics.json"), JSON.stringify(metrics, null, 2));

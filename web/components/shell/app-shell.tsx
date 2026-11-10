@@ -42,7 +42,9 @@ export function AppShell({
   return (
     <div className="flex min-h-dvh">
       <Sidebar active={active} card={view.card} picks={view.picks} state={state} />
-      <div className="flex min-w-0 flex-1 flex-col pb-16 md:pb-0">
+      {/* Busy while loading.tsx draws it: assistive tech waits, and the Lighthouse tap runner stops its
+          "loaded" clock when nothing is busy (TASK-014). */}
+      <div aria-busy={state === "loading" || undefined} className="flex min-w-0 flex-1 flex-col pb-16 md:pb-0">
         <TopBar active={active} view={view} state={state} weekNav={state === "ready" ? weekNav : undefined} />
         {view.stale ? <StaleBanner text={view.stale} path={path} /> : null}
         {children}

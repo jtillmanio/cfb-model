@@ -11,13 +11,14 @@
 #
 #   plan     which kind of run, the URL, the routes, and the PR this run belongs to
 #   measure  a preview, one job per route, side by side
-#   fixture  the fixture build, every route in one job: one build, not one per route
+#   fixture  the fixture build, every route in one job: one build, not one per route; then the
+#            screen-to-screen taps (TASK-014), reported and never gated on time
 #   report   merge, compare with the last merged PR's run of the same kind, comment, gate
 #
 # The fixture run fails only on numbers that hold still between runs: an /api/py/* request during a
-# load or prefetch, bytes or requests over scripts/perf/budget.json, CLS of 0.1 or more,
+# load, prefetch or tap, bytes or requests over scripts/perf/budget.json, CLS of 0.1 or more,
 # accessibility under its recorded score, or a route that didn't measure or landed elsewhere.
-# Timings are reported against the last merged PR's run, never gated.
+# Timings, taps included, are reported against the last merged PR's run, never gated.
 #
 # Never production on its own: a hand run there needs allow_production. Reports hold the rendered
 # pages, so they are this run's artifacts for 14 days and go nowhere else. Secrets reach scripts
@@ -165,7 +166,7 @@ jobs:
     needs: plan
     if: needs.plan.outputs.mode == 'fixture'
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 30 # one build, every route, then the taps (TASK-014)
     permissions:
       contents: read
     # A newer push to the same PR cancels this measuring: only the newest commit matters. The mode
