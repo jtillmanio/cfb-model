@@ -1,7 +1,7 @@
 ---
 id: TASK-014
 title: Time screen-to-screen taps in the lighthouse workflow
-status: In progress
+status: Review
 depends_on: [TASK-008, TASK-056]
 size: M
 model: opus
@@ -28,14 +28,14 @@ The Lighthouse PR comment also reports how long a tap from one screen to the nex
 
 _Approved by the owner 2026-11-10 (in the /next-task session): taps run on the mobile profile, This Week → Teams goes through the More sheet; a forbidden request during a tap fails the job; the preview run times no taps. At the plan gate the owner added a second number per tap, `loadedMs` (the page's data replaces the skeleton, which already draws the real `<h1>`), to AC-2 and AC-4._
 
-- [ ] AC-1: `scripts/perf/routes.mjs` exports a tap list; each tap has an id, a `from` route, the link it clicks and a `to` route, starting with `this-week→teams` (on the mobile profile through the More sheet, since Teams isn't in the bottom tabs) and `teams→this-week`. A test in `web/lib/perf.test.ts` fails if a tap's `from` or `to` isn't a signed-in route in `ROUTES`.
-- [ ] AC-2: In the `fixture` job, a puppeteer-core runner (pinned in `scripts/perf/package.json`) times each tap `RUNS` times on Lighthouse's mobile profile and throttling (Slow 4G, 4× CPU) with the signed-in session: it loads `from`, clicks, and stops the clock when the `<h1>` shows `to`'s heading and two frames have painted (`ms`), and again when the app shell is no longer `aria-busy` and two frames have painted (`loadedMs`). `metrics.json` gains `taps.<id>.loads[]`, each `{ ms, loadedMs, requests[] }` or `{ error }`. The shell sets `aria-busy="true"` only while it draws the loading state (unit test in `app-shell.test.tsx`).
-- [ ] AC-3: A pure function in `scripts/perf/lib/perf.mjs` reduces a tap's loads to its first hit and median, leaving errors out; Vitest proves three loads give the right first and median, and a failed load is excluded and listed.
-- [ ] AC-4: The fixture comment gains a "Taps, reported, never gated" table: one row per tap with first hit / median for heading and loaded, and the baseline's medians when one exists. Vitest proves the table renders and that a tap's timing never adds to `problems`.
-- [ ] AC-5: A tap that never lands is listed under "Runs that didn't finish". A tap that requests `/api/py/*` or another host is a gate problem that fails the fixture run, named in the failure the way a page load's forbidden request is. Vitest proves both.
-- [ ] AC-6: The preview run times no taps: `measure.mjs` without `PERF_MODE=fixture` writes no `taps`, and the preview comment has no taps table (Vitest for the comment).
-- [ ] AC-7: `docs/02-architecture.md` › Performance checks describes the tap runner, and a new decision row records how it amends D-101 and D-125 (both approved by the owner).
-- [ ] AC-8: The fixture comment on this task's PR shows both tap rows with numbers, not "–".
+- [x] AC-1: `scripts/perf/routes.mjs` exports a tap list; each tap has an id, a `from` route, the link it clicks and a `to` route, starting with `this-week→teams` (on the mobile profile through the More sheet, since Teams isn't in the bottom tabs) and `teams→this-week`. A test in `web/lib/perf.test.ts` fails if a tap's `from` or `to` isn't a signed-in route in `ROUTES`.
+- [x] AC-2: In the `fixture` job, a puppeteer-core runner (pinned in `scripts/perf/package.json`) times each tap `RUNS` times on Lighthouse's mobile profile and throttling (Slow 4G, 4× CPU) with the signed-in session: it loads `from`, clicks, and stops the clock when the `<h1>` shows `to`'s heading and two frames have painted (`ms`), and again when the app shell is no longer `aria-busy` and two frames have painted (`loadedMs`). `metrics.json` gains `taps.<id>.loads[]`, each `{ ms, loadedMs, requests[] }` or `{ error }`. The shell sets `aria-busy="true"` only while it draws the loading state (unit test in `app-shell.test.tsx`).
+- [x] AC-3: A pure function in `scripts/perf/lib/perf.mjs` reduces a tap's loads to its first hit and median, leaving errors out; Vitest proves three loads give the right first and median, and a failed load is excluded and listed.
+- [x] AC-4: The fixture comment gains a "Taps, reported, never gated" table: one row per tap with first hit / median for heading and loaded, and the baseline's medians when one exists. Vitest proves the table renders and that a tap's timing never adds to `problems`.
+- [x] AC-5: A tap that never lands is listed under "Runs that didn't finish". A tap that requests `/api/py/*` or another host is a gate problem that fails the fixture run, named in the failure the way a page load's forbidden request is. Vitest proves both.
+- [x] AC-6: The preview run times no taps: `measure.mjs` without `PERF_MODE=fixture` writes no `taps`, and the preview comment has no taps table (Vitest for the comment).
+- [x] AC-7: `docs/02-architecture.md` › Performance checks describes the tap runner, and a new decision row records how it amends D-101 and D-125 (both approved by the owner).
+- [ ] AC-8: The fixture comment on this task's PR shows both tap rows with numbers, not "–". _(Checked at the ready gate, on the PR.)_
 
 ## Out of scope
 
@@ -56,6 +56,12 @@ _Approved by the owner 2026-11-10 (in the /next-task session): taps run on the m
 ## Follow-ups
 
 _Work noticed during this task and deliberately left out. Each bullet ends `→ <path> § <section>` (where it was placed) or `→ not tracked: <reason>`. See `.claude/skills/track-follow-ups/classify.md`; the PR's Follow-ups section is copied from here._
+
+- Candidate decision: the fixture run times screen-to-screen taps, reported and never gated on time, a forbidden request during a tap gated; amends D-101 and D-125 → docs/decisions.md § D-166
+- D-101's row never said it was amended by D-125 (D-125 amends its "every PR preview" gating); added with this task's own "Amended by" note → docs/decisions.md § D-101
+- On `pnpm dev`, a tap on the phone's first tab (This Week) does nothing: Next's dev indicator, bottom left, seems to take it. The runner only ever measures a production build (`next start` in the fixture job), where both taps landed 3/3 locally → not tracked: dev-only, and nothing runs the tap runner against a dev server
+- `web/e2e/login.spec.ts:79` ("database awake: straight to the page asked for, no waking card") failed once at phone width in the local verify run, the waking card streamed on a slow run; it passed 60/60 on three reruns of the spec → not tracked: seen once locally, unrelated to this diff; a recurrence in CI gets its own `fix/` branch
+- The `tapEmulation` test checks a hand-copied Lighthouse 13 constants object, so only the test's fixture can go stale after a Lighthouse upgrade; the runner reads the installed module (spec review, non-blocking) → not tracked: accepted as is; CI can't import `scripts/perf`'s Lighthouse
 
 ## Plan
 
@@ -90,13 +96,15 @@ Approved by the owner 2026-11-10 at f6cac60, with both numbers per tap (heading 
 
 _Filled by /implement-task. One line per round._
 
+Verify R1 PASS (pnpm typecheck, lint, db:check, test, build all PASS; test:e2e 1 FAIL, `login.spec.ts:79` [phone] waking-card race, unrelated, passed 60/60 on three reruns of the spec) | Audit R1 PASS (all automated ACs PROVEN; AC-2's real run and AC-8 on the PR) | Spec R1 APPROVE (AC-8 pending) | UI R1 PASS (aria-busy only on the skeleton at 390/768/1440, no console errors)
+
 ## Blocked
 
 _Only if status is Blocked: what failed, what was tried, best hypothesis, decision needed._
 
 ## Metrics
 
-- Verify rounds:
-- Review rounds:
-- First-pass AC FAILs:
-- Plan revisions after approval:
+- Verify rounds: 1 (one unrelated e2e flake, rerun green)
+- Review rounds: 1 (spec), 1 (UI); audit 1
+- First-pass AC FAILs: 0 (AC-8 pending its PR run)
+- Plan revisions after approval: 0 (the puppeteer-core version in step 6 corrected to the lockfile's 25.16.0; the runner's hydration wait and step-labelled errors are inside step 3)
