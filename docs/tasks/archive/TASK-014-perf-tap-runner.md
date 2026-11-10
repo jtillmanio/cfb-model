@@ -1,7 +1,7 @@
 ---
 id: TASK-014
 title: Time screen-to-screen taps in the lighthouse workflow
-status: Review
+status: Done
 depends_on: [TASK-008, TASK-056]
 size: M
 model: opus
