@@ -144,6 +144,40 @@ def test_a_spreadless_cfbd_close_falls_to_the_last_snapshot() -> None:
     assert row["total"] == 48.0
 
 
+def test_a_spreadless_final_pull_keeps_the_opener_and_its_close() -> None:
+    """The CLV pair reads the spread's pull, so a last pull with only a total doesn't empty it
+    (D-162, D-132)."""
+    early, late = KICKOFF - timedelta(days=3), KICKOFF - timedelta(hours=5)
+    table = lines(
+        ("Bovada", early, -3.5),
+        ("Bovada", late, None),
+        opens=(-2.0, None),
+        totals=(None, 50.0),
+    )
+
+    (row,) = closing_lines(game(), table, at=KICKOFF + timedelta(days=1)).to_pylist()
+
+    assert (row["spread_home_open"], row["spread_home_open_close"]) == (-2.0, -3.5)
+
+
+def test_a_game_priced_only_by_a_total_has_a_row_without_a_spread() -> None:
+    table = lines(("Bovada", KICKOFF + timedelta(days=2), None), totals=(47.0,))
+
+    (row,) = closing_lines(game(), table).to_pylist()
+
+    assert (row["spread_home"], row["source"], row["closing_from"]) == (None, None, None)
+    assert row["total"] == 47.0
+
+
+def test_a_game_priced_only_by_a_moneyline_has_no_closing_row() -> None:
+    table = lines(("Bovada", KICKOFF + timedelta(days=2), None))
+    table = table.set_column(
+        table.schema.get_field_index("ml_home"), "ml_home", pa.array([-150], pa.int32())
+    )
+
+    assert closing_lines(game(), table).num_rows == 0
+
+
 def test_no_closing_line_before_the_cutoff() -> None:
     table = lines(("Bovada", KICKOFF - timedelta(hours=5), -6.0))
     tba = game(kickoff_at=None)  # cutoff: the end of 2025-09-06 Eastern, 04:00Z on the 7th
