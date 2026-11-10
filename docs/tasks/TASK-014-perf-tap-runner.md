@@ -35,7 +35,7 @@ _Approved by the owner 2026-11-10 (in the /next-task session): taps run on the m
 - [x] AC-5: A tap that never lands is listed under "Runs that didn't finish". A tap that requests `/api/py/*` or another host is a gate problem that fails the fixture run, named in the failure the way a page load's forbidden request is. Vitest proves both.
 - [x] AC-6: The preview run times no taps: `measure.mjs` without `PERF_MODE=fixture` writes no `taps`, and the preview comment has no taps table (Vitest for the comment).
 - [x] AC-7: `docs/02-architecture.md` › Performance checks describes the tap runner, and a new decision row records how it amends D-101 and D-125 (both approved by the owner).
-- [ ] AC-8: The fixture comment on this task's PR shows both tap rows with numbers, not "–". _(Checked at the ready gate, on the PR.)_
+- [x] AC-8: The fixture comment on this task's PR shows both tap rows with numbers, not "–". _(PR #152's fixture run at 5f6b6e7: `this-week→teams` 1.39 s / 1.39 s heading and loaded, `teams→this-week` 1.44 s heading, 1.49 s loaded; 3/3 loads each.)_
 
 ## Out of scope
 
@@ -97,6 +97,7 @@ Approved by the owner 2026-11-10 at f6cac60, with both numbers per tap (heading 
 _Filled by /implement-task. One line per round._
 
 Verify R1 PASS (pnpm typecheck, lint, db:check, test, build all PASS; test:e2e 1 FAIL, `login.spec.ts:79` [phone] waking-card race, unrelated, passed 60/60 on three reruns of the spec) | Audit R1 PASS (all automated ACs PROVEN; AC-2's real run and AC-8 on the PR) | Spec R1 APPROVE (AC-8 pending) | UI R1 PASS (aria-busy only on the skeleton at 390/768/1440, no console errors)
+Ready gates (PR #152): verify.full PASS | CI `verify` PASS | Vercel preview PASS | Lighthouse fixture run PASS, ✅ within budget, AC-8 PASS | `lighthouse.yml` dispatched on the branch (run 42837505070) PASS
 
 ## Blocked
 
@@ -106,5 +107,5 @@ _Only if status is Blocked: what failed, what was tried, best hypothesis, decisi
 
 - Verify rounds: 1 (one unrelated e2e flake, rerun green)
 - Review rounds: 1 (spec), 1 (UI); audit 1
-- First-pass AC FAILs: 0 (AC-8 pending its PR run)
+- First-pass AC FAILs: 0
 - Plan revisions after approval: 0 (the puppeteer-core version in step 6 corrected to the lockfile's 25.16.0; the runner's hydration wait and step-labelled errors are inside step 3)
