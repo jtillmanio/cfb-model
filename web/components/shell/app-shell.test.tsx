@@ -84,6 +84,19 @@ describe("app shell", () => {
     expect(card.textContent).toContain("CLV +0.9");
   });
 
+  // TASK-014: the Lighthouse tap runner stops its "loaded" clock when nothing is busy.
+  it("is aria-busy only while it draws the loading state", () => {
+    const busy = (state: "ready" | "loading" | "error", shell: Shell | null) => {
+      const { container } = renderShell(shell, state);
+      const marked = [...container.querySelectorAll("[aria-busy]")].map((el) => el.getAttribute("aria-busy"));
+      cleanup();
+      return marked;
+    };
+    expect(busy("loading", null)).toEqual(["true"]);
+    expect(busy("ready", SHELL)).toEqual([]);
+    expect(busy("error", null)).toEqual([]);
+  });
+
   it("says the server can't be reached in the error state", () => {
     renderShell(null, "error");
     expect(screen.getAllByText("Can't reach the server").length).toBeGreaterThan(0);

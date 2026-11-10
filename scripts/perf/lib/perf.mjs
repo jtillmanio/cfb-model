@@ -24,9 +24,16 @@
  *   first: LoadSummary | null, median: Record<string, number | null>, forbidden: string[],
  * }} RouteResult
  * @typedef {{ docBytes?: number, jsBytes?: number, requests?: number, a11y?: number }} RouteBudget
+ * @typedef {{ ms: number, loadedMs: number, requests: string[] }} TapLoad
+ * @typedef {{ from: string, to: string, loads: (TapLoad | LoadError)[] }} MeasuredTap
+ * @typedef {{
+ *   from: string, to: string, runs: number, errors: string[], first: TapLoad | null,
+ *   median: { ms: number | null, loadedMs: number | null }, forbidden: string[],
+ * }} TapResult
+ * @typedef {{ id: string, from: string, to: string, heading: string, via?: string, link: string }} Tap
  * @typedef {{
  *   mode?: Mode, url: string, sha?: string | null, lighthouse?: string, chrome?: string, measuredAt: string,
- *   runs?: number, routes: Record<string, MeasuredRoute>,
+ *   runs?: number, routes: Record<string, MeasuredRoute>, taps?: Record<string, MeasuredTap>,
  * }} Metrics
  * @typedef {{ name: string, value: string }} SessionCookie
  */
@@ -249,18 +256,140 @@ export function gateProblems(routes, budget, expected = []) {
 }
 
 /**
- * What a run fails on, and what it only points out. A fixture run is gated by gateProblems. A
- * preview run fails on nothing: budgets are the fixture's, so its bytes are compared with none,
- * and anything else gateProblems would say (a forbidden request, CLS, a route that didn't measure
- * or landed elsewhere) is listed as noticed.
+ * Taps whose `from` or `to` isn't a signed-in route in the route list: the runner signs in once and
+ * loads routes by id, so every tap must name one.
+ * @param {Tap[]} taps
+ * @param {{ id: string, signedIn: boolean }[]} routes
+ * @returns {string[]}
+ */
+export function unknownTapRoutes(taps, routes) {
+  const signedIn = new Set(routes.filter((r) => r.signedIn).map((r) => r.id));
+  return taps.flatMap((t) =>
+    /** @type {const} */ (["from", "to"])
+      .filter((end) => !signedIn.has(t[end]))
+      .map((end) => `${t.id}: ${end} "${t[end]}" is not a signed-in route in scripts/perf/routes.mjs`),
+  );
+}
+
+/**
+ * The taps a run times: all of them on the fixture build, none on a preview (TASK-014).
+ * @param {Mode} mode
+ * @param {Tap[]} taps
+ * @returns {Tap[]}
+ */
+export function tapsFor(mode, taps) {
+  return mode === "fixture" ? taps : [];
+}
+
+/**
+ * The tap runner's browser settings from Lighthouse's own constants module
+ * (`lighthouse/core/config/constants.js`), so taps run on the profile the loads do: the mobile
+ * screen and user agent, and Slow 4G with 4× CPU sent the way Lighthouse's devtools throttling
+ * sends them (emulation.js: latency in ms, throughput in bytes per second).
+ * @param {{
+ *   throttling: { mobileSlow4G: { requestLatencyMs: number, downloadThroughputKbps: number, uploadThroughputKbps: number, cpuSlowdownMultiplier: number } },
+ *   screenEmulationMetrics: { mobile: { width: number, height: number, deviceScaleFactor: number } },
+ *   userAgents: { mobile: string },
+ * }} constants
+ */
+export function tapEmulation({ throttling, screenEmulationMetrics, userAgents }) {
+  const t = throttling.mobileSlow4G;
+  const { width, height, deviceScaleFactor } = screenEmulationMetrics.mobile;
+  return {
+    viewport: { width, height, deviceScaleFactor, isMobile: true, hasTouch: true },
+    userAgent: userAgents.mobile,
+    network: {
+      offline: false,
+      latency: t.requestLatencyMs,
+      downloadThroughput: Math.floor((t.downloadThroughputKbps * 1024) / 8),
+      uploadThroughput: Math.floor((t.uploadThroughputKbps * 1024) / 8),
+    },
+    cpuRate: t.cpuSlowdownMultiplier,
+  };
+}
+
+/**
+ * The signed-in headers Lighthouse is given, split for the tap runner: the session as a cookie in
+ * the browser's jar (so the client navigation's own fetches carry it, as a real browser's would),
+ * and every other header as is.
+ * @param {Record<string, string>} headers
+ * @param {string} url the app's origin
+ * @returns {{ cookie: { name: string, value: string, url: string } | null, headers: Record<string, string> }}
+ */
+export function tapSession(headers, url) {
+  const { Cookie: cookie, ...rest } = headers;
+  if (!cookie?.includes("=")) return { cookie: null, headers: rest };
+  const at = cookie.indexOf("=");
+  return { cookie: { name: cookie.slice(0, at), value: cookie.slice(at + 1), url }, headers: rest };
+}
+
+/** @param {TapLoad | LoadError} load @returns {load is LoadError} */
+const tapFailed = (load) => "error" in load;
+
+/**
+ * One tap's runs, reduced: the first hit (or none when the first run failed), the median heading
+ * and loaded times of the runs that finished, and every forbidden request any run made.
+ * @param {MeasuredTap} measured
+ * @param {string} pageUrl the app's origin: a request anywhere else is forbidden
+ * @returns {TapResult}
+ */
+export function aggregateTap(measured, pageUrl) {
+  const loads = /** @type {TapLoad[]} */ (measured.loads.filter((l) => !tapFailed(l)));
+  const first = measured.loads[0] && !tapFailed(measured.loads[0]) ? measured.loads[0] : null;
+  return {
+    from: measured.from,
+    to: measured.to,
+    runs: loads.length,
+    errors: measured.loads.filter(tapFailed).map((l) => l.error),
+    first,
+    median: { ms: median(loads.map((l) => l.ms)), loadedMs: median(loads.map((l) => l.loadedMs)) },
+    forbidden: [
+      ...new Set(
+        loads.flatMap(
+          (l) =>
+            /** @type {string[]} */ (
+              l.requests.filter((u) => !isVercelExtra(u)).map((u) => forbiddenPath(u, pageUrl)).filter(Boolean)
+            ),
+        ),
+      ),
+    ],
+  };
+}
+
+/**
+ * What fails the fixture run in its taps: only a forbidden request. A tap's time is never checked,
+ * and a tap that never landed is reported, not failed (TASK-014).
+ * @param {Record<string, TapResult>} taps
+ * @returns {string[]}
+ */
+export function tapProblems(taps) {
+  return Object.entries(taps).flatMap(([id, t]) =>
+    t.forbidden.map((path) =>
+      path.startsWith("/")
+        ? `${id}: requested ${path} during a tap. The browser never calls the API (hard rule 5): ` +
+          "link to it with a plain `<a>`, never `<Link>`, and fetch it from server code"
+        : `${id}: requested ${path} during a tap, from another host. The browser fetches only from ` +
+          "the app's own origin (D-101): serve the file from the app, a team logo through `TeamChip`'s " +
+          "`/logos/<id>.png` (D-154)",
+    ),
+  );
+}
+
+/**
+ * What a run fails on, and what it only points out. A fixture run is gated by gateProblems and
+ * tapProblems. A preview run fails on nothing: budgets are the fixture's, so its bytes are compared
+ * with none, and anything else gateProblems would say (a forbidden request, CLS, a route that
+ * didn't measure or landed elsewhere) is listed as noticed.
  * @param {{
  *   mode: Mode, routes: Record<string, RouteResult>, budget: Record<string, RouteBudget>, expected?: string[],
+ *   taps?: Record<string, TapResult>,
  * }} args
  * @returns {{ problems: string[], noticed: string[] }}
  */
-export function checkRun({ mode, routes, budget, expected = [] }) {
-  if (mode === "fixture") return { problems: gateProblems(routes, budget, expected), noticed: [] };
-  return { problems: [], noticed: gateProblems(routes, {}, expected) };
+export function checkRun({ mode, routes, budget, expected = [], taps = {} }) {
+  const found = [...tapProblems(taps)];
+  if (mode === "fixture") return { problems: [...gateProblems(routes, budget, expected), ...found], noticed: [] };
+  return { problems: [], noticed: [...gateProblems(routes, {}, expected), ...found] };
 }
 
 /**
@@ -400,8 +529,14 @@ function fmt(v, unit) {
  * preview's, reported only and compared with no budget. Each starts with its own marker.
  * @param {{
  *   mode?: Mode,
- *   current: { url: string, sha?: string | null, lighthouse?: string, runs?: number, routes: Record<string, RouteResult> },
- *   baseline: { pr: number | string, at: string, routes: Record<string, { median?: Record<string, number | null> }> } | null,
+ *   current: {
+ *     url: string, sha?: string | null, lighthouse?: string, runs?: number, routes: Record<string, RouteResult>,
+ *     taps?: Record<string, TapResult>,
+ *   },
+ *   baseline: {
+ *     pr: number | string, at: string, routes: Record<string, { median?: Record<string, number | null> }>,
+ *     taps?: Record<string, { median?: Record<string, number | null> }>,
+ *   } | null,
  *   budget: Record<string, RouteBudget>,
  *   problems: string[],
  *   noticed?: string[],
@@ -412,12 +547,14 @@ export function renderComment({ mode = "fixture", current, baseline, budget, pro
   const gated = mode === "fixture";
   /** @param {number | null | undefined} v */
   const ms = (v) => fmt(v, "ms");
-  /** @param {string} id @param {string} key */
-  const vsBase = (id, key) => {
+  /** @param {string} id @param {string} key @param {"routes" | "taps"} [kind] */
+  const vsBase = (id, key, kind = "routes") => {
     if (!baseline) return "";
-    const v = baseline.routes[id]?.median?.[key];
+    const v = baseline[kind]?.[id]?.median?.[key];
     return v == null ? " (no baseline)" : ` (base ${ms(v)})`;
   };
+  // The preview times no taps (TASK-014); a preview handed some still draws none.
+  const taps = gated ? Object.entries(current.taps ?? {}) : [];
   const n = problems.length;
   const lines = [
     MARKERS[mode],
@@ -466,9 +603,26 @@ export function renderComment({ mode = "fixture", current, baseline, budget, pro
     const cells = TIMINGS.map(({ key }) => `${ms(r.first?.[key])} / ${ms(r.median[key])}${vsBase(id, key)}`);
     lines.push(`| \`${r.path}\` | ${cells.join(" | ")} |`);
   }
-  const unfinished = Object.entries(current.routes).flatMap(([id, r]) =>
-    [...new Set(r.errors)].map((e) => `- ${id}: ${e}`),
-  );
+  if (taps.length) {
+    lines.push(
+      "",
+      "**Taps, reported, never gated** (first hit / median, from the tap: heading = the next screen's `<h1>` " +
+        "shows, its skeleton included; loaded = its data has replaced the skeleton)",
+      "",
+      "| Tap | Heading | Loaded |",
+      "|---|---|---|",
+    );
+    for (const [id, t] of taps) {
+      const cells = /** @type {const} */ (["ms", "loadedMs"]).map(
+        (key) => `${ms(t.first?.[key])} / ${ms(t.median[key])}${vsBase(id, key, "taps")}`,
+      );
+      lines.push(`| \`${id}\` | ${cells.join(" | ")} |`);
+    }
+  }
+  const unfinished = [
+    ...Object.entries(current.routes).flatMap(([id, r]) => [...new Set(r.errors)].map((e) => `- ${id}: ${e}`)),
+    ...taps.flatMap(([id, t]) => [...new Set(t.errors)].map((e) => `- tap ${id}: ${e}`)),
+  ];
   if (unfinished.length) lines.push("", "**Runs that didn't finish** (left out of the medians):", "", ...unfinished);
   lines.push(
     "",
@@ -498,7 +652,13 @@ export function mergeMetrics(parts, order) {
     ...Object.entries(routes).filter(([id]) => !order.includes(id)),
   ]);
   const [first] = [...parts].sort((a, b) => (a.measuredAt < b.measuredAt ? -1 : 1));
-  return { ...first, routes: sorted };
+  // Only the fixture job times taps (TASK-014); a preview's merge carries none.
+  const timed = parts.filter((p) => p.taps);
+  /** @type {Metrics} */
+  const merged = { ...first, routes: sorted };
+  delete merged.taps;
+  if (timed.length) merged.taps = Object.assign({}, ...timed.map((p) => p.taps));
+  return merged;
 }
 
 /**

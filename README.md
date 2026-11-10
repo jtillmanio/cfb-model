@@ -500,8 +500,11 @@ edited in place on every later run.
   API on the seeded test database, as e2e does. The data never changes, so this run fails on what
   holds still between runs: an `/api/py/*` request from the browser, bytes or requests over
   `scripts/perf/budget.json`, CLS of 0.1 or more, accessibility below the recorded score, or a
-  route that didn't measure or landed elsewhere. A PR that changes only `docs/`, `.claude/`,
-  `backups/` or root `*.md` files has no fixture run.
+  route that didn't measure or landed elsewhere. It also times the screen-to-screen taps in
+  `scripts/perf/routes.mjs`' `TAPS` (D-166): a **Taps, reported, never gated** table shows how long
+  each tap takes to draw the next screen's heading and then its data; only a forbidden request
+  during a tap fails the run. A PR that changes only `docs/`, `.claude/`, `backups/` or root `*.md`
+  files has no fixture run.
 - **Preview (reported only).** When Vercel reports the PR's preview ready, the same measurements on
   the preview's own data. Its comment shows the numbers and anything worth a look; it never fails.
 
@@ -526,6 +529,8 @@ each naming its route.
 |---|---|---|
 | `requested /api/py/…` | A page made the browser call the API, usually a `<Link>` prefetch (hard rule 5) | Link to it with a plain `<a>` and fetch from server code |
 | `requested <url> during a page load, from another host` | The browser fetched something from a host other than the app's own (D-101, D-154), e.g. a team logo straight from CFBD's CDN | Serve the file from the app; a team logo goes through `TeamChip`, so the browser asks the app's `/logos/<id>.png` |
+| `requested … during a tap` | A tap from one screen to the next made the browser call the API or another host (D-166) | As for a page load: a plain `<a>` to the API, files served from the app |
+| `tap …: <step>: …` under **Runs that didn't finish** | A tap never landed (not a failure). The message names the step it stopped at and, for a timeout, the page's path, `<h1>` and busy count | Open the fixture job's **Measure** log; a tap that lands on another heading needs its `heading` in `TAPS` updated |
 | `… is over the budget of …` | The page got heavier | Make it lighter, or raise the budget with the reason written in the PR |
 | `ended on /login` | The minted session didn't take | The **fixture** job's `AUTH_SECRET` and `AUTH_ALLOWED_GITHUB_ID` must equal `web/e2e/test-env.ts`'s (a test checks this). On a preview the gate lets every request in (D-153), so ending there means Vercel Preview's `AUTH_ALLOWED_GITHUB_ID` is unset or blank |
 | `never finished measuring` | Lighthouse failed on every run, or the job died | Open the **fixture** job log (a preview: that route's **measure** job; a 401 page means the bypass secret is wrong). `… never answered` in **Serve the app and the API** prints the last lines of both servers' logs |
