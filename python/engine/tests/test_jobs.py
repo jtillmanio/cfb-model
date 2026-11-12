@@ -15,14 +15,15 @@ from typing import Any
 
 import httpx
 import pytest
-from lake_fixture import FIXTURE, engine, write_fixture
+from lake_fixture import FIXTURE, engine, write, write_fixture
+from sqlalchemy import Connection, text
 
 from db.config import repo_root
 from engine import jobs
 from engine.ingest import backfill
 from engine.ingest.cfbd import CallBudget, CfbdClient
 from engine.ingest.endpoints import ENDPOINTS
-from engine.ingest.lake import LocalLake
+from engine.ingest.lake import LocalLake, raw_folder, raw_key
 
 SUNDAY = "2025-08-24T10:00:00Z"  # 06:00 ET, the morning after the fixture's week-1 games
 PROD = "postgresql://jobs:secret@ep-prod.example.neon.tech/cfb"
@@ -53,13 +54,21 @@ def r2(empty_lake: LocalLake, monkeypatch: pytest.MonkeyPatch) -> LocalLake:
 
 
 def serve(
-    lake: LocalLake, monkeypatch: pytest.MonkeyPatch, games: Callable[[list[Any]], list[Any]]
+    lake: LocalLake,
+    monkeypatch: pytest.MonkeyPatch,
+    games: Callable[[list[Any]], list[Any]],
+    calendar: Callable[[int], list[Any]] | None = None,
 ) -> list[str]:
-    """Route the job's CFBD client to the fixture's records, `/games` passed through `games`."""
+    """Route the job's CFBD client to the fixture's records, `/games` passed through `games` and
+    `/calendar` from `calendar(year)` when given. A calendar request is logged with its year."""
     requests: list[str] = []
 
     def handler(request: httpx.Request) -> httpx.Response:
         name = PATHS[request.url.path]
+        if name == "calendar":
+            year = int(request.url.params["year"])
+            requests.append(f"calendar year={year}")
+            return httpx.Response(200, json=calendar(year) if calendar else records(name))
         requests.append(f"{name} week={request.url.params.get('week')}")
         body = games(records("games")) if name == "games" else records(name)
         return httpx.Response(200, json=body)
@@ -270,6 +279,201 @@ def test_a_second_run_reuses_final_files(
 
     week_pulls = [r for r in requests if r.endswith("week=1")]
     assert len(week_pulls) == 2 * len(jobs.PULLS["results"])  # Sunday's and Monday's, not the third
+
+
+# TASK-065: the next season's calendar in the off-season
+
+OFF_SEASON = "2026-02-15T13:00:00Z"  # Sun 08:00 ET: every 2025 game, the title game too, is played
+CALENDAR_DATES = ("startDate", "endDate", "firstGameStart", "lastGameStart")
+
+
+def calendar_of(year: int) -> list[Any]:
+    """The fixture's 2025 calendar moved to `year` in whole weeks, so weekdays hold: 2026's
+    opens on Saturday 2026-08-22."""
+    by = timedelta(weeks=52 * (year - 2025))
+    return [
+        {
+            **w,
+            "season": year,
+            **{
+                k: (datetime.fromisoformat(w[k]) + by).strftime("%Y-%m-%dT%H:%M:%S.000Z")
+                for k in CALENDAR_DATES
+            },
+        }
+        for w in records("calendar")
+    ]
+
+
+def a_year_on(games: list[Any]) -> list[Any]:
+    return [
+        {**g, "season": g["season"] + 1,
+         "startDate": (datetime.fromisoformat(g["startDate"]) + timedelta(weeks=52)).isoformat()}
+        for g in games
+    ]  # fmt: skip
+
+
+@pytest.fixture
+def off_season(empty_lake: LocalLake, monkeypatch: pytest.MonkeyPatch) -> LocalLake:
+    """The shared lake in February: every fixture file, 2025's week 1 settled long ago."""
+    monkeypatch.setenv("APP_ENV", "test")
+    monkeypatch.setenv("FIXTURE_NOW", OFF_SEASON)
+    monkeypatch.setenv("CFBD_API_KEY", "")
+    write_fixture(empty_lake)
+    return empty_lake
+
+
+def calendars(requests: list[str]) -> list[str]:
+    return [r for r in requests if r.startswith("calendar")]
+
+
+def publish_into(monkeypatch: pytest.MonkeyPatch, conn: Connection) -> None:
+    """The job's real publish, into the rolled-back test connection; re-picking is faked."""
+
+    @contextmanager
+    def begin() -> Iterator[Connection]:
+        yield conn
+
+    class Engine:
+        def execution_options(self, isolation_level: str) -> Engine:
+            return self
+
+        def begin(self) -> Any:
+            return begin()
+
+        def dispose(self) -> None:
+            pass
+
+    monkeypatch.setattr(jobs, "make_engine", lambda _url: Engine())
+    monkeypatch.setattr(jobs, "reevaluate", lambda _conn, _season, _now: [])
+
+
+def test_after_the_title_game_lines_pulls_the_next_calendar(
+    off_season: LocalLake, monkeypatch: pytest.MonkeyPatch, db_conn: Connection, tmp_path: Path
+) -> None:
+    """TASK-065 AC-1: in February the job pulls 2026's calendar (no games), and the publish
+    writes its `seasons` row, whose earliest week to come is what `/slate` gives as
+    `next_kickoff_at` (D-164, TASK-062's test_the_offseason_slate_carries_the_next_kickoff)."""
+    requests = serve(off_season, monkeypatch, lambda games: games, calendar_of)
+    publish_into(monkeypatch, db_conn)
+    live(monkeypatch)
+    summary = tmp_path / "summary.md"
+
+    assert engine("job", "lines", "--target", "live", "--summary", str(summary)) == 0
+
+    assert calendars(requests) == ["calendar year=2026"]
+    assert off_season.walk("raw/cfbd/games/season=2026") == []  # the calendar alone, no games
+    weeks = db_conn.execute(
+        text("SELECT weeks FROM seasons WHERE year = 2026 AND source = 'cfbd'")
+    ).scalar_one()
+    assert [(w["season_type"], w["week"], w["start"]) for w in weeks] == [
+        ("regular", 1, "2026-08-22T07:00:00Z"),
+        ("regular", 2, "2026-09-01T07:00:00Z"),
+        ("regular", 3, "2026-09-07T07:00:00Z"),
+        ("postseason", 1, "2026-12-12T08:00:00Z"),
+    ]
+    now = datetime.fromisoformat(OFF_SEASON)
+    first = min(
+        (w for w in weeks if datetime.fromisoformat(w["start"]) > now),
+        key=lambda w: w["start"],
+    )
+    assert first["start"] == "2026-08-22T07:00:00Z"  # Saturday, the opening day
+    assert datetime.fromisoformat(first["start"]).weekday() == 5
+    assert "Next season's calendar: 2026, 4 weeks" in summary.read_text(encoding="utf-8")
+
+
+def test_a_stored_next_calendar_costs_no_call(
+    off_season: LocalLake, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """TASK-065 AC-2: once 2026's calendar is saved, the next day's run makes no CFBD call."""
+    requests = serve(off_season, monkeypatch, lambda games: games, calendar_of)
+    published = Published()
+    fake_postgres(monkeypatch, published)
+    live(monkeypatch)
+    assert engine("job", "lines", "--target", "live") == 0
+    assert calendars(requests) == ["calendar year=2026"]
+    spent, before = ledger(off_season), len(requests)
+
+    monkeypatch.setenv("FIXTURE_NOW", "2026-02-16T13:00:00Z")
+    assert engine("job", "lines", "--target", "live") == 0
+    monkeypatch.setenv("FIXTURE_NOW", "2026-02-16T13:00:00Z")
+    assert engine("job", "results", "--target", "live") == 0
+
+    assert requests[before:] == []
+    assert ledger(off_season) == spent
+    assert "staging/calendar.parquet" in published.staging  # still staged, so still published
+
+
+def test_an_empty_next_calendar_is_tried_again_a_day_later(
+    off_season: LocalLake, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A pull before CFBD has the schedule saves no weeks; it isn't kept as the answer."""
+    published: dict[int, list[Any]] = {2026: []}
+    requests = serve(off_season, monkeypatch, lambda games: games, lambda year: published[year])
+    fake_postgres(monkeypatch, Published())
+    live(monkeypatch)
+    start = datetime.fromisoformat(OFF_SEASON)
+
+    def run_at(hours: int) -> list[str]:
+        monkeypatch.setenv("FIXTURE_NOW", (start + timedelta(hours=hours)).isoformat())
+        before = len(requests)
+        assert engine("job", "lines", "--target", "live") == 0
+        return calendars(requests[before:])
+
+    assert run_at(0) == ["calendar year=2026"]  # empty
+    assert run_at(23) == []  # under a day old
+    published[2026] = calendar_of(2026)
+    assert run_at(24) == ["calendar year=2026"]  # a day old: tried again, and found
+    assert run_at(48) == []
+
+
+def test_the_season_pulls_its_calendar_again_in_july(
+    r2: LocalLake, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The February copy may lack weeks CFBD adds later (the bowls `season_types` waits for), so
+    the season's first in-season run pulls its calendar once more, and only once."""
+    early = raw_key(raw_folder("calendar", 2026), datetime.fromisoformat(OFF_SEASON))
+    write(r2, early, calendar_of(2026)[:2], {"year": 2026})
+    requests = serve(r2, monkeypatch, a_year_on, calendar_of)
+    fake_postgres(monkeypatch, Published())
+    live(monkeypatch)
+
+    for day in ("2026-07-01T13:00:00Z", "2026-07-02T13:00:00Z"):
+        monkeypatch.setenv("FIXTURE_NOW", day)
+        assert engine("job", "lines", "--target", "live") == 0
+
+    assert calendars(requests) == ["calendar year=2026"]
+
+
+def test_no_next_calendar_before_the_postseason_starts(
+    off_season: LocalLake, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Early December every saved game is played, but the bowls aren't saved yet: 2025's
+    calendar puts the postseason's start on 2025-12-13, so the season isn't over."""
+    monkeypatch.setenv("FIXTURE_NOW", "2025-12-10T13:00:00Z")
+    requests = serve(off_season, monkeypatch, lambda games: games, calendar_of)
+    fake_postgres(monkeypatch, Published())
+    live(monkeypatch)
+
+    assert engine("job", "lines", "--target", "live") == 0
+
+    assert calendars(requests) == []
+
+
+def test_no_next_calendar_while_a_game_is_to_come(
+    off_season: LocalLake, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A 2025 game still to come in February (one CFBD moved) keeps the season going."""
+
+    def one_moved(games: list[Any]) -> list[Any]:
+        return [{**games[0], "startDate": "2026-02-21T20:00:00.000Z"}, *games[1:]]
+
+    requests = serve(off_season, monkeypatch, one_moved, calendar_of)
+    fake_postgres(monkeypatch, Published())
+    live(monkeypatch)
+
+    assert engine("job", "lines", "--target", "live") == 0
+
+    assert calendars(requests) == []
 
 
 def unplayed(games: list[Any]) -> list[Any]:

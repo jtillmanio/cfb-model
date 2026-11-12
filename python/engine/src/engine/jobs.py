@@ -6,11 +6,16 @@
    old week doesn't hold `lines` on that week (TASK-047). Weeks come from the newest record of
    each game across the season's saved `/games` files; the season `/games` and `/calendar` files
    are pulled only when missing. A pull whose saved file is final makes no call (`endpoints.pull`).
-2. **Stage** the season alone: its raw files, plus every season's `/venues` and `/conferences`
-   (pulled once, filed under the backfill's last season), are copied into a scratch lake on the
-   runner, which is rebuilt. The season's `/teams` is pulled when missing too. Teams and venues
-   aren't per season, and the publish rewrites every column of a reference row (D-120): staged
-   from `/games` alone, they'd overwrite production's mascots, colors and venue details with NULL.
+   Once the season is over (its postseason has started and no saved game is still to come), the
+   next season's `/calendar` alone, once, so the off-season app names that season and its
+   kickoff (D-164, TASK-065); in July, when the jobs move to that season, they pull its
+   calendar once more (`_pull_missing`).
+2. **Stage** the season alone, with the next one's calendar when saved: its raw files, plus every
+   season's `/venues` and `/conferences` (pulled once, filed under the backfill's last season),
+   are copied into a scratch lake on the runner, which is rebuilt. The season's `/teams` is
+   pulled when missing too. Teams and venues aren't per season, and the publish rewrites every
+   column of a reference row (D-120): staged from `/games` alone, they'd overwrite production's
+   mascots, colors and venue details with NULL.
    R2 `staging/` is never touched, and upserts never delete, so the other seasons' games and lines
    stay as they are.
 3. **Check** the scratch staging; any failure raises `JobFailed` before a database is opened.
@@ -85,6 +90,9 @@ PULLS: dict[Kind, tuple[str, ...]] = {
 # Weeks `results` revisits: a Monday game (Labor Day) or the month-long bowl week settles after
 # the week's own Sunday run.
 RECENT = timedelta(days=14)
+# How long an off-season pull of the next season's calendar that came back with no weeks is kept
+# before it's tried again (`_pull_next_calendar`): about one call a day until CFBD has the schedule.
+EMPTY_RETRY = timedelta(days=1)
 # Postgres table -> the staged table its rows come from.
 STAGED = {
     "teams": "teams",
@@ -143,6 +151,8 @@ class Summary:
     report: quality.Report | None = None
     repicked: list[Repicked] | None = None
     repick_error: str | None = None
+    # Off-season only: the next season and the weeks its saved calendar holds.
+    next_calendar: tuple[int, int] | None = None
 
     def _repicks(self) -> list[str]:
         out = ["", "Picks re-evaluated against the newest lines (each version's newest scheduled "
@@ -168,6 +178,10 @@ class Summary:
             f"- CFBD calls this run: {self.calls}",
             f"- CFBD calls in {self.month}: {self.month_calls}/{MONTHLY_LIMIT}",
         ]
+        if self.next_calendar is not None:
+            year, weeks = self.next_calendar
+            held = f"{weeks} weeks" if weeks else "no weeks yet (tried again a day after the pull)"
+            out.append(f"- Next season's calendar: {year}, {held}")
         if self.report is not None and not self.report.ok:
             out += ["", "**Nothing published: a data-quality check failed.**", "", "```"]
             out += [self.report.render(), "```"]
@@ -309,13 +323,41 @@ def canceled(games: Iterable[tuple[dict[str, Any], datetime]]) -> list[str]:
 
 
 def _pull_missing(lake: Lake, season: int, client: CfbdClient) -> None:
-    """The season files the week choice and the publish need, when nothing is saved yet."""
+    """The season files the week choice and the publish need, when nothing is saved yet. A
+    calendar saved before the season became the jobs' season is the off-season copy
+    (`_pull_next_calendar`), pulled once more: CFBD may have added weeks since, and
+    `season_types` reads it to start the bowl pulls."""
     for name in ("calendar", "teams"):
-        if latest_raw(lake, raw_folder(name, season)) is None:
+        saved = latest_raw(lake, raw_folder(name, season))
+        early = name == "calendar" and saved and current_season(fetched_at_of(saved)) < season
+        if saved is None or early:
             endpoints.fetch(lake, name, season, client=client)
     for season_type in season_types(lake, season):
         if latest_raw(lake, raw_folder("games", season, None, season_type)) is None:
             endpoints.fetch(lake, "games", season, None, season_type, client=client)
+
+
+def _pull_next_calendar(
+    lake: Lake, season: int, games: Iterable[dict[str, Any]], now: datetime, client: CfbdClient
+) -> tuple[int, int] | None:
+    """Once `season` is over, the next season's `/calendar` alone, so the off-season shell can
+    name it and its kickoff (D-164) before July, when the jobs move to it and pull its games.
+    Over: the season's last calendar week (the postseason) has started, so its bowls are among
+    the saved games (`season_types`), and no saved game is still to come, the title game too.
+    Saved once: a saved calendar costs no call, unless it has no weeks (pulled before CFBD had
+    the schedule) and is `EMPTY_RETRY` old, then it's pulled again. Returns the next season and
+    its saved weeks, or None while `season` is still going."""
+    calendar = latest_raw(lake, raw_folder("calendar", season))
+    starts = [_start(w) for w in decode_raw(lake.read(calendar))] if calendar else []
+    games = list(games)
+    if not starts or max(starts) > now or not games or due_weeks("lines", games, now):
+        return None
+    following = season + 1
+    saved = latest_raw(lake, raw_folder("calendar", following))
+    weeks = decode_raw(lake.read(saved)) if saved else []
+    if saved is None or (not weeks and now - fetched_at_of(saved) >= EMPTY_RETRY):
+        weeks = decode_raw(lake.read(endpoints.fetch(lake, "calendar", following, client=client)))
+    return following, len(weeks)
 
 
 def run(
@@ -340,6 +382,8 @@ def run(
         for season_type, week in summary.weeks:
             for name in PULLS[kind]:
                 endpoints.pull(lake, name, season, week, season_type, client=client)
+        games = (g for g, _ in _games(lake, season).values())
+        summary.next_calendar = _pull_next_calendar(lake, season, games, now, client)
     finally:
         summary.month = clock.now().strftime("%Y-%m")
         summary.month_calls = budget.used()
@@ -347,7 +391,9 @@ def run(
 
     with tempfile.TemporaryDirectory(prefix="cfb-job-") as tmp:
         scratch = LocalLake(Path(tmp))
-        sync_raw(lake, scratch, seasons={season}, every_season=ONCE)
+        # The next season too: off-season, its calendar is all it has, staged so the publish
+        # writes its `seasons` row.
+        sync_raw(lake, scratch, seasons={season, season + 1}, every_season=ONCE)
         summary.canceled = canceled(_games(scratch, season).values())
         summary.staged = rebuild(scratch)
         report = quality.run(scratch)

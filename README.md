@@ -380,10 +380,15 @@ predict** (below) rates, predicts and picks the coming week. The
    earliest kickoff still to come (2 calls), so a game CFBD moved to a later date under its old
    week doesn't hold it there (D-150). A file that's already final costs no call, and a week
    becomes final 24 hours after its last kickoff, so Sunday's run is never final and Monday's
-   settles it (03 › Lake layout).
-2. **stage** the season alone: its raw files, plus `/venues` and `/conferences` from whichever
-   season they're filed under, are copied from R2 into a scratch lake on the runner, which is
-   rebuilt. The season's `/teams` is pulled once when missing, so teams and venues keep their
+   settles it (03 › Lake layout). Once the season is over (its postseason has started and no
+   game is still to come), either job pulls the next season's `/calendar`, and nothing else of
+   it, so the off-season app names that season and its kickoff (D-164). That's one call: a saved
+   calendar costs none, unless it came back with no weeks (CFBD hasn't loaded the schedule yet),
+   when it's tried again a day later. In July, when the jobs move to the new season, they pull
+   its calendar once more, in case CFBD has added weeks since (TASK-065).
+2. **stage** the season, with the next season's calendar when one is saved: its raw files, plus
+   `/venues` and `/conferences` from whichever season they're filed under, are copied from R2
+   into a scratch lake on the runner, which is rebuilt. The season's `/teams` is pulled once when missing, so teams and venues keep their
    details (staged from `/games` alone, they'd publish NULLs). R2's own `staging/` is never
    touched.
 3. **check** the scratch staging with the data-quality checks. A failure ends the run (exit 1)
