@@ -10,12 +10,12 @@
    next season's `/calendar` alone, once, so the off-season app names that season and its
    kickoff (D-164, TASK-065); in July, when the jobs move to that season, they pull its
    calendar once more (`_pull_missing`).
-2. **Stage** the season alone, with the next one's calendar when saved: its raw files, plus every
-   season's `/venues` and `/conferences` (pulled once, filed under the backfill's last season),
-   are copied into a scratch lake on the runner, which is rebuilt. The season's `/teams` is
-   pulled when missing too. Teams and venues aren't per season, and the publish rewrites every
-   column of a reference row (D-120): staged from `/games` alone, they'd overwrite production's
-   mascots, colors and venue details with NULL.
+2. **Stage** the season and the next one (off-season, only its calendar is saved): their raw
+   files, plus every season's `/venues` and `/conferences` (pulled once, filed under the
+   backfill's last season), are copied into a scratch lake on the runner, which is rebuilt.
+   The season's `/teams` is pulled when missing too. Teams and venues aren't per season, and
+   the publish rewrites every column of a reference row (D-120): staged from `/games` alone,
+   they'd overwrite production's mascots, colors and venue details with NULL.
    R2 `staging/` is never touched, and upserts never delete, so the other seasons' games and lines
    stay as they are.
 3. **Check** the scratch staging; any failure raises `JobFailed` before a database is opened.
@@ -391,8 +391,8 @@ def run(
 
     with tempfile.TemporaryDirectory(prefix="cfb-job-") as tmp:
         scratch = LocalLake(Path(tmp))
-        # The next season too: off-season, its calendar is all it has, staged so the publish
-        # writes its `seasons` row.
+        # The next season's raw files too: off-season that's only its calendar, staged so the
+        # publish writes its `seasons` row.
         sync_raw(lake, scratch, seasons={season, season + 1}, every_season=ONCE)
         summary.canceled = canceled(_games(scratch, season).values())
         summary.staged = rebuild(scratch)

@@ -395,7 +395,6 @@ def test_a_stored_next_calendar_costs_no_call(
 
     monkeypatch.setenv("FIXTURE_NOW", "2026-02-16T13:00:00Z")
     assert engine("job", "lines", "--target", "live") == 0
-    monkeypatch.setenv("FIXTURE_NOW", "2026-02-16T13:00:00Z")
     assert engine("job", "results", "--target", "live") == 0
 
     assert requests[before:] == []

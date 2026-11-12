@@ -386,11 +386,11 @@ predict** (below) rates, predicts and picks the coming week. The
    calendar costs none, unless it came back with no weeks (CFBD hasn't loaded the schedule yet),
    when it's tried again a day later. In July, when the jobs move to the new season, they pull
    its calendar once more, in case CFBD has added weeks since (TASK-065).
-2. **stage** the season, with the next season's calendar when one is saved: its raw files, plus
-   `/venues` and `/conferences` from whichever season they're filed under, are copied from R2
-   into a scratch lake on the runner, which is rebuilt. The season's `/teams` is pulled once when missing, so teams and venues keep their
-   details (staged from `/games` alone, they'd publish NULLs). R2's own `staging/` is never
-   touched.
+2. **stage** the season and the next one (off-season, only its calendar is saved): their raw
+   files, plus `/venues` and `/conferences` from whichever season they're filed under, are copied
+   from R2 into a scratch lake on the runner, which is rebuilt. The season's `/teams` is pulled
+   once when missing, so teams and venues keep their details (staged from `/games` alone, they'd
+   publish NULLs). R2's own `staging/` is never touched.
 3. **check** the scratch staging with the data-quality checks. A failure ends the run (exit 1)
    before production is opened.
 4. **publish** to production in one transaction (`PRODUCTION_DATABASE_URL_UNPOOLED`): teams, team
