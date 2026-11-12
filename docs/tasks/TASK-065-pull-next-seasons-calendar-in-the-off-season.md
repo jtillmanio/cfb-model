@@ -1,7 +1,7 @@
 ---
 id: TASK-065
 title: Pull the next season's calendar in the off-season
-status: In progress
+status: Review
 depends_on: [TASK-062]
 size: S
 model: sonnet
@@ -25,8 +25,8 @@ In the off-season the app already names the coming season and shows its kickoff 
 
 ## Acceptance criteria
 
-- [ ] AC-1: Given the clock after the title game and before July, when the calendar job runs, then `seasons` holds a row for the next year with its weeks (expected: `/slate` carries `next_kickoff_at`, the opening Saturday).
-- [ ] AC-2: Given that row already exists, when the job runs again, then it makes no CFBD call (expected: zero calls).
+- [x] AC-1: Given the clock after the title game and before July, when the calendar job runs, then `seasons` holds a row for the next year with its weeks (expected: `/slate` carries `next_kickoff_at`, the opening Saturday).
+- [x] AC-2: Given that row already exists, when the job runs again, then it makes no CFBD call (expected: zero calls).
 
 ## Out of scope
 
@@ -46,8 +46,10 @@ In the off-season the app already names the coming season and shows its kickoff 
 
 _Work noticed during this task and deliberately left out. Each bullet ends `→ <path> § <section>` (where it was placed) or `→ not tracked: <reason>`. See `.claude/skills/track-follow-ups/classify.md`; the PR's Follow-ups section is copied from here._
 
-- Candidate decision: the jobs pull the next season's calendar once the season ends, retry an empty one daily, and pull the season's calendar again in July; amends D-164 (approved at plan)
-- `docs/02-architecture.md` › Jobs and `docs/03-data-model.md` › call budget: the off-season calendar call (approved at plan)
+- Decision: the jobs pull the next season's calendar once the season ends, retry an empty one daily, and pull the season's calendar again in July; amends D-164 (approved at plan) → docs/decisions.md § D-167
+- `docs/02-architecture.md` › Jobs gains the off-season calendar pull (approved at plan) → docs/02-architecture.md § 4. Jobs (GitHub Actions)
+- `docs/03-data-model.md` call budget gains the off-season calendar calls (approved at plan) → docs/03-data-model.md § CollegeFootballData (CFBD): primary
+- Schema review (minor): a July re-pull that comes back empty or shorter than the off-season copy would hide it from `backfill.season_types`, which reads only the newest calendar; reading the newest calendar with weeks would fix it, a backfill change for a case CFBD hasn't shown → docs/decisions.md § D-167 (Revisit if)
 
 ## Plan
 
@@ -78,13 +80,15 @@ _Approved by the owner in the session prompt (2026-11-12: "Accept the plan right
 
 _Filled by /implement-task. One line per round._
 
+Verify R1 PASS (typecheck, lint, db:check, test, build; e2e 88 passed, 24 skipped) | Audit R1 PASS (4 discriminating, 2 guards) | Spec R1 APPROVE | Schema R1 APPROVE (2 minor: staging-scope wording fixed in 0c0ad1c; July re-pull caveat recorded in D-167)
+
 ## Blocked
 
 _Only if status is Blocked: what failed, what was tried, best hypothesis, decision needed._
 
 ## Metrics
 
-- Verify rounds:
-- Review rounds:
-- First-pass AC FAILs:
-- Plan revisions after approval:
+- Verify rounds: 1
+- Review rounds: 1
+- First-pass AC FAILs: 0
+- Plan revisions after approval: 0 (the season-over test gained "the postseason has started" while implementing, after two existing tests showed games alone fire early; inside step 1, plus one extra guard test)
