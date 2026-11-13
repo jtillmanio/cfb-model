@@ -34,6 +34,7 @@ Pasting a Splash contest page into the app returns its rows matched to games. Yo
 - **Fixture paste:** `contest-data.js`'s Week 6 paste, copied into a test fixture. Nothing reads `design/` at runtime (02 › Seed data).
 - **The fixture's Week 6 lines already exist** (TASK-067), so tests that confirm a paste use a contest week with no lines or check the new snapshot by its `captured_at`.
 - *From TASK-069 (PR #157):* NFL teams publish under `sport_id 'nfl'`, source `nflverse`, with `school` the design's short name ("Buffalo", "NY Jets"), `mascot` the nickname ("Bills", "Jets", "Texans") and `abbreviation` nflverse's code (`engine/sports/nfl`, D-169), so a fallback match on `teams.mascot` finds an NFL team by the nickname Splash prints.
+- *From TASK-067 (feat/task-067-contest-tables):* this import is the production writer of `users`: on its first write it upserts the row by `github_id` from the JWT's `sub` (`INSERT … ON CONFLICT (github_id)`), since no migration seeds the real account; `email` and `name` stay NULL because the token carries only `sub` (D-170). The test DB's user is the fixture's, `github_id` 4242.
 
 ## Acceptance criteria
 

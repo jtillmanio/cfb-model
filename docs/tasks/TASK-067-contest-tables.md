@@ -1,7 +1,7 @@
 ---
 id: TASK-067
 title: Add users, contests, contest_lines, contest_entries and contest_standings
-status: In progress
+status: Review
 depends_on: [TASK-016, TASK-069]
 size: M
 model: opus
@@ -35,11 +35,11 @@ The database can hold your contests, each week's contest lines as snapshots, you
 
 ## Acceptance criteria
 
-- [ ] AC-1: Migration `0007` creates `users`, `contests`, `contest_lines`, `contest_entries` and `contest_standings`, per 03 › Your data and › Proposed additions with the plan's settled keys. It runs up → down → up on the test DB, and `pnpm db:check` passes (one head, models match).
-- [ ] AC-2: `contest_lines` and `contest_standings` refuse UPDATE, DELETE and TRUNCATE (append-only). A `contest_entries` row can't be hard-deleted. After an entry is soft-deleted (`deleted_at` set), the same user, contest and game can take a new entry, and two live entries for one user, contest and game are refused (D-033).
-- [ ] AC-3: `picks` gains `contest_line_id`. A pick with both or neither of `line_snapshot_id` and `contest_line_id` is refused. A contest pick with `price` NULL inserts. A contest pick whose contest line belongs to another game is refused, as a market pick on another game's snapshot already is.
-- [ ] AC-4: `current_picks` and `pick_outcomes` give a contest pick `line_source` `contest`, and `pick_outcomes` gives it no market `units`. On the seeded DB, `model_record`'s v1.0 2026 `to_date` row through week 5 is still 31-24-1, +4.6u. A `test_api_shell.py` case with a contest pick for a week-6 game shows the shell's `picks` count leaves it out.
-- [ ] AC-5: The seeded test DB has:
+- [x] AC-1: Migration `0007` creates `users`, `contests`, `contest_lines`, `contest_entries` and `contest_standings`, per 03 › Your data and › Proposed additions with the plan's settled keys. It runs up → down → up on the test DB, and `pnpm db:check` passes (one head, models match).
+- [x] AC-2: `contest_lines` and `contest_standings` refuse UPDATE, DELETE and TRUNCATE (append-only). A `contest_entries` row can't be hard-deleted. After an entry is soft-deleted (`deleted_at` set), the same user, contest and game can take a new entry, and two live entries for one user, contest and game are refused (D-033).
+- [x] AC-3: `picks` gains `contest_line_id`. A pick with both or neither of `line_snapshot_id` and `contest_line_id` is refused. A contest pick with `price` NULL inserts. A contest pick whose contest line belongs to another game is refused, as a market pick on another game's snapshot already is.
+- [x] AC-4: `current_picks` and `pick_outcomes` give a contest pick `line_source` `contest`, and `pick_outcomes` gives it no market `units`. On the seeded DB, `model_record`'s v1.0 2026 `to_date` row through week 5 is still 31-24-1, +4.6u. A `test_api_shell.py` case with a contest pick for a week-6 game shows the shell's `picks` count leaves it out.
+- [x] AC-5: The seeded test DB has:
   - the allowlisted user;
   - "Splash work league" (platform `splash`, season 2026, `rules` equal to `SPLASH_PRESET`);
   - Week 6 contest lines for the 10 games in `contest-data.js`'s paste, captured Thu 2026-10-08 before 9:14 PM ET;
@@ -79,8 +79,9 @@ _Work noticed during this task and deliberately left out. Each bullet ends `→ 
 
 - TASK-070's import is the production writer of `users`: upsert by `github_id` from the JWT's `sub` on the first write (no migration seeds the real account) → docs/tasks/TASK-070-contest-import-api.md § Context (approved at plan)
 - TASK-068: the model's contest picks are CFB-only (a pick needs a prediction; the NFL gap side is computed on read and never counts in the model record); the weeks 1–5 contest slates are 5 final CFB games each with v1.0 predictions, for its "Model top 4 11-9" fixture; `current_picks` and `pick_outcomes` partition contest picks by contest → docs/tasks/TASK-068-contest-views.md § Context (approved at plan)
-- `current_picks` and `pick_outcomes` read contest picks without checking their contest's `deleted_at` (`.claude/rules/database.md`: filter `deleted_at IS NULL` on every read). Nothing writes contest picks yet and `model_record` leaves them out; TASK-068, which writes the model's contest picks and the contest views, decides whether a deleted contest's picks drop out (spec review R1)
-- `contest_entries` has only the partial live index `(user_id, contest_id, game_id)`; if TASK-068's results view reads a contest's entries by contest alone, or soft-deleted ones, it adds the index it needs, with an `EXPLAIN` test (schema review R1)
+- `current_picks` and `pick_outcomes` read contest picks without checking their contest's `deleted_at` (`.claude/rules/database.md`: filter `deleted_at IS NULL` on every read). Nothing writes contest picks yet and `model_record` leaves them out; TASK-068, which writes the model's contest picks and the contest views, decides whether a deleted contest's picks drop out (spec review R1) → docs/tasks/TASK-068-contest-views.md § Context
+- `contest_entries` has only the partial live index `(user_id, contest_id, game_id)`; if TASK-068's results view reads a contest's entries by contest alone, or soft-deleted ones, it adds the index it needs, with an `EXPLAIN` test (schema review R1) → docs/tasks/TASK-068-contest-views.md § Context
+- Candidate decision: the contest tables' keys, the `users` writer, CFB-only model contest picks and the picks views' contest partition → docs/decisions.md § D-170
 
 ## Plan
 
@@ -126,7 +127,9 @@ Approved by the owner 2026-11-13.
 
 17 files, within the project's 20-file limit; schema only, no UI. `contest_history.json` is the only file not in "Files likely touched" (the generator's output).
 
-*Added while implementing (test files only, no change of approach):* `python/db/tests/model_rows.py` gains the shared `user`, `contest`, `contest_line` and `contest_pick` helpers the view and shell tests use, and `python/engine/tests/test_fixture_seed.py` gains the re-seed check for the contest rows, beside TASK-069's for the NFL rows. 19 files plus this one.
+*Added while implementing (test files only, no change of approach):* `python/db/tests/model_rows.py` gains the shared `user`, `contest`, `contest_line` and `contest_pick` helpers the view and shell tests use, and `python/engine/tests/test_fixture_seed.py` gains the re-seed check for the contest rows, beside TASK-069's for the NFL rows.
+
+*Added in review (schema review R1, while 0007 is unmerged, since a later fix would need a new migration):* CHECK `period > 0` on `contest_lines` and `contest_standings` (a contest week counts from 1; `test_contest_schema.py::test_a_period_must_be_positive`), and the partial index `ix_picks_contest_line_id` on `picks (contest_line_id) WHERE contest_line_id IS NOT NULL`, so TASK-068's contest reads reach picks through an index (`test_picks_schema.py::test_picks_has_the_amended_columns_keys_and_indexes`); both mirrored in `models.py` and 03. *Spec review R1:* `python/db/views/README.md`'s `current_picks` and `pick_outcomes` rows name the contest partition and the contest pick's missing units (it had drifted with this task's view change). 20 files plus this one.
 
 ### Test strategy
 
@@ -147,13 +150,18 @@ Approved by the owner 2026-11-13.
 
 _Filled by /implement-task. One line per round._
 
+- Verify R1 PASS | Audit R1 PASS (all 5 ACs proven; pre-task run in a scratch schema, plus mutations of the shell and `model_record` market filters)
+- Spec R1 CHANGES (views README drift; a follow-up without a destination) | Schema R1 APPROVE (3 minor: index on `picks.contest_line_id`, CHECK `period > 0`, an entries index) → fixed 2, placed 1; test DB rebuilt for the amended 0007
+- Verify R2 PASS | Spec R2 CHANGES (task-file only: follow-up destinations, plan note for the review additions) → done in the close-out | Schema R2 APPROVE
+- Close-out follow-ups check APPROVE (5 placed; task list M6.1 ticked; roadmap 109 left open, partial)
+
 ## Blocked
 
 _Only if status is Blocked: what failed, what was tried, best hypothesis, decision needed._
 
 ## Metrics
 
-- Verify rounds:
-- Review rounds:
-- First-pass AC FAILs:
-- Plan revisions after approval:
+- Verify rounds: 2 (both PASS; the second after the review fixes)
+- Review rounds: 2
+- First-pass AC FAILs: 0
+- Plan revisions after approval: 0 (the test-helper files and the schema-review index and CHECKs are recorded in the Plan; no change of approach)
