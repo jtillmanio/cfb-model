@@ -10,7 +10,9 @@
 --           void when it is canceled or postponed.
 --   units:  priced at the pick's price for its stake (−110: a win +1.0u, a loss −1.1u); a push
 --           and a void 0, pending NULL. risked is what a win or a loss put at risk (1.1u at −110),
---           0 for a push or a void (refunded), so ROI = units ÷ risked (D-132).
+--           0 for a push or a void (refunded), so ROI = units ÷ risked (D-132). A contest pick
+--           (line_source 'contest', TASK-067) has no price, so both are NULL whatever its result:
+--           it never counts in the market record (D-142).
 --   clv:    the line picked at against game_market's closing line, in points for the side picked:
 --           line − close for a home pick, close − line for an away pick, so a home pick at −2.5
 --           that closed −3.5 is +1.0 and an away pick there −1.0. NULL until the close exists
@@ -51,34 +53,44 @@ SELECT
     g.status AS game_status,
     g.home_points - g.away_points AS margin,
     r.result,
-    CASE r.result
-        WHEN 'won' THEN o.to_win
-        WHEN 'lost' THEN -o.at_risk
-        WHEN 'pending' THEN NULL
+    CASE
+        WHEN p.line_source <> 'market' THEN NULL
+        WHEN r.result = 'won' THEN o.to_win
+        WHEN r.result = 'lost' THEN -o.at_risk
+        WHEN r.result = 'pending' THEN NULL
         ELSE 0
     END AS units,
-    CASE r.result
-        WHEN 'won' THEN o.at_risk
-        WHEN 'lost' THEN o.at_risk
-        WHEN 'pending' THEN NULL
+    CASE
+        WHEN p.line_source <> 'market' THEN NULL
+        WHEN r.result IN ('won', 'lost') THEN o.at_risk
+        WHEN r.result = 'pending' THEN NULL
         ELSE 0
     END AS risked,
     gm.closing_spread_home,
     gm.current_spread_home,
     o.sign * (p.line - gm.closing_spread_home) AS clv,
-    o.sign * (p.line - gm.current_spread_home) AS clv_so_far
+    o.sign * (p.line - gm.current_spread_home) AS clv_so_far,
+    p.contest_line_id,
+    p.contest_id
 FROM (
     SELECT
         p.*,
         s.line_source,
+        s.contest_id,
         row_number() OVER (
-            PARTITION BY p.game_id, p.model_version_id, p.market, s.line_source
+            PARTITION BY p.game_id, p.model_version_id, p.market, s.line_source, s.contest_id
             ORDER BY p.created_at DESC, p.id DESC
         ) AS newest
     FROM picks p
     JOIN games gk ON gk.id = p.game_id
+    LEFT JOIN contest_lines cl ON cl.id = p.contest_line_id
     CROSS JOIN LATERAL (
-        SELECT CASE WHEN p.line_snapshot_id IS NOT NULL THEN 'market' END AS line_source
+        SELECT
+            CASE
+                WHEN p.line_snapshot_id IS NOT NULL THEN 'market'
+                WHEN p.contest_line_id IS NOT NULL THEN 'contest'
+            END AS line_source,
+            cl.contest_id
     ) s
     WHERE p.market = 'spread'
         AND p.created_at < coalesce(

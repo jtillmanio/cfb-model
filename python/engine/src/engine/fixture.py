@@ -7,7 +7,9 @@ Re-seeding changes nothing: reference rows are upserted, line snapshots, ratings
 picks skip a key already stored, and a version or run that exists is reused. picks.json is written
 by its generator, generate_picks.py, beside it (TASK-040), and week6_filler.json, the Week 6 games
 the design doesn't draw, by generate_filler.py (TASK-055). nfl.json is the contest slate's four NFL
-games, under `sport_id 'nfl'` (TASK-069).
+games, under `sport_id 'nfl'` (TASK-069). contest.json is the user, the Splash work league, week 6's
+contest lines and entries and the standing, and contest_history.json, weeks 1-5's lines and
+entries, is written by generate_contest.py (TASK-067).
 """
 
 from __future__ import annotations
@@ -20,6 +22,7 @@ from sqlalchemy import Connection, text
 
 from db.config import refuse_if_live, repo_root, resolve_test_database_url
 from db.session import make_engine
+from engine.core.contest_rules import ContestRules
 from engine.core.spec import ModelSpec
 from engine.publish.reference import (
     insert_line_snapshots,
@@ -581,6 +584,114 @@ def _seed_nfl(conn: Connection, data: dict[str, Any], book_id: int) -> tuple[int
     return len(game_ids), _insert_lines(conn, data["games"], game_ids, book_id)
 
 
+def _seed_contest(
+    conn: Connection, data: dict[str, Any], history: dict[str, Any]
+) -> dict[str, int]:
+    """contest.json and contest_history.json: the allowlisted user, the Splash work league, its
+    contest lines and your entries for weeks 1-6, and your standing (TASK-067). The user is
+    upserted by GitHub id and the contest reused by user and name; lines and entries skip a key
+    already stored, and a standing is inserted only when the contest has none for its period.
+    Returns the number of new lines, entries and standings."""
+    user_id = conn.execute(
+        text(
+            "INSERT INTO users (github_id) VALUES (:github_id)"
+            " ON CONFLICT (github_id) DO UPDATE SET github_id = EXCLUDED.github_id RETURNING id"
+        ),
+        data["user"],
+    ).scalar_one()
+    contest = data["contest"]
+    rules = ContestRules.model_validate(contest["rules"])  # refuse rules the engine can't read
+    conn.execute(
+        text(
+            "INSERT INTO contests (user_id, name, platform, season, rules)"
+            " VALUES (:user_id, :name, :platform, :season, CAST(:rules AS jsonb))"
+            " ON CONFLICT (user_id, name) WHERE deleted_at IS NULL DO NOTHING"
+        ),
+        {**contest, "user_id": user_id, "rules": rules.model_dump_json()},
+    )
+    contest_id = conn.execute(
+        text(
+            "SELECT id FROM contests WHERE user_id = :u AND name = :name AND deleted_at IS NULL"
+        ),
+        {"u": user_id, "name": contest["name"]},
+    ).scalar_one()
+
+    lines = history["lines"] + data["lines"]
+    entries = history["entries"] + data["entries"]
+    game_ids = {
+        r.source_id: r.id
+        for r in conn.execute(
+            text("SELECT id, source_id FROM games WHERE source = :s AND source_id = ANY(:ids)"),
+            {"s": SOURCE, "ids": sorted({x["game"] for x in lines + entries})},
+        )
+    }
+    new_lines = conn.execute(
+        text(
+            "INSERT INTO contest_lines (contest_id, period, game_id, spread_home, captured_at,"
+            " source) VALUES (:contest_id, :period, :game_id, :spread_home, :captured_at, :source)"
+            " ON CONFLICT (contest_id, game_id, captured_at) DO NOTHING"
+        ),
+        [
+            {
+                "contest_id": contest_id,
+                "period": x["period"],
+                "game_id": game_ids[x["game"]],
+                "spread_home": x["spread_home"],
+                "captured_at": _ts(x["captured_at"]),
+                "source": SOURCE,
+            }
+            for x in lines
+        ],
+    ).rowcount
+
+    # Each entry is at its game's newest contest line captured before it was made.
+    line_ids = conn.execute(
+        text(
+            "SELECT id, game_id, captured_at FROM contest_lines WHERE contest_id = :c"
+            " ORDER BY captured_at"
+        ),
+        {"c": contest_id},
+    ).all()
+    rows = []
+    for x in entries:
+        game_id, made = game_ids[x["game"]], _ts(x["created_at"])
+        assert made is not None
+        line_id = [r.id for r in line_ids if r.game_id == game_id and r.captured_at < made][-1]
+        rows.append(
+            {
+                "user_id": user_id,
+                "contest_id": contest_id,
+                "game_id": game_id,
+                "line_id": line_id,
+                "side": x["side"],
+                "created_at": made,
+            }
+        )
+    new_entries = conn.execute(
+        text(
+            "INSERT INTO contest_entries (user_id, contest_id, game_id, contest_line_id, side,"
+            " created_at) VALUES (:user_id, :contest_id, :game_id, :line_id, :side, :created_at)"
+            " ON CONFLICT (user_id, contest_id, game_id) WHERE deleted_at IS NULL DO NOTHING"
+        ),
+        rows,
+    ).rowcount
+
+    new_standings = 0
+    for s in data["standings"]:
+        new_standings += conn.execute(
+            text(
+                "INSERT INTO contest_standings (contest_id, period, position, field_size,"
+                " points_behind_leader, note, entered_at)"
+                " SELECT :c, :period, :position, :field_size, :points_behind_leader, :note,"
+                " :entered_at"
+                " WHERE NOT EXISTS ("
+                " SELECT 1 FROM contest_standings WHERE contest_id = :c AND period = :period)"
+            ),
+            {**s, "c": contest_id, "entered_at": _ts(s["entered_at"])},
+        ).rowcount
+    return {"lines": new_lines, "entries": new_entries, "standings": new_standings}
+
+
 def seed_fixture() -> None:
     refuse_if_live("seed the fixture")
     url = resolve_test_database_url()
@@ -601,6 +712,7 @@ def seed_fixture() -> None:
             conn, filler, models, week, team_ids, book_id, version_ids[filler["version"]]
         )
         nfl_games, nfl_lines = _seed_nfl(conn, nfl, book_id)
+        contest = _seed_contest(conn, _load("contest.json"), _load("contest_history.json"))
     print(
         f"Seeded {len(teams['teams']) + len(filler['teams'])} fixture teams for"
         f" {teams['season']}, {len(week['games']) + len(picks['games']) + len(filler['games'])}"
@@ -608,5 +720,6 @@ def seed_fixture() -> None:
         f" {len(models['versions'])} model versions, {ratings + filler_ratings} new ratings,"
         f" {predictions + more_predictions + filler_predictions} new predictions and"
         f" {new_picks} new picks into the test DB; {len(nfl['teams'])} NFL teams, {nfl_games}"
-        f" NFL games and {nfl_lines} new NFL line snapshots."
+        f" NFL games and {nfl_lines} new NFL line snapshots; {contest['lines']} new contest"
+        f" lines, {contest['entries']} new entries and {contest['standings']} new standings."
     )

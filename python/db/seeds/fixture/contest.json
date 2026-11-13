@@ -1,0 +1,38 @@
+{
+  "_source": "design/handoff/designs/contest-data.js and design/sample-data.md § 3 (TASK-067): the allowlisted user (github_id 4242, the id the API tests and e2e sign in as), the Splash work league with the Splash preset rules (engine/core/contest_rules.py SPLASH_PRESET), the Week 6 contest lines from the paste (spread_home from the home side, the paste's `hl`: UNLV +10 at Boise State is -10, Notre Dame -17.5 at Stanford +17.5, Bills -3 at Jets +3), captured Thu 2026-10-08 9:10 PM ET, before the first entry; your entries OU +7 (home, Thu 9:14 PM ET) and BUF -3 (away, Thu 9:20 PM ET); and the standing you entered after week 5: 3rd of 14, 1 point behind the leader. Weeks 1-5 are contest_history.json. Test DB only (D-089).",
+  "user": { "github_id": 4242 },
+  "contest": {
+    "name": "Splash work league",
+    "platform": "splash",
+    "season": 2026,
+    "rules": {
+      "period": "week",
+      "sports": ["cfb", "nfl"],
+      "slate": "curated",
+      "picks_per_period": 4,
+      "picks_exact": true,
+      "lock": "per_game_kickoff",
+      "scoring": "point_per_win",
+      "push": "zero"
+    }
+  },
+  "lines": [
+    { "period": 6, "game": "2026-w6-unlv-bsu", "spread_home": -10, "captured_at": "2026-10-09T01:10:00Z" },
+    { "period": 6, "game": "2026-w6-pur-osu", "spread_home": -27, "captured_at": "2026-10-09T01:10:00Z" },
+    { "period": 6, "game": "2026-w6-miss-lsu", "spread_home": -3, "captured_at": "2026-10-09T01:10:00Z" },
+    { "period": 6, "game": "2026-w6-nd-stan", "spread_home": 17.5, "captured_at": "2026-10-09T01:10:00Z" },
+    { "period": 6, "game": "2026-w6-tex-ou", "spread_home": 7, "captured_at": "2026-10-09T01:10:00Z" },
+    { "period": 6, "game": "2026-w6-colo-byu", "spread_home": -5.5, "captured_at": "2026-10-09T01:10:00Z" },
+    { "period": 6, "game": "2026-w6-buf-nyj", "spread_home": 3, "captured_at": "2026-10-09T01:10:00Z" },
+    { "period": 6, "game": "2026-w6-hou-jax", "spread_home": 1, "captured_at": "2026-10-09T01:10:00Z" },
+    { "period": 6, "game": "2026-w6-kc-bal", "spread_home": -2.5, "captured_at": "2026-10-09T01:10:00Z" },
+    { "period": 6, "game": "2026-w6-nyg-phi", "spread_home": -6, "captured_at": "2026-10-09T01:10:00Z" }
+  ],
+  "entries": [
+    { "period": 6, "game": "2026-w6-tex-ou", "side": "home", "created_at": "2026-10-09T01:14:00Z" },
+    { "period": 6, "game": "2026-w6-buf-nyj", "side": "away", "created_at": "2026-10-09T01:20:00Z" }
+  ],
+  "standings": [
+    { "period": 5, "position": 3, "field_size": 14, "points_behind_leader": 1, "note": null, "entered_at": "2026-10-05T13:00:00Z" }
+  ]
+}

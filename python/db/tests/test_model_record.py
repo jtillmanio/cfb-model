@@ -8,6 +8,7 @@ win) and 8 pending. The constructed rows use the throwaway sport and roll back (
 from __future__ import annotations
 
 from collections import Counter
+from datetime import timedelta
 from decimal import Decimal
 from typing import Any
 
@@ -102,6 +103,46 @@ def test_seeded_buckets_count_their_picks(db_conn: Connection):
     buckets = {r["edge_bucket"]: r["picks"] for r in _through(_seeded(db_conn), "bucket", 5)}
 
     assert buckets == dict(expected)
+
+
+def test_contest_picks_leave_the_record_alone(db_conn: Connection):
+    """TASK-067 (AC-4): v1.0's contest picks on week-5 games (one per game, each on the side
+    that covered) leave its record through week 5 at 31-24-1, +4.6u: it counts market picks
+    only (D-142)."""
+    games = db_conn.execute(
+        text(
+            "SELECT p.id AS prediction_id, p.game_id, g.kickoff_at,"
+            " g.home_points - g.away_points AS margin, m.closing_spread_home AS close"
+            " FROM predictions p JOIN games g ON g.id = p.game_id"
+            " JOIN game_market m ON m.game_id = g.id"
+            f" WHERE p.model_version_id = ({SEEDED_V1}) AND g.season = 2026 AND g.week = 5"
+            " ORDER BY g.id LIMIT 3"
+        )
+    ).all()
+    assert len(games) == 3
+    version_id = db_conn.execute(text(SEEDED_V1)).scalar_one()
+    contest_id = m.contest(db_conn, m.user(db_conn))
+    for g in games:
+        line = float(g.close) + 0.5 if float(g.close) % 1 == 0 else float(g.close)
+        side = "home" if g.margin + line > 0 else "away"
+        picked_at = g.kickoff_at - timedelta(days=2)
+        contest_line = m.contest_line(db_conn, contest_id, g.game_id, line, picked_at, period=5)
+        m.contest_pick(db_conn, g.prediction_id, version_id, g.game_id, contest_line,
+                       picked_at + timedelta(minutes=5), side=side, line=line,
+                       edge_pts=3.0 if side == "home" else -3.0)  # fmt: skip
+    graded = db_conn.execute(
+        text(
+            "SELECT result FROM pick_outcomes WHERE model_version_id = :v AND is_current"
+            " AND line_source = 'contest' AND game_id = ANY(:g)"
+        ),
+        {"v": version_id, "g": [g.game_id for g in games]},
+    ).scalars()
+    assert list(graded) == ["won"] * 3
+
+    (row,) = _through(_seeded(db_conn), "to_date", 5)
+    assert (row["picks"], *_wlp(row), row["units"]) == (56, 31, 24, 1, Decimal("4.6"))
+    (week,) = _through(_seeded(db_conn), "week", 5)
+    assert week["picks"] == 15
 
 
 def test_a_superseded_pick_counts_once(db_conn: Connection):

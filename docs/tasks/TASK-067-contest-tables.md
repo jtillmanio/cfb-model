@@ -1,7 +1,7 @@
 ---
 id: TASK-067
 title: Add users, contests, contest_lines, contest_entries and contest_standings
-status: Ready
+status: In progress
 depends_on: [TASK-016, TASK-069]
 size: M
 model: opus
@@ -79,6 +79,7 @@ _Work noticed during this task and deliberately left out. Each bullet ends `→ 
 
 - TASK-070's import is the production writer of `users`: upsert by `github_id` from the JWT's `sub` on the first write (no migration seeds the real account) → docs/tasks/TASK-070-contest-import-api.md § Context (approved at plan)
 - TASK-068: the model's contest picks are CFB-only (a pick needs a prediction; the NFL gap side is computed on read and never counts in the model record); the weeks 1–5 contest slates are 5 final CFB games each with v1.0 predictions, for its "Model top 4 11-9" fixture; `current_picks` and `pick_outcomes` partition contest picks by contest → docs/tasks/TASK-068-contest-views.md § Context (approved at plan)
+- `python/db/views/README.md`'s `current_picks` row still says "per game, version, market and line source"; since TASK-067 the partition also holds the contest. TASK-068 adds the contest views' rows to the same table
 
 ## Plan
 
@@ -123,6 +124,8 @@ Approved by the owner 2026-11-13.
 - `docs/03-data-model.md`, `docs/02-architecture.md`, `docs/decisions.md`
 
 17 files, within the project's 20-file limit; schema only, no UI. `contest_history.json` is the only file not in "Files likely touched" (the generator's output).
+
+*Added while implementing (test files only, no change of approach):* `python/db/tests/model_rows.py` gains the shared `user`, `contest`, `contest_line` and `contest_pick` helpers the view and shell tests use, and `python/engine/tests/test_fixture_seed.py` gains the re-seed check for the contest rows, beside TASK-069's for the NFL rows. 19 files plus this one.
 
 ### Test strategy
 

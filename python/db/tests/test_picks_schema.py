@@ -31,11 +31,11 @@ from engine.core.spec import ModelSpec, fixed
 SEEDS = repo_root() / "python" / "db" / "seeds" / "fixture"
 
 # 03 › Models & outputs › picks, as amended at the plan gate: the version and game are carried
-# for the composite foreign keys; `contest_line_id` waits for `contest_lines` (M6.1).
+# for the composite foreign keys; `contest_line_id` came with `contest_lines` (TASK-067).
 PICK_COLUMNS = {
-    "id", "prediction_id", "model_version_id", "game_id", "line_snapshot_id", "market", "side",
-    "line", "price", "model_prob", "edge_pts", "expected_value", "tier", "stake_units",
-    "created_at",
+    "id", "prediction_id", "model_version_id", "game_id", "line_snapshot_id", "contest_line_id",
+    "market", "side", "line", "price", "model_prob", "edge_pts", "expected_value", "tier",
+    "stake_units", "created_at",
 }  # fmt: skip
 
 
@@ -143,8 +143,9 @@ def test_picks_has_the_amended_columns_keys_and_indexes(db_conn: Connection):
     insp = inspect(db_conn)
     assert {c["name"] for c in insp.get_columns("picks")} == PICK_COLUMNS
     nullable = {c["name"] for c in insp.get_columns("picks") if c["nullable"]}
-    # A pass row (no pick) has no side and no tier; a moneyline pick has no line.
-    assert nullable == {"side", "tier", "line"}
+    # A pass row (no pick) has no side and no tier; a moneyline pick has no line; a pick is at a
+    # line snapshot or a contest line, and a contest pick has no price (TASK-067).
+    assert nullable == {"side", "tier", "line", "line_snapshot_id", "contest_line_id", "price"}
 
     fks = {
         fk["referred_table"]: (
@@ -163,9 +164,17 @@ def test_picks_has_the_amended_columns_keys_and_indexes(db_conn: Connection):
             ["id", "game_id"],
             {"ondelete": "RESTRICT"},
         ),
+        "contest_lines": (
+            ["contest_line_id", "game_id"],
+            ["id", "game_id"],
+            {"ondelete": "RESTRICT"},
+        ),
     }
-    uniques = [u["column_names"] for u in insp.get_unique_constraints("picks")]
-    assert uniques == [["prediction_id", "market", "line_snapshot_id"]]
+    uniques = sorted(u["column_names"] for u in insp.get_unique_constraints("picks"))
+    assert uniques == [
+        ["prediction_id", "market", "contest_line_id"],
+        ["prediction_id", "market", "line_snapshot_id"],
+    ]
     indexes = [i["column_names"] for i in insp.get_indexes("picks")]
     # One game's picks (the current pick per game) and one version's picks (its record).
     assert ["game_id", "model_version_id", "created_at"] in indexes
@@ -239,17 +248,56 @@ def test_a_pick_at_its_line_snapshot_is_stored(db_conn: Connection):
     assert stored.created_at is not None
 
 
-def test_a_pick_without_a_line_snapshot_is_refused(db_conn: Connection):
-    _refused(db_conn, _rows(db_conn), errors.NotNullViolation, None, line_snapshot_id=None)
+def _contest_line(conn: Connection, game_id: int) -> int:
+    contest_id = m.contest(conn, m.user(conn))
+    return m.contest_line(conn, contest_id, game_id, -1.5, m.utc(2030, 9, 3, 1))
 
 
-def test_a_contest_line_is_not_a_column_until_m6_1(db_conn: Connection):
-    """The plan's settlement: every pick is a market pick at a line snapshot until
-    `contest_lines` exists; M6.1 adds `contest_line_id` and the exactly-one CHECK."""
+def test_a_pick_needs_exactly_one_line(db_conn: Connection):
+    """TASK-067 (AC-3): a market pick at a snapshot or a contest pick at a contest line, never
+    both and never neither (D-140)."""
     rows = _rows(db_conn)
-    with pytest.raises(DBAPIError) as err, db_conn.begin_nested():
-        _pick(db_conn, rows, contest_line_id=None)
-    assert isinstance(err.value.orig, errors.UndefinedColumn)
+    contest_line = _contest_line(db_conn, rows.game_id)
+    one = "ck_picks_one_line"
+    _refused(db_conn, rows, errors.CheckViolation, one, line_snapshot_id=None)
+    _refused(db_conn, rows, errors.CheckViolation, one, contest_line_id=contest_line)
+    _refused(
+        db_conn, rows, errors.CheckViolation, one,
+        line_snapshot_id=None, contest_line_id=None, price=None,
+    )  # fmt: skip
+
+
+def test_a_contest_pick_inserts_with_no_price(db_conn: Connection):
+    rows = _rows(db_conn)
+    contest_line = _contest_line(db_conn, rows.game_id)
+    pick_id = _pick(
+        db_conn, rows, line_snapshot_id=None, contest_line_id=contest_line, line=-1.5, price=None
+    )
+    stored = db_conn.execute(
+        text("SELECT line_snapshot_id, contest_line_id, line, price FROM picks WHERE id = :p"),
+        {"p": pick_id},
+    ).one()
+    assert tuple(stored) == (None, contest_line, Decimal("-1.5"), None)
+    # The same contest line twice is the same pick.
+    _refused(
+        db_conn, rows, errors.UniqueViolation, "uq_picks_prediction_id_market_contest_line_id",
+        line_snapshot_id=None, contest_line_id=contest_line, line=-1.5, price=None,
+    )  # fmt: skip
+
+
+def test_a_market_pick_still_needs_a_price(db_conn: Connection):
+    _refused(db_conn, _rows(db_conn), errors.CheckViolation, "ck_picks_price_for_market",
+             price=None)  # fmt: skip
+
+
+def test_a_contest_pick_on_another_games_line_is_refused(db_conn: Connection):
+    """As a market pick on another game's snapshot is (below)."""
+    rows = _rows(db_conn)
+    other_line = _contest_line(db_conn, _game(db_conn, "b"))
+    _refused(
+        db_conn, rows, errors.ForeignKeyViolation, "fk_picks_contest_line_id_contest_lines",
+        line_snapshot_id=None, contest_line_id=other_line, price=None,
+    )  # fmt: skip
 
 
 def test_a_market_outside_its_values_is_refused(db_conn: Connection):

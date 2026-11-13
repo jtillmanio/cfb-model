@@ -29,9 +29,11 @@ def _graded(
     points: tuple[int, int] = (30, 20),
     kickoff: datetime = FUTURE,
     lines: tuple[tuple[str, datetime | None, float | None], ...] = (),
+    contest: bool = False,
 ) -> dict[str, Any]:
-    """One game with one spread pick on `side` at `line` (a snapshot the morning of the week),
-    plus any other `lines` (kind, captured_at, spread_home); its pick_outcomes row."""
+    """One game with one spread pick on `side` at `line` (a snapshot the morning of the week, or
+    with `contest` a contest line then), plus any other `lines` (kind, captured_at,
+    spread_home); its pick_outcomes row."""
     m.sport(conn)
     tag = uuid.uuid4().hex[:8]
     home, away = m.team(conn, f"home-{tag}"), m.team(conn, f"away-{tag}")
@@ -40,11 +42,18 @@ def _graded(
     picked_at = kickoff.replace(day=kickoff.day - 5)
     run_id = m.run(conn, version_id, 1, picked_at)
     book_id = m.book(conn)
-    snapshot = m.line(conn, game_id, book_id, picked_at, line)
+    snapshot = None if contest else m.line(conn, game_id, book_id, picked_at, line)
     for kind, at, spread in lines:
         m.line(conn, game_id, book_id, at, spread, kind, total=49.5 if spread is None else None)
-    m.pick(conn, m.prediction(conn, run_id, version_id, game_id), version_id, game_id, snapshot,
-           picked_at, side=side, line=line, edge_pts=4.0 if side == "home" else -4.0)  # fmt: skip
+    prediction_id = m.prediction(conn, run_id, version_id, game_id)
+    edge_pts = 4.0 if side == "home" else -4.0
+    if snapshot is None:
+        contest_line = m.contest_line(conn, m.contest(conn, m.user(conn)), game_id, line, picked_at)
+        m.contest_pick(conn, prediction_id, version_id, game_id, contest_line, picked_at,
+                       side=side, line=line, edge_pts=edge_pts)  # fmt: skip
+    else:
+        m.pick(conn, prediction_id, version_id, game_id, snapshot, picked_at, side=side,
+               line=line, edge_pts=edge_pts)  # fmt: skip
     return dict(
         conn.execute(text("SELECT * FROM pick_outcomes WHERE game_id = :g"), {"g": game_id})
         .one()
@@ -90,6 +99,25 @@ def test_unplayed_games_are_pending_and_canceled_ones_void(db_conn: Connection):
         "canceled": ("void", Decimal("0"), Decimal("0")),
         "postponed": ("void", Decimal("0"), Decimal("0")),
     }
+
+
+def test_a_contest_pick_is_graded_with_no_market_units(db_conn: Connection):
+    """TASK-067 (AC-4): a contest pick is won, pushed or lost at its contest line like any pick,
+    but it has no price, so it earns and risks no market units, a push and a void included
+    (model_record counts market picks only, D-142)."""
+    graded = [
+        _graded(db_conn, "home", -3.0, points=(20 + margin, 20), contest=True)
+        for margin in (4, 3, 2)
+    ] + [_graded(db_conn, "home", -3.0, status="canceled", contest=True)]
+
+    assert [(g["line_source"], g["result"], g["units"], g["risked"]) for g in graded] == [
+        ("contest", "won", None, None),
+        ("contest", "push", None, None),
+        ("contest", "lost", None, None),
+        ("contest", "void", None, None),
+    ]
+    assert all(g["is_current"] and g["price"] is None for g in graded)
+    assert all(g["contest_line_id"] is not None and g["contest_id"] is not None for g in graded)
 
 
 def test_clv_has_d132s_sign(db_conn: Connection):

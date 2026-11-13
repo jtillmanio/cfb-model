@@ -36,3 +36,18 @@ def test_a_reseed_adds_no_nfl_rows(db_conn: Connection):
 
     assert fixture._seed_nfl(db_conn, fixture._load("nfl.json"), book_id) == (4, 0)
     assert db_conn.execute(count).scalar_one() == before == 4
+
+
+def test_a_reseed_adds_no_contest_rows(db_conn: Connection):
+    """TASK-067: the seeded user, contest, contest lines, entries and standing are found again,
+    not added twice."""
+    tables = ("users", "contests", "contest_lines", "contest_entries", "contest_standings")
+    count = text(" + ".join(f"(SELECT count(*) FROM {t})" for t in tables))
+    before = db_conn.execute(text(f"SELECT {count.text}")).scalar_one()
+
+    new = fixture._seed_contest(
+        db_conn, fixture._load("contest.json"), fixture._load("contest_history.json")
+    )
+
+    assert new == {"lines": 0, "entries": 0, "standings": 0}
+    assert db_conn.execute(text(f"SELECT {count.text}")).scalar_one() == before
