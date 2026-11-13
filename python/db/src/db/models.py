@@ -36,7 +36,7 @@ NAMING = {
 }
 
 GAME_STATUSES = ("scheduled", "in_progress", "final", "canceled", "postponed")
-LINE_SOURCES = ("cfbd", "oddsapi", "manual", "fixture")
+LINE_SOURCES = ("cfbd", "oddsapi", "manual", "fixture", "nflverse")
 # A backfilled open or close has no capture time (D-031); a live pull is a timed snapshot.
 LINE_KINDS = ("opening", "closing", "snapshot")
 MODEL_MARKETS = ("spread", "total")

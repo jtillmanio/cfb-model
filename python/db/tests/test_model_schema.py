@@ -460,11 +460,12 @@ def test_each_week_6_game_has_one_v1_prediction(db_conn: Connection):
             " FROM games g LEFT JOIN predictions p ON p.game_id = g.id"
             " AND p.model_version_id = (SELECT id FROM model_versions WHERE sport_id = 'cfb'"
             "   AND name = 'power' AND version = 'v1.0' AND deleted_at IS NULL)"
-            " WHERE g.source = 'fixture' AND g.season = 2026 AND g.week = 6"
-            " GROUP BY g.source_id"
+            " WHERE g.sport_id = 'cfb' AND g.source = 'fixture' AND g.season = 2026"
+            " AND g.week = 6 GROUP BY g.source_id"
         )
     ).all()
-    # The 11 slate games, the 3 picks.json adds (TASK-040) and the 40 filler games (TASK-055).
+    # The NFL's week 6 (TASK-069) has no model. The 11 slate games, the 3 picks.json adds
+    # (TASK-040) and the 40 filler games (TASK-055).
     assert len(rows) == 54
     assert {r.source_id: r.n for r in rows} == {r.source_id: 1 for r in rows}
     for r in rows:

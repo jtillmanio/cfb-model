@@ -1,0 +1,29 @@
+{
+  "_source": "design/sample-data.md §3 (the four NFL rows of the Week 6 contest slate and their market lines) and design/handoff/designs/contest-data.js (team names, abbreviations and colors; kickoffs Sun 1:00, 1:00, 4:25 and 8:20 PM ET). sport_id 'nfl'; source_id is the nflverse team code, so a real nflverse row can't collide (its source is 'nflverse'). spread_home is from the home team's side (negative = home favored): BUF -4.5 at NY Jets is +4.5, HOU -1.5 at Jacksonville +1.5, BAL -2.5 and PHI -7 at home. Each line is the fixture book's Thu 9:02 PM ET pull, as the CFB slate's current line. The contest's own lines (BUF -3 and so on) belong to TASK-067. Test DB only (D-089).",
+  "season": 2026,
+  "week": 6,
+  "teams": [
+    { "source_id": "BUF", "school": "Buffalo", "mascot": "Bills", "abbreviation": "BUF", "color": "#00338D" },
+    { "source_id": "NYJ", "school": "NY Jets", "mascot": "Jets", "abbreviation": "NYJ", "color": "#125740" },
+    { "source_id": "HOU", "school": "Houston", "mascot": "Texans", "abbreviation": "HOU", "color": "#A71930" },
+    { "source_id": "JAX", "school": "Jacksonville", "mascot": "Jaguars", "abbreviation": "JAX", "color": "#006778" },
+    { "source_id": "KC", "school": "Kansas City", "mascot": "Chiefs", "abbreviation": "KC", "color": "#E31837" },
+    { "source_id": "BAL", "school": "Baltimore", "mascot": "Ravens", "abbreviation": "BAL", "color": "#241773" },
+    { "source_id": "NYG", "school": "NY Giants", "mascot": "Giants", "abbreviation": "NYG", "color": "#0B2265" },
+    { "source_id": "PHI", "school": "Philadelphia", "mascot": "Eagles", "abbreviation": "PHI", "color": "#004C54" }
+  ],
+  "games": [
+    { "source_id": "2026-w6-buf-nyj", "game_date": "2026-10-11", "kickoff_at": "2026-10-11T17:00:00Z", "neutral_site": false, "conference_game": false, "venue": null, "away": "BUF", "home": "NYJ", "away_points": null, "home_points": null, "status": "scheduled", "lines": [
+        {"kind": "snapshot", "captured_at": "2026-10-09T01:02:00Z", "spread_home": 4.5}
+      ] },
+    { "source_id": "2026-w6-hou-jax", "game_date": "2026-10-11", "kickoff_at": "2026-10-11T17:00:00Z", "neutral_site": false, "conference_game": false, "venue": null, "away": "HOU", "home": "JAX", "away_points": null, "home_points": null, "status": "scheduled", "lines": [
+        {"kind": "snapshot", "captured_at": "2026-10-09T01:02:00Z", "spread_home": 1.5}
+      ] },
+    { "source_id": "2026-w6-kc-bal", "game_date": "2026-10-11", "kickoff_at": "2026-10-11T20:25:00Z", "neutral_site": false, "conference_game": false, "venue": null, "away": "KC", "home": "BAL", "away_points": null, "home_points": null, "status": "scheduled", "lines": [
+        {"kind": "snapshot", "captured_at": "2026-10-09T01:02:00Z", "spread_home": -2.5}
+      ] },
+    { "source_id": "2026-w6-nyg-phi", "game_date": "2026-10-11", "kickoff_at": "2026-10-12T00:20:00Z", "neutral_site": false, "conference_game": false, "venue": null, "away": "NYG", "home": "PHI", "away_points": null, "home_points": null, "status": "scheduled", "lines": [
+        {"kind": "snapshot", "captured_at": "2026-10-09T01:02:00Z", "spread_home": -7}
+      ] }
+  ]
+}

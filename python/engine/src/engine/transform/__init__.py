@@ -17,7 +17,7 @@ from typing import TYPE_CHECKING
 
 from db.config import refuse_if_live
 from engine.ingest.lake import Lake
-from engine.transform import features, staging, stats
+from engine.transform import features, nfl, staging, stats
 from engine.transform.staging import Staging, raw_prefix
 
 if TYPE_CHECKING:
@@ -36,6 +36,9 @@ TABLES: dict[str, Callable[[Staging], str]] = {
     "returning_production": stats.returning_production,
     "recruiting": stats.recruiting,
     "benchmark_ratings": stats.benchmark_ratings,
+    "nfl_games": nfl.nfl_games,
+    "nfl_lines": nfl.nfl_lines,
+    "nfl_venues": nfl.nfl_venues,
     "skipped_raw": staging.skipped_raw,  # last: it lists what every builder skipped
 }
 

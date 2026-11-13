@@ -1,5 +1,6 @@
 """Publish the staged lake to Postgres (TASK-020): teams, team seasons, venues, seasons, games,
-sportsbooks and line snapshots, in the caller's one transaction.
+sportsbooks and line snapshots, in the caller's one transaction, then the staged NFL games and
+lines from nflverse under `sport_id 'nfl'` (TASK-069, `engine.publish.nfl`).
 
 `publish_lake` runs the data-quality checks first and raises `DataQualityFailed` before writing
 a row when any fails (docs/02-architecture.md › Data correctness). Staged columns are mapped by
@@ -24,6 +25,8 @@ from sqlalchemy import Connection
 from engine import clock
 from engine.ingest.lake import Lake
 from engine.publish.lines import EASTERN, map_lines, publish_lines
+from engine.publish.nfl import TABLES as NFL_TABLES
+from engine.publish.nfl import publish_nfl
 from engine.publish.reference import (
     upsert_games,
     upsert_season,
@@ -45,6 +48,8 @@ TABLES = (
     "sportsbooks",
     "line_snapshots",
 )
+# The NFL publish's new rows come back under these keys, apart from CFB's.
+NFL_KEYS = tuple(f"nfl_{name}" for name in NFL_TABLES)
 COLOR = re.compile(r"#[0-9A-Fa-f]{6}")
 
 
@@ -134,8 +139,9 @@ def publish_lake(
     report: quality.Report | None = None,
 ) -> dict[str, int]:
     """Upsert every staged reference row and insert new line snapshots; returns the new rows per
-    table in `TABLES`. A caller that already ran the checks passes their `report`. The caller
-    owns the transaction, so a failure part-way leaves nothing behind."""
+    table in `TABLES`, then the NFL publish's per table under `NFL_KEYS`. A caller that already
+    ran the checks passes their `report`. The caller owns the transaction, so a failure part-way
+    leaves nothing behind."""
     report = quality.run(lake) if report is None else report
     if not report.ok:
         raise DataQualityFailed(report)
@@ -151,6 +157,9 @@ def publish_lake(
             "lines",
             "talent",
             "returning_production",
+            "nfl_games",
+            "nfl_lines",
+            "nfl_venues",
         )
     }
     new: Counter[str] = Counter()
@@ -272,4 +281,5 @@ def publish_lake(
         )
 
     publish_lines(conn, source, map_lines(staged["lines"], games), game_ids, new)
-    return {name: new[name] for name in TABLES}
+    nfl = publish_nfl(conn, staged["nfl_games"], staged["nfl_lines"], staged["nfl_venues"])
+    return {name: new[name] for name in TABLES} | {f"nfl_{k}": n for k, n in nfl.items()}
