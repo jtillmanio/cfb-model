@@ -1,7 +1,7 @@
 ---
 id: TASK-074
 title: Refresh this week's scores during game windows (the scores job)
-status: Draft
+status: Ready
 depends_on: [TASK-022, TASK-069]
 size: M
 model: opus

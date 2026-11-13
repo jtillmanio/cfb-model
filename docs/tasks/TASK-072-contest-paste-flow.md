@@ -1,7 +1,7 @@
 ---
 id: TASK-072
 title: Build the Contest paste flow
-status: Draft
+status: Ready
 depends_on: [TASK-070, TASK-071, TASK-054]
 size: M
 model: opus

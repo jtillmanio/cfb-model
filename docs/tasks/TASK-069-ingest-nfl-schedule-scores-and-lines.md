@@ -1,7 +1,7 @@
 ---
 id: TASK-069
 title: Ingest the NFL schedule, scores and closing lines from nflverse
-status: Draft
+status: Ready
 depends_on: [TASK-020]
 size: M
 model: opus

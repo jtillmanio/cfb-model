@@ -1,7 +1,7 @@
 ---
 id: TASK-070
 title: Build the contest import API (paste, parse, match, confirm)
-status: Draft
+status: Ready
 depends_on: [TASK-067, TASK-023]
 size: M
 model: opus

@@ -1,7 +1,7 @@
 ---
 id: TASK-067
 title: Add users, contests, contest_lines, contest_entries and contest_standings
-status: Draft
+status: Ready
 depends_on: [TASK-016, TASK-069]
 size: M
 model: opus

@@ -1,7 +1,7 @@
 ---
 id: TASK-068
 title: Add the current_contest_lines, contest_results and current-standing views
-status: Draft
+status: Ready
 depends_on: [TASK-067, TASK-041]
 size: M
 model: opus

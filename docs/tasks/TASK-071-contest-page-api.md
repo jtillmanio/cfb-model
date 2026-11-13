@@ -1,7 +1,7 @@
 ---
 id: TASK-071
 title: Build the contest page API (ranked slate, entries with kickoff lock, results and standing)
-status: Draft
+status: Ready
 depends_on: [TASK-068, TASK-070]
 size: M
 model: opus

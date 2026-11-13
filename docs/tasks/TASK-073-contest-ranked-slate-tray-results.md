@@ -1,7 +1,7 @@
 ---
 id: TASK-073
 title: Build the ranked contest slate, pick tray and results
-status: Draft
+status: Ready
 depends_on: [TASK-071, TASK-072]
 size: M
 model: sonnet
