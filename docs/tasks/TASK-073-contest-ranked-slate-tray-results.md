@@ -29,7 +29,7 @@ The Contest page ranks the week's games against the contest's lines and marks th
 - **Pattern to copy:** TASK-072's page, Server Actions and signed POST (`web/app/contest/`, `web/lib/api.ts`). This Week's slate, filters and record strip (`web/app/(this-week)/slate.tsx`, `slate-filters.tsx`, `record-strip.tsx`). Shared components `web/components/team-chip.tsx`, `market-cell.tsx`, `edge-pill.tsx`, `tier-badge.tsx`, `result-marker.tsx`, `filter-chips.tsx`, `data-table.tsx`.
 - **Numbers come from the response.** The screen prints TASK-071's cover %, gap and market-implied %, and counts the ≠ rows from its flag. F-04 AC-3's "Line ≠ market 7" is sample data; the fixture's lines give 8.
 - **Clipboard:** "Copy picks to enter on Splash" writes plain text. The format is drawn on the board.
-- *From TASK-069 (feat/task-069-nflverse-schedule-lines):* NFL teams from nflverse publish with no color (only the 8 fixture NFL teams carry `contest-data.js`'s colors), so a real NFL chip needs a fallback color or nflverse's team file (D-169).
+- *From TASK-069 (PR #157):* NFL teams from nflverse publish with no color (only the 8 fixture NFL teams carry `contest-data.js`'s colors), so a real NFL chip needs a fallback color or nflverse's team file (D-169).
 
 ## Acceptance criteria
 
