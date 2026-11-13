@@ -171,7 +171,7 @@ class SlateOut(BaseModel):
     last_game_date: date | None
 
 
-Week =tuple[int, SeasonType, int]
+Week = tuple[int, SeasonType, int]
 
 _IN_WEEK = """g.sport_id = :sport
         AND g.season = (SELECT season FROM slate_week)
