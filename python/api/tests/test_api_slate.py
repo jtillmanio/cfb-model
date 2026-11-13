@@ -462,7 +462,9 @@ def test_the_last_game_date_skips_a_canceled_game_and_the_earlier_seasons(db_con
     home, away = m.team(db_conn, "last-home"), m.team(db_conn, "last-away")
     other_home, other_away = m.team(db_conn, "last-home-2"), m.team(db_conn, "last-away-2")
     played = NOW - timedelta(days=60)
-    m.game(db_conn, home, away, played, week=1, season=m.SEASON - 1, game_date="2029-12-30")
+    # An earlier season's game dated after the ended season's newest, so only the season filter
+    # keeps it out of the answer.
+    m.game(db_conn, home, away, played, week=1, season=m.SEASON - 1, game_date="2030-10-01")
     m.game(db_conn, home, away, played, week=1, game_date="2030-09-04")
     m.game(db_conn, other_home, other_away, played, week=2, game_date="2030-09-11")
     m.game(db_conn, home, away, None, week=3, status="canceled", game_date="2030-09-18")
