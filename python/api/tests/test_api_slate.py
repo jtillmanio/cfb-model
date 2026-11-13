@@ -13,7 +13,7 @@ from __future__ import annotations
 import json
 import threading
 from collections.abc import Callable
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from typing import Any
 
 import model_rows as m  # pyright: ignore[reportMissingImports]  (on sys.path via conftest)
@@ -374,6 +374,20 @@ def test_the_offseason_slate_carries_the_next_kickoff(
     assert _get(client, make_token, monkeypatch)["next_kickoff_at"] is None
 
 
+def test_the_offseason_slate_carries_the_last_game_date(
+    client: TestClient, make_token: MakeToken, monkeypatch: pytest.MonkeyPatch, db_conn: Connection
+):
+    """TASK-066 AC-1: the date of the ended season's newest game (Eastern, as stored); null in
+    season. Expected from the games table, so the endpoint can't agree with itself only."""
+    newest = db_conn.execute(
+        text("SELECT max(game_date) FROM games WHERE sport_id = 'cfb' AND season = 2026")
+    ).scalar_one()
+    body = _get(client, make_token, monkeypatch, OFFSEASON_NOW)
+    assert body["last_game_date"] == newest.isoformat() == "2026-10-10"
+
+    assert _get(client, make_token, monkeypatch)["last_game_date"] is None
+
+
 NOW = m.utc(m.SEASON, 9, 1, 12)
 
 
@@ -439,6 +453,29 @@ def test_the_weeks_list_is_ordered_and_leaves_out_week_0(db_conn: Connection):
         (2030, "postseason", 1),
         (2031, "regular", 3),
     ]
+
+
+def test_the_last_game_date_skips_a_canceled_game_and_the_earlier_seasons(db_conn: Connection):
+    """TASK-066 AC-1: a canceled game is never played, so a later one doesn't move the date; and
+    only the ended season's games count (the shell's season, here the latest with games)."""
+    m.sport(db_conn)
+    home, away = m.team(db_conn, "last-home"), m.team(db_conn, "last-away")
+    other_home, other_away = m.team(db_conn, "last-home-2"), m.team(db_conn, "last-away-2")
+    played = NOW - timedelta(days=60)
+    # An earlier season's game dated after the ended season's newest, so only the season filter
+    # keeps it out of the answer.
+    m.game(db_conn, home, away, played, week=1, season=m.SEASON - 1, game_date="2030-10-01")
+    m.game(db_conn, home, away, played, week=1, game_date="2030-09-04")
+    m.game(db_conn, other_home, other_away, played, week=2, game_date="2030-09-11")
+    m.game(db_conn, home, away, None, week=3, status="canceled", game_date="2030-09-18")
+    clock = NOW + timedelta(days=30)
+
+    got = slate.load(db_conn, clock, m.SPORT)
+
+    assert got.offseason is True
+    assert got.last_game_date == date(2030, 9, 11)
+    # In season there is no ended season to describe.
+    assert slate.load(db_conn, played - timedelta(days=30), m.SPORT).last_game_date is None
 
 
 def test_a_week_without_lines_gives_the_model_line_and_no_edge(db_conn: Connection):

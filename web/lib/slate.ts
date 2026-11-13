@@ -658,16 +658,39 @@ export function noPicksNote(slate: Pick<Slate, "games" | "week" | "rules">): {
   };
 }
 
-/** The off-season frame's copy. The season and week come from the API, never guessed; the kickoff line needs its date. */
+/**
+ * A `YYYY-MM-DD` game date as "Sat Oct 10". The date is already Eastern, so it is read in UTC to
+ * keep it on its own day whatever the viewer's zone.
+ */
+function gameDay(date: string): string {
+  return new Intl.DateTimeFormat("en-US", {
+    timeZone: "UTC",
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+  })
+    .format(new Date(`${date}T00:00:00Z`))
+    .replace(",", "");
+}
+
+/**
+ * The off-season frame's copy. The season and week come from the API, never guessed; the kickoff
+ * line needs its date, and "ended with the title game on …" needs the last game's (TASK-066).
+ */
 export function offseasonNote(
   season: number | null,
   nextKickoffAt: string | null | undefined,
   next: { season: number | null; week: number | null } | null = null,
   zone: string = SLATE_ZONE,
+  lastGameDate: string | null | undefined = null,
 ): { title: string; body: string; kickoff: string | null } {
   const nextWeek = next?.week ?? null;
   const week = nextWeek === null ? "The next season" : `Week ${nextWeek}`;
-  const ended = season === null ? "The season has ended." : `The ${season} season has ended.`;
+  const ended = lastGameDate
+    ? `${season === null ? "The season" : `The ${season} season`} ended with the title game on ${gameDay(lastGameDate)}.`
+    : season === null
+      ? "The season has ended."
+      : `The ${season} season has ended.`;
   const kickoff = nextKickoffAt
     ? `${week} kicks off ${new Intl.DateTimeFormat("en-US", {
         timeZone: zone,

@@ -147,6 +147,7 @@ describe("the off-season (AC-5)", () => {
       games: [],
       shell: { season: 2026, next_season: null, next_week: null },
       next_kickoff_at: null,
+      last_game_date: null,
       ...extra,
     });
 
@@ -174,6 +175,24 @@ describe("the off-season (AC-5)", () => {
     expect(screen.getByText("2027 · Week 1 · off-season")).toBeTruthy();
     expect(screen.getByText("Week 1 kicks off Sat Aug 28, 2027")).toBeTruthy();
     expect(screen.getByText(/The 2026 season has ended\. The 2027 slate fills in when books post Week 1 lines/)).toBeTruthy();
+  });
+
+  it("says when the season ended when the response carries the last game's date, and omits it when null (TASK-066 AC-2)", () => {
+    render(
+      <SlateView
+        slate={off({
+          last_game_date: "2027-01-18",
+          shell: { season: 2026, next_season: 2027, next_week: 1 },
+        })}
+      />,
+    );
+    expect(screen.getByText(/^The 2026 season ended with the title game on Mon Jan 18\. The 2027 slate fills in/)).toBeTruthy();
+    expect(screen.queryByText(/has ended/)).toBeNull();
+
+    cleanup();
+    render(<SlateView slate={off()} />);
+    expect(screen.getByText(/^The 2026 season has ended\./)).toBeTruthy();
+    expect(screen.queryByText(/title game/)).toBeNull();
   });
 });
 

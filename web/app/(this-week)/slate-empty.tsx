@@ -14,12 +14,14 @@ export function SlateEmpty({
   season,
   nextKickoffAt,
   next,
+  lastGameDate,
 }: {
   season: number | null;
   nextKickoffAt: string | null;
   next: { season: number | null; week: number | null };
+  lastGameDate: string | null;
 }) {
-  const note = offseasonNote(season, nextKickoffAt, next);
+  const note = offseasonNote(season, nextKickoffAt, next, undefined, lastGameDate);
   return (
     <div className="rounded-lg border bg-card p-4">
       <div
