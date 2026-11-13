@@ -1,7 +1,7 @@
 ---
 id: TASK-066
 title: Carry the last game's date for the "season ended" line
-status: In progress
+status: Review
 depends_on: [TASK-062]
 size: S
 model: sonnet
@@ -26,8 +26,8 @@ The off-season frame says when the season ended, as the design draws it: "The 20
 
 ## Acceptance criteria
 
-- [ ] AC-1: Given the API at the off-season clock (Mon 2027-02-08 6:00 AM ET), `/slate` carries the date of the last game of the season that ended (expected: the fixture's newest game date).
-- [ ] AC-2: At that clock the frame body reads "The 2026 season ended with the title game on <weekday> <month> <day>", and omits the clause when the field is null.
+- [x] AC-1: Given the API at the off-season clock (Mon 2027-02-08 6:00 AM ET), `/slate` carries the date of the last game of the season that ended (expected: the fixture's newest game date).
+- [x] AC-2: At that clock the frame body reads "The 2026 season ended with the title game on <weekday> <month> <day>", and omits the clause when the field is null.
 
 ## Out of scope
 
@@ -47,8 +47,8 @@ The off-season frame says when the season ended, as the design draws it: "The 20
 
 _Work noticed during this task and deliberately left out. Each bullet ends `→ <path> § <section>` (where it was placed) or `→ not tracked: <reason>`. See `.claude/skills/track-follow-ups/classify.md`; the PR's Follow-ups section is copied from here._
 
-- A decision row for `/slate`'s `last_game_date`, amending D-164 (whose "Not done" names this line) (approved at plan)
-- Tick M5.14's Done cell (approved at plan)
+- A decision row for `/slate`'s `last_game_date`, amending D-164 (whose "Not done" names this line) (approved at plan) → docs/decisions.md § D-168 (D-164 gains the pointer "Amended by D-167, D-168")
+- The clause names the season's newest non-canceled game as "the title game", which is right only once the postseason is loaded; and a `postponed` game would count if the transform ever wrote one (schema review, minor) → docs/decisions.md § D-168 (Revisit if)
 
 ## Plan
 
@@ -83,7 +83,7 @@ Approved 2026-11-13 by the owner.
 
 ## Review log
 
-_Filled by /implement-task. One line per round._
+Verify R1 PASS (full e2e: 2 phone specs, /teams and the waking-database note, timed out once in the `/verify` run, passed in isolation and in a full re-run; neither touches /slate) | Audit R1 PASS (static note: the season-filter test didn't discriminate; the earlier-season game is now dated after the newest, and removing the filter fails it) | Spec R1 APPROVE | Schema R1 APPROVE (2 minor, recorded in D-168) | UI R1 PASS (phone, tablet, desktop at the off-season clock)
 
 ## Blocked
 
@@ -91,7 +91,7 @@ _Only if status is Blocked: what failed, what was tried, best hypothesis, decisi
 
 ## Metrics
 
-- Verify rounds:
-- Review rounds:
-- First-pass AC FAILs:
-- Plan revisions after approval:
+- Verify rounds: 1
+- Review rounds: 1
+- First-pass AC FAILs: 0
+- Plan revisions after approval: 0

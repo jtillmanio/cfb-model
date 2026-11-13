@@ -184,7 +184,7 @@ _Written by `/milestones` on 2026-10-08 from [06-roadmap.md](06-roadmap.md). Eac
 | ✅ | M5.11 → TASK-062 | Name the next season in the off-season | ui | M | M5.7 | attended | Draft, from TASK-057. `/slate` sends `next_kickoff_at`, and the shell names the next season and its week 0 (App States `frame="offseason"`), settling TASK-053's open question. TASK-057 reads the optional field and names the last season until then. |
 | ✅ | M5.12 → TASK-064 | Skip spread-less pulls in the backtest's `closing_lines()` | engine | S | M5.9 | attended | Draft, from TASK-060. `closing_lines()` says it applies `game_market`'s rule but still takes a last pull (or CFBD close) with no spread; make it skip such pulls for the spread the same way (D-162). Check the backtest golden metrics |
 | ✅ | M5.13 → TASK-065 | Pull the next season's calendar in the off-season | engine | S | M5.11 | attended | Draft, from TASK-062. D-164 names the next season from `seasons.weeks`, but the jobs pull a season's calendar only from July, so until then the app shows no next season or kickoff line |
-| | M5.14 → TASK-066 | Carry the last game's date for the "season ended" line | api, ui | S | M5.11 | attended | Draft, from TASK-062. The design's "The 2026 season ended with the title game on Mon Jan 18"; the response needs the last game's date |
+| ✅ | M5.14 → TASK-066 | Carry the last game's date for the "season ended" line | api, ui | S | M5.11 | attended | Draft, from TASK-062. The design's "The 2026 season ended with the title game on Mon Jan 18"; the response needs the last game's date |
 
 ## M6: Contest (Phase 4, part 2) — MVP, Phase 4 acceptance
 
