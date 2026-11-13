@@ -21,6 +21,12 @@
 3. **Check** the scratch staging; any failure raises `JobFailed` before a database is opened.
 4. **Publish** it to the target in one transaction (`publish_lake`).
 
+`lines` also pulls the season's NFL schedule, scores and lines from nflverse first (TASK-069,
+`ingest.nflverse`), and both jobs stage and publish the season's saved nflverse files with the CFB
+rows. A failed nflverse download doesn't stop the CFBD pull or the publish: the run carries on
+with the nflverse files already saved, names the failure in its summary, and then raises
+`NflverseFailed` (exit 1).
+
 
 `lines` then re-evaluates picks (TASK-045's writer) in a second transaction, once the snapshots
 are committed: for each version, its newest `scheduled` run in the season, and when that run is
@@ -55,6 +61,7 @@ rolls the transaction back.
 
 from __future__ import annotations
 
+import csv
 import tempfile
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
@@ -62,20 +69,21 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, Literal, cast
 
+import httpx
 from sqlalchemy import Connection, text
 
 from db.session import make_engine
 from engine import clock
 from engine.backtest import harness
 from engine.core.spec import ModelSpec
-from engine.ingest import endpoints
+from engine.ingest import endpoints, nflverse
 from engine.ingest.backfill import ONCE, RAW, season_types, sync_raw
 from engine.ingest.cfbd import MONTHLY_LIMIT, CallBudget, CfbdClient
 from engine.ingest.lake import Lake, LocalLake, decode_raw, fetched_at_of, latest_raw, raw_folder
 from engine.publish import models, picks
 from engine.publish.lines import cutoff
+from engine.publish.staging import NFL_KEYS, publish_lake
 from engine.publish.staging import TABLES as PUBLISHED
-from engine.publish.staging import publish_lake
 from engine.transform import quality, rebuild
 from engine.transform.features import PointInTimeError
 
@@ -109,6 +117,10 @@ class JobFailed(RuntimeError):
     def __init__(self, report: quality.Report) -> None:
         super().__init__(f"Data-quality checks failed: {', '.join(report.failures)}.")
         self.report = report
+
+
+class NflverseFailed(RuntimeError):
+    """The nflverse download failed; the rest of the run went ahead without it."""
 
 
 class PicksFailed(RuntimeError):
@@ -153,6 +165,24 @@ class Summary:
     repick_error: str | None = None
     # Off-season only: the next season and the weeks its saved calendar holds.
     next_calendar: tuple[int, int] | None = None
+    # `lines` only: why the nflverse download failed, else None.
+    nfl_error: str | None = None
+
+    def _nfl(self) -> list[str]:
+        if self.nfl_error is not None:
+            return [
+                "",
+                f"- **NFL (nflverse) download failed:** {self.nfl_error}. The run went on with "
+                "the nflverse files already saved.",
+            ]
+        if not any(key in self.new for key in NFL_KEYS):
+            return []
+        return [
+            "",
+            f"- NFL (nflverse): {self.staged.get('nfl_games', 0)} games staged; new: "
+            f"{self.new.get('nfl_games', 0)} games, "
+            f"{self.new.get('nfl_line_snapshots', 0)} line rows",
+        ]
 
     def _repicks(self) -> list[str]:
         out = ["", "Picks re-evaluated against the newest lines (each version's newest scheduled "
@@ -185,7 +215,7 @@ class Summary:
         if self.report is not None and not self.report.ok:
             out += ["", "**Nothing published: a data-quality check failed.**", "", "```"]
             out += [self.report.render(), "```"]
-            return "\n".join(out)
+            return "\n".join(out + self._nfl())
         out += [
             "",
             "Every staged reference row is upserted; line snapshots are insert-only, so only new "
@@ -198,6 +228,7 @@ class Summary:
             staged = self.staged.get(STAGED.get(table, ""))
             sent = "—" if staged is None else staged
             out.append(f"| {table} | {sent} | {self.new.get(table, 0)} |")
+        out += self._nfl()
         if self.canceled:
             out += [
                 "",
@@ -368,12 +399,20 @@ def run(
     target: str,
     client: CfbdClient,
     summary: Summary | None = None,
+    nfl_http: httpx.Client | None = None,
 ) -> Summary:
     """Pull, stage, check and publish one job; see the module docstring. Raises `JobFailed`
-    before opening `url` when a check fails, with `summary` filled in so far."""
+    before opening `url` when a check fails, with `summary` filled in so far, and
+    `NflverseFailed` once the rest is done when `lines` couldn't download nflverse's file."""
     now = clock.now()
     season = current_season(now)
     summary = summary or Summary(kind, season, target)
+    if kind == "lines":
+        try:
+            nflverse.pull(lake, season, nfl_http)
+        except (httpx.HTTPError, csv.Error, ValueError) as e:
+            summary.nfl_error = f"{type(e).__name__}: {e}"
+            print(f"nflverse download failed: {summary.nfl_error}")
     budget = CallBudget(lake)
     before = budget.used()
     try:
@@ -409,6 +448,8 @@ def run(
                 _repick(db, season, summary)
         finally:
             db.dispose()
+    if summary.nfl_error is not None:
+        raise NflverseFailed(summary.nfl_error)
     return summary
 
 

@@ -76,6 +76,30 @@ def _publish(target: MigrationTarget) -> None:
     print(f"Published to {target}. New rows: " + ", ".join(f"{t} {n}" for t, n in new.items()))
 
 
+def _ingest_nflverse(season: int, target: MigrationTarget) -> None:
+    """Download nflverse's schedule into the lake, stage the NFL tables from every saved file in
+    memory, and publish them to the target in one transaction (TASK-069)."""
+    from db.session import make_engine
+    from engine.ingest import nflverse
+    from engine.ingest.lake import open_lake
+    from engine.publish.nfl import publish_nfl
+    from engine.transform.nfl import stage
+
+    try:
+        url = direct_url(target)
+    except UnsafeDatabaseError as e:
+        _refuse(str(e))
+    lake = open_lake()
+    nflverse.pull(lake, season)
+    rows = stage(lake)
+    with make_engine(url).begin() as conn:
+        new = publish_nfl(conn, rows["nfl_games"], rows["nfl_lines"], rows["nfl_venues"])
+    print(
+        f"Published {len(rows['nfl_games'])} NFL games to {target}. New rows: "
+        + ", ".join(f"{t} {n}" for t, n in new.items())
+    )
+
+
 def _backfill(first: int, last: int, dry_run: bool, max_calls: int | None) -> None:
     """Print the dry run, or pull what it lists; exit 3 when the budget or --max-calls stops it."""
     from engine.ingest import backfill
@@ -127,8 +151,9 @@ def _write_summary(text: str, summary_path: str | None) -> None:
 
 
 def _job(kind: Kind, target: str, summary_path: str | None) -> None:
-    """Run one scheduled job; exit 1 if a check fails (nothing published) or the `lines` pick
-    re-evaluation fails (snapshots published, picks rolled back), 2 on a refusal, 3 when the CFBD
+    """Run one scheduled job; exit 1 if a check fails (nothing published), the `lines` pick
+    re-evaluation fails (snapshots published, picks rolled back) or `lines` couldn't download
+    nflverse's file (the rest published), 2 on a refusal, 3 when the CFBD
     budget stops it. The summary is appended to `summary_path` whatever happens."""
     from engine import clock, jobs
     from engine.ingest.backfill import client_for
@@ -141,7 +166,7 @@ def _job(kind: Kind, target: str, summary_path: str | None) -> None:
     code = 0
     try:
         jobs.run(kind, lake, url, target=target, client=client_for(lake), summary=summary)
-    except (jobs.JobFailed, jobs.PicksFailed):
+    except (jobs.JobFailed, jobs.PicksFailed, jobs.NflverseFailed):
         code = 1
     except BudgetExceededError as e:
         print(e)
@@ -544,12 +569,19 @@ def main(argv: list[str] | None = None) -> None:
 
     ingest = commands.add_parser(
         "ingest",
-        help="Pull one CFBD endpoint into the raw lake (games also publishes to the dev DB)",
+        help="Pull one CFBD endpoint into the raw lake (games also publishes to the dev DB), or "
+        "nflverse's NFL schedule (published to --target)",
         description="One counted CFBD call, saved as Parquet under raw/cfbd/<endpoint>/ in "
-        "LAKE_URI. A week saved after all its games completed is reused, never re-fetched.",
+        "LAKE_URI. A week saved after all its games completed is reused, never re-fetched. "
+        "nflverse: the season's rows of nflverse's games.csv (no CFBD call), saved under "
+        "raw/nflverse/games/, then the NFL games and lines staged from every saved nflverse file "
+        "and published to --target.",
     )
-    ingest.add_argument("endpoint", choices=list(ENDPOINTS), help="%(choices)s")
+    ingest.add_argument("endpoint", choices=[*ENDPOINTS, "nflverse"], help="%(choices)s")
     ingest.add_argument("--season", type=int, required=True)
+    ingest.add_argument(
+        "--target", default="dev", choices=["dev", "test"], help="nflverse only (default dev)"
+    )
     ingest.add_argument("--week", type=int)
     ingest.add_argument("--season-type", default="regular", choices=SEASON_TYPES)
     ingest.add_argument(
@@ -606,7 +638,7 @@ def main(argv: list[str] | None = None) -> None:
     lake_commands = lake.add_subparsers(dest="lake_command", required=True)
     sync = lake_commands.add_parser(
         "sync",
-        help="Copy every raw/cfbd/ file the source has and the target lacks",
+        help="Copy every raw/cfbd/ and raw/nflverse/ file the source has and the target lacks",
         description="No CFBD calls, and no file in the target is overwritten. Each side is a "
         "LAKE_URI: a folder, or s3://<bucket>[/<prefix>] for R2.",
     )
@@ -797,7 +829,12 @@ def main(argv: list[str] | None = None) -> None:
         sys.exit(fallback.main((argv if argv is not None else sys.argv[1:])[1:]))
     args = parser.parse_args(argv)
 
-    if args.command == "ingest":
+    if args.command == "ingest" and args.endpoint == "nflverse":
+        if args.week is not None or args.param or args.season_type != "regular":
+            ingest.error("nflverse takes --season and --target only")
+        load_env()
+        _ingest_nflverse(args.season, args.target)
+    elif args.command == "ingest":
         extra = _extra_params(ingest, args.param)
         try:
             query(args.endpoint, args.season, args.week, args.season_type, extra)

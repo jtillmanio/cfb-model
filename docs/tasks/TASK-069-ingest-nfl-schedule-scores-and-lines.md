@@ -1,14 +1,14 @@
 ---
 id: TASK-069
 title: Ingest the NFL schedule, scores and closing lines from nflverse
-status: Ready
+status: In progress
 depends_on: [TASK-020]
 size: M
 model: opus
 autonomy: attended
 ui: false
-plan_status: none
-planned_at_commit:
+plan_status: approved
+planned_at_commit: afcfc9a
 ---
 
 # TASK-069 — Ingest the NFL schedule, scores and closing lines from nflverse
@@ -72,9 +72,27 @@ The NFL games on a Splash slate exist in the app with their kickoff, score and m
 
 _Work noticed during this task and deliberately left out. Each bullet ends `→ <path> § <section>` (where it was placed) or `→ not tracked: <reason>`. See `.claude/skills/track-follow-ups/classify.md`; the PR's Follow-ups section is copied from here._
 
+- NFL team colors for the contest screens: real nflverse teams publish with no color (approved at plan)
+- `game_market.closing_from` reads `cfbd_close` for an NFL untimed close, and a canceled NFL game stays `scheduled` (nflverse has no cancel flag): recorded in the decision's revisit-when (approved at plan)
+
 ## Plan
 
-_Written by /plan-batch or /implement-task Phase 1. Approved by the user (plan_status: approved) before any code is written._
+Approved 2026-11-13. Sportsbook: `(nflverse, nflverse)` (the owner's choice at the plan gate). Sign confirmed in the recorded file: `2026_06_BUF_LV` (BUF away, moneyline −238, `spread_line` −5.5 → `spread_home` +5.5) and `2026_06_TEN_IND` (IND home, −298, `spread_line` 6.5 → −6.5).
+
+1. **Migration `0006_nfl`**: insert `sports ('nfl', 'NFL')`; recreate `ck_line_snapshots_source` with `nflverse`. The downgrade refuses while NFL teams or games or `nflverse` line rows exist. `models.LINE_SOURCES` gains `nflverse`.
+2. **Pull** (`ingest/nflverse.py`): download nfldata's `games.csv` (httpx, injectable), keep the requested season's rows, one record per CSV row as given, saved as a new Parquet raw file `raw/nflverse/games/season=Y/fetched_at=…` with params `{"season": Y}`. Skipped when the newest saved file has every game scored. No CFBD budget.
+3. **Stage** (`transform/nfl.py`, registered in `TABLES`): `nfl_games`, `nfl_lines`, `nfl_venues` from every nflverse raw file; a game is its newest pull. `REG` → regular, `WC|DIV|CON|SB` → postseason, other types dropped; `kickoff_at` = `gameday` + `gametime` Eastern → UTC (NULL when blank); `final` when both scores are set, else `scheduled`; `neutral_site` = location `Neutral`; `conference_game` false. Lines: every pull's row per game, `spread_home = −spread_line`, `total_line`, moneylines, book `nflverse`.
+4. **Publish** (`publish/nfl.py`): upsert teams (`engine/sports/nfl`: the 32 nflverse codes → design-style short name and nickname; an unknown code publishes its code as the name, printed), venues (`stadium_id`/`stadium`; `dome` true for `dome`, false for `outdoors`, else NULL; `grass` from `surface`) and games under `sport_id 'nfl'`, source `nflverse`; lines through `map_lines` and `publish_lines` (D-120's snapshot and closing rule). `publish_lake` runs it in the same transaction and returns NFL counts under separate keys.
+5. **Job**: `lines` pulls the current NFL season first; a failed download is recorded and the CFBD pull, stage and publish carry on; the summary gains an NFL line (staged games, new games, new line rows, or the failure), and the run then raises `NflverseFailed` (exit 1). `sync_raw` also copies the `raw/nflverse/` files of the given seasons.
+6. **CLI**: `engine ingest nflverse --season Y [--target dev|test]` pulls, stages NFL in memory and publishes it.
+7. **Fixture**: `nfl.json` (8 teams with `contest-data.js` colors; 4 Week 6 games Sun 2026-10-11 1:00, 1:00, 4:25, 8:20 PM ET; one Thu 9:02 PM ET snapshot each: BUF@NYJ +4.5, HOU@JAX +1.5, KC@BAL −2.5, NYG@PHI −7, fixture book); `fixture.py` takes a sport.
+8. **Docs**: 03 (NFL source, line sources, lake layout), 02 (Jobs `lines`, Seed data: 4 NFL games), a decision for the ingest.
+
+**Files**: new `engine/ingest/nflverse.py`, `engine/transform/nfl.py`, `engine/publish/nfl.py`, `engine/sports/nfl/__init__.py`, `db/migrations/versions/0006_nfl.py`, `db/seeds/fixture/nfl.json`, `engine/tests/test_nflverse.py`, `engine/tests/fixtures/nflverse/games.csv`, `db/tests/test_nfl_schema.py` (instead of `test_game_market.py`); changed `engine/transform/__init__.py`, `engine/publish/staging.py`, `engine/ingest/backfill.py`, `engine/jobs.py`, `engine/cli.py`, `db/src/db/models.py`, `engine/fixture.py`, `engine/tests/test_fixture_seed.py`, `docs/02`, `docs/03`, `docs/decisions.md`.
+
+**Tests**: AC-1–AC-4 `engine/tests/test_nflverse.py` (a recorded slice of the real file, fake HTTP, fixed clock; AC-3 on `2026_10_LAC_BAL`, `spread_line` 4.5); AC-5 `db/tests/test_nfl_schema.py` and `engine/tests/test_fixture_seed.py`, with the existing slate (54) and shell (9) tests; AC-6 `db/tests/test_nfl_schema.py` on a scratch DB, plus `pnpm db:check`.
+
+**Risks**: `game_market.closing_from` says `cfbd_close` for an NFL untimed close (documented, view unchanged); nflverse has no cancel flag, so a canceled NFL game stays `scheduled`.
 
 ## Review log
 

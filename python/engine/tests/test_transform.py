@@ -85,6 +85,9 @@ def test_rebuild_stages_every_table_with_no_api_calls(
         "returning_production": 9,
         "recruiting": 10,
         "benchmark_ratings": 27,  # 9 teams x SP+, FPI, Elo; SP+'s nationalAverages is dropped
+        "nfl_games": 0,  # the CFB fixture has no nflverse file (TASK-069, test_nflverse.py)
+        "nfl_lines": 0,
+        "nfl_venues": 0,
         "skipped_raw": 0,
         "plays": 334,
         "drives": 48,

@@ -6,7 +6,8 @@ model registry has no source column; its rows are found by sport, market, name a
 Re-seeding changes nothing: reference rows are upserted, line snapshots, ratings, predictions and
 picks skip a key already stored, and a version or run that exists is reused. picks.json is written
 by its generator, generate_picks.py, beside it (TASK-040), and week6_filler.json, the Week 6 games
-the design doesn't draw, by generate_filler.py (TASK-055).
+the design doesn't draw, by generate_filler.py (TASK-055). nfl.json is the contest slate's four NFL
+games, under `sport_id 'nfl'` (TASK-069).
 """
 
 from __future__ import annotations
@@ -33,6 +34,7 @@ from engine.publish.reference import (
 FIXTURE_DIR = repo_root() / "python" / "db" / "seeds" / "fixture"
 SOURCE = "fixture"
 SPORT = "cfb"
+NFL = "nfl"
 WEEK = 6
 BOOK = "consensus"
 
@@ -78,11 +80,12 @@ def _upsert_games(
     games: list[dict[str, Any]],
     team_ids: dict[str, int],
     venue_ids: dict[str, int],
+    sport: str = SPORT,
 ) -> dict[str, int]:
     """Games of `season`; a game with no `week` is week 6's. Returns ids by source id."""
     return upsert_games(
         conn,
-        SPORT,
+        sport,
         SOURCE,
         [
             {
@@ -561,6 +564,23 @@ def _seed_filler(
     return new_ratings, new_lines, new_predictions
 
 
+def _seed_nfl(conn: Connection, data: dict[str, Any], book_id: int) -> tuple[int, int]:
+    """nfl.json: the NFL teams, the contest slate's NFL games and their lines from the fixture
+    book. NFL teams have no team season (no conference). Returns the number of games and new
+    line snapshots."""
+    team_ids = upsert_teams(
+        conn,
+        NFL,
+        SOURCE,
+        [
+            {k: t[k] for k in ("source_id", "school", "mascot", "abbreviation", "color")}
+            for t in data["teams"]
+        ],
+    )
+    game_ids = _upsert_games(conn, data["season"], data["games"], team_ids, {}, NFL)
+    return len(game_ids), _insert_lines(conn, data["games"], game_ids, book_id)
+
+
 def seed_fixture() -> None:
     refuse_if_live("seed the fixture")
     url = resolve_test_database_url()
@@ -569,6 +589,7 @@ def seed_fixture() -> None:
     models = _load("models.json")
     picks = _load("picks.json")
     filler = _load("week6_filler.json")
+    nfl = _load("nfl.json")
     with make_engine(url).begin() as conn:
         team_ids = _seed_teams(conn, teams)
         game_ids, lines, book_id = _seed_week(conn, week, team_ids)
@@ -579,11 +600,13 @@ def seed_fixture() -> None:
         filler_ratings, filler_lines, filler_predictions = _seed_filler(
             conn, filler, models, week, team_ids, book_id, version_ids[filler["version"]]
         )
+        nfl_games, nfl_lines = _seed_nfl(conn, nfl, book_id)
     print(
         f"Seeded {len(teams['teams']) + len(filler['teams'])} fixture teams for"
         f" {teams['season']}, {len(week['games']) + len(picks['games']) + len(filler['games'])}"
         f" games and {lines + more_lines + filler_lines} new line snapshots,"
         f" {len(models['versions'])} model versions, {ratings + filler_ratings} new ratings,"
         f" {predictions + more_predictions + filler_predictions} new predictions and"
-        f" {new_picks} new picks into the test DB."
+        f" {new_picks} new picks into the test DB; {len(nfl['teams'])} NFL teams, {nfl_games}"
+        f" NFL games and {nfl_lines} new NFL line snapshots."
     )

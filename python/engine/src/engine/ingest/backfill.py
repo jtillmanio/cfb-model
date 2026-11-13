@@ -30,9 +30,12 @@ from engine.clock import now
 from engine.ingest.cfbd import CallBudget, CfbdClient
 from engine.ingest.endpoints import ENDPOINTS, fetch, saved_final, week_complete
 from engine.ingest.lake import Lake, decode_raw, fetched_at_of, latest_raw, raw_folder
+from engine.ingest.nflverse import RAW as NFLVERSE
 
 RAW = "raw/cfbd"
-_SEASON = re.compile(rf"{RAW}/[^/]+/season=(\d+)/")
+# The raw sources `sync_raw` copies: CFBD's, and nflverse's NFL schedule (TASK-069).
+SYNCED = (RAW, NFLVERSE)
+_SEASON = re.compile(r"raw/(?:cfbd|nflverse)/[^/]+/season=(\d+)/")
 WEEKLY = ("games_teams", "plays", "drives")
 BY_SEASON_TYPE = ("lines", "stats_game_advanced")
 SEASON = (
@@ -210,7 +213,7 @@ def run(lake: Lake, first: int, last: int, client: CfbdClient, max_calls: int | 
 
 
 def _in(key: str, seasons: Collection[int] | None, every_season: Collection[str]) -> bool:
-    if seasons is None or key.split("/")[2] in every_season:
+    if seasons is None or (key.startswith(f"{RAW}/") and key.split("/")[2] in every_season):
         return True
     return (m := _SEASON.match(key)) is not None and int(m[1]) in seasons
 
@@ -221,12 +224,16 @@ def sync_raw(
     seasons: Collection[int] | None = None,
     every_season: Collection[str] = (),
 ) -> list[str]:
-    """Copy every raw CFBD file `src` has and `dst` lacks, only those filed under `seasons` when
-    it's given (plus every season's files of the `every_season` endpoints); return their keys.
-    Nothing else (the ledger, staging/) is copied, and no file in `dst` is overwritten."""
-    have = set(dst.walk(RAW))
+    """Copy every raw CFBD and nflverse file `src` has and `dst` lacks, only those filed under
+    `seasons` when it's given (plus every season's files of the `every_season` CFBD endpoints);
+    return their keys. Nothing else (the ledger, staging/) is copied, and no file in `dst` is
+    overwritten."""
+    have = {key for prefix in SYNCED for key in dst.walk(prefix)}
     missing = [
-        key for key in src.walk(RAW) if key not in have and _in(key, seasons, every_season)
+        key
+        for prefix in SYNCED
+        for key in src.walk(prefix)
+        if key not in have and _in(key, seasons, every_season)
     ]
     for key in missing:
         dst.write_new(key, src.read(key))
