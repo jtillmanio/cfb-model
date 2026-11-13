@@ -1,7 +1,7 @@
 ---
 id: TASK-069
 title: Ingest the NFL schedule, scores and closing lines from nflverse
-status: In progress
+status: Review
 depends_on: [TASK-020]
 size: M
 model: opus
@@ -33,12 +33,12 @@ The NFL games on a Splash slate exist in the app with their kickoff, score and m
 
 ## Acceptance criteria
 
-- [ ] AC-1: Given a recorded nflverse schedule file in the engine's test fixtures (no network), the ingest saves it as a new raw-lake file under `raw/nflverse/`. A second pull adds a second file and never overwrites the first. `transform --rebuild` stages every 2026 game from the raw files with zero network calls.
-- [ ] AC-2: Publishing upserts NFL teams and games by `(sport_id 'nfl', source, source_id)`. In the recorded file, a 2026 `REG` week-6 game lands with `season_type` `regular`, week 6, `kickoff_at` equal to its `gameday` + `gametime` Eastern in UTC, and status `final` with both scores when scored, else `scheduled`. Publishing again inserts nothing and changes no ID, and no `cfb` row changes.
-- [ ] AC-3: A pull quoting `spread_line` 4.5 stores `spread_home` −4.5. A pull before kickoff is a `snapshot` at its fetch time, and the first pull at or after kickoff is the untimed `closing` row (D-120's rule). `game_market` then gives the NFL game an opening, current and closing spread, as it does a CFB game.
-- [ ] AC-4: The daily `lines` job (or a job the plan names) also pulls and publishes the current NFL season, and its summary reports NFL games and line rows added. A failed nflverse download doesn't stop the CFB publish and makes the run fail visibly, with a non-zero exit and a summary line naming it.
-- [ ] AC-5: The seeded test DB has the `nfl` sport, the 8 NFL teams and the 4 Week 6 NFL games from sample-data § 3, with their Sunday kickoffs (Sun 2026-10-11 1:00, 1:00, 4:25 and 8:20 PM ET) and market lines (BUF −4.5, HOU −1.5, BAL −2.5, PHI −7). On the seeded DB, `game_market`'s current `spread_home` for Buffalo @ NY Jets is +4.5. `/api/py/slate` still returns 54 games, and the shell still returns 9 picks.
-- [ ] AC-6: The migration runs up → down → up on the test DB, and `pnpm db:check` passes.
+- [x] AC-1: Given a recorded nflverse schedule file in the engine's test fixtures (no network), the ingest saves it as a new raw-lake file under `raw/nflverse/`. A second pull adds a second file and never overwrites the first. `transform --rebuild` stages every 2026 game from the raw files with zero network calls.
+- [x] AC-2: Publishing upserts NFL teams and games by `(sport_id 'nfl', source, source_id)`. In the recorded file, a 2026 `REG` week-6 game lands with `season_type` `regular`, week 6, `kickoff_at` equal to its `gameday` + `gametime` Eastern in UTC, and status `final` with both scores when scored, else `scheduled`. Publishing again inserts nothing and changes no ID, and no `cfb` row changes.
+- [x] AC-3: A pull quoting `spread_line` 4.5 stores `spread_home` −4.5. A pull before kickoff is a `snapshot` at its fetch time, and the first pull at or after kickoff is the untimed `closing` row (D-120's rule). `game_market` then gives the NFL game an opening, current and closing spread, as it does a CFB game.
+- [x] AC-4: The daily `lines` job (or a job the plan names) also pulls and publishes the current NFL season, and its summary reports NFL games and line rows added. A failed nflverse download doesn't stop the CFB publish and makes the run fail visibly, with a non-zero exit and a summary line naming it.
+- [x] AC-5: The seeded test DB has the `nfl` sport, the 8 NFL teams and the 4 Week 6 NFL games from sample-data § 3, with their Sunday kickoffs (Sun 2026-10-11 1:00, 1:00, 4:25 and 8:20 PM ET) and market lines (BUF −4.5, HOU −1.5, BAL −2.5, PHI −7). On the seeded DB, `game_market`'s current `spread_home` for Buffalo @ NY Jets is +4.5. `/api/py/slate` still returns 54 games, and the shell still returns 9 picks.
+- [x] AC-6: The migration runs up → down → up on the test DB, and `pnpm db:check` passes.
 
 ## Out of scope
 
@@ -72,8 +72,13 @@ The NFL games on a Splash slate exist in the app with their kickoff, score and m
 
 _Work noticed during this task and deliberately left out. Each bullet ends `→ <path> § <section>` (where it was placed) or `→ not tracked: <reason>`. See `.claude/skills/track-follow-ups/classify.md`; the PR's Follow-ups section is copied from here._
 
-- NFL team colors for the contest screens: real nflverse teams publish with no color (approved at plan)
-- `game_market.closing_from` reads `cfbd_close` for an NFL untimed close, and a canceled NFL game stays `scheduled` (nflverse has no cancel flag): recorded in the decision's revisit-when (approved at plan)
+- NFL team colors for the contest screens: real nflverse teams publish with no color (approved at plan) → docs/tasks/TASK-073-contest-ranked-slate-tray-results.md § Context
+- `game_market.closing_from` reads `cfbd_close` for an NFL untimed close, and a canceled NFL game stays `scheduled` (nflverse has no cancel flag) (approved at plan) → docs/decisions.md § D-169
+- How NFL teams are named (school the short name, mascot the nickname, abbreviation the nflverse code), which TASK-070's fallback match on `teams.mascot` relies on → docs/tasks/TASK-070-contest-import-api.md § Context
+- Schema review notes: a season with a never-played game (2022 BUF@CIN) is never "over", so a manual ingest of it downloads again; NFL snapshots (about 25,000 a season, written even when the price is unchanged) → docs/decisions.md § D-169
+- Test audit: the "first pull at or after kickoff is the closing row" boundary is tested with a pull a day after kickoff, not at kickoff exactly → not tracked: the rule is `map_lines`, shared with CFBD and unchanged here
+- The task list's M6.3 row notes "NFL team aliases for Splash names" → not tracked: those aliases are TASK-070's (this task's Out of scope), and tick rules never edit a row's text
+- `docs/model-guide.md` doesn't list `engine ingest nflverse` → not tracked: the guide covers the model, and no model reads NFL rows
 
 ## Plan
 
@@ -98,13 +103,15 @@ Approved 2026-11-13. Sportsbook: `(nflverse, nflverse)` (the owner's choice at t
 
 _Filled by /implement-task. One line per round._
 
+Verify R1 FAIL(1: perf.test.ts, CRLF in docs/02 from a scripted edit) → R2 FAIL(2: test_model_schema week-6 count, test_transform counts, both counting the new NFL rows) → R3 PASS | Audit R1 PASS | Spec R1 APPROVE | Schema R1 APPROVE (3 MINOR: malformed-row isolation fixed, two notes to D-169) | Review fixes re-verified PASS
+
 ## Blocked
 
 _Only if status is Blocked: what failed, what was tried, best hypothesis, decision needed._
 
 ## Metrics
 
-- Verify rounds:
-- Review rounds:
-- First-pass AC FAILs:
-- Plan revisions after approval:
+- Verify rounds: 3
+- Review rounds: 1
+- First-pass AC FAILs: 0
+- Plan revisions after approval: 0
