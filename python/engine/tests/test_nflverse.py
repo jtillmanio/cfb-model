@@ -277,6 +277,39 @@ def test_engine_publish_takes_the_nfl_rows_with_cfbs(
     assert game(db_conn, "2026_06_BUF_LV").sport_id == "nfl"
 
 
+def test_a_malformed_row_is_left_out_and_never_fails_the_publish(
+    db_conn: Connection, lake: LocalLake, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A row missing what a game needs is listed in skipped_raw, not published, so the CFB rows
+    published in the same transaction never roll back over it (TASK-069 review)."""
+    broken = {
+        "2026_06_SEA_DEN": {"gameday": ""},
+        "2026_06_TEN_IND": {"week": "six"},
+        "2026_06_BUF_LV": {"spread_line": "n/a", "home_score": "x"},
+    }
+    pull(lake, monkeypatch, BEFORE, csv_with(broken))
+    rebuild(lake)
+
+    skipped = pq.read_table(io.BytesIO(lake.read(staging_key("skipped_raw")))).to_pylist()
+    reasons = sorted(r["reason"] for r in skipped)
+    assert len(reasons) == 2
+    assert "nflverse game 2026_06_SEA_DEN lacks" in reasons[0]
+    assert "nflverse game 2026_06_TEN_IND lacks" in reasons[1]
+
+    new = publish_lake(lake, db_conn)
+
+    assert new["games"] > 0
+    assert new["nfl_games"] == len(GAMES_2026) - 2
+    # An unreadable score is unknown, so the game isn't final; an unreadable spread isn't stored.
+    assert game(db_conn, "2026_06_BUF_LV").status == "scheduled"
+    spreads = [r.spread_home for r in db_conn.execute(LINES, {"id": "2026_06_BUF_LV"})]
+    assert spreads == [None]  # the pull still quotes a total and moneylines
+
+
+def test_ingest_target_is_nflverses_alone(empty_lake: LocalLake) -> None:
+    assert engine("ingest", "games", "--season", "2026", "--target", "test") == 2
+
+
 # ─── AC-3: lines ───────────────────────────────────────────────────────────────────────────────
 
 

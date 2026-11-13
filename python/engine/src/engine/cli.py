@@ -580,7 +580,7 @@ def main(argv: list[str] | None = None) -> None:
     ingest.add_argument("endpoint", choices=[*ENDPOINTS, "nflverse"], help="%(choices)s")
     ingest.add_argument("--season", type=int, required=True)
     ingest.add_argument(
-        "--target", default="dev", choices=["dev", "test"], help="nflverse only (default dev)"
+        "--target", choices=["dev", "test"], help="nflverse only: where to publish (default dev)"
     )
     ingest.add_argument("--week", type=int)
     ingest.add_argument("--season-type", default="regular", choices=SEASON_TYPES)
@@ -833,8 +833,10 @@ def main(argv: list[str] | None = None) -> None:
         if args.week is not None or args.param or args.season_type != "regular":
             ingest.error("nflverse takes --season and --target only")
         load_env()
-        _ingest_nflverse(args.season, args.target)
+        _ingest_nflverse(args.season, args.target or "dev")
     elif args.command == "ingest":
+        if args.target is not None:
+            ingest.error("--target is nflverse's; a CFBD ingest takes none")
         extra = _extra_params(ingest, args.param)
         try:
             query(args.endpoint, args.season, args.week, args.season_type, extra)

@@ -113,28 +113,57 @@ def _latest(s: Staging) -> str:
             PARTITION BY {_v("game_id")} ORDER BY fetched_at DESC, key DESC, row DESC) = 1"""
 
 
+def _try(field: str, cast: str) -> str:
+    return f"TRY_CAST({_v(field)} AS {cast})"
+
+
+# What a game needs to publish (games' NOT NULL columns and its teams). A row without it is left
+# out and listed in `skipped_raw`, so one malformed nflverse row never fails the publish, and with
+# it the CFB rows in the same transaction (TASK-069 review).
+_COMPLETE = " AND ".join(
+    [
+        f"{_v('game_id')} IS NOT NULL",
+        f"{_try('season', 'INTEGER')} IS NOT NULL",
+        f"{_try('week', 'INTEGER')} IS NOT NULL",
+        f"{_try('gameday', 'DATE')} IS NOT NULL",
+        f"{_v('home_team')} IS NOT NULL",
+        f"{_v('away_team')} IS NOT NULL",
+    ]
+)
+
+
 def nfl_games(s: Staging) -> str:
+    latest = _latest(s)
+    incomplete = s.con.execute(
+        f"SELECT key, {_v('game_id')} FROM ({latest}) WHERE NOT ({_COMPLETE}) ORDER BY key, row"
+    ).fetchall()
+    s.skipped += [
+        (key, f"nflverse game {game_id or '(no game_id)'} lacks a season, week, gameday or team;"
+              " not staged")
+        for key, game_id in incomplete
+    ]  # fmt: skip
     return f"""
     SELECT
         {_v("game_id")} AS source_id,
-        {_v("season", "INTEGER")} AS season,
-        {_v("week", "INTEGER")} AS week,
+        {_try("season", "INTEGER")} AS season,
+        {_try("week", "INTEGER")} AS week,
         {_season_type()} AS season_type,
-        {_v("gameday", "DATE")} AS game_date,
-        CASE WHEN {_v("gametime")} IS NULL THEN NULL
-             ELSE timezone('America/New_York',
-                CAST({_v("gameday")} || ' ' || {_v("gametime")} AS TIMESTAMP)) END AS kickoff_at,
+        {_try("gameday", "DATE")} AS game_date,
+        timezone('America/New_York',
+            TRY_CAST({_v("gameday")} || ' ' || {_v("gametime")} AS TIMESTAMP)) AS kickoff_at,
         coalesce({_v("location")} = 'Neutral', false) AS neutral_site,
         false AS conference_game,
         {_v("stadium_id")} AS venue_source_id,
         {_v("home_team")} AS home_source_id,
         {_v("away_team")} AS away_source_id,
-        {_v("home_score", "INTEGER")} AS home_points,
-        {_v("away_score", "INTEGER")} AS away_points,
-        CASE WHEN {_v("home_score")} IS NOT NULL AND {_v("away_score")} IS NOT NULL
+        {_try("home_score", "INTEGER")} AS home_points,
+        {_try("away_score", "INTEGER")} AS away_points,
+        CASE WHEN {_try("home_score", "INTEGER")} IS NOT NULL
+              AND {_try("away_score", "INTEGER")} IS NOT NULL
              THEN 'final' ELSE 'scheduled' END AS status,
         fetched_at
-    FROM ({_latest(s)})
+    FROM ({latest})
+    WHERE {_COMPLETE}
     ORDER BY season, season_type, week, source_id
     """
 
@@ -145,12 +174,12 @@ def nfl_lines(s: Staging) -> str:
         {_v("game_id")} AS game_source_id,
         '{BOOK}' AS provider,
         fetched_at,
-        -{_v("spread_line", "DOUBLE")} AS spread_home,
+        -{_try("spread_line", "DOUBLE")} AS spread_home,
         CAST(NULL AS DOUBLE) AS spread_home_open,
-        {_v("total_line", "DOUBLE")} AS total,
+        {_try("total_line", "DOUBLE")} AS total,
         CAST(NULL AS DOUBLE) AS total_open,
-        CAST({_v("home_moneyline", "DOUBLE")} AS INTEGER) AS ml_home,
-        CAST({_v("away_moneyline", "DOUBLE")} AS INTEGER) AS ml_away
+        CAST({_try("home_moneyline", "DOUBLE")} AS INTEGER) AS ml_home,
+        CAST({_try("away_moneyline", "DOUBLE")} AS INTEGER) AS ml_away
     FROM {_raw(s)}
     WHERE {_v("game_id")} IN (SELECT source_id FROM nfl_games)
         AND coalesce({_v("spread_line")}, {_v("total_line")}, {_v("home_moneyline")},
