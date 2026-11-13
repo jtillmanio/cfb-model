@@ -179,6 +179,12 @@ def test_picks_has_the_amended_columns_keys_and_indexes(db_conn: Connection):
     # One game's picks (the current pick per game) and one version's picks (its record).
     assert ["game_id", "model_version_id", "created_at"] in indexes
     assert ["model_version_id", "game_id"] in indexes
+    # A contest's picks, through its lines (TASK-067, schema review R1): contest picks only.
+    by_name = {i["name"]: i for i in insp.get_indexes("picks")}
+    contest = by_name["ix_picks_contest_line_id"]
+    assert contest["column_names"] == ["contest_line_id"]
+    where = contest.get("dialect_options", {}).get("postgresql_where")
+    assert where is not None and "contest_line_id IS NOT NULL" in str(where)
 
 
 def test_one_head_and_the_models_match_the_migrated_db(test_db_url: str):

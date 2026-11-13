@@ -441,6 +441,12 @@ class Pick(Base):
         CheckConstraint(
             "price IS NOT NULL OR contest_line_id IS NOT NULL", name="price_for_market"
         ),
+        # A contest's picks through its lines; market picks have none (TASK-067).
+        Index(
+            "ix_picks_contest_line_id",
+            "contest_line_id",
+            postgresql_where=text("contest_line_id IS NOT NULL"),
+        ),
         CheckConstraint(f"market IN {PICK_MARKETS!r}", name="market"),
         CheckConstraint(
             "side IS NULL"
@@ -535,6 +541,7 @@ class ContestLine(Base):
         UniqueConstraint("id", "contest_id", "game_id"),  # an entry's line is its contest's
         Index(None, "contest_id", "period"),
         CheckConstraint(f"source IN {CONTEST_LINE_SOURCES!r}", name="source"),
+        CheckConstraint("period > 0", name="period_positive"),
     )
 
     id: Mapped[int] = mapped_column(BigInteger, Identity(), primary_key=True)
@@ -593,6 +600,7 @@ class ContestStanding(Base):
 
     __tablename__ = "contest_standings"
     __table_args__ = (
+        CheckConstraint("period > 0", name="period_positive"),
         CheckConstraint("position > 0 AND position <= field_size", name="position_in_field"),
         CheckConstraint("points_behind_leader >= 0", name="points_behind_leader_not_negative"),
     )

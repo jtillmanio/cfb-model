@@ -187,6 +187,21 @@ def test_a_contest_line_source_outside_its_values_is_refused(db_conn: Connection
     assert err.orig.diag.constraint_name == "ck_contest_lines_source"
 
 
+def test_a_period_must_be_positive(db_conn: Connection):
+    """Schema review R1: a contest week counts from 1, on lines and standings alike."""
+    rows = _rows(db_conn)
+    for period in (0, -1):
+        with pytest.raises(DBAPIError) as err, db_conn.begin_nested():
+            m.contest_line(db_conn, rows.contest_id, rows.game_id, -3.5, m.utc(2030, 9, 6),
+                           period=period)  # fmt: skip
+        assert isinstance(err.value.orig, errors.CheckViolation)
+        assert err.value.orig.diag.constraint_name == "ck_contest_lines_period_positive"
+        with pytest.raises(DBAPIError) as err, db_conn.begin_nested():
+            _standing(db_conn, rows.contest_id, period=period)
+        assert isinstance(err.value.orig, errors.CheckViolation)
+        assert err.value.orig.diag.constraint_name == "ck_contest_standings_period_positive"
+
+
 def test_a_standing_inside_its_field_is_stored_and_outside_refused(db_conn: Connection):
     contest_id = _rows(db_conn).contest_id
     _standing(db_conn, contest_id)

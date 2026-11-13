@@ -79,7 +79,8 @@ _Work noticed during this task and deliberately left out. Each bullet ends `→ 
 
 - TASK-070's import is the production writer of `users`: upsert by `github_id` from the JWT's `sub` on the first write (no migration seeds the real account) → docs/tasks/TASK-070-contest-import-api.md § Context (approved at plan)
 - TASK-068: the model's contest picks are CFB-only (a pick needs a prediction; the NFL gap side is computed on read and never counts in the model record); the weeks 1–5 contest slates are 5 final CFB games each with v1.0 predictions, for its "Model top 4 11-9" fixture; `current_picks` and `pick_outcomes` partition contest picks by contest → docs/tasks/TASK-068-contest-views.md § Context (approved at plan)
-- `python/db/views/README.md`'s `current_picks` row still says "per game, version, market and line source"; since TASK-067 the partition also holds the contest. TASK-068 adds the contest views' rows to the same table
+- `current_picks` and `pick_outcomes` read contest picks without checking their contest's `deleted_at` (`.claude/rules/database.md`: filter `deleted_at IS NULL` on every read). Nothing writes contest picks yet and `model_record` leaves them out; TASK-068, which writes the model's contest picks and the contest views, decides whether a deleted contest's picks drop out (spec review R1)
+- `contest_entries` has only the partial live index `(user_id, contest_id, game_id)`; if TASK-068's results view reads a contest's entries by contest alone, or soft-deleted ones, it adds the index it needs, with an `EXPLAIN` test (schema review R1)
 
 ## Plan
 

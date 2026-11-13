@@ -90,6 +90,7 @@ def upgrade() -> None:
         sa.CheckConstraint(
             "source IN ('paste', 'manual', 'fixture')", name=op.f("ck_contest_lines_source")
         ),
+        sa.CheckConstraint("period > 0", name=op.f("ck_contest_lines_period_positive")),
         sa.ForeignKeyConstraint(
             ["contest_id"],
             ["contests.id"],
@@ -172,6 +173,7 @@ def upgrade() -> None:
         sa.Column("points_behind_leader", sa.Numeric(5, 1), nullable=True),
         sa.Column("note", sa.Text(), nullable=True),
         sa.Column("entered_at", TSTZ, server_default=sa.text("now()"), nullable=False),
+        sa.CheckConstraint("period > 0", name=op.f("ck_contest_standings_period_positive")),
         sa.CheckConstraint(
             "position > 0 AND position <= field_size",
             name=op.f("ck_contest_standings_position_in_field"),
@@ -285,6 +287,13 @@ def upgrade() -> None:
         "picks",
         ["prediction_id", "market", "contest_line_id"],
     )
+    # A contest's picks through its lines (TASK-068's contest reads); market picks have none.
+    op.create_index(
+        "ix_picks_contest_line_id",
+        "picks",
+        ["contest_line_id"],
+        postgresql_where=sa.text("contest_line_id IS NOT NULL"),
+    )
 
 
 def downgrade() -> None:
@@ -306,6 +315,7 @@ def downgrade() -> None:
     for view in PICK_VIEWS:
         op.execute(f"DROP VIEW IF EXISTS {view}")
 
+    op.drop_index("ix_picks_contest_line_id", table_name="picks")
     op.drop_constraint(
         op.f("uq_picks_prediction_id_market_contest_line_id"), "picks", type_="unique"
     )
