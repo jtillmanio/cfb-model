@@ -610,6 +610,19 @@ describe("noPicksNote and offseasonNote", () => {
       "The 2026 season has ended. The 2027 slate fills in when books post Week 1 lines, usually in early August.",
     );
   });
+
+  it("names the title game's date when the response carries the last game's date (TASK-066)", () => {
+    const next = { season: 2027, week: 1 };
+    expect(offseasonNote(2026, null, next, undefined, "2026-10-10").body).toBe(
+      "The 2026 season ended with the title game on Sat Oct 10. The 2027 slate fills in when books post Week 1 lines, usually in early August.",
+    );
+    // A date, not a moment: Sunday and the first of a month stay on their own day in any zone.
+    expect(offseasonNote(2026, null, next, "Pacific/Auckland", "2027-01-17").body).toContain(
+      "title game on Sun Jan 17.",
+    );
+    expect(offseasonNote(2026, null, next, undefined, null).body).toMatch(/^The 2026 season has ended\./);
+    expect(offseasonNote(2026, null, next).body).toMatch(/^The 2026 season has ended\./);
+  });
 });
 
 // ---------------------------------------------------------------------------------------------

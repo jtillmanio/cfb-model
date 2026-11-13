@@ -166,9 +166,12 @@ class SlateOut(BaseModel):
     shell: ShellOut
     # The off-season: when the next season's first week starts (`shell.next_week`), else None.
     next_kickoff_at: datetime | None
+    # The off-season: the ended season's newest game that wasn't canceled, its date as stored
+    # (Eastern), else None (TASK-066).
+    last_game_date: date | None
 
 
-Week = tuple[int, SeasonType, int]
+Week =tuple[int, SeasonType, int]
 
 _IN_WEEK = """g.sport_id = :sport
         AND g.season = (SELECT season FROM slate_week)
@@ -327,9 +330,13 @@ RULES_SQL = text(
 # The week selector's list (TASK-061). Week 0 is left out: the route refuses `week < 1`.
 # A read of the sport's games grouped to its weeks (no index covers `season_type`); the result is
 # a handful of rows per season, and the table is small enough that the scan is accepted.
+#
+# `last_date` is the week's newest game date that wasn't canceled, which the off-season's "season
+# ended" line reads (TASK-066); riding here keeps `/slate` at its 6-query budget (D-163).
 WEEKS_SQL = text(
     """
-    SELECT g.season, g.season_type, g.week
+    SELECT g.season, g.season_type, g.week,
+        max(g.game_date) FILTER (WHERE g.status <> 'canceled') AS last_date
     FROM games g
     WHERE g.sport_id = :sport AND g.week >= 1 AND g.season_type IN ('regular', 'postseason')
     GROUP BY g.season, g.season_type, g.week
@@ -531,11 +538,16 @@ def slate_from(
         season, season_type, number = shell_out.season, shell_out.season_type, shell_out.week
     else:
         season = season_type = number = None
+    offseason = week is None and shell_out.week is None
+    # The ended season is the shell's (the latest with games); week 0 and other season types are
+    # left out of the weeks, as for the selector.
+    last_dates = [r.last_date for r in found["weeks"]
+                  if r.season == shell_out.season and r.last_date is not None]  # fmt: skip
     return SlateOut(
         season=season,
         season_type=season_type,
         week=number,
-        offseason=week is None and shell_out.week is None,
+        offseason=offseason,
         rules=_rules_out(rules),
         counts=SlateCountsOut(games=len(games), picks=sum(g.pick is not None for g in games)),
         games=games,
@@ -545,6 +557,7 @@ def slate_from(
         ],
         shell=shell_out,
         next_kickoff_at=found["shell"][0].next_start,
+        last_game_date=max(last_dates, default=None) if offseason else None,
     )
 
 

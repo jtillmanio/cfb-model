@@ -203,6 +203,8 @@ export interface components {
             counts: components["schemas"]["SlateCountsOut"];
             /** Games */
             games: components["schemas"]["SlateGameOut"][];
+            /** Last Game Date */
+            last_game_date: string | null;
             /** Next Kickoff At */
             next_kickoff_at: string | null;
             /** Offseason */

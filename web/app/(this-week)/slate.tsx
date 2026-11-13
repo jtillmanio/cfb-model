@@ -401,6 +401,7 @@ export function SlateView({ slate }: { slate: Slate }) {
           season={offseasonSeason(slate)}
           nextKickoffAt={slate.next_kickoff_at}
           next={{ season: slate.shell.next_season, week: slate.shell.next_week }}
+          lastGameDate={slate.last_game_date}
         />
       </SlatePage>
     );
