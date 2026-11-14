@@ -320,6 +320,25 @@ def test_the_model_top_n_is_fixed_at_the_weeks_first_kickoff(db_conn: Connection
     assert tuple(record) == (1, 0, Decimal("1.0"))
 
 
+def test_a_pass_before_the_first_kickoff_leaves_the_top_n(db_conn: Connection):
+    """D-171: when a game's newest contest pick before the first kickoff is a pass, the game has
+    no model row and the next game by model_prob takes its place in the top N."""
+    w = _world(db_conn, per_period=1)
+    passed, other = _game(db_conn), _game(db_conn)
+    _model_pick(db_conn, w, passed, -7.5, "home", 0.70)
+    moved = m.contest_line(db_conn, w.contest_id, passed, -8.5, m.utc(2030, 9, 5, 1))
+    prediction_id = db_conn.execute(
+        text("SELECT id FROM predictions WHERE game_id = :g"), {"g": passed}
+    ).scalar_one()
+    m.contest_pick(db_conn, prediction_id, w.version_id, passed, moved, m.utc(2030, 9, 5, 1, 5),
+                   side=None, line=-8.5, model_prob=0.65)  # fmt: skip
+    kept = _model_pick(db_conn, w, other, -7.5, "home", 0.60)
+
+    rows = [r for r in _results(db_conn, w.contest_id) if r["picker"] == "model"]
+
+    assert [(r["pick_id"], r["model_rank"]) for r in rows] == [(kept, 1)]
+
+
 def test_a_contest_missing_its_push_rule_scores_a_push_0(db_conn: Connection):
     """A contest whose rules lack `push` scores a push 0, the Splash default (D-045), and
     `counted` is never NULL."""

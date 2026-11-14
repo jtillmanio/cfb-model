@@ -64,8 +64,8 @@ Each contest's current line per game, your graded entries, the model's graded to
 
 _Work noticed during this task and deliberately left out. Each bullet ends `→ <path> § <section>` (where it was placed) or `→ not tracked: <reason>`. See `.claude/skills/track-follow-ups/classify.md`; the PR's Follow-ups section is copied from here._
 
-- TASK-071 reads `contest_results` and `contest_record` for the page, and whoever writes the model's contest picks in production follows D-171's conventions (all slate games, `expected_value` = 2p − 1 at no vig, tier NULL) (approved at plan)
-- Decision D-171: contest CLV against `game_market`'s close; top N by `model_prob`, then kickoff, then game; push points; contest-pick storage conventions (approved at plan)
+- TASK-071 reads `contest_results` and `contest_record` filtered to the shown model version (each version has its own model rows); whoever writes the model's contest picks in production writes every slate game's pick before the contest week's first kickoff (D-171: a later pick never enters the top N, so a job after a Thursday-night game would drop the week), with `expected_value` = 2p − 1 at even money and tier NULL unless that plan decides otherwise (approved at plan; reworded after spec review R2)
+- Decision D-171: contest CLV against `game_market`'s close; the model's top N fixed at the contest week's first kickoff, by `model_prob`, then kickoff, then game; push points; contest-pick storage conventions (approved at plan)
 
 ## Plan
 

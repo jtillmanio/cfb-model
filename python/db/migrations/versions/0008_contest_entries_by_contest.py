@@ -4,8 +4,8 @@
 a read by contest alone would scan the table. The partial index matches the view's
 `deleted_at IS NULL` filter.
 
-The downgrade also drops TASK-068's contest views (they read the 0007 tables and current_picks,
-which 0007's downgrade drops); `db:migrate` re-applies them after the next upgrade.
+The downgrade also drops TASK-068's contest views (they read the 0007 tables and picks'
+contest_line_id, which 0007's downgrade drops); `db:migrate` re-applies them after the next upgrade.
 
 Revision ID: 0008
 Revises: 0007
