@@ -30,6 +30,8 @@ One API call returns everything the Contest page shows for a week: the slate ran
 - **The model's contest picks:** decide whether they're inserted on confirm (TASK-070) or by the `lines` job, if TASK-070's plan hasn't already (task list note).
 - **The ≠ count:** F-04 AC-3's "Line ≠ market 7" is sample data. On the fixture's lines, 8 of the 10 games differ from the market, so the API returns a per-row flag and the screen counts it.
 - **Lock:** an entry or change is refused when the API clock is at or past the game's `kickoff_at`. A game with a TBA kickoff locks at the end of `game_date` in Eastern time, as `current_picks`' cutoff does. A change is a soft delete plus a new entry at the current contest line (D-033).
+- *From TASK-068 (feat/068-contest-views):* read `contest_results` and `contest_record` filtered to the shown model version: each version with contest picks has its own `model` rows. Whoever writes the model's contest picks in production writes every slate game's pick before the contest week's first kickoff (D-171: a later pick never enters the graded top N, so a job that runs after a Thursday-night game would drop the week), with `expected_value` = 2p − 1 at even money and tier NULL unless that plan decides otherwise.
+- *From TASK-068 (feat/068-contest-views):* `current_contest_lines` repeats the shell's shown-version rule (`api/shell.py` `SHOWN`) in SQL, per game's sport and season; if this task changes `SHOWN` or reads the model line from the view, keep the two in step.
 
 ## Acceptance criteria
 

@@ -1,7 +1,7 @@
 ---
 id: TASK-068
 title: Add the current_contest_lines, contest_results and current-standing views
-status: In progress
+status: Review
 depends_on: [TASK-067, TASK-041]
 size: M
 model: opus
@@ -32,12 +32,12 @@ Each contest's current line per game, your graded entries, the model's graded to
 
 ## Acceptance criteria
 
-- [ ] AC-1: `current_contest_lines` gives one row per contest and game. Its line is the newest `contest_lines` snapshot captured before the game's cutoff (kickoff, or the end of `game_date` in Eastern time when the kickoff is TBA, as `current_picks`), shown beside `game_market`'s current spread and the shown version's newest model line. A snapshot inserted after kickoff leaves the row unchanged (test). On the seeded DB, Texas vs Oklahoma reads the contest's TEX −7 beside the market's TEX −6.5.
-- [ ] AC-2: `contest_results` grades each live (not soft-deleted) entry against the spread of the contest line it was made at. The result is `won`, `lost` or `push` on a final game, `pending` while the game is scheduled or in progress, and `void` when it's canceled or postponed. Points follow the contest's `push` rule: with `zero` a push scores 0; a test contest with `half` scores 0.5; with `void`, the push doesn't count.
-- [ ] AC-3: The same grading runs on the model's top N per contest week, labelled apart from your entries. A soft-deleted entry is never graded.
-- [ ] AC-4: On the seeded DB through week 5, your season record is 12-8 and the model's top 4 is 11-9. The week rows are W1 3-1 / 2-2, W2 2-2 / 3-1, W3 3-1 / 2-2, W4 1-3 / 2-2, W5 3-1 / 2-2. With Week 6's games not yet final, week 6 gives both 0 points, with your two entries pending.
-- [ ] AC-5: The current-standing view returns the newest `contest_standings` row per contest: on the seeded DB, 3rd of 14, 1 point behind the leader. A newer row for the same contest replaces it in the view (test).
-- [ ] AC-6: Each graded entry carries CLV against the close the plan chose, NULL until that close exists. Reading one contest's rows from each view shows no full-table scan of `contest_entries`, `contest_lines` or `picks` in `EXPLAIN` (test).
+- [x] AC-1: `current_contest_lines` gives one row per contest and game. Its line is the newest `contest_lines` snapshot captured before the game's cutoff (kickoff, or the end of `game_date` in Eastern time when the kickoff is TBA, as `current_picks`), shown beside `game_market`'s current spread and the shown version's newest model line. A snapshot inserted after kickoff leaves the row unchanged (test). On the seeded DB, Texas vs Oklahoma reads the contest's TEX −7 beside the market's TEX −6.5.
+- [x] AC-2: `contest_results` grades each live (not soft-deleted) entry against the spread of the contest line it was made at. The result is `won`, `lost` or `push` on a final game, `pending` while the game is scheduled or in progress, and `void` when it's canceled or postponed. Points follow the contest's `push` rule: with `zero` a push scores 0; a test contest with `half` scores 0.5; with `void`, the push doesn't count.
+- [x] AC-3: The same grading runs on the model's top N per contest week, labelled apart from your entries. A soft-deleted entry is never graded.
+- [x] AC-4: On the seeded DB through week 5, your season record is 12-8 and the model's top 4 is 11-9. The week rows are W1 3-1 / 2-2, W2 2-2 / 3-1, W3 3-1 / 2-2, W4 1-3 / 2-2, W5 3-1 / 2-2. With Week 6's games not yet final, week 6 gives both 0 points, with your two entries pending.
+- [x] AC-5: The current-standing view returns the newest `contest_standings` row per contest: on the seeded DB, 3rd of 14, 1 point behind the leader. A newer row for the same contest replaces it in the view (test).
+- [x] AC-6: Each graded entry carries CLV against the close the plan chose, NULL until that close exists. Reading one contest's rows from each view shows no full-table scan of `contest_entries`, `contest_lines` or `picks` in `EXPLAIN` (test).
 
 ## Out of scope
 
@@ -64,8 +64,11 @@ Each contest's current line per game, your graded entries, the model's graded to
 
 _Work noticed during this task and deliberately left out. Each bullet ends `→ <path> § <section>` (where it was placed) or `→ not tracked: <reason>`. See `.claude/skills/track-follow-ups/classify.md`; the PR's Follow-ups section is copied from here._
 
-- TASK-071 reads `contest_results` and `contest_record` filtered to the shown model version (each version has its own model rows); whoever writes the model's contest picks in production writes every slate game's pick before the contest week's first kickoff (D-171: a later pick never enters the top N, so a job after a Thursday-night game would drop the week), with `expected_value` = 2p − 1 at even money and tier NULL unless that plan decides otherwise (approved at plan; reworded after spec review R2)
-- Decision D-171: contest CLV against `game_market`'s close; the model's top N fixed at the contest week's first kickoff, by `model_prob`, then kickoff, then game; push points; contest-pick storage conventions (approved at plan)
+- TASK-071 reads `contest_results` and `contest_record` filtered to the shown model version (each version has its own model rows); whoever writes the model's contest picks in production writes every slate game's pick before the contest week's first kickoff (D-171: a later pick never enters the top N, so a job after a Thursday-night game would drop the week), with `expected_value` = 2p − 1 at even money and tier NULL unless that plan decides otherwise (approved at plan; reworded after spec review R2) → docs/tasks/TASK-071-contest-page-api.md § Context
+- Decision D-171: contest CLV against `game_market`'s close; the model's top N fixed at the contest week's first kickoff, by `model_prob`, then kickoff, then game; push points; contest-pick storage conventions (approved at plan) → docs/decisions.md § D-171
+- `current_contest_lines` repeats the shell's shown-version rule (`api/shell.py` `SHOWN`) in SQL; a change to one must follow in the other (spec review R1) → docs/tasks/TASK-071-contest-page-api.md § Context
+- `contest_results`' first-kickoff lateral runs once per contest pick rather than once per (contest, week); fine at one contest's ~10 games a week, and the EXPLAIN test guards the one-contest read (schema review R2) → not tracked: accepted as is at today's volume
+- The fixture loader takes a contest week as the CFB run week (true for weeks 1-5; a mismatch fails the seed with a KeyError, never seeds bad rows) (schema review R1) → not tracked: fixture only, fails loudly
 
 ## Plan
 
@@ -110,13 +113,15 @@ Approved 2026-11-14 (owner): add a week-2 fixture game rather than amend AC-4; c
 
 _Filled by /implement-task. One line per round._
 
+Verify R1 PASS → R2 FAIL(1: the views README's test cell held two paths) → R3 PASS | Audit R1 PASS | Spec R1 CHANGES (RULE: 03 and the README didn't say a soft-deleted contest's picks drop out) → R2 CHANGES (follow-up wording only; fixed, rechecked by the close-out check) | Schema R1 CHANGES (MAJOR: hindsight top N; 2 MINOR) → R2 APPROVE (3 MINOR: a pass test and the 0008 docstring fixed, the per-pick lateral accepted)
+
 ## Blocked
 
 _Only if status is Blocked: what failed, what was tried, best hypothesis, decision needed._
 
 ## Metrics
 
-- Verify rounds:
-- Review rounds:
-- First-pass AC FAILs:
-- Plan revisions after approval:
+- Verify rounds: 3
+- Review rounds: 2
+- First-pass AC FAILs: 0
+- Plan revisions after approval: 2
