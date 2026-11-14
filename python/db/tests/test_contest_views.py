@@ -290,6 +290,52 @@ def test_the_model_top_n_is_graded_apart(db_conn: Connection):
     assert low not in {r["pick_id"] for r in rows}
 
 
+def test_the_model_top_n_is_fixed_at_the_weeks_first_kickoff(db_conn: Connection):
+    """D-171: the model's top N is ranked from its picks made before the week's first kickoff.
+    A pick written after it (here on a later game, at a moved line, liked more) can't bump a
+    game already played out of the top N, so the record never changes with hindsight
+    (hard rule 4)."""
+    w = _world(db_conn, per_period=1)
+    first = _game(db_conn)  # Sat noon ET, home 30-20
+    later = _game(db_conn, kickoff=m.utc(2030, 9, 7, 23, 30))  # Sat 7:30 PM ET
+    top = _model_pick(db_conn, w, first, -7.5, "home", 0.60)  # won
+    _model_pick(db_conn, w, later, -7.5, "home", 0.55)
+    moved = m.contest_line(db_conn, w.contest_id, later, -12.5, m.utc(2030, 9, 7, 17))
+    prediction_id = db_conn.execute(
+        text("SELECT id FROM predictions WHERE game_id = :g"), {"g": later}
+    ).scalar_one()
+    m.contest_pick(db_conn, prediction_id, w.version_id, later, moved, m.utc(2030, 9, 7, 17, 5),
+                   side="away", line=-12.5, model_prob=0.70)  # fmt: skip
+
+    rows = [r for r in _results(db_conn, w.contest_id) if r["picker"] == "model"]
+    record = db_conn.execute(
+        text(
+            "SELECT wins, losses, points FROM contest_record WHERE contest_id = :c"
+            " AND picker = 'model' AND breakdown = 'week'"
+        ),
+        {"c": w.contest_id},
+    ).one()
+
+    assert [(r["pick_id"], r["model_rank"], r["result"]) for r in rows] == [(top, 1, "won")]
+    assert tuple(record) == (1, 0, Decimal("1.0"))
+
+
+def test_a_contest_missing_its_push_rule_scores_a_push_0(db_conn: Connection):
+    """A contest whose rules lack `push` scores a push 0, the Splash default (D-045), and
+    `counted` is never NULL."""
+    w = _world(db_conn)
+    db_conn.execute(
+        text("UPDATE contests SET rules = rules - 'push' WHERE id = :c"), {"c": w.contest_id}
+    )
+    _, pushed = _entered(db_conn, w, -10.0, "home")
+    _, pending = _entered(db_conn, w, -3.5, "home", status="scheduled")
+
+    rows = {r["entry_id"]: r for r in _results(db_conn, w.contest_id)}
+
+    assert (rows[pushed]["points"], rows[pushed]["counted"]) == (Decimal("0.0"), True)
+    assert (rows[pending]["points"], rows[pending]["counted"]) == (None, False)
+
+
 def test_a_soft_deleted_entry_is_never_graded(db_conn: Connection):
     """AC-3: a soft-deleted entry has no row; the entry made again in its place is graded."""
     w = _world(db_conn)

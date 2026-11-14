@@ -86,7 +86,7 @@ Approved 2026-11-14 (owner): add a week-2 fixture game rather than amend AC-4; c
 8. Docs: views README, `docs/03-data-model.md` › Views, D-171.
 
 **Files**
-- `python/db/migrations/versions/0008_contest_entries_index.py` (new), `python/db/src/db/models.py`
+- `python/db/migrations/versions/0008_contest_entries_by_contest.py` (new), `python/db/src/db/models.py`
 - `python/db/views/080_current_contest_lines.sql`, `090_contest_results.sql`, `100_contest_record.sql` (not in Files likely touched: the record AC-4 reads), `110_current_contest_standing.sql` (new), `050_current_picks.sql`, `060_pick_outcomes.sql`, `README.md`
 - `python/db/seeds/fixture/generate_contest.py`, `contest_history.json`, `python/engine/src/engine/fixture.py`
 - `python/db/tests/test_contest_views.py` (new), `test_current_picks.py`, `python/engine/tests/test_fixture_seed.py` (if counts move)
@@ -101,6 +101,8 @@ Approved 2026-11-14 (owner): add a week-2 fixture game rather than amend AC-4; c
 - AC-6: `test_clv_is_null_until_the_close_exists`, `test_one_contest_reads_without_a_full_scan` (each view, `model_rows.explain`)
 
 **Revision 1 (Phase 2):** two week-2 games, not one. The model's natural week-2 wins include Arizona State at Wisconsin at 58.6%, and every week-2 loss sits at or above it, so a 3-1 top 4 needs a third win (Wake Forest at Clemson, 63.9%) and a weaker loss in 5th (Navy at SMU, 53.2%). The soft-deleted-contest test sits in `test_contest_views.py` (it checks all six views at once), and `test_model_record.py` scopes two queries to market picks and to its own contest, since the seeded contest picks now sit on week-5 games.
+
+**Revision 2 (schema review R1, owner's choice 2026-11-14):** the model's top N is fixed at the contest week's first kickoff: each game's newest contest pick made before it, not `current_picks`, so a pick written after a game was played can't bump it out (hard rule 4). `contest_results` defaults a missing `push` to `zero` and `counted` is never NULL; `contest_record` finds a contest's model versions once. Tests: `test_the_model_top_n_is_fixed_at_the_weeks_first_kickoff`, `test_a_contest_missing_its_push_rule_scores_a_push_0`.
 
 **Risks:** `current_contest_lines` repeats the shell's shown-version rule in SQL (per game's season rather than the coming week's); the two agree for a contest's own season. The weeks 2–5 slates and entries change (week 1's stays); your 12-8 still holds and TASK-067's test recomputes it.
 
