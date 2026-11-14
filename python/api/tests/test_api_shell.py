@@ -78,6 +78,32 @@ def test_the_slate_shell_on_the_fixture(
     assert body["picks"] == 9
 
 
+def test_a_contest_pick_stays_out_of_the_weeks_pick_count(db_conn: Connection):
+    """TASK-067 (AC-4): v1.0's contest pick on a week-6 game it has no market pick on (UNLV @
+    Boise State) leaves the shell's week-6 picks at 9, because the count reads market picks
+    only (TASK-053)."""
+    game_id, prediction_id, version_id = db_conn.execute(
+        text(
+            "SELECT g.id, p.id, p.model_version_id FROM games g"
+            " JOIN predictions p ON p.game_id = g.id"
+            f" WHERE g.source_id = '2026-w6-unlv-bsu' AND p.model_version_id = ({SEEDED_V1})"
+        )
+    ).one()
+    contest_id = m.contest(db_conn, m.user(db_conn))
+    picked_at = datetime(2026, 10, 9, 1, 10, tzinfo=UTC)  # Thu 9:10 PM ET
+    line = m.contest_line(db_conn, contest_id, game_id, -10.0, picked_at, period=6)
+    m.contest_pick(db_conn, prediction_id, version_id, game_id, line, picked_at,
+                   side="home", line=-10.0)  # fmt: skip
+    assert db_conn.execute(
+        text("SELECT count(*) FROM current_picks WHERE game_id = :g AND line_source = 'contest'"),
+        {"g": game_id},
+    ).scalar_one() == 1
+
+    got = shell.load(db_conn, datetime.fromisoformat(SLATE_NOW), "cfb")
+
+    assert (got.week, got.picks) == (6, 9)
+
+
 # AC-2
 
 NOW = m.utc(m.SEASON, 9, 1, 12)

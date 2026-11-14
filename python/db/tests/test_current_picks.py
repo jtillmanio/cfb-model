@@ -120,6 +120,39 @@ def test_a_pass_as_the_latest_row_means_no_pick(db_conn: Connection):
     assert [r["id"] for r in _current(db_conn, g.id)] == [again]
 
 
+def test_a_contest_pick_has_line_source_contest(db_conn: Connection):
+    """TASK-067 (AC-4): a pick at a contest line is current beside the market pick, with
+    `line_source` 'contest', and each contest has its own current pick (D-142)."""
+    g = _game(db_conn, "contest")
+    market = m.pick(db_conn, g.prediction_id, g.version_id, g.id,
+                    m.line(db_conn, g.id, g.book_id, m.utc(2030, 9, 1, 10), -1.0),
+                    m.utc(2030, 9, 1, 10, 10), side="home", line=-1.0)  # fmt: skip
+    user_id = m.user(db_conn)
+    work, family = m.contest(db_conn, user_id, "work"), m.contest(db_conn, user_id, "family")
+    lines = {
+        c: m.contest_line(db_conn, c, g.id, -1.5, m.utc(2030, 9, 4, 1)) for c in (work, family)
+    }
+    m.contest_pick(db_conn, g.prediction_id, g.version_id, g.id, lines[work],
+                   m.utc(2030, 9, 4, 1, 5), side="away", line=-1.5, edge_pts=-3.0)  # fmt: skip
+    newer = m.contest_line(db_conn, work, g.id, -2.5, m.utc(2030, 9, 5, 1))
+    at_work = m.contest_pick(db_conn, g.prediction_id, g.version_id, g.id, newer,
+                             m.utc(2030, 9, 5, 1, 5), side="home", line=-2.5)  # fmt: skip
+    at_family = m.contest_pick(db_conn, g.prediction_id, g.version_id, g.id, lines[family],
+                               m.utc(2030, 9, 4, 1, 5), side="home", line=-1.5)  # fmt: skip
+
+    rows = _current(db_conn, g.id)
+
+    assert [
+        (r["id"], r["line_source"], r["line_snapshot_id"] is not None, r["contest_line_id"],
+         r["contest_id"], r["price"])
+        for r in rows
+    ] == [
+        (market, "market", True, None, None, -110),
+        (at_work, "contest", False, newer, work, None),
+        (at_family, "contest", False, lines[family], family, None),
+    ]  # fmt: skip
+
+
 def test_seeded_week_6_has_nine_current_picks(db_conn: Connection):
     """AC-1: v1.0 has This Week's 9 current picks for 2026 week 6."""
     rows = db_conn.execute(
@@ -240,9 +273,11 @@ def test_a_tba_kickoff_freezes_at_the_end_of_its_eastern_day(db_conn: Connection
 def test_current_picks_are_pick_outcomes_current_rows(db_conn: Connection):
     """The window is written in both views (050, 060): they must pick the same rows, on the
     seed, on a game with a superseded pick and a pass before kickoff and a pick after the pass,
-    and on one with a pass and a flipped side after kickoff."""
+    on one with a pass and a flipped side after kickoff, and on one with market and contest
+    picks in two contests."""
     test_a_pass_as_the_latest_row_means_no_pick(db_conn)
     test_a_row_written_after_kickoff_changes_nothing(db_conn)
+    test_a_contest_pick_has_line_source_contest(db_conn)
     current = set(db_conn.execute(text("SELECT id FROM current_picks")).scalars())
     outcomes = set(
         db_conn.execute(text("SELECT pick_id FROM pick_outcomes WHERE is_current")).scalars()

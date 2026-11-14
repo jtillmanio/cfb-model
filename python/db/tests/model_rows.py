@@ -213,7 +213,7 @@ def pick(
     prediction_id: int,
     version_id: int,
     game_id: int,
-    snapshot_id: int,
+    snapshot_id: int | None,
     created_at: datetime,
     *,
     side: str | None,
@@ -222,7 +222,8 @@ def pick(
     tier: str | None = "B",
     **override: Any,
 ) -> int:
-    """A spread pick at −110 for 1 unit, or a pass (`side` None: no tier, 0 units)."""
+    """A spread pick at −110 for 1 unit, or a pass (`side` None: no tier, 0 units). A contest
+    pick has no snapshot (`snapshot_id` None, see `contest_pick`)."""
     values: dict[str, Any] = {
         "prediction_id": prediction_id,
         "model_version_id": version_id,
@@ -247,6 +248,67 @@ def pick(
         ),
         values,
     ).scalar_one()
+
+
+def user(conn: Connection) -> int:
+    """A user with a random GitHub id, so it never meets the seeded one (4242)."""
+    return conn.execute(
+        text("INSERT INTO users (github_id) VALUES (:g) RETURNING id"),
+        {"g": 10**12 + uuid.uuid4().int % 10**12},
+    ).scalar_one()
+
+
+def contest(conn: Connection, user_id: int, name: str = "pytest league") -> int:
+    """A Splash-shaped contest of the user's (TASK-067)."""
+    rules = {
+        "period": "week", "sports": ["cfb", "nfl"], "slate": "curated", "picks_per_period": 4,
+        "picks_exact": True, "lock": "per_game_kickoff", "scoring": "point_per_win",
+        "push": "zero",
+    }  # fmt: skip
+    return conn.execute(
+        text(
+            "INSERT INTO contests (user_id, name, platform, season, rules)"
+            " VALUES (:u, :name, 'splash', :season, CAST(:rules AS jsonb)) RETURNING id"
+        ),
+        {"u": user_id, "name": name, "season": SEASON, "rules": json.dumps(rules)},
+    ).scalar_one()
+
+
+def contest_line(
+    conn: Connection,
+    contest_id: int,
+    game_id: int,
+    spread_home: float,
+    captured_at: datetime,
+    period: int = 1,
+) -> int:
+    """One contest line snapshot, as a paste captures it."""
+    return conn.execute(
+        text(
+            "INSERT INTO contest_lines (contest_id, period, game_id, spread_home, captured_at,"
+            " source) VALUES (:c, :period, :g, :s, :at, 'paste') RETURNING id"
+        ),
+        {"c": contest_id, "period": period, "g": game_id, "s": spread_home, "at": captured_at},
+    ).scalar_one()
+
+
+def contest_pick(
+    conn: Connection,
+    prediction_id: int,
+    version_id: int,
+    game_id: int,
+    contest_line_id: int,
+    created_at: datetime,
+    *,
+    side: str | None,
+    line: float,
+    **override: Any,
+) -> int:
+    """A model pick at a contest line: no snapshot and no price (no-vig, D-140)."""
+    return pick(
+        conn, prediction_id, version_id, game_id, None, created_at, side=side, line=line,
+        contest_line_id=contest_line_id, price=None, **override,
+    )  # fmt: skip
 
 
 def scans(plan: dict[str, Any], relation: str) -> list[dict[str, Any]]:

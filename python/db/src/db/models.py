@@ -48,6 +48,8 @@ RUN_STATUSES = ("queued", "running", "succeeded", "failed")
 RATED_SEASON_TYPES = ("regular", "postseason")
 PICK_MARKETS = ("spread", "total", "moneyline")
 PICK_TIERS = ("A", "B", "C")
+CONTEST_LINE_SOURCES = ("paste", "manual", "fixture")
+CONTEST_SIDES = ("home", "away")
 DOUBLE = Float(precision=53)
 
 
@@ -412,7 +414,8 @@ class Pick(Base):
     new line makes a new row, and a re-evaluation that drops the pick is a pass row (no side or
     tier, 0 units), so the latest row per game, version and market is the current pick (a view).
     `edge_pts` is the shrunk margin + `spread_home` (> 0 likes home); a pass's numbers describe
-    the side its edge favours. `contest_line_id` waits for M6.1 (D-140)."""
+    the side its edge favours. A pick is at a line snapshot (a market pick) or a contest line (a
+    contest pick, no-vig, so no price), exactly one (D-140, TASK-067)."""
 
     __tablename__ = "picks"
     __table_args__ = (
@@ -426,8 +429,24 @@ class Pick(Base):
             ["line_snapshots.id", "line_snapshots.game_id"],
             ondelete="RESTRICT",
         ),
+        ForeignKeyConstraint(
+            ["contest_line_id", "game_id"],
+            ["contest_lines.id", "contest_lines.game_id"],
+            ondelete="RESTRICT",
+        ),
         UniqueConstraint("prediction_id", "market", "line_snapshot_id"),
+        UniqueConstraint("prediction_id", "market", "contest_line_id"),
         Index(None, "model_version_id", "game_id"),
+        CheckConstraint("(line_snapshot_id IS NULL) <> (contest_line_id IS NULL)", name="one_line"),
+        CheckConstraint(
+            "price IS NOT NULL OR contest_line_id IS NOT NULL", name="price_for_market"
+        ),
+        # A contest's picks through its lines; market picks have none (TASK-067).
+        Index(
+            "ix_picks_contest_line_id",
+            "contest_line_id",
+            postgresql_where=text("contest_line_id IS NOT NULL"),
+        ),
         CheckConstraint(f"market IN {PICK_MARKETS!r}", name="market"),
         CheckConstraint(
             "side IS NULL"
@@ -448,11 +467,12 @@ class Pick(Base):
     prediction_id: Mapped[int] = mapped_column(BigInteger)
     model_version_id: Mapped[int] = mapped_column(BigInteger)
     game_id: Mapped[int] = mapped_column(BigInteger)
-    line_snapshot_id: Mapped[int] = mapped_column(BigInteger)
+    line_snapshot_id: Mapped[int | None] = mapped_column(BigInteger)  # NULL: a contest pick
+    contest_line_id: Mapped[int | None] = mapped_column(BigInteger)  # NULL: a market pick
     market: Mapped[str] = mapped_column(Text)
     side: Mapped[str | None] = mapped_column(Text)  # NULL: a pass
     line: Mapped[Decimal | None] = mapped_column(Numeric(4, 1))  # NULL for a moneyline
-    price: Mapped[int]
+    price: Mapped[int | None]  # NULL for a contest pick (no-vig)
     model_prob: Mapped[float] = mapped_column(DOUBLE)
     edge_pts: Mapped[float] = mapped_column(DOUBLE)
     expected_value: Mapped[float] = mapped_column(DOUBLE)
@@ -466,4 +486,139 @@ Index(
     Pick.game_id,
     Pick.model_version_id,
     Pick.created_at.desc(),
+)
+
+
+class User(Base):
+    """One GitHub account (D-105): `github_id` is the API token's `sub`. The fixture writes the
+    test DB's; in production the contest API upserts it on its first write (TASK-070)."""
+
+    __tablename__ = "users"
+
+    id: Mapped[int] = mapped_column(BigInteger, Identity(), primary_key=True)
+    github_id: Mapped[int] = mapped_column(BigInteger, unique=True)
+    email: Mapped[str | None] = mapped_column(Text)
+    name: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = _created_at()
+
+
+class Contest(Base):
+    """A contest of yours; `rules` is a validated `ContestRules` (D-113). Soft-deleted (D-033):
+    a deleted contest frees its name."""
+
+    __tablename__ = "contests"
+    __table_args__ = (
+        UniqueConstraint("id", "user_id"),  # the entries' composite foreign key
+        Index(
+            "uq_contests_user_id_name",
+            "user_id",
+            "name",
+            unique=True,
+            postgresql_where=text("deleted_at IS NULL"),
+        ),
+        CheckConstraint("jsonb_typeof(rules) = 'object'", name="rules_is_object"),
+    )
+
+    id: Mapped[int] = mapped_column(BigInteger, Identity(), primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="RESTRICT"))
+    name: Mapped[str] = mapped_column(Text)
+    platform: Mapped[str] = mapped_column(Text)  # splash, manual, …: no CHECK, as team_aliases
+    season: Mapped[int]
+    rules: Mapped[dict[str, Any]] = mapped_column(JSONB)
+    created_at: Mapped[datetime] = _created_at()
+    deleted_at: Mapped[datetime | None] = mapped_column(TIMESTAMP(timezone=True))
+
+
+class ContestLine(Base):
+    """Append-only snapshots of a contest's slate and lines (D-038): triggers refuse UPDATE,
+    DELETE and TRUNCATE. `period` is the contest's week, not `games.week` (NFL weeks differ). The
+    current contest line is the newest snapshot per contest and game (a view, TASK-068)."""
+
+    __tablename__ = "contest_lines"
+    __table_args__ = (
+        UniqueConstraint("contest_id", "game_id", "captured_at"),
+        UniqueConstraint("id", "game_id"),  # a contest pick's line is of the pick's game
+        UniqueConstraint("id", "contest_id", "game_id"),  # an entry's line is its contest's
+        Index(None, "contest_id", "period"),
+        CheckConstraint(f"source IN {CONTEST_LINE_SOURCES!r}", name="source"),
+        CheckConstraint("period > 0", name="period_positive"),
+    )
+
+    id: Mapped[int] = mapped_column(BigInteger, Identity(), primary_key=True)
+    contest_id: Mapped[int] = mapped_column(ForeignKey("contests.id", ondelete="RESTRICT"))
+    period: Mapped[int]
+    game_id: Mapped[int] = mapped_column(ForeignKey("games.id", ondelete="RESTRICT"))
+    spread_home: Mapped[Decimal] = mapped_column(Numeric(4, 1))
+    captured_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True))
+    source: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[datetime] = _created_at()
+
+
+class ContestEntry(Base):
+    """Your pick in a contest, at the exact contest line you got. Never hard-deleted, and an
+    UPDATE may only set `deleted_at` once (a trigger); one live entry per user, contest and game,
+    so a soft-deleted pick can be made again (D-033)."""
+
+    __tablename__ = "contest_entries"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["contest_id", "user_id"],
+            ["contests.id", "contests.user_id"],
+            ondelete="RESTRICT",
+        ),
+        ForeignKeyConstraint(
+            ["contest_line_id", "contest_id", "game_id"],
+            ["contest_lines.id", "contest_lines.contest_id", "contest_lines.game_id"],
+            ondelete="RESTRICT",
+        ),
+        Index(
+            "uq_contest_entries_live",
+            "user_id",
+            "contest_id",
+            "game_id",
+            unique=True,
+            postgresql_where=text("deleted_at IS NULL"),
+        ),
+        CheckConstraint(f"side IN {CONTEST_SIDES!r}", name="side"),
+        CheckConstraint("confidence > 0", name="confidence_positive"),
+    )
+
+    id: Mapped[int] = mapped_column(BigInteger, Identity(), primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="RESTRICT"))
+    contest_id: Mapped[int] = mapped_column(BigInteger)
+    game_id: Mapped[int] = mapped_column(BigInteger)
+    contest_line_id: Mapped[int] = mapped_column(BigInteger)
+    side: Mapped[str] = mapped_column(Text)
+    confidence: Mapped[int | None]  # confidence-points contests only
+    created_at: Mapped[datetime] = _created_at()
+    deleted_at: Mapped[datetime | None] = mapped_column(TIMESTAMP(timezone=True))
+
+
+class ContestStanding(Base):
+    """Your league standing as you enter it by hand; append-only like the contest lines. The
+    current standing is the newest row per contest (a view, TASK-068)."""
+
+    __tablename__ = "contest_standings"
+    __table_args__ = (
+        CheckConstraint("period > 0", name="period_positive"),
+        CheckConstraint("position > 0 AND position <= field_size", name="position_in_field"),
+        CheckConstraint("points_behind_leader >= 0", name="points_behind_leader_not_negative"),
+    )
+
+    id: Mapped[int] = mapped_column(BigInteger, Identity(), primary_key=True)
+    contest_id: Mapped[int] = mapped_column(ForeignKey("contests.id", ondelete="RESTRICT"))
+    period: Mapped[int]
+    position: Mapped[int]
+    field_size: Mapped[int]
+    points_behind_leader: Mapped[Decimal | None] = mapped_column(Numeric(5, 1))
+    note: Mapped[str | None] = mapped_column(Text)
+    entered_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True), server_default=func.now()
+    )
+
+
+Index(
+    "ix_contest_standings_contest_id_entered_at",
+    ContestStanding.contest_id,
+    ContestStanding.entered_at.desc(),
 )
