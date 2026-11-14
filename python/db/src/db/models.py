@@ -579,6 +579,12 @@ class ContestEntry(Base):
             unique=True,
             postgresql_where=text("deleted_at IS NULL"),
         ),
+        # One contest's live entries, read by contest alone (TASK-068's contest_results).
+        Index(
+            "ix_contest_entries_contest_id_live",
+            "contest_id",
+            postgresql_where=text("deleted_at IS NULL"),
+        ),
         CheckConstraint(f"side IN {CONTEST_SIDES!r}", name="side"),
         CheckConstraint("confidence > 0", name="confidence_positive"),
     )

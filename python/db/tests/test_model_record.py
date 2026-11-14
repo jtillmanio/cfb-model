@@ -89,12 +89,13 @@ def test_seeded_weeks(db_conn: Connection):
 
 
 def test_seeded_buckets_count_their_picks(db_conn: Connection):
-    """AC-4: through week 5, each pick bucket counts exactly the weeks 1–5 picks whose
-    abs(edge_pts) falls in it."""
+    """AC-4: through week 5, each pick bucket counts exactly the weeks 1–5 market picks whose
+    abs(edge_pts) falls in it (the seeded contest picks aren't in the record, TASK-068)."""
     edges = db_conn.execute(
         text(
             "SELECT p.edge_pts FROM picks p JOIN games g ON g.id = p.game_id"
             f" WHERE p.model_version_id = ({SEEDED_V1}) AND g.season = 2026 AND g.week <= 5"
+            " AND p.line_snapshot_id IS NOT NULL"
         )
     ).scalars()
     expected = Counter(next(b for at, b in BUCKETS if abs(e) >= at) for e in edges)
@@ -133,9 +134,9 @@ def test_contest_picks_leave_the_record_alone(db_conn: Connection):
     graded = db_conn.execute(
         text(
             "SELECT result FROM pick_outcomes WHERE model_version_id = :v AND is_current"
-            " AND line_source = 'contest' AND game_id = ANY(:g)"
+            " AND line_source = 'contest' AND contest_id = :c AND game_id = ANY(:g)"
         ),
-        {"v": version_id, "g": [g.game_id for g in games]},
+        {"v": version_id, "c": contest_id, "g": [g.game_id for g in games]},
     ).scalars()
     assert list(graded) == ["won"] * 3
 

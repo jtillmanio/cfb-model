@@ -1,14 +1,14 @@
 ---
 id: TASK-068
 title: Add the current_contest_lines, contest_results and current-standing views
-status: Ready
+status: In progress
 depends_on: [TASK-067, TASK-041]
 size: M
 model: opus
 autonomy: attended
 ui: false
-plan_status: none
-planned_at_commit:
+plan_status: approved
+planned_at_commit: f52eac6
 ---
 
 # TASK-068 — Add the current_contest_lines, contest_results and current-standing views
@@ -64,9 +64,45 @@ Each contest's current line per game, your graded entries, the model's graded to
 
 _Work noticed during this task and deliberately left out. Each bullet ends `→ <path> § <section>` (where it was placed) or `→ not tracked: <reason>`. See `.claude/skills/track-follow-ups/classify.md`; the PR's Follow-ups section is copied from here._
 
+- TASK-071 reads `contest_results` and `contest_record` for the page, and whoever writes the model's contest picks in production follows D-171's conventions (all slate games, `expected_value` = 2p − 1 at no vig, tier NULL) (approved at plan)
+- Decision D-171: contest CLV against `game_market`'s close; top N by `model_prob`, then kickoff, then game; push points; contest-pick storage conventions (approved at plan)
+
 ## Plan
 
 _Written by /plan-batch or /implement-task Phase 1. Approved by the user (plan_status: approved) before any code is written._
+
+Approved 2026-11-14 (owner): add a week-2 fixture game rather than amend AC-4; contest CLV against `game_market`'s close; the `0008` index; the extra `contest_record` view; soft-deleted contests' picks out of `current_picks` and `pick_outcomes`.
+
+**Why the fixture changes:** the fixture's week 2 has 5 final games and the model's side covers 2 of them at any contest line within 3 points of the close, so the model's W2 3-1 is unreachable; on today's slates the model's top 4 grades 10-10.
+
+**Steps**
+1. Migration `0008`: partial index `ix_contest_entries_contest_id_live` on `contest_entries (contest_id) WHERE deleted_at IS NULL` (`uq_contest_entries_live` leads with `user_id`, so a read by contest alone would scan); the same index in `models.py`.
+2. `080_current_contest_lines.sql`: one row per (live contest, game): the newest `contest_lines` snapshot captured before the game's cutoff (kickoff, or the end of `game_date` ET when TBA), beside `game_market`'s current spread and the shown version's model line (the shell's rule, per the game's sport and season: production, else the newest candidate with a succeeded scheduled run that season; its newest prediction from a succeeded run before the cutoff; `model_spread_home = −pred_margin`). NFL games: no model line.
+3. `090_contest_results.sql`: one row per graded item. `picker 'you'`: each live entry at its contest line. `picker 'model'`: `pick_outcomes`' current contest picks, ranked within (contest, version, period) by `model_prob` desc, then kickoff, then game id; rank ≤ `picks_per_period` kept. `result` won/lost/push/pending/void (as `pick_outcomes`); `points` 1 a win, 0 a loss, a push 0 (`zero`), 0.5 (`half`) or NULL (`void`: doesn't count); pending and void NULL. `clv` against `game_market`'s close (D-132's sign), NULL until it exists.
+4. `100_contest_record.sql`: per contest, picker (and model version), period: W-L-P, pending, voids and points, `breakdown` `week` and `to_date`; periods come from the contest's lines, so a week with no graded rows still reads 0 points.
+5. `110_current_contest_standing.sql`: the newest `contest_standings` row per live contest (by `entered_at`, then id).
+6. `050_current_picks.sql`, `060_pick_outcomes.sql`: a soft-deleted contest's picks drop out.
+7. Fixture: `generate_contest.py` adds two hand-set final week-2 CFB games between teams idle that week (lines, score, v1.0 prediction; revision 1 below) and redraws each week's slate with the seed until your result and the model's top-4 result both hold, with no tie at the 4th/5th cut; it writes the model's contest pick on every slate game (unshrunk cover probability, D-140's fixture convention; `edge_pts = pred_margin + line`; `expected_value = 2p − 1`; tier NULL; made 1 minute after the line's capture). `contest_history.json` regenerated; `fixture.py` loads its game, prediction and picks.
+8. Docs: views README, `docs/03-data-model.md` › Views, D-171.
+
+**Files**
+- `python/db/migrations/versions/0008_contest_entries_index.py` (new), `python/db/src/db/models.py`
+- `python/db/views/080_current_contest_lines.sql`, `090_contest_results.sql`, `100_contest_record.sql` (not in Files likely touched: the record AC-4 reads), `110_current_contest_standing.sql` (new), `050_current_picks.sql`, `060_pick_outcomes.sql`, `README.md`
+- `python/db/seeds/fixture/generate_contest.py`, `contest_history.json`, `python/engine/src/engine/fixture.py`
+- `python/db/tests/test_contest_views.py` (new), `test_current_picks.py`, `python/engine/tests/test_fixture_seed.py` (if counts move)
+- `docs/03-data-model.md`, `docs/decisions.md`, `docs/tasks/TASK-071-contest-page-api.md` (follow-up note)
+
+**Test strategy** (`python/db/tests/test_contest_views.py`)
+- AC-1: `test_texas_oklahoma_reads_the_contest_line_beside_the_market`, `test_a_snapshot_after_kickoff_leaves_the_line_unchanged`
+- AC-2: `test_entries_grade_won_lost_push_pending_void`, `test_push_points_follow_the_contest_rule` (zero, half, void contests)
+- AC-3: `test_the_model_top_n_is_graded_apart`, `test_a_soft_deleted_entry_is_never_graded`; `test_current_picks.py`: a soft-deleted contest's picks drop out
+- AC-4: `test_the_seeded_season_is_12_8_against_11_9` (week rows and week 6 at 0 points, 2 pending)
+- AC-5: `test_the_seeded_standing_is_3rd_of_14`, `test_a_newer_standing_replaces_it`
+- AC-6: `test_clv_is_null_until_the_close_exists`, `test_one_contest_reads_without_a_full_scan` (each view, `model_rows.explain`)
+
+**Revision 1 (Phase 2):** two week-2 games, not one. The model's natural week-2 wins include Arizona State at Wisconsin at 58.6%, and every week-2 loss sits at or above it, so a 3-1 top 4 needs a third win (Wake Forest at Clemson, 63.9%) and a weaker loss in 5th (Navy at SMU, 53.2%). The soft-deleted-contest test sits in `test_contest_views.py` (it checks all six views at once), and `test_model_record.py` scopes two queries to market picks and to its own contest, since the seeded contest picks now sit on week-5 games.
+
+**Risks:** `current_contest_lines` repeats the shell's shown-version rule in SQL (per game's season rather than the coming week's); the two agree for a contest's own season. The weeks 2–5 slates and entries change (week 1's stays); your 12-8 still holds and TASK-067's test recomputes it.
 
 ## Review log
 
