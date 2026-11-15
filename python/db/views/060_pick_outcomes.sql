@@ -13,6 +13,7 @@
 --           0 for a push or a void (refunded), so ROI = units ÷ risked (D-132). A contest pick
 --           (line_source 'contest', TASK-067) has no price, so both are NULL whatever its result:
 --           it never counts in the market record (D-142).
+--           A soft-deleted contest's picks drop out, as from current_picks (TASK-068).
 --   clv:    the line picked at against game_market's closing line, in points for the side picked:
 --           line − close for a home pick, close − line for an away pick, so a home pick at −2.5
 --           that closed −3.5 is +1.0 and an away pick there −1.0. NULL until the close exists
@@ -84,6 +85,7 @@ FROM (
     FROM picks p
     JOIN games gk ON gk.id = p.game_id
     LEFT JOIN contest_lines cl ON cl.id = p.contest_line_id
+    LEFT JOIN contests ct ON ct.id = cl.contest_id
     CROSS JOIN LATERAL (
         SELECT
             CASE
@@ -93,6 +95,7 @@ FROM (
             cl.contest_id
     ) s
     WHERE p.market = 'spread'
+        AND ct.deleted_at IS NULL
         AND p.created_at < coalesce(
             gk.kickoff_at, (gk.game_date + 1)::timestamp AT TIME ZONE 'America/New_York'
         )

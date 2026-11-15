@@ -51,3 +51,25 @@ def test_a_reseed_adds_no_contest_rows(db_conn: Connection):
 
     assert new == {"lines": 0, "entries": 0, "standings": 0}
     assert db_conn.execute(text(f"SELECT {count.text}")).scalar_one() == before
+
+
+def test_a_reseed_adds_no_contest_games_or_model_picks(db_conn: Connection):
+    """TASK-068: contest_history.json's week-2 games, their lines and predictions, and the
+    model's contest picks are found again, not added twice."""
+    picks, week = fixture._load("picks.json"), fixture._load("week6.json")
+    history, contest = fixture._load("contest_history.json"), fixture._load("contest.json")
+    team_ids = fixture._seed_teams(db_conn, fixture.load_teams())
+    book_id = db_conn.execute(
+        text("SELECT id FROM sportsbooks WHERE source = 'fixture' AND source_id = 'consensus'")
+    ).scalar_one()
+    version_id = fixture._seed_versions(db_conn, fixture._load("models.json"))[picks["version"]]
+    count = text("SELECT count(*) FROM picks WHERE contest_line_id IS NOT NULL")
+    before = db_conn.execute(count).scalar_one()
+
+    assert fixture._seed_contest_games(
+        db_conn, history, picks, week, team_ids, book_id, version_id
+    ) == (0, 0)
+    assert fixture._seed_contest_picks(
+        db_conn, contest, history, week, picks["season"], version_id
+    ) == 0
+    assert db_conn.execute(count).scalar_one() == before == 25

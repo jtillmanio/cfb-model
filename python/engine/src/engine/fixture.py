@@ -8,8 +8,9 @@ picks skip a key already stored, and a version or run that exists is reused. pic
 by its generator, generate_picks.py, beside it (TASK-040), and week6_filler.json, the Week 6 games
 the design doesn't draw, by generate_filler.py (TASK-055). nfl.json is the contest slate's four NFL
 games, under `sport_id 'nfl'` (TASK-069). contest.json is the user, the Splash work league, week 6's
-contest lines and entries and the standing, and contest_history.json, weeks 1-5's lines and
-entries, is written by generate_contest.py (TASK-067).
+contest lines and entries and the standing, and contest_history.json, weeks 1-5's lines, entries
+and the model's contest picks with the two week-2 games they need, is written by
+generate_contest.py (TASK-067, TASK-068).
 """
 
 from __future__ import annotations
@@ -692,6 +693,115 @@ def _seed_contest(
     return {"lines": new_lines, "entries": new_entries, "standings": new_standings}
 
 
+def _seed_contest_games(
+    conn: Connection,
+    history: dict[str, Any],
+    picks: dict[str, Any],
+    week_data: dict[str, Any],
+    team_ids: dict[str, int],
+    book_id: int,
+    version_id: int,
+) -> tuple[int, int]:
+    """contest_history.json's own games (the two week-2 games its slates need, TASK-068), their
+    lines and v1.0's predictions under the week's run, as picks.json's. Returns the number of new
+    line snapshots and predictions."""
+    season = picks["season"]
+    game_ids = _upsert_games(conn, season, history["games"], team_ids, {})
+    new_lines = _insert_lines(conn, history["games"], game_ids, book_id)
+    starts = _week_starts(week_data)
+    new_predictions = 0
+    for p in history["predictions"]:
+        run_id, finished = _scheduled_run(conn, version_id, season, p["week"], starts[p["week"]])
+        new_predictions += conn.execute(
+            text(
+                "INSERT INTO predictions (model_run_id, model_version_id, game_id, created_at,"
+                " pred_margin, home_win_prob, margin_sd)"
+                " VALUES (:run_id, :version_id, :game_id, :created_at, :pred_margin,"
+                " :home_win_prob, :margin_sd) ON CONFLICT (model_run_id, game_id) DO NOTHING"
+            ),
+            {
+                "run_id": run_id,
+                "version_id": version_id,
+                "game_id": game_ids[p["game"]],
+                "created_at": finished,
+                "pred_margin": p["pred_margin"],
+                "home_win_prob": p["home_win_prob"],
+                "margin_sd": picks["margin_sd"],
+            },
+        ).rowcount
+    return new_lines, new_predictions
+
+
+def _seed_contest_picks(
+    conn: Connection,
+    data: dict[str, Any],
+    history: dict[str, Any],
+    week_data: dict[str, Any],
+    season: int,
+    version_id: int,
+) -> int:
+    """The model's weeks 1-5 contest picks (TASK-068): each at its game's newest contest line
+    captured before it was made, on the prediction of the week's v1.0 run, with no price.
+    Returns the number of new picks."""
+    contest_id = conn.execute(
+        text(
+            "SELECT c.id FROM contests c JOIN users u ON u.id = c.user_id"
+            " WHERE u.github_id = :github_id AND c.name = :name AND c.deleted_at IS NULL"
+        ),
+        {"github_id": data["user"]["github_id"], "name": data["contest"]["name"]},
+    ).scalar_one()
+    starts = _week_starts(week_data)
+    runs = {
+        p["period"]: _scheduled_run(conn, version_id, season, p["period"], starts[p["period"]])[0]
+        for p in history["model_picks"]
+    }
+    lines = conn.execute(
+        text(
+            "SELECT l.id, l.game_id, l.captured_at, g.source_id FROM contest_lines l"
+            " JOIN games g ON g.id = l.game_id WHERE l.contest_id = :c ORDER BY l.captured_at"
+        ),
+        {"c": contest_id},
+    ).all()
+    game_ids = {r.source_id: r.game_id for r in lines}
+    prediction_ids = {
+        (r.model_run_id, r.game_id): r.id
+        for r in conn.execute(
+            text(
+                "SELECT id, model_run_id, game_id FROM predictions"
+                " WHERE model_version_id = :v AND game_id = ANY(:games)"
+            ),
+            {"v": version_id, "games": list(game_ids.values())},
+        )
+    }
+    rows = []
+    for p in history["model_picks"]:
+        game_id, made = game_ids[p["game"]], _ts(p["created_at"])
+        assert made is not None
+        line = [r for r in lines if r.game_id == game_id and r.captured_at < made][-1]
+        rows.append(
+            {
+                "prediction_id": prediction_ids[(runs[p["period"]], game_id)],
+                "version_id": version_id,
+                "game_id": game_id,
+                "line_id": line.id,
+                **{k: p[k] for k in ("side", "model_prob", "edge_pts", "expected_value")},
+                "created_at": made,
+            }
+        )
+    return conn.execute(
+        text(
+            "INSERT INTO picks (prediction_id, model_version_id, game_id, contest_line_id, market,"
+            " side, line, price, model_prob, edge_pts, expected_value, tier, stake_units,"
+            " created_at)"
+            " SELECT :prediction_id, :version_id, :game_id, l.id, 'spread', :side, l.spread_home,"
+            " NULL, :model_prob, :edge_pts, :expected_value, NULL, 1.0, :created_at"
+            " FROM contest_lines l WHERE l.id = :line_id"
+            " ON CONFLICT (prediction_id, market, contest_line_id) DO NOTHING"
+        ),
+        rows,
+    ).rowcount
+
+
 def seed_fixture() -> None:
     refuse_if_live("seed the fixture")
     url = resolve_test_database_url()
@@ -712,14 +822,22 @@ def seed_fixture() -> None:
             conn, filler, models, week, team_ids, book_id, version_ids[filler["version"]]
         )
         nfl_games, nfl_lines = _seed_nfl(conn, nfl, book_id)
-        contest = _seed_contest(conn, _load("contest.json"), _load("contest_history.json"))
+        contest_data, history = _load("contest.json"), _load("contest_history.json")
+        v1 = version_ids[picks["version"]]
+        contest_lines, contest_predictions = _seed_contest_games(
+            conn, history, picks, week, team_ids, book_id, v1
+        )
+        contest = _seed_contest(conn, contest_data, history)
+        contest_picks = _seed_contest_picks(conn, contest_data, history, week, picks["season"], v1)
     print(
         f"Seeded {len(teams['teams']) + len(filler['teams'])} fixture teams for"
         f" {teams['season']}, {len(week['games']) + len(picks['games']) + len(filler['games'])}"
-        f" games and {lines + more_lines + filler_lines} new line snapshots,"
+        f" + {len(history['games'])} games and"
+        f" {lines + more_lines + filler_lines + contest_lines} new line snapshots,"
         f" {len(models['versions'])} model versions, {ratings + filler_ratings} new ratings,"
-        f" {predictions + more_predictions + filler_predictions} new predictions and"
-        f" {new_picks} new picks into the test DB; {len(nfl['teams'])} NFL teams, {nfl_games}"
-        f" NFL games and {nfl_lines} new NFL line snapshots; {contest['lines']} new contest"
-        f" lines, {contest['entries']} new entries and {contest['standings']} new standings."
+        f" {predictions + more_predictions + filler_predictions + contest_predictions}"
+        f" new predictions and {new_picks} new picks into the test DB; {len(nfl['teams'])} NFL"
+        f" teams, {nfl_games} NFL games and {nfl_lines} new NFL line snapshots;"
+        f" {contest['lines']} new contest lines, {contest['entries']} new entries,"
+        f" {contest['standings']} new standings and {contest_picks} new model contest picks."
     )
