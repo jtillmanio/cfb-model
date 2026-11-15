@@ -29,7 +29,7 @@ REST API v2, base `https://api.collegefootballdata.com`, bearer API key. Officia
 
 ### Contest lines (Splash Sports first, any platform later)
 A pick'em contest's lines can differ from the market's. Splash shows them on a webpage, and each game's line locks at its kickoff.
-- **Import by paste:** you copy the contest page's text into the app, and a **per-platform parser** (Splash first) extracts teams and lines, matching teams through `team_aliases`. Unmatched rows are flagged for a one-time alias fix. Manual entry is the fallback, and other platforms get their own parser.
+- **Import by paste:** you copy the contest page's text into the app, and a **per-platform parser** (Splash first) extracts teams and lines, matching teams through `team_aliases`. A name with no alias falls back to an exact match on a team's school or nickname within the contest's sports, kept only when exactly one game that day pairs the two sides, and saves nothing (D-172). Unmatched rows are flagged for a one-time alias fix. Manual entry is the fallback, and other platforms get their own parser.
 - **No automated scraping.** The page sits behind your login, and scraping it would likely break Splash's terms and break whenever their markup changes. Pasting is fast and robust.
 - Lines can move until kickoff, so each paste is stored as a new **snapshot** and your entry records the line you actually got.
 

@@ -2,6 +2,9 @@
 game block (TASK-023, D-113). Names are matched through an alias lookup and never guessed: a name
 the lookup doesn't hold comes back unmatched, for the inline picker (D-036).
 
+Platform code in the light core: standard library only and no sport imports, so the contest import
+API can run it (TASK-070, hard rule 5).
+
 A block lists the away side first and the home side second; each side is a record line (`4-0`,
 or `3-1-1` with a tie) with the team name on the line before it and the side's line after it.
 A block ends at its `Under …` line. Kickoffs are read in `tz` (the page prints none; Eastern by

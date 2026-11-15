@@ -5,6 +5,66 @@
  */
 
 export interface paths {
+    "/api/py/contests/{contest_id}/aliases": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Save Contest Aliases
+         * @description Maps names the contest's platform writes to teams, once (team_aliases, D-036).
+         */
+        post: operations["save_contest_aliases_api_py_contests__contest_id__aliases_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/py/contests/{contest_id}/import/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Confirm Contest Import
+         * @description Saves every row's line as a new contest_lines snapshot at the API's clock, or none.
+         */
+        post: operations["confirm_contest_import_api_py_contests__contest_id__import_confirm_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/py/contests/{contest_id}/import/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Preview Contest Import
+         * @description The pasted page's rows matched to games, with the re-paste diff. Writes nothing.
+         */
+        post: operations["preview_contest_import_api_py_contests__contest_id__import_preview_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/py/health": {
         parameters: {
             query?: never;
@@ -67,6 +127,61 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** AliasConflictBody */
+        AliasConflictBody: {
+            detail: components["schemas"]["AliasConflictOut"];
+        };
+        /** AliasConflictOut */
+        AliasConflictOut: {
+            /** Aliases */
+            aliases: string[];
+            /**
+             * Code
+             * @enum {string}
+             */
+            code: "alias_conflict" | "unknown_team";
+            /** Message */
+            message: string;
+        };
+        /** AliasMappingIn */
+        AliasMappingIn: {
+            /** Alias */
+            alias: string;
+            /** Team Id */
+            team_id: number;
+        };
+        /** AliasOut */
+        AliasOut: {
+            /** Alias */
+            alias: string;
+            /** Created */
+            created: boolean;
+            /** Team Id */
+            team_id: number;
+        };
+        /** AliasesIn */
+        AliasesIn: {
+            /** Mappings */
+            mappings: components["schemas"]["AliasMappingIn"][];
+        };
+        /** AliasesOut */
+        AliasesOut: {
+            /** Aliases */
+            aliases: components["schemas"]["AliasOut"][];
+            /** Created */
+            created: number;
+            /** Source */
+            source: string;
+        };
+        /** ContestLineOut */
+        ContestLineOut: {
+            /** Contest Line Id */
+            contest_line_id: number;
+            /** Game Id */
+            game_id: number;
+            /** Spread Home */
+            spread_home: number;
+        };
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
@@ -80,6 +195,156 @@ export interface components {
             db_reachable: boolean;
             /** Migration Head */
             migration_head: string | null;
+        };
+        /** ImportConfirmOut */
+        ImportConfirmOut: {
+            /**
+             * Captured At
+             * Format: date-time
+             */
+            captured_at: string;
+            /** Contest Id */
+            contest_id: number;
+            /** Inserted */
+            inserted: number;
+            /** Lines */
+            lines: components["schemas"]["ContestLineOut"][];
+            /** Period */
+            period: number;
+        };
+        /** ImportCountsOut */
+        ImportCountsOut: {
+            /** Matched */
+            matched: number;
+            /** Problem */
+            problem: number;
+            /** Rows */
+            rows: number;
+            /** Unmatched */
+            unmatched: number;
+        };
+        /** ImportIn */
+        ImportIn: {
+            /** Period */
+            period: number;
+            /** Text */
+            text: string;
+        };
+        /**
+         * ImportNameOut
+         * @description A name that resolves to no team, with the teams playing that day it most likely means.
+         */
+        ImportNameOut: {
+            /** Candidates */
+            candidates: components["schemas"]["ImportTeamOut"][];
+            /** Name */
+            name: string;
+        };
+        /** ImportPreviewOut */
+        ImportPreviewOut: {
+            /** Changes */
+            changes: components["schemas"]["LineChangeOut"][];
+            /** Contest Id */
+            contest_id: number;
+            counts: components["schemas"]["ImportCountsOut"];
+            /** Lock At */
+            lock_at: string | null;
+            /** Period */
+            period: number;
+            /** Rows */
+            rows: components["schemas"]["ImportRowOut"][];
+        };
+        /** ImportRefusalBody */
+        ImportRefusalBody: {
+            detail: components["schemas"]["ImportRefusalOut"];
+        };
+        /** ImportRefusalOut */
+        ImportRefusalOut: {
+            /**
+             * Code
+             * @enum {string}
+             */
+            code: "unparseable" | "no_match" | "unresolved";
+            /** Message */
+            message: string;
+            /** Rows */
+            rows: components["schemas"]["ImportRowOut"][];
+        };
+        /** ImportRowOut */
+        ImportRowOut: {
+            /** Away Name */
+            away_name: string | null;
+            away_team: components["schemas"]["ImportTeamOut"] | null;
+            /** First Line */
+            first_line: number;
+            /** Game Date */
+            game_date: string | null;
+            /** Game Id */
+            game_id: number | null;
+            /** Home Name */
+            home_name: string | null;
+            home_team: components["schemas"]["ImportTeamOut"] | null;
+            /** Index */
+            index: number;
+            /** Kickoff At */
+            kickoff_at: string | null;
+            /** Last Line */
+            last_line: number;
+            /** Matched By */
+            matched_by: ("alias" | "name") | null;
+            /** Page Status */
+            page_status: string | null;
+            /** Problem */
+            problem: ("no line" | "lines disagree" | "unreadable block") | null;
+            /** Sport Id */
+            sport_id: string | null;
+            /** Spread Home */
+            spread_home: number | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "matched" | "unmatched" | "no_game" | "ambiguous" | "duplicate" | "problem";
+            /** Swapped */
+            swapped: boolean;
+            /** Unmatched */
+            unmatched: components["schemas"]["ImportNameOut"][];
+        };
+        /** ImportTeamOut */
+        ImportTeamOut: {
+            /** Abbreviation */
+            abbreviation: string | null;
+            /** Color */
+            color: string | null;
+            /** Id */
+            id: number;
+            /** Mascot */
+            mascot: string | null;
+            /** School */
+            school: string;
+            /** Sport Id */
+            sport_id: string;
+        };
+        /**
+         * LineChangeOut
+         * @description A matched row whose line differs from the contest's current line (the re-paste diff).
+         */
+        LineChangeOut: {
+            /** Contest Line Id */
+            contest_line_id: number;
+            /** Game Id */
+            game_id: number;
+            /** Index */
+            index: number;
+            /** New Spread Home */
+            new_spread_home: number;
+            /**
+             * Old Captured At
+             * Format: date-time
+             */
+            old_captured_at: string;
+            /** Old Spread Home */
+            old_spread_home: number;
         };
         /** ShellModelOut */
         ShellModelOut: {
@@ -355,6 +620,141 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    save_contest_aliases_api_py_contests__contest_id__aliases_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                contest_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AliasesIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AliasesOut"];
+                };
+            };
+            /** @description No such contest of yours */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description A name already means another team */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AliasConflictBody"];
+                };
+            };
+            /** @description A team outside the contest's sports */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AliasConflictBody"];
+                };
+            };
+        };
+    };
+    confirm_contest_import_api_py_contests__contest_id__import_confirm_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                contest_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ImportIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportConfirmOut"];
+                };
+            };
+            /** @description No such contest of yours */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unparseable, no match, or unresolved rows */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportRefusalBody"];
+                };
+            };
+        };
+    };
+    preview_contest_import_api_py_contests__contest_id__import_preview_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                contest_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ImportIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportPreviewOut"];
+                };
+            };
+            /** @description No such contest of yours */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unparseable, no match, or unresolved rows */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportRefusalBody"];
+                };
+            };
+        };
+    };
     health_api_py_health_get: {
         parameters: {
             query?: never;

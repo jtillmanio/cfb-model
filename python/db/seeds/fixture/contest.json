@@ -1,5 +1,5 @@
 {
-  "_source": "design/handoff/designs/contest-data.js and design/sample-data.md § 3 (TASK-067): the allowlisted user (github_id 4242, the id the API tests and e2e sign in as), the Splash work league with the Splash preset rules (engine/core/contest_rules.py SPLASH_PRESET), the Week 6 contest lines from the paste (spread_home from the home side, the paste's `hl`: UNLV +10 at Boise State is -10, Notre Dame -17.5 at Stanford +17.5, Bills -3 at Jets +3), captured Thu 2026-10-08 9:10 PM ET, before the first entry; your entries OU +7 (home, Thu 9:14 PM ET) and BUF -3 (away, Thu 9:20 PM ET); and the standing you entered after week 5: 3rd of 14, 1 point behind the leader. Weeks 1-5 are contest_history.json. Test DB only (D-089).",
+  "_source": "design/handoff/designs/contest-data.js and design/sample-data.md § 3 (TASK-067): the allowlisted user (github_id 4242, the id the API tests and e2e sign in as), the Splash work league with the Splash preset rules (engine/core/contest_rules.py SPLASH_PRESET), the Week 6 contest lines from the paste (spread_home from the home side, the paste's `hl`: UNLV +10 at Boise State is -10, Notre Dame -17.5 at Stanford +17.5, Bills -3 at Jets +3), captured Thu 2026-10-08 9:10 PM ET, before the first entry; your entries OU +7 (home, Thu 9:14 PM ET) and BUF -3 (away, Thu 9:20 PM ET); and the standing you entered after week 5: 3rd of 14, 1 point behind the leader; the `splash` team aliases for every Week 6 paste name but \"Hou Texans\" and \"Jax\", so the import reads 9 rows matched and 1 unmatched (TASK-070; `team` is the team's fixture source_id in its sport). Weeks 1-5 are contest_history.json. Test DB only (D-089).",
   "user": { "github_id": 4242 },
   "contest": {
     "name": "Splash work league",
@@ -31,6 +31,26 @@
   "entries": [
     { "period": 6, "game": "2026-w6-tex-ou", "side": "home", "created_at": "2026-10-09T01:14:00Z" },
     { "period": 6, "game": "2026-w6-buf-nyj", "side": "away", "created_at": "2026-10-09T01:20:00Z" }
+  ],
+  "aliases": [
+    { "alias": "UNLV", "sport": "cfb", "team": "unlv" },
+    { "alias": "Boise State", "sport": "cfb", "team": "bsu" },
+    { "alias": "Purdue", "sport": "cfb", "team": "pur" },
+    { "alias": "Ohio State", "sport": "cfb", "team": "osu" },
+    { "alias": "Ole Miss", "sport": "cfb", "team": "miss" },
+    { "alias": "LSU", "sport": "cfb", "team": "lsu" },
+    { "alias": "Notre Dame", "sport": "cfb", "team": "nd" },
+    { "alias": "Stanford", "sport": "cfb", "team": "stan" },
+    { "alias": "Texas", "sport": "cfb", "team": "tex" },
+    { "alias": "Oklahoma", "sport": "cfb", "team": "ou" },
+    { "alias": "Colorado", "sport": "cfb", "team": "colo" },
+    { "alias": "BYU", "sport": "cfb", "team": "byu" },
+    { "alias": "Bills", "sport": "nfl", "team": "BUF" },
+    { "alias": "Jets", "sport": "nfl", "team": "NYJ" },
+    { "alias": "Chiefs", "sport": "nfl", "team": "KC" },
+    { "alias": "Ravens", "sport": "nfl", "team": "BAL" },
+    { "alias": "Giants", "sport": "nfl", "team": "NYG" },
+    { "alias": "Eagles", "sport": "nfl", "team": "PHI" }
   ],
   "standings": [
     { "period": 5, "position": 3, "field_size": 14, "points_behind_leader": 1, "note": null, "entered_at": "2026-10-05T13:00:00Z" }

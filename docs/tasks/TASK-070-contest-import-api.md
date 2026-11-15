@@ -1,14 +1,14 @@
 ---
 id: TASK-070
 title: Build the contest import API (paste, parse, match, confirm)
-status: Ready
+status: In progress
 depends_on: [TASK-067, TASK-023]
 size: M
 model: opus
 autonomy: attended
 ui: false
-plan_status: none
-planned_at_commit:
+plan_status: approved
+planned_at_commit: b3cbfde
 ---
 
 # TASK-070 — Build the contest import API (paste, parse, match, confirm)
@@ -72,9 +72,33 @@ Pasting a Splash contest page into the app returns its rows matched to games. Yo
 
 _Work noticed during this task and deliberately left out. Each bullet ends `→ <path> § <section>` (where it was placed) or `→ not tracked: <reason>`. See `.claude/skills/track-follow-ups/classify.md`; the PR's Follow-ups section is copied from here._
 
+- Production has no contest and nothing creates one ("Add contest" isn't designed; M8.8's Settings › Contests is read-only), so every import 404s until one exists: a new Draft task, an `engine contest add` CLI the owner runs (upserts the user too), with its task list stub (approved at plan)
+- E2E writes through the API persist in the test DB (`contest_lines` refuses DELETE; a mapped alias stays), so TASK-072's journey 3 ("9 rows match · 1 unmatched", then mapping "Hou Texans"/"Jax") fails on a second run against the same DB → docs/tasks/TASK-072-contest-paste-flow.md § Context (approved at plan)
+- The model's contest picks (on confirm or by the `lines` job) are left to TASK-071's plan, which owns the ranking → docs/tasks/TASK-071-contest-page-api.md § Context (approved at plan)
+- Candidate decision: the contest import API (routes, the school/mascot fallback with game pairing, the parser in the light core amending D-113, `period` in the request, one connection per write request through a dependency the tests override) → docs/decisions.md (approved at plan)
+
 ## Plan
 
-_Written by /plan-batch or /implement-task Phase 1. Approved by the user (plan_status: approved) before any code is written._
+Approved 2026-11-15 (attended, with decisions A–E and the follow-ups).
+
+**Routes** (`router`, JWT; `python/api/src/api/contest_import.py`):
+1. `POST /api/py/contests/{contest_id}/import/preview` `{text, period}`: writes nothing. Every block back with a status (`matched`, `unmatched`, `no_game`, `ambiguous`, `problem`), `matched_by` (`alias`/`name`), game id, `spread_home`, kickoff, source lines, the names left unresolved and up to 8 picker candidates per unmatched name; counts; `lock_at`; the re-paste diff (matched rows whose line differs from the contest's current line: the newest snapshot captured at or before the API clock and before the game's cutoff). 422 `unparseable` (no game block); 422 `no_match` with the rows (no name resolves to any team).
+2. `POST /api/py/contests/{contest_id}/aliases` `{mappings: [{alias, team_id}]}`: inserts `team_aliases` with `source` = the contest's platform, skipping existing identical ones; an alias mapped to another team → 409, nothing written; a team outside the contest's sports → 422.
+3. `POST /api/py/contests/{contest_id}/import/confirm` `{text, period}`: re-parses and re-matches server-side; any unmatched, ambiguous, problem or duplicate-game row → 422 naming the rows, nothing written; else one `contest_lines` row per row at `captured_at` = the API clock, `source` `paste`, the given `period`.
+4. Each write upserts `users` by `github_id` = the token's `sub` (D-170); a contest not the caller's, or deleted → 404. Time zone `America/New_York` (M8.7 brings `user_settings`).
+5. Write routes take one connection per request from a FastAPI dependency (`engine().begin()`: commit or roll back as a whole); tests override it with `db_conn`, so every write is rolled back (`contest_lines` refuses DELETE).
+
+**Decisions:** A. A name with no alias falls back to an exact `teams.school` or `teams.mascot` match within the contest's sports; a row is matched only when exactly one game on its date pairs the two sides' candidates; nothing is saved. B. Picker candidates: teams of the contest's sports playing on the row's date, ranked by a name word prefixing school, mascot or abbreviation, at most 8. C. The parser moves to `engine/core/splash.py` (stdlib only, sport-agnostic); `engine/contests/` is removed; a new decision amends D-113. D. `period` comes in the request (the page prints no week). E. The model's contest picks are left to TASK-071's plan.
+
+**Steps:** 1. `git mv` the parser into core, fix the parser test's import; parser tests pass. 2. Fixture: 18 `splash` aliases in `contest.json`, loaded by `fixture.py` (`ON CONFLICT (source, alias) DO NOTHING`); re-seed. 3. Tests first (`python/api/tests/test_api_contest_import.py`), failing. 4. `contest_import.py` (pure matching functions + routes) and `main.py`. 5. `pnpm api:types`. 6. Docs: 02 › Components › 2, 03 › Data sources › Contest lines (the fallback), the decision.
+
+**Files:** `python/api/src/api/contest_import.py` (new); `python/api/src/api/main.py`; `python/engine/src/engine/contests/{splash,__init__}.py` → `python/engine/src/engine/core/splash.py`; `python/engine/tests/test_splash_parser.py`; `python/api/tests/test_api_contest_import.py` (new; reads the existing `python/engine/tests/fixtures/splash_week6.txt` instead of a second copy); `python/db/seeds/fixture/contest.json`; `python/engine/src/engine/fixture.py`; `web/lib/api-types.ts`; `docs/02-architecture.md`; `docs/03-data-model.md` (not in Files likely touched); `docs/decisions.md`; follow-up placements (TASK-071, TASK-072, a new Draft task, `docs/08-tasklist.md`).
+
+**Test strategy** (clock Thu 2026-10-08 10:00 PM ET, `db_conn` override): AC-1 `test_preview_matches_nine_of_ten_and_writes_nothing`; AC-2 `test_mapping_saves_two_aliases_once_and_then_all_match`; AC-3 `test_confirm_inserts_one_line_per_row_at_the_api_clock`, `test_confirm_with_an_unmatched_row_is_422_and_writes_nothing`; AC-4 `test_repaste_lists_moved_lines_and_confirm_adds_a_new_snapshot`; AC-5 `test_unparseable_text_is_422`, `test_no_team_matched_is_the_no_match_response`, `test_a_problem_row_is_returned_and_blocks_confirm`; AC-6 the existing route walk in `test_api_auth.py`, `test_bundle.py`, `web/lib/api-types.test.ts`. Also the fallback (aliases deleted in the transaction) and the candidates.
+
+**Revision 1 (Verify R1):** `python/db/tests/test_market_schema.py`'s `test_every_row_in_the_new_tables_is_fixture` counted every non-`fixture` source as foreign data, and the fixture's aliases are `splash` by design; it now counts an alias as fixture when it names a fixture team. **Revision 2 (implementation):** a matched row carries the stored game's sides and a `swapped` flag, so a neutral-site game the page lists the other way round reads consistently with its `spread_home` (D-172).
+
+**Risks:** FastAPI re-raises a route's HTTPException into a `yield` dependency, so the `begin()` block rolls back; the 422 paths also validate before any write. Two confirms at the same instant collide on UQ `(contest_id, game_id, captured_at)`; tests confirm at distinct clocks.
 
 ## Review log
 

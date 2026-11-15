@@ -9,7 +9,7 @@ from datetime import UTC, date, datetime
 from decimal import Decimal
 from pathlib import Path
 
-from engine.contests.splash import SplashRow, parse_splash
+from engine.core.splash import SplashRow, parse_splash
 
 DESIGN = Path(__file__).parents[3] / "design"
 OCT_6 = DESIGN / "sample-splash-10062026.txt"

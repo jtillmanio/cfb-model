@@ -228,9 +228,16 @@ def test_the_seeded_season_and_texas_oklahoma_lines(db_conn: Connection):
 
 
 def test_every_row_in_the_new_tables_is_fixture(db_conn: Connection):
+    """Nothing but the fixture in the test DB. An alias's `source` is whose spelling it is (the
+    fixture seeds `splash` names for the contest import, TASK-070), so an alias counts as fixture
+    when it names a fixture team."""
+    other = {table: "source <> 'fixture'" for table in NEW_TABLES}
+    other["team_aliases"] = (
+        "NOT EXISTS (SELECT 1 FROM teams t WHERE t.id = team_id AND t.source = 'fixture')"
+    )
     counts = {
         table: db_conn.execute(
-            text(f"SELECT count(*), count(*) FILTER (WHERE source <> 'fixture') FROM {table}")
+            text(f"SELECT count(*), count(*) FILTER (WHERE {other[table]}) FROM {table}")
         ).one()
         for table in NEW_TABLES
     }
