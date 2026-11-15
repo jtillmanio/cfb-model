@@ -473,6 +473,25 @@ def test_unmatched_names_come_with_the_days_likely_teams(
         assert 0 < len(name["candidates"]) <= contest_import.MAX_CANDIDATES
 
 
+ROUTES = ("import/preview", "import/confirm", "aliases")
+
+
+def test_every_import_route_is_401_without_a_token_before_any_connection(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+):
+    """AC-6: the JWT guard refuses before the request's connection is opened."""
+    from api import main
+
+    def no_connection() -> None:
+        raise AssertionError("opened a database connection before checking the token")
+
+    monkeypatch.setattr(main, "engine", no_connection)
+    for route in ROUTES:
+        response = client.post(f"/api/py/contests/1/{route}", json={"text": "x", "period": 6})
+        assert response.status_code == 401, (route, response.text)
+        assert response.json() == {"detail": "Not authenticated"}
+
+
 def test_another_users_contest_is_404(
     api: TestClient, make_token: MakeToken, db_conn: Connection, contest_id: int
 ):

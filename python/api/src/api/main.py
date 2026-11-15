@@ -144,7 +144,7 @@ IMPORT_REFUSALS: dict[int | str, dict[str, Any]] = {
 
 @router.post("/contests/{contest_id}/import/preview", responses=IMPORT_REFUSALS)
 def preview_contest_import(
-    contest_id: int, body: ImportIn, conn: Conn, subject: Subject
+    contest_id: int, body: ImportIn, subject: Subject, conn: Conn
 ) -> ImportPreviewOut:
     """The pasted page's rows matched to games, with the re-paste diff. Writes nothing."""
     return contest_import.preview(conn, contest_id, subject, body, clock.now())
@@ -152,7 +152,7 @@ def preview_contest_import(
 
 @router.post("/contests/{contest_id}/import/confirm", responses=IMPORT_REFUSALS)
 def confirm_contest_import(
-    contest_id: int, body: ImportIn, conn: Conn, subject: Subject
+    contest_id: int, body: ImportIn, subject: Subject, conn: Conn
 ) -> ImportConfirmOut:
     """Saves every row's line as a new contest_lines snapshot at the API's clock, or none."""
     return contest_import.confirm(conn, contest_id, subject, body, clock.now())
@@ -167,7 +167,7 @@ def confirm_contest_import(
     },
 )
 def save_contest_aliases(
-    contest_id: int, body: AliasesIn, conn: Conn, subject: Subject
+    contest_id: int, body: AliasesIn, subject: Subject, conn: Conn
 ) -> AliasesOut:
     """Maps names the contest's platform writes to teams, once (team_aliases, D-036)."""
     return contest_import.save_aliases(conn, contest_id, subject, body)
