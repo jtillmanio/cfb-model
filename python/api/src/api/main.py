@@ -9,18 +9,28 @@ health sits on `public`.
 from __future__ import annotations
 
 import os
+from collections.abc import Iterator
 from functools import cache
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, FastAPI, HTTPException, Query
 from pydantic import BaseModel
-from sqlalchemy import Engine, text
+from sqlalchemy import Connection, Engine, text
 
 from db.config import app_database_url, load_env
 from db.session import make_engine
 
-from . import clock, shell, slate
+from . import clock, contest_import, shell, slate
 from .auth import require_api_token
+from .contest_import import (
+    AliasConflictBody,
+    AliasesIn,
+    AliasesOut,
+    ImportConfirmOut,
+    ImportIn,
+    ImportPreviewOut,
+    ImportRefusalBody,
+)
 from .shell import ShellOut
 from .slate import SeasonType, SlateOut
 from .wave import run_wave
@@ -36,6 +46,20 @@ public = APIRouter(prefix="/api/py")
 @cache
 def engine() -> Engine:
     return make_engine(app_database_url())
+
+
+def connection() -> Iterator[Connection]:
+    """One connection for a write route's whole request: committed when the route returns, rolled
+    back when it raises (FastAPI throws the route's exception into this generator). Tests swap it
+    for their rolled-back `db_conn`."""
+    with engine().begin() as conn:
+        yield conn
+
+
+# scope="function" closes the connection, so commits, before the response is sent: the default
+# ("request") would commit after it, and a failed commit would follow a 200 (schema review).
+Conn = Annotated[Connection, Depends(connection, scope="function")]
+Subject = Annotated[str, Depends(require_api_token)]  # the token's `sub`, checked once per request
 
 
 class TeamOut(BaseModel):
@@ -112,6 +136,46 @@ def get_slate(
     now = clock.now()
     found = run_wave(engine(), slate.queries(now, shell.SPORT, chosen))
     return slate.slate_from(found, now, chosen)
+
+
+IMPORT_REFUSALS: dict[int | str, dict[str, Any]] = {
+    404: {"description": "No such contest of yours"},
+    422: {"model": ImportRefusalBody, "description": "Unparseable, no match, or unresolved rows"},
+}
+
+
+@router.post("/contests/{contest_id}/import/preview", responses=IMPORT_REFUSALS)
+def preview_contest_import(
+    contest_id: int, body: ImportIn, subject: Subject, conn: Conn
+) -> ImportPreviewOut:
+    """The pasted page's rows matched to games, with the re-paste diff. Writes nothing."""
+    return contest_import.preview(conn, contest_id, subject, body, clock.now())
+
+
+@router.post(
+    "/contests/{contest_id}/import/confirm",
+    responses={**IMPORT_REFUSALS, 409: {"description": "A snapshot already at this instant"}},
+)
+def confirm_contest_import(
+    contest_id: int, body: ImportIn, subject: Subject, conn: Conn
+) -> ImportConfirmOut:
+    """Saves every row's line as a new contest_lines snapshot at the API's clock, or none."""
+    return contest_import.confirm(conn, contest_id, subject, body, clock.now())
+
+
+@router.post(
+    "/contests/{contest_id}/aliases",
+    responses={
+        404: {"description": "No such contest of yours"},
+        409: {"model": AliasConflictBody, "description": "A name already means another team"},
+        422: {"model": AliasConflictBody, "description": "A team outside the contest's sports"},
+    },
+)
+def save_contest_aliases(
+    contest_id: int, body: AliasesIn, subject: Subject, conn: Conn
+) -> AliasesOut:
+    """Maps names the contest's platform writes to teams, once (team_aliases, D-036)."""
+    return contest_import.save_aliases(conn, contest_id, subject, body)
 
 
 @router.get("/openapi.json", include_in_schema=False)

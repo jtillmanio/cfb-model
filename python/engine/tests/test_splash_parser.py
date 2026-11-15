@@ -9,7 +9,7 @@ from datetime import UTC, date, datetime
 from decimal import Decimal
 from pathlib import Path
 
-from engine.contests.splash import SplashRow, parse_splash
+from engine.core.splash import SplashRow, parse_splash
 
 DESIGN = Path(__file__).parents[3] / "design"
 OCT_6 = DESIGN / "sample-splash-10062026.txt"
@@ -134,6 +134,19 @@ def test_kickoffs_are_eastern_time_in_utc() -> None:
 
     final = by_teams(parse_splash(read(OCT_6), {}).rows)["Western Kentucky", "New Mexico State"]
     assert (final.status, final.game_date, final.kickoff_at) == ("Final", date(2026, 10, 1), None)
+
+
+def test_a_line_contest_lines_cant_hold_is_no_line() -> None:
+    """contest_lines.spread_home is numeric(4,1): two decimals or four digits would be rounded or
+    refused there, so the parser reads them as no line (TASK-070)."""
+    text = read(WEEK_6).replace("UNLV\n3-2\n+10\n", "UNLV\n3-2\n+2.25\n")
+    text = text.replace("Purdue\n1-4\n+27\n", "Purdue\n1-4\n+1000\n")
+
+    games = by_teams(parse_splash(text, {}).rows)
+
+    for teams in (("UNLV", "Boise State"), ("Purdue", "Ohio State")):
+        assert (games[teams].problem, games[teams].spread_home) == ("no line", None)
+    assert games["Ole Miss", "LSU"].spread_home == Decimal("-3")  # 3 digits and one decimal stay
 
 
 def test_a_december_game_on_a_january_lock_is_the_year_before() -> None:

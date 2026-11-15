@@ -8,9 +8,9 @@ picks skip a key already stored, and a version or run that exists is reused. pic
 by its generator, generate_picks.py, beside it (TASK-040), and week6_filler.json, the Week 6 games
 the design doesn't draw, by generate_filler.py (TASK-055). nfl.json is the contest slate's four NFL
 games, under `sport_id 'nfl'` (TASK-069). contest.json is the user, the Splash work league, week 6's
-contest lines and entries and the standing, and contest_history.json, weeks 1-5's lines, entries
-and the model's contest picks with the two week-2 games they need, is written by
-generate_contest.py (TASK-067, TASK-068).
+contest lines and entries, the standing and the `splash` team aliases (TASK-070), and
+contest_history.json, weeks 1-5's lines, entries and the model's contest picks with the two week-2
+games they need, is written by generate_contest.py (TASK-067, TASK-068).
 """
 
 from __future__ import annotations
@@ -693,6 +693,23 @@ def _seed_contest(
     return {"lines": new_lines, "entries": new_entries, "standings": new_standings}
 
 
+def _seed_aliases(conn: Connection, data: dict[str, Any]) -> int:
+    """contest.json's `splash` team aliases (TASK-070): each names a fixture team by its sport and
+    source id. An alias already stored is skipped. Returns the number of new aliases."""
+    new = 0
+    for a in data["aliases"]:
+        new += conn.execute(
+            text(
+                "INSERT INTO team_aliases (team_id, source, alias)"
+                " SELECT t.id, 'splash', :alias FROM teams t"
+                " WHERE t.sport_id = :sport AND t.source = :source AND t.source_id = :team"
+                " ON CONFLICT (source, alias) DO NOTHING"
+            ),
+            {"alias": a["alias"], "sport": a["sport"], "team": a["team"], "source": SOURCE},
+        ).rowcount
+    return new
+
+
 def _seed_contest_games(
     conn: Connection,
     history: dict[str, Any],
@@ -828,6 +845,7 @@ def seed_fixture() -> None:
             conn, history, picks, week, team_ids, book_id, v1
         )
         contest = _seed_contest(conn, contest_data, history)
+        aliases = _seed_aliases(conn, contest_data)
         contest_picks = _seed_contest_picks(conn, contest_data, history, week, picks["season"], v1)
     print(
         f"Seeded {len(teams['teams']) + len(filler['teams'])} fixture teams for"
@@ -839,5 +857,6 @@ def seed_fixture() -> None:
         f" new predictions and {new_picks} new picks into the test DB; {len(nfl['teams'])} NFL"
         f" teams, {nfl_games} NFL games and {nfl_lines} new NFL line snapshots;"
         f" {contest['lines']} new contest lines, {contest['entries']} new entries,"
-        f" {contest['standings']} new standings and {contest_picks} new model contest picks."
+        f" {contest['standings']} new standings, {contest_picks} new model contest picks and"
+        f" {aliases} new splash team aliases."
     )
