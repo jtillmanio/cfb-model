@@ -1,7 +1,7 @@
 ---
 id: TASK-070
 title: Build the contest import API (paste, parse, match, confirm)
-status: In progress
+status: Review
 depends_on: [TASK-067, TASK-023]
 size: M
 model: opus
@@ -38,12 +38,12 @@ Pasting a Splash contest page into the app returns its rows matched to games. Yo
 
 ## Acceptance criteria
 
-- [ ] AC-1: Given the seeded DB and the fixture Week 6 paste, the preview route returns 10 rows: 9 matched to their game IDs with each row's `spread_home` and kickoff, and 1 unmatched ("Hou Texans" @ "Jax"), with counts of 9 matched and 1 unmatched. It writes nothing: row counts in `contest_lines` and `team_aliases` are unchanged.
-- [ ] AC-2: Saving the mappings "Hou Texans" → Houston Texans and "Jax" → Jacksonville Jaguars writes two `team_aliases` rows with `source` `splash`, and saving them again writes nothing. Previewing the same paste then returns 10 matched and 0 unmatched.
-- [ ] AC-3: Confirming a fully matched paste inserts one `contest_lines` row per row, all with the API clock's `captured_at`, `source` `paste` and the contest's period. Confirming with an unmatched or problem row returns 422 naming the rows and writes nothing.
-- [ ] AC-4: For a re-paste, the preview lists each matched row whose line differs from the contest's current line, with the old and new line (the re-paste diff). Confirming it inserts a new snapshot and never changes an earlier one.
-- [ ] AC-5: Text with no game block returns 422 with an "unparseable" code. A paste in which no row matches any team returns the "no match" response, listing the rows. A row the parser flags (`no line`, `lines disagree`) comes back with its problem and blocks confirm.
-- [ ] AC-6: Every route returns 401 without a valid JWT. `test_bundle.py` still passes, so the API still imports only `engine.core`. The generated TypeScript types include the routes, and TASK-052's drift check passes.
+- [x] AC-1: Given the seeded DB and the fixture Week 6 paste, the preview route returns 10 rows: 9 matched to their game IDs with each row's `spread_home` and kickoff, and 1 unmatched ("Hou Texans" @ "Jax"), with counts of 9 matched and 1 unmatched. It writes nothing: row counts in `contest_lines` and `team_aliases` are unchanged.
+- [x] AC-2: Saving the mappings "Hou Texans" → Houston Texans and "Jax" → Jacksonville Jaguars writes two `team_aliases` rows with `source` `splash`, and saving them again writes nothing. Previewing the same paste then returns 10 matched and 0 unmatched.
+- [x] AC-3: Confirming a fully matched paste inserts one `contest_lines` row per row, all with the API clock's `captured_at`, `source` `paste` and the contest's period. Confirming with an unmatched or problem row returns 422 naming the rows and writes nothing.
+- [x] AC-4: For a re-paste, the preview lists each matched row whose line differs from the contest's current line, with the old and new line (the re-paste diff). Confirming it inserts a new snapshot and never changes an earlier one.
+- [x] AC-5: Text with no game block returns 422 with an "unparseable" code. A paste in which no row matches any team returns the "no match" response, listing the rows. A row the parser flags (`no line`, `lines disagree`) comes back with its problem and blocks confirm.
+- [x] AC-6: Every route returns 401 without a valid JWT. `test_bundle.py` still passes, so the API still imports only `engine.core`. The generated TypeScript types include the routes, and TASK-052's drift check passes.
 
 ## Out of scope
 
@@ -72,10 +72,13 @@ Pasting a Splash contest page into the app returns its rows matched to games. Yo
 
 _Work noticed during this task and deliberately left out. Each bullet ends `→ <path> § <section>` (where it was placed) or `→ not tracked: <reason>`. See `.claude/skills/track-follow-ups/classify.md`; the PR's Follow-ups section is copied from here._
 
-- Production has no contest and nothing creates one ("Add contest" isn't designed; M8.8's Settings › Contests is read-only), so every import 404s until one exists: a new Draft task, an `engine contest add` CLI the owner runs (upserts the user too), with its task list stub (approved at plan)
-- E2E writes through the API persist in the test DB (`contest_lines` refuses DELETE; a mapped alias stays), so TASK-072's journey 3 ("9 rows match · 1 unmatched", then mapping "Hou Texans"/"Jax") fails on a second run against the same DB → docs/tasks/TASK-072-contest-paste-flow.md § Context (approved at plan)
-- The model's contest picks (on confirm or by the `lines` job) are left to TASK-071's plan, which owns the ranking → docs/tasks/TASK-071-contest-page-api.md § Context (approved at plan)
-- Candidate decision: the contest import API (routes, the school/mascot fallback with game pairing, the parser in the light core amending D-113, `period` in the request, one connection per write request through a dependency the tests override) → docs/decisions.md (approved at plan)
+- Production has no contest and nothing creates one ("Add contest" isn't designed; M8.8's Settings › Contests is read-only), so every import 404s until one exists: an `engine contest add` command the owner runs (upserts the user too) → docs/tasks/TASK-075-create-the-owners-contest.md (new, Draft), with its stub in docs/08-tasklist.md § M6 › M6.9 (approved at plan)
+- E2E writes through the API persist in the test DB (`contest_lines` refuses DELETE; a mapped alias stays), so TASK-072's journey 3 fails on a second run against the same DB; with the API's shape for the paste flow → docs/tasks/TASK-072-contest-paste-flow.md § Context (approved at plan)
+- The model's contest picks (on confirm or by the `lines` job) are left to TASK-071's plan, which owns the ranking; the write routes' connection and user upsert can be reused → docs/tasks/TASK-071-contest-page-api.md § Context (approved at plan)
+- Candidate decision: the contest import API (routes, the school/mascot fallback with game pairing, the parser in the light core amending D-113, `period` in the request, one connection per write request committed before the response) → docs/decisions.md § D-172 (approved at plan)
+- `fastapi>=0.118` in `python/api/pyproject.toml` predates `Depends(..., scope=)` (schema review R2) → not tracked: the deploy installs from `python/uv.lock`, which pins 0.162 (`api/tests/test_bundle.py`'s export), so the floor never decides the installed version
+- A raced alias stored by another request for the same team is refused with "mapped elsewhere" (schema review R2) → not tracked: accepted as is; the request rolls back whole and a retry succeeds
+- Confirm stores a line for a game that has already kicked off (spec review R1, note) → not tracked: by design; `current_contest_lines` ignores a snapshot captured after the game's cutoff (D-171)
 
 ## Plan
 
@@ -106,13 +109,19 @@ Approved 2026-11-15 (attended, with decisions A–E and the follow-ups).
 
 _Filled by /implement-task. One line per round._
 
+- Verify R1 FAIL(1: `test_market_schema.py` counted the `splash` aliases as foreign data; Revision 1) → R2 PASS → R3 PASS after the review fixes (one e2e timing flake, `shell.spec.ts:127` waking database at phone, passed on re-run)
+- Audit R1 CHANGES (AC-6's 401 only via the generic walk; asked whether a connection opens before the 401) → R2 PASS
+- Spec R1 APPROVE (notes: commit after response, as schema R1; lines pasted after kickoff are stored)
+- Schema R1 CHANGES (MAJOR: commit after the response; MINOR: alias race, numeric(4,1) precision, games read without an index, repeated captured_at a 500) → R2 APPROVE (MINOR notes left as not-tracked follow-ups)
+- Manual: the Oct 6 real paste previews as 72 rows, each with a status, none dropped (42 `no_game`, 30 `unmatched`: the test DB has no games that week)
+
 ## Blocked
 
 _Only if status is Blocked: what failed, what was tried, best hypothesis, decision needed._
 
 ## Metrics
 
-- Verify rounds:
-- Review rounds:
-- First-pass AC FAILs:
-- Plan revisions after approval:
+- Verify rounds: 3 (R1 FAIL on the fixture guard, R2 and R3 PASS)
+- Review rounds: 1 (spec), 2 (schema); audit 2
+- First-pass AC FAILs: 0 (audit R1 asked for a stronger AC-6 test; schema R1's findings were not AC failures)
+- Plan revisions after approval: 3 (the fixture guard; `swapped` on neutral-site rows; the schema review fixes)
