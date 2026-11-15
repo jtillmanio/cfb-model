@@ -42,7 +42,9 @@ _KICKOFF = re.compile(r"^(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun) (\d{1,2}):(\d{2})([ap]m
 _RECORD = re.compile(r"^\d+-\d+(?:-\d+)?$")
 _RANK = re.compile(r"^#\d+ranked #\d+$")
 _SCORE = re.compile(r"^(?:\d+|-)$")  # a final or live score, or the dash between the two
-_SPREAD = re.compile(r"^[+-]\d+(?:\.\d+)?$")
+# At most one decimal and three digits, as contest_lines.spread_home (numeric(4,1)) holds: a line
+# it couldn't store reads as no line rather than being rounded (TASK-070 schema review).
+_SPREAD = re.compile(r"^[+-]\d{1,3}(?:\.\d)?$")
 _PICK_EM = {"PK", "EVEN", "Pick"}
 
 

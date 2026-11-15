@@ -56,7 +56,9 @@ def connection() -> Iterator[Connection]:
         yield conn
 
 
-Conn = Annotated[Connection, Depends(connection)]
+# scope="function" closes the connection, so commits, before the response is sent: the default
+# ("request") would commit after it, and a failed commit would follow a 200 (schema review).
+Conn = Annotated[Connection, Depends(connection, scope="function")]
 Subject = Annotated[str, Depends(require_api_token)]  # the token's `sub`, checked once per request
 
 
@@ -150,7 +152,10 @@ def preview_contest_import(
     return contest_import.preview(conn, contest_id, subject, body, clock.now())
 
 
-@router.post("/contests/{contest_id}/import/confirm", responses=IMPORT_REFUSALS)
+@router.post(
+    "/contests/{contest_id}/import/confirm",
+    responses={**IMPORT_REFUSALS, 409: {"description": "A snapshot already at this instant"}},
+)
 def confirm_contest_import(
     contest_id: int, body: ImportIn, subject: Subject, conn: Conn
 ) -> ImportConfirmOut:

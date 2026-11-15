@@ -702,6 +702,13 @@ export interface operations {
                 };
                 content?: never;
             };
+            /** @description A snapshot already at this instant */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
             /** @description Unparseable, no match, or unresolved rows */
             422: {
                 headers: {

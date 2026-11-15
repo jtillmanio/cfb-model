@@ -10,6 +10,7 @@ and "Jax". The clock is Thu 2026-10-08 10:00 PM ET, the Contest screen's fixture
 from __future__ import annotations
 
 from collections.abc import Callable, Iterator
+from contextlib import contextmanager
 from datetime import date, datetime
 from decimal import Decimal
 from typing import Any
@@ -51,8 +52,20 @@ def api(
 ) -> Iterator[TestClient]:
     from api import main
 
+    def per_request() -> Iterator[Connection]:
+        """Each request in a savepoint of db_conn, as main.connection gives each its own
+        transaction: a refused request's writes go back, and a failed statement doesn't abort the
+        test's transaction."""
+        savepoint = db_conn.begin_nested()
+        try:
+            yield db_conn
+        except BaseException:
+            savepoint.rollback()
+            raise
+        savepoint.commit()
+
     monkeypatch.setenv("FIXTURE_NOW", CONTEST_NOW)
-    main.app.dependency_overrides[main.connection] = lambda: db_conn
+    main.app.dependency_overrides[main.connection] = per_request
     try:
         yield client
     finally:
@@ -471,6 +484,94 @@ def test_unmatched_names_come_with_the_days_likely_teams(
     assert jax["candidates"][0]["id"] == nfl_team("JAX")
     for name in (hou, jax):
         assert 0 < len(name["candidates"]) <= contest_import.MAX_CANDIDATES
+
+
+def test_confirming_twice_at_one_instant_is_409_and_keeps_the_first(
+    api: TestClient,
+    make_token: MakeToken,
+    db_conn: Connection,
+    contest_id: int,
+    nfl_team: Callable[[str], int],
+):
+    """Only a pinned clock gives two confirms one `captured_at`; the second must not 500."""
+    map_hou_jax(api, make_token, contest_id, nfl_team)
+    assert confirm(api, make_token, contest_id).status_code == 200
+    before = counts(db_conn)
+
+    again = confirm(api, make_token, contest_id)
+
+    assert again.status_code == 409, again.text
+    assert again.json()["detail"]["code"] == "already_captured"
+    assert counts(db_conn) == before
+
+
+class RecordingEngine:
+    """Stands in for `main.engine()`: each `begin()` is a savepoint in `db_conn` that logs whether
+    it committed or rolled back, so the real `main.connection` runs without touching the DB."""
+
+    def __init__(self, conn: Connection, log: list[str]):
+        self.conn, self.log = conn, log
+
+    @contextmanager
+    def begin(self) -> Iterator[Connection]:
+        savepoint = self.conn.begin_nested()
+        try:
+            yield self.conn
+        except BaseException:
+            savepoint.rollback()
+            self.log.append("rollback")
+            raise
+        savepoint.commit()
+        self.log.append("commit")
+
+
+def test_a_write_commits_before_its_response_and_a_refusal_rolls_back_whole(
+    client: TestClient,
+    make_token: MakeToken,
+    db_conn: Connection,
+    contest_id: int,
+    nfl_team: Callable[[str], int],
+    monkeypatch: pytest.MonkeyPatch,
+):
+    from api import main
+
+    log: list[str] = []
+    monkeypatch.setenv("FIXTURE_NOW", CONTEST_NOW)
+    monkeypatch.setattr(main, "engine", lambda: RecordingEngine(db_conn, log))
+
+    async def app(scope: Any, receive: Any, send: Any) -> None:
+        async def logged(message: Any) -> None:
+            if message["type"] == "http.response.start":
+                log.append(f"sent {message['status']}")
+            await send(message)
+
+        await main.app(scope, receive, logged)
+
+    http = TestClient(app)
+
+    def post_to(path: str, body: dict[str, Any], sub: str = "4242") -> int:
+        log.clear()
+        response = http.post(
+            f"/api/py/contests/{path}", json=body, headers=headers(make_token, sub=sub)
+        )
+        return response.status_code
+
+    mappings = {"mappings": [{"alias": "Hou Texans", "team_id": nfl_team("HOU")}]}
+    assert post_to(f"{contest_id}/aliases", mappings) == 200
+    assert log == ["commit", "sent 200"]  # committed before the client hears 200
+
+    assert post_to(f"{contest_id}/import/confirm", {"text": WEEK_6, "period": 6}) == 422
+    assert log == ["rollback", "sent 422"]  # "Jax" is still unmatched
+
+    stranger = "31339"  # no users row, no contest: the upsert goes back with the 404
+    assert post_to(f"{contest_id}/aliases", mappings, sub=stranger) == 404
+    assert log == ["rollback", "sent 404"]
+    assert (
+        db_conn.execute(
+            text("SELECT count(*) FROM users WHERE github_id = :g"), {"g": int(stranger)}
+        ).scalar_one()
+        == 0
+    )
 
 
 ROUTES = ("import/preview", "import/confirm", "aliases")

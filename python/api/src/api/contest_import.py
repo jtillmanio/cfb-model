@@ -26,6 +26,7 @@ from zoneinfo import ZoneInfo
 from fastapi import HTTPException
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import Connection, text
+from sqlalchemy.exc import IntegrityError
 
 from engine.core.contest_rules import ContestRules
 from engine.core.splash import SplashParse, SplashRow, parse_splash
@@ -413,9 +414,10 @@ GAMES_SQL = text(
     FROM games g
     JOIN teams h ON h.id = g.home_team_id
     JOIN teams a ON a.id = g.away_team_id
-    WHERE g.sport_id = ANY(:sports) AND g.game_date = ANY(:dates)
+    WHERE g.sport_id = ANY(:sports) AND g.season = ANY(:seasons) AND g.game_date = ANY(:dates)
     """
-)
+)  # the season narrows the read to (sport_id, season, week)'s index; a date's season is its year
+# or, for a January or February postseason game, the year before
 
 # Each game's newest contest line as of the API's clock, captured before the game's cutoff (the
 # rule current_contest_lines follows, TASK-068), read on the contest's own lines.
@@ -462,6 +464,7 @@ def load_games(conn: Connection, contest: ContestRef, parse: SplashParse) -> lis
     dates = sorted({r.game_date for r in parse.rows if r.game_date})
     if not dates:
         return []
+    seasons = sorted({d.year for d in dates} | {d.year - 1 for d in dates})
     return [
         Game(
             id=r.id,
@@ -472,7 +475,9 @@ def load_games(conn: Connection, contest: ContestRef, parse: SplashParse) -> lis
             home=_team(r, "h_"),
             away=_team(r, "a_"),
         )
-        for r in conn.execute(GAMES_SQL, {"sports": list(contest.sports), "dates": dates})
+        for r in conn.execute(
+            GAMES_SQL, {"sports": list(contest.sports), "seasons": seasons, "dates": dates}
+        )
     ]
 
 
@@ -549,7 +554,39 @@ def confirm(
     if blocking:
         message = "Every row must match one game and have a line before confirming."
         raise _refuse("unresolved", message, blocking)
-    inserted = conn.execute(
+    try:
+        inserted = _insert_lines(conn, contest, body, now, matched)
+    except IntegrityError as error:  # the same instant twice: only a pinned test clock does it
+        if _constraint(error) != SNAPSHOT_KEY:
+            raise
+        message = "This contest already has a snapshot at this time; paste again."
+        raise HTTPException(409, {"code": "already_captured", "message": message}) from None
+    return ImportConfirmOut(
+        contest_id=contest.id,
+        period=body.period,
+        captured_at=now,
+        inserted=len(inserted),
+        lines=[
+            ContestLineOut(
+                contest_line_id=r.id, game_id=r.game_id, spread_home=float(r.spread_home)
+            )
+            for r in inserted
+        ],
+    )
+
+
+SNAPSHOT_KEY = "uq_contest_lines_contest_id_game_id_captured_at"
+
+
+def _constraint(error: IntegrityError) -> str | None:
+    diag = getattr(error.orig, "diag", None)
+    return getattr(diag, "constraint_name", None)
+
+
+def _insert_lines(
+    conn: Connection, contest: ContestRef, body: ImportIn, now: datetime, matched: list[Matched]
+) -> list[Any]:
+    return list(conn.execute(
         text(
             "INSERT INTO contest_lines (contest_id, period, game_id, spread_home, captured_at,"
             " source)"
@@ -565,19 +602,7 @@ def confirm(
             "games": [m.out.game_id for m in matched],
             "spreads": [m.spread_home for m in matched],
         },
-    ).all()
-    return ImportConfirmOut(
-        contest_id=contest.id,
-        period=body.period,
-        captured_at=now,
-        inserted=len(inserted),
-        lines=[
-            ContestLineOut(
-                contest_line_id=r.id, game_id=r.game_id, spread_home=float(r.spread_home)
-            )
-            for r in inserted
-        ],
-    )
+    ).all())
 
 
 def save_aliases(conn: Connection, contest_id: int, subject: str, body: AliasesIn) -> AliasesOut:
@@ -612,13 +637,19 @@ def save_aliases(conn: Connection, contest_id: int, subject: str, body: AliasesI
         raise _alias_refusal(409, "alias_conflict", "A name already means another team.", taken)
     new = [a for a in wanted if a not in stored]
     if new:
-        conn.execute(
+        inserted = conn.execute(
             text(
-                "INSERT INTO team_aliases (team_id, source, alias) VALUES (:t, :s, :a)"
-                " ON CONFLICT (source, alias) DO NOTHING"
+                "INSERT INTO team_aliases (team_id, source, alias)"
+                " SELECT x.team_id, :s, x.alias"
+                " FROM unnest(CAST(:teams AS bigint[]), CAST(:aliases AS text[]))"
+                " AS x(team_id, alias)"
+                " ON CONFLICT (source, alias) DO NOTHING RETURNING alias"
             ),
-            [{"t": wanted[a], "s": contest.platform, "a": a} for a in new],
-        )
+            {"s": contest.platform, "teams": [wanted[a] for a in new], "aliases": new},
+        ).scalars()
+        raced = sorted(set(new) - set(inserted))  # stored by another request since the read
+        if raced:
+            raise _alias_refusal(409, "alias_conflict", "A name was just mapped elsewhere.", raced)
     return AliasesOut(
         source=contest.platform,
         created=len(new),

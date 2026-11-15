@@ -98,6 +98,8 @@ Approved 2026-11-15 (attended, with decisions A–E and the follow-ups).
 
 **Revision 1 (Verify R1):** `python/db/tests/test_market_schema.py`'s `test_every_row_in_the_new_tables_is_fixture` counted every non-`fixture` source as foreign data, and the fixture's aliases are `splash` by design; it now counts an alias as fixture when it names a fixture team. **Revision 2 (implementation):** a matched row carries the stored game's sides and a `swapped` flag, so a neutral-site game the page lists the other way round reads consistently with its `spread_home` (D-172).
 
+**Revision 3 (schema review R1):** `main.connection` is a `scope="function"` dependency, so a write commits before its response; the alias insert returns what went in and refuses a raced alias with 409; a repeated `captured_at` is a 409 `already_captured`; the parser reads a line `numeric(4,1)` can't hold as `no line`; the games read also filters by season. The tests run each request in a savepoint of `db_conn`, as production runs each in its own transaction.
+
 **Risks:** FastAPI re-raises a route's HTTPException into a `yield` dependency, so the `begin()` block rolls back; the 422 paths also validate before any write. Two confirms at the same instant collide on UQ `(contest_id, game_id, captured_at)`; tests confirm at distinct clocks.
 
 ## Review log
