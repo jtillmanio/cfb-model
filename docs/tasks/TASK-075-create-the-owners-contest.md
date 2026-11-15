@@ -19,7 +19,7 @@ The owner can create their Splash contest in the production database, so the con
 
 ## Context
 
-- *From TASK-070 (feat/task-070-contest-import-api):* production starts with no `users` row and no `contests` row. Nothing creates a contest: "Add contest" isn't designed and M8.8's Settings › Contests is read-only. Every import route 404s until one exists (the routes act only on the caller's own live contest, D-172). The fixture creates the test DB's contest (`engine/fixture.py` `_seed_contest`). The owner approved this as a new task at TASK-070's plan gate (2026-11-15).
+- *From TASK-070 (PR #161):* production starts with no `users` row and no `contests` row. Nothing creates a contest: "Add contest" isn't designed and M8.8's Settings › Contests is read-only. Every import route 404s until one exists (the routes act only on the caller's own live contest, D-172). The fixture creates the test DB's contest (`engine/fixture.py` `_seed_contest`). The owner approved this as a new task at TASK-070's plan gate (2026-11-15).
 - Data model: `docs/03-data-model.md` › Your data › `users`, `contests` (UQ `(user_id, name)` WHERE `deleted_at IS NULL`; `rules` a validated `ContestRules`).
 - Decisions: D-170 (`users.github_id` is the token's `sub`; no migration seeds the real account), D-113 (`SPLASH_PRESET` in `engine/core/contest_rules.py`), D-089, D-015 (only workflows touch production; Claude never runs anything against it).
 - The owner's GitHub id is the `sub` the API token carries. It must not be committed (D-170's reason: a personal id in git).
