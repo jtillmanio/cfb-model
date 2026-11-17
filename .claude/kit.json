@@ -76,7 +76,7 @@
     "readyGates": [
       "verify.full",
       "ci",
-      { "name": "Vercel preview deployed", "check": "gh pr checks <n> shows the Vercel status as pass", "by": "claude", "failureLog": "the Vercel deployment log (the Vercel dashboard, not gh run view)" },
+      { "name": "Vercel preview deployed", "check": "gh pr checks <n> shows the Vercel status as pass. A PR whose every change since the last preview is on scripts/lib/build-scope.mjs' list (docs, .claude/, backups/, root *.md, .github/, scripts/, infra/, .vscode/, the root eslint.config.mjs, Python tests) may instead show the build skipped by the Ignored Build Step (D-173): the gate passes with nothing to check", "by": "claude", "failureLog": "the Vercel deployment log (the Vercel dashboard, not gh run view)" },
       { "name": "Lighthouse within budget", "check": "gh pr checks <n> shows the Lighthouse workflow's fixture and report jobs as pass for the PR's newest pull_request run (the fixture build, D-125), and the PR's fixture-build Lighthouse comment lists no problems. The preview run is reported only and never blocks. A PR that changes only docs/, .claude/, backups/ or root *.md has no fixture run: the gate passes with nothing to check", "by": "claude", "failureLog": "the Lighthouse run (gh run view <id> --log-failed) and its PR comment; README › Performance checks › Read a failed run" },
       { "name": "Changed workflow run on the branch", "check": "gh workflow run <file> --ref <branch>, then gh run watch <id> --exit-status", "by": "claude", "when": [".github/workflows/*"] }
     ],

@@ -14,7 +14,7 @@ describe("TeamChip logo slot (AC-1, D-075, D-146)", () => {
     const { container } = render(<TeamChip abbreviation="OSU" logoUrl={OSU_LOGO} color="#BB0000" />);
     const img = container.querySelector("img");
     expect(img).not.toBeNull();
-    // The browser asks the app's own /logos route, never CFBD's CDN (D-101, D-154).
+    // The browser asks the app's own static logo, never CFBD's CDN (D-101, D-154, D-173).
     expect(img!.getAttribute("src")).toBe("/logos/194.png");
     expect(img!.getAttribute("srcset")).toBeNull();
     expect(Number(img!.getAttribute("width"))).toBeLessThanOrEqual(20);
@@ -23,7 +23,7 @@ describe("TeamChip logo slot (AC-1, D-075, D-146)", () => {
     expect(img!.getAttribute("alt")).toBe("");
   });
 
-  it("draws the dot for a logo URL the app's route doesn't serve, never a third-party image", () => {
+  it("draws the dot for a logo URL the app has no file for, never a third-party image", () => {
     const { container } = render(
       <TeamChip abbreviation="OSU" logoUrl="https://a.espncdn.com/i/teamlogos/ncaa/500/194.png" color="#BB0000" />,
     );

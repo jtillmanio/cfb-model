@@ -2,7 +2,10 @@
 // D-125). MODE (the plan job's `mode` output) is `fixture` for the gated run on the build served
 // inside the job, or `preview` for the reported-only run on a Vercel preview.
 //   node scripts/perf/report.mjs plan       which kind of run and URL, or why not; the route list as
-//                                           JSON; the PR whose older runs this one cancels
+//                                           JSON; the PR whose older runs this one cancels. A hand
+//                                           run with no URL finds the ref's newest ready preview
+//                                           (D-173); with DRY_RUN=true it prints the plan and sets
+//                                           no output, so nothing is loaded
 //   node scripts/perf/report.mjs guard DIR  fail if any file under DIR holds a secret; names files, never values
 //   node scripts/perf/report.mjs merge DIR  the measuring jobs' metrics.json files under DIR, as one
 //   node scripts/perf/report.mjs baseline   the newest green run of the same kind on a recently merged PR
@@ -32,6 +35,7 @@ import {
   measurable,
   mergeMetrics,
   metricsParts,
+  newestPreviewUrl,
   renderComment,
   unbudgeted,
 } from "./lib/perf.mjs";
@@ -87,8 +91,19 @@ async function pullsFor(sha) {
 }
 
 /**
- * The pull requests this run answers: the one a pull_request event names, or the open ones whose
- * head is a deployment's commit. A hand run answers none; its job summary is the report.
+ * Whether this is a hand run that measures the ref's own newest preview (no url, no fixture).
+ * @param {string} eventName
+ * @param {any} event
+ */
+function handPreview(eventName, event) {
+  const inputs = eventInputs(eventName, event);
+  return eventName === "workflow_dispatch" && !inputs.inputUrl && !inputs.fixture;
+}
+
+/**
+ * The pull requests this run answers: the one a pull_request event names, the open ones whose
+ * head is a deployment's commit, or for a hand run that found the ref's own preview, the open ones
+ * whose head is the ref's commit. Any other hand run answers none; its job summary is the report.
  * @param {string} eventName
  * @param {any} event
  * @returns {Promise<number[]>}
@@ -96,14 +111,40 @@ async function pullsFor(sha) {
 async function prsFor(eventName, event) {
   if (eventName === "pull_request") return event.pull_request?.number ? [event.pull_request.number] : [];
   if (eventName === "deployment_status") return (await pullsFor(event.deployment?.sha)).map((p) => p.number);
+  if (handPreview(eventName, event)) return (await pullsFor(env.GITHUB_SHA)).map((p) => p.number);
   return [];
+}
+
+/**
+ * The URL of a commit's newest ready preview, from GitHub's deployments API (needs the job's
+ * `deployments: read`). Loads nothing from the preview itself.
+ * @param {string} sha
+ * @returns {Promise<string | null>}
+ */
+async function findPreview(sha) {
+  const deployments = await github(`deployments?sha=${sha}&environment=Preview&per_page=100`);
+  return newestPreviewUrl(deployments, (id) => github(`deployments/${id}/statuses?per_page=100`));
 }
 
 async function plan() {
   const eventName = env.GITHUB_EVENT_NAME ?? "";
   const event = readEvent();
-  const result = measurable(eventInputs(eventName, event, env.PRODUCTION_URL));
+  const inputs = eventInputs(eventName, event, env.PRODUCTION_URL);
+  let result = measurable(inputs);
+  if ("find" in result) {
+    const sha = env.GITHUB_SHA;
+    if (!sha) throw new Error("GITHUB_SHA is required to find this ref's preview");
+    const previewUrl = await findPreview(sha);
+    if (!previewUrl) {
+      throw new Error(
+        `no ready Vercel preview for ${sha} yet: wait for Vercel to finish (gh pr checks), or pass -f url=<preview URL>`,
+      );
+    }
+    console.log(`Found ${sha.slice(0, 7)}'s newest ready preview: ${previewUrl}`);
+    result = measurable({ ...inputs, previewUrl });
+  }
   if ("problem" in result) throw new Error(result.problem);
+  if ("find" in result) throw new Error("found no preview to measure");
   if ("skip" in result) {
     console.log(`Not measuring: ${result.skip}.`);
     return;
@@ -115,6 +156,11 @@ async function plan() {
   const group = pr ? `pr-${pr}` : `run-${env.GITHUB_RUN_ID ?? "local"}`;
   const routes = ROUTES.map((r) => r.id);
   console.log(JSON.stringify({ mode: result.mode, url: result.url, group, routes }));
+  if (env.DRY_RUN === "true") {
+    const loads = result.mode === "preview" ? `${routes.length} routes x 3 loads on ${result.url}` : "the fixture build";
+    console.log(`Dry run: would measure ${loads}; nothing loaded, nothing measured.`);
+    return;
+  }
   output("mode", result.mode);
   output("url", result.url);
   output("group", group);

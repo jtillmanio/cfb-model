@@ -128,7 +128,7 @@ test("the page requests nothing from a host other than the app's own", async ({ 
   const logo = page.waitForResponse((response) => new URL(response.url()).pathname === "/logos/194.png");
   await page.goto("/design-system");
   await page.getByRole("region", { name: "Dark" }).locator("img").scrollIntoViewIfNeeded();
-  // The Ohio State logo comes from the app's /logos route, which fetches CFBD's CDN on the server.
+  // The Ohio State logo is a static file of the app's own (web/public/logos, D-173).
   const response = await logo;
   expect(response.status()).toBe(200);
   expect(response.headers()["content-type"]).toBe("image/png");

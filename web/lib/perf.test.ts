@@ -35,6 +35,7 @@ import {
   mergeMetrics,
   metricsParts,
   mintSession,
+  newestPreviewUrl,
   renderComment,
   scrubLhr,
   scrubText,
@@ -357,9 +358,9 @@ describe("TASK-027 AC-1: a pull request is measured on the fixture build (D-125)
     });
   });
 
-  it("builds the fixture on a hand run given no URL, and measures a preview when given one", () => {
-    for (const url of [undefined, ""]) {
-      expect(measurable(eventInputs("workflow_dispatch", { inputs: { url } }, PRODUCTION))).toEqual({
+  it("builds the fixture on a hand run with fixture ticked, and measures a preview when given a URL", () => {
+    for (const fixture of [true, "true"]) {
+      expect(measurable(eventInputs("workflow_dispatch", { inputs: { fixture } }, PRODUCTION))).toEqual({
         mode: "fixture",
         url: FIXTURE_URL,
       });
@@ -368,6 +369,8 @@ describe("TASK-027 AC-1: a pull request is measured on the fixture build (D-125)
       mode: "preview",
       url: BASE,
     });
+    const both = { inputs: { url: BASE, fixture: true } };
+    expect(measurable(eventInputs("workflow_dispatch", both, PRODUCTION))).toHaveProperty("problem");
   });
 
   it("gates a fixture run on every problem D-101 lists", () => {
@@ -391,6 +394,47 @@ describe("TASK-027 AC-1: a pull request is measured on the fixture build (D-125)
     expect(problem).toContain("web/e2e/test-env.ts");
     expect(problem).toContain("Vercel Preview's AUTH_ALLOWED_GITHUB_ID is unset or blank");
     expect(problem).not.toContain("PREVIEW_AUTH_SECRET");
+  });
+});
+
+describe("D-173: a hand run with no URL measures the ref's newest ready preview", () => {
+  it("asks the plan step to find the preview, then measures the URL it found", () => {
+    for (const inputs of [{}, { url: "" }, { url: "", fixture: false }, { fixture: "false" }]) {
+      expect(measurable(eventInputs("workflow_dispatch", { inputs }, PRODUCTION)), JSON.stringify(inputs)).toEqual({
+        find: "preview",
+      });
+    }
+    const found = { ...eventInputs("workflow_dispatch", { inputs: {} }, PRODUCTION), previewUrl: `${BASE}/` };
+    expect(measurable(found)).toEqual({ mode: "preview", url: BASE });
+    // The production guard holds for a found URL too.
+    expect(measurable({ ...found, previewUrl: PRODUCTION })).toHaveProperty("problem");
+  });
+
+  it("takes the newest deployment with a success status, from GitHub's API, never loading it", async () => {
+    const deployments = [
+      { id: 1, created_at: "2026-11-16T10:00:00Z" },
+      { id: 3, created_at: "2026-11-16T12:00:00Z" },
+      { id: 2, created_at: "2026-11-16T11:00:00Z" },
+    ];
+    const statuses: Record<number, { state: string; environment_url?: string | null }[]> = {
+      1: [{ state: "success", environment_url: "https://one.vercel.app" }],
+      2: [{ state: "inactive" }, { state: "success", environment_url: "https://two.vercel.app" }],
+      3: [{ state: "in_progress" }, { state: "pending" }],
+    };
+    const asked: number[] = [];
+    const statusesFor = async (id: number) => {
+      asked.push(id);
+      return statuses[id] ?? [];
+    };
+    expect(await newestPreviewUrl(deployments, statusesFor)).toBe("https://two.vercel.app");
+    // Newest first, and no further once one is ready.
+    expect(asked).toEqual([3, 2]);
+  });
+
+  it("finds nothing when no deployment is ready, or none was made", async () => {
+    const pending = async () => [{ state: "pending" }, { state: "success", environment_url: null }];
+    expect(await newestPreviewUrl([{ id: 1, created_at: "2026-11-16T10:00:00Z" }], pending)).toBeNull();
+    expect(await newestPreviewUrl([], pending)).toBeNull();
   });
 });
 
@@ -985,6 +1029,23 @@ describe("TASK-008 AC-1: .github/workflows/lighthouse.yml has 02's shape", () =>
     expect(code).toMatch(/^on:\n {2}pull_request:\n {4}paths-ignore:\n(?: {6}- .+\n)+ {2}deployment_status:\n {2}workflow_dispatch:\n/m);
     expect(code).toMatch(/^ {6}url:\n[\s\S]*?required: false[\s\S]*?^ {6}allow_production:\n[\s\S]*?type: boolean/m);
     expect(code.slice(0, jobsAt)).toMatch(/^permissions: \{\}$/m);
+  });
+
+  it("loads a preview by itself only while LIGHTHOUSE_MODE is on; a pull request and a hand run always plan (D-173)", () => {
+    const plan = jobs.plan ?? "";
+    const gate = plan.match(/^ {4}if: >-\n((?: {6}.+\n)+)/m)?.[1].replace(/\s+/g, " ").trim();
+    expect(gate).toBe(
+      "github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' || " +
+        "(vars.LIGHTHOUSE_MODE == 'on' && github.event.deployment_status.state == 'success' && " +
+        "github.event.deployment.environment == 'Preview')",
+    );
+    // The only deployment_status condition sits behind the switch.
+    expect(code.match(/deployment_status\.state/g)).toHaveLength(1);
+    expect(plan).toMatch(/^ {6}deployments: read$/m);
+    expect(plan).toMatch(/^ {10}DRY_RUN: \$\{\{ inputs\.dry_run \}\}$/m);
+    for (const input of ["fixture", "dry_run"]) {
+      expect(code, input).toMatch(new RegExp(`^ {6}${input}:\n(?: {8}.+\n)*? {8}type: boolean\n {8}default: false$`, "m"));
+    }
   });
 
   it("plans, measures a preview one route per job or the fixture in one job, then reports", () => {
