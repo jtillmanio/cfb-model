@@ -496,10 +496,10 @@ views), which a release does.
 
 ## Performance checks
 
-The **Lighthouse** workflow (`.github/workflows/lighthouse.yml`) measures every PR on its own,
-twice (D-125). Each run signs in with a minted session, runs Lighthouse three times on each route
-in `scripts/perf/routes.mjs` (mobile, Slow 4G, 4× CPU), and posts its own comment on the PR,
-edited in place on every later run.
+The **Lighthouse** workflow (`.github/workflows/lighthouse.yml`) measures every PR's fixture
+build on its own, and a Vercel preview when asked (D-125, D-173). Each run signs in with a minted
+session, runs Lighthouse three times on each route in `scripts/perf/routes.mjs` (mobile, Slow 4G,
+4× CPU), and posts its own comment on the PR, edited in place on every later run.
 
 - **Fixture build (gated).** On every push to a PR, the job builds the app and serves it with the
   API on the seeded test database, as e2e does. The data never changes, so this run fails on what
@@ -510,8 +510,15 @@ edited in place on every later run.
   each tap takes to draw the next screen's heading and then its data; only a forbidden request
   during a tap fails the run. A PR that changes only `docs/`, `.claude/`, `backups/` or root `*.md`
   files has no fixture run.
-- **Preview (reported only).** When Vercel reports the PR's preview ready, the same measurements on
-  the preview's own data. Its comment shows the numbers and anything worth a look; it never fails.
+- **Preview (reported only, off by default).** The same measurements on a preview's own data. Its
+  comment shows the numbers and anything worth a look; it never fails. Every load renders on
+  Vercel and counts against the Hobby account's 4 hours a month of Fluid Active CPU, shared with
+  `ledger`, so it runs only by hand, or on every ready preview while the repository variable
+  `LIGHTHOUSE_MODE` is `on` (D-173):
+  ```powershell
+  gh variable set LIGHTHOUSE_MODE --body on    # measure every ready preview
+  gh variable delete LIGHTHOUSE_MODE           # back to off (unset is off)
+  ```
 
 Timings are shown against the last merged PR's run of the same kind and never fail either run.
 Reports are the run's artifacts for 14 days. The full design is in
@@ -519,12 +526,20 @@ Reports are the run's artifacts for 14 days. The full design is in
 
 ### Run one by hand
 ```powershell
-gh workflow run lighthouse.yml --ref <branch>                          # fixture build of that branch
-gh workflow run lighthouse.yml -f url=https://<preview>.vercel.app     # a preview, reported only
+gh workflow run lighthouse.yml --ref <branch>                          # that branch head's newest ready preview
+gh workflow run lighthouse.yml --ref <branch> -f dry_run=true          # say which preview; load nothing
+gh workflow run lighthouse.yml --ref <branch> -f fixture=true          # fixture build of that branch (no Vercel CPU)
+gh workflow run lighthouse.yml -f url=https://<preview>.vercel.app     # any deployment, reported only
 gh run watch
 ```
-A hand run writes its report to the run's **Summary**, not the PR. It refuses `PRODUCTION_URL`
-unless `-f allow_production=true` is passed.
+With no `url`, the plan job finds the branch head's newest ready preview through GitHub's
+deployments API (`deployments?sha=…&environment=Preview`, then each one's statuses), without
+loading it, and fails if Vercel hasn't finished one yet. That run comments on the branch's open
+PR; a run given a `url`, or a fixture run, writes its report only to the run's **Summary**. A run
+refuses `PRODUCTION_URL` unless `-f allow_production=true` is passed.
+
+GitHub runs a `deployment_status` workflow from the deployment's own commit, so a branch cut before
+the `LIGHTHOUSE_MODE` switch landed still measures every preview until it is rebased on `main`.
 
 ### Read a failed run
 Only the fixture run fails. Its PR comment (and the **report** job's Summary) lists every problem,
@@ -533,7 +548,7 @@ each naming its route.
 | Problem | What it means | What to do |
 |---|---|---|
 | `requested /api/py/…` | A page made the browser call the API, usually a `<Link>` prefetch (hard rule 5) | Link to it with a plain `<a>` and fetch from server code |
-| `requested <url> during a page load, from another host` | The browser fetched something from a host other than the app's own (D-101, D-154), e.g. a team logo straight from CFBD's CDN | Serve the file from the app; a team logo goes through `TeamChip`, so the browser asks the app's `/logos/<id>.png` |
+| `requested <url> during a page load, from another host` | The browser fetched something from a host other than the app's own (D-101, D-154), e.g. a team logo straight from CFBD's CDN | Serve the file from the app; a team logo goes through `TeamChip`, so the browser asks the app's static `/logos/<id>.png` (§ Team logos) |
 | `requested … during a tap` | A tap from one screen to the next made the browser call the API or another host (D-166) | As for a page load: a plain `<a>` to the API, files served from the app |
 | `tap …: <step>: …` under **Runs that didn't finish** | A tap never landed (not a failure). The message names the step it stopped at and, for a timeout, the page's path, `<h1>` and busy count | Open the fixture job's **Measure** log; a tap that lands on another heading needs its `heading` in `TAPS` updated |
 | `… is over the budget of …` | The page got heavier | Make it lighter, or raise the budget with the reason written in the PR |
@@ -562,6 +577,19 @@ Automation; sent as `x-vercel-protection-bypass` on every request to the preview
 **variables** `AUTH_ALLOWED_GITHUB_ID` (the GitHub ID the session is minted for, the same as the
 preview's allowlist) and `PRODUCTION_URL` (shared with the release workflow; refused unless
 `allow_production` is set).
+
+## Team logos
+
+The team chip's logos are static 40px PNGs in `web/public/logos/<id>.png`, served by Vercel's CDN
+with no function behind them (D-173, amending D-154). `web/lib/logo-ids.json` lists the ids that
+have a file; a team without one gets its colour dot. Logos change about once a season, and a new
+team rarely appears. To add or refresh them, render the staged teams' logos (`--staged` reads
+`data/staging/teams.parquet` with DuckDB: no CFBD API call) from CFBD's CDN, then commit the files:
+```powershell
+pnpm --dir web logos --staged              # only teams with no file yet
+pnpm --dir web logos --staged --refresh    # render every one again
+```
+`web/lib/logos.test.ts` fails if the files and `logo-ids.json` disagree, or a file isn't 40×40.
 
 ## Preview databases
 

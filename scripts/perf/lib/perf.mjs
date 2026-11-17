@@ -685,28 +685,45 @@ export function findComment(comments, marker = MARKER) {
 }
 
 /**
- * What to measure, or why not (D-125). A pull request, or a hand run naming no URL, is measured as
- * the fixture build the job serves itself. A deployment event is a preview, measured only when it
- * succeeded on the Preview environment. A hand run naming a URL is a preview too: any https URL
- * except production's, unless allow_production is ticked. Production's host is refused either way
- * without it.
+ * What to measure, or why not (D-125, D-173). A pull request, or a hand run with `fixture` ticked,
+ * is measured as the fixture build the job serves itself. A deployment event is a preview,
+ * measured only when it succeeded on the Preview environment (the workflow runs it at all only
+ * while LIGHTHOUSE_MODE is `on`). A hand run naming a URL is a preview too: any https URL except
+ * production's, unless allow_production is ticked. A hand run naming neither asks the plan step to
+ * find the ref's newest ready preview (`find`), then measures the `previewUrl` it found. Production's
+ * host is refused either way without allow_production.
  * @param {{
  *   eventName: string, environment?: string, state?: string, deploymentUrl?: string,
- *   inputUrl?: string, productionUrl?: string, allowProduction?: boolean,
+ *   inputUrl?: string, productionUrl?: string, allowProduction?: boolean, fixture?: boolean,
+ *   previewUrl?: string,
  * }} args
- * @returns {{ mode: Mode, url: string } | { skip: string } | { problem: string }}
+ * @returns {{ mode: Mode, url: string } | { find: "preview" } | { skip: string } | { problem: string }}
  */
-export function measurable({ eventName, environment, state, deploymentUrl, inputUrl, productionUrl, allowProduction }) {
-  if (eventName === "pull_request" || (eventName === "workflow_dispatch" && !inputUrl)) {
+export function measurable({
+  eventName,
+  environment,
+  state,
+  deploymentUrl,
+  inputUrl,
+  productionUrl,
+  allowProduction,
+  fixture,
+  previewUrl,
+}) {
+  if (eventName === "workflow_dispatch" && fixture && inputUrl) {
+    return { problem: "a hand run takes fixture or url, not both" };
+  }
+  if (eventName === "pull_request" || (eventName === "workflow_dispatch" && fixture)) {
     return { mode: "fixture", url: FIXTURE_URL };
   }
+  if (eventName === "workflow_dispatch" && !inputUrl && !previewUrl) return { find: "preview" };
   if (eventName === "deployment_status") {
     if (state !== "success") return { skip: `deployment is ${state}, not success` };
     if (environment !== "Preview") return { skip: `${environment} is not a preview` };
   } else if (eventName !== "workflow_dispatch") {
     return { skip: `${eventName} is not a trigger this job measures` };
   }
-  const url = eventName === "workflow_dispatch" ? inputUrl : deploymentUrl;
+  const url = eventName === "workflow_dispatch" ? inputUrl || previewUrl : deploymentUrl;
   let parsed;
   try {
     parsed = new URL(url ?? "");
@@ -746,10 +763,37 @@ export function eventInputs(eventName, event, productionUrl) {
     };
   }
   if (eventName === "workflow_dispatch") {
-    const allow = event?.inputs?.allow_production;
-    return { eventName, inputUrl: event?.inputs?.url, allowProduction: allow === true || allow === "true", productionUrl };
+    /** @param {unknown} v */
+    const ticked = (v) => v === true || v === "true";
+    const inputs = event?.inputs ?? {};
+    return {
+      eventName,
+      inputUrl: inputs.url,
+      allowProduction: ticked(inputs.allow_production),
+      fixture: ticked(inputs.fixture),
+      productionUrl,
+    };
   }
   return { eventName, productionUrl };
+}
+
+/**
+ * A commit's newest ready Vercel preview, found through GitHub's deployments API without loading
+ * it (D-173): the deployments Vercel recorded for the commit on the Preview environment, newest
+ * first, and the first whose statuses include a `success` with an environment_url. Null when none
+ * is ready yet. `statusesFor` lists one deployment's statuses (report.mjs asks the API).
+ * @template {{ id: number, created_at: string }} D
+ * @param {D[]} deployments `GET deployments?sha=<sha>&environment=Preview`
+ * @param {(id: number) => Promise<{ state: string, environment_url?: string | null }[]>} statusesFor
+ * @returns {Promise<string | null>}
+ */
+export async function newestPreviewUrl(deployments, statusesFor) {
+  const newest = [...deployments].sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
+  for (const deployment of newest) {
+    const ready = (await statusesFor(deployment.id)).find((s) => s.state === "success" && s.environment_url);
+    if (ready?.environment_url) return ready.environment_url;
+  }
+  return null;
 }
 
 /**

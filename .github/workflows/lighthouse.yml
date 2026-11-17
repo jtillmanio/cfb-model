@@ -3,11 +3,18 @@
 # every route in scripts/perf/routes.mjs. Two kinds of run, each with its own PR comment, edited in
 # place on every later run:
 #
-#   fixture  on a pull request (or a hand run with no URL): builds the app, serves it with the API
-#            on the seeded test DB inside the job, as e2e does, and gates. Its data never changes,
-#            so its bytes move only when the code does.
-#   preview  when Vercel reports a preview ready (or a hand run with a URL): the same measurements
-#            on the preview's own data, reported only. It never fails a check.
+#   fixture  on a pull request (or a hand run with fixture ticked): builds the app, serves it with
+#            the API on the seeded test DB inside the job, as e2e does, and gates. Its data never
+#            changes, so its bytes move only when the code does. It never touches Vercel.
+#   preview  on a hand run (D-173): the same measurements on a preview's own data, reported only.
+#            It never fails a check. With no URL it finds the ref's newest ready preview through
+#            GitHub's deployments API, without loading it:
+#              gh workflow run lighthouse.yml --ref <branch> [-f dry_run=true] [-f url=https://…]
+#            Every load is server-rendered and billed to the Vercel account's Fluid Active CPU, so
+#            Vercel reporting a preview ready starts one only while the repository variable
+#            LIGHTHOUSE_MODE is `on` (unset is off): gh variable set LIGHTHOUSE_MODE --body on.
+#            GitHub runs a deployment_status workflow from the deployment's own commit, so a branch
+#            cut before this switch runs the old file until it is rebased.
 #
 #   plan     which kind of run, the URL, the routes, and the PR this run belongs to
 #   measure  a preview, one job per route, side by side
@@ -39,11 +46,19 @@ on:
   workflow_dispatch:
     inputs:
       url:
-        description: "Preview to measure, e.g. https://cfb-model-<id>-<team>.vercel.app; leave empty to build and measure the fixture on this ref"
+        description: "Deployment to measure, e.g. https://cfb-model-<id>-<team>.vercel.app; leave empty for this ref's newest ready preview"
         required: false
         type: string
       allow_production:
         description: "The URL may be production (PRODUCTION_URL)"
+        type: boolean
+        default: false
+      fixture:
+        description: "Build and measure the fixture on this ref instead of a preview (no Vercel CPU)"
+        type: boolean
+        default: false
+      dry_run:
+        description: "Plan only: print what would be measured; load nothing"
         type: boolean
         default: false
 
@@ -51,16 +66,18 @@ permissions: {}
 
 jobs:
   plan:
-    # Vercel sends a status for every deployment and every state; only a finished preview, a pull
-    # request or a hand run gets this far. report.mjs plan checks again and refuses production's URL.
+    # Vercel sends a status for every deployment and every state; only a pull request, a hand run,
+    # or, while LIGHTHOUSE_MODE is `on`, a finished preview gets this far (D-173). report.mjs plan
+    # checks again and refuses production's URL.
     if: >-
-      github.event_name != 'deployment_status' ||
-      (github.event.deployment_status.state == 'success' && github.event.deployment.environment == 'Preview')
+      github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' ||
+      (vars.LIGHTHOUSE_MODE == 'on' && github.event.deployment_status.state == 'success' && github.event.deployment.environment == 'Preview')
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
       contents: read
       pull-requests: read # the PR whose older runs this one cancels
+      deployments: read # a hand run's newest ready preview
     outputs:
       mode: ${{ steps.plan.outputs.mode }}
       url: ${{ steps.plan.outputs.url }}
@@ -78,6 +95,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           PRODUCTION_URL: ${{ vars.PRODUCTION_URL }}
+          DRY_RUN: ${{ inputs.dry_run }}
         run: node scripts/perf/report.mjs plan
 
   measure:

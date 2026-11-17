@@ -5,8 +5,8 @@ import { cn } from "@/lib/utils";
 
 // TeamChip (design/README.md › Components; Components.dc.html › Team chip). The 20px logo slot is
 // the only place a team's colour appears (D-075): the logo when CFBD has one (D-146), else a dot
-// in the team colour. The browser asks the app's own /logos/<id>.png, never CFBD's CDN (D-101,
-// D-154); a logo URL that route doesn't serve draws the dot. Locked games drop the colour.
+// in the team colour. The browser asks the app's own static /logos/<id>.png, never CFBD's CDN (D-101,
+// D-154, D-173); a logo with no file there draws the dot. Locked games drop the colour.
 
 type TeamChipProps = {
   abbreviation: string;

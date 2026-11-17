@@ -28,7 +28,7 @@ const CHIP_OPTIONS = [
 ];
 
 // Sample teams. Colours are CFBD's `teams.color`; the one logo is CFBD's `logos[0]` for Ohio
-// State, which the chip serves from the app's own /logos route (D-154).
+// State, which the chip serves as the static /logos/194.png (D-154, D-173).
 const OSU_LOGO = "https://cdn.collegefootballdata.com/logos/500/194.png";
 
 const SAMPLE_TEAMS = [

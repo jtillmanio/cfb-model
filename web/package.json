@@ -10,7 +10,8 @@
     "lint": "eslint",
     "test": "vitest run",
     "test:e2e": "playwright test",
-    "api:types": "node scripts/api-types.mjs"
+    "api:types": "node scripts/api-types.mjs",
+    "logos": "node scripts/logos.mjs"
   },
   "dependencies": {
     "class-variance-authority": "^0.7.1",
