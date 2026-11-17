@@ -600,17 +600,6 @@ Delete a leftover by hand with `gh workflow run neon-preview-cleanup.yml -f bran
 when nothing matches, the run lists the `preview/*` branches still in Neon. It uses the
 `NEON_API_KEY` secret and `NEON_PROJECT_ID` variable the release workflow already has.
 
-## Skipped preview builds
-
-Vercel's **Ignored Build Step** (Settings › Git) runs `node scripts/vercel-ignore.mjs` (D-173). It
-skips a preview when every file changed since the branch's last successful deployment is one the
-build never reads (`scripts/lib/build-scope.mjs`): docs, `.claude/`, `backups/`, root markdown,
-`.github/`, `scripts/`, `infra/`, `.vscode/`, the root `eslint.config.mjs`, and Python's
-`tests/` folders and `conftest.py`. Anything under `web/` builds, tests included, because
-`next build` type-checks them. Production (`main`) always builds, and so does anything the script
-can't prove (no previous deployment on the branch, a commit outside Vercel's shallow clone). Its
-log line in the deployment says which file decided.
-
 ## Layout
 `web/` Next.js app · `python/` uv workspace: `db` (models, migrations, views, fixture),
 `engine` (CLI: ingest, seed), `api` (FastAPI) · `infra/dispatcher/` Cloudflare Worker that starts
