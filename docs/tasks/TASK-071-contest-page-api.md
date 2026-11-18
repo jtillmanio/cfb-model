@@ -1,7 +1,7 @@
 ---
 id: TASK-071
 title: Build the contest page API (ranked slate, entries with kickoff lock, results and standing)
-status: In progress
+status: Review
 depends_on: [TASK-068, TASK-070]
 size: M
 model: opus
@@ -36,12 +36,12 @@ One API call returns everything the Contest page shows for a week: the slate ran
 
 ## Acceptance criteria
 
-- [ ] AC-1: Given the seeded DB and the clock at Thu 2026-10-08 10:00 PM ET, the contest page route for the Splash work league's Week 6 returns the 10 games with the `shell` block. Games are ranked by cover % descending, ties by edge. Each CFB row's edge and cover % equal `engine.core`'s result on the fixture's v1.0 prediction and the contest line. The first 4 rows, Texas vs Oklahoma, Ole Miss @ LSU, Purdue @ Ohio State and Colorado @ BYU, are marked as the model's top 4, and row 5 is returned as "next best".
-- [ ] AC-2: The 4 NFL rows carry no model fields and are marked "no model yet". Each carries the gap between contest and market lines in points and the side it favours, plus a market-implied % from the plan's formula. Kansas City @ Baltimore, with no gap, has no side and 50%. Every row carries its contest and market spreads and a flag that is true exactly when they differ.
-- [ ] AC-3: Posting an entry for an open game at Thu 10:00 PM inserts a `contest_entries` row at that game's current contest line. Posting the other side soft-deletes the first and inserts the new one. Removing an entry soft-deletes it. With the contest's 4 picks already live for the week, a fifth is refused with 409.
-- [ ] AC-4: With the clock at Fri 2026-10-09 8:12 PM ET, the response marks UNLV @ Boise State locked. Posting, changing or removing an entry on it returns 409 and writes nothing (test). The other games are still open.
-- [ ] AC-5: The response lists your Week 6 entries, OU +7 made Thu 9:14 PM and BUF −3 made Thu 9:20 PM ET, each with its line and time. Results come from TASK-068's views: season you 12-8 and model's top 4 11-9, the W1–W5 rows, and this week 0 points each. The standing is 3rd of 14, 1 point behind. Posting a standing writes a `contest_standings` row, and the next GET returns it.
-- [ ] AC-6: The GET runs at most 6 queries in one concurrent wave on the seeded DB (a test counts them). Every route returns 401 without a valid JWT. The generated TypeScript types include the routes, and the drift check passes.
+- [x] AC-1: Given the seeded DB and the clock at Thu 2026-10-08 10:00 PM ET, the contest page route for the Splash work league's Week 6 returns the 10 games with the `shell` block. Games are ranked by cover % descending, ties by edge. Each CFB row's edge and cover % equal `engine.core`'s result on the fixture's v1.0 prediction and the contest line. The first 4 rows, Texas vs Oklahoma, Ole Miss @ LSU, Purdue @ Ohio State and Colorado @ BYU, are marked as the model's top 4, and row 5 is returned as "next best".
+- [x] AC-2: The 4 NFL rows carry no model fields and are marked "no model yet". Each carries the gap between contest and market lines in points and the side it favours, plus a market-implied % from the plan's formula. Kansas City @ Baltimore, with no gap, has no side and 50%. Every row carries its contest and market spreads and a flag that is true exactly when they differ.
+- [x] AC-3: Posting an entry for an open game at Thu 10:00 PM inserts a `contest_entries` row at that game's current contest line. Posting the other side soft-deletes the first and inserts the new one. Removing an entry soft-deletes it. With the contest's 4 picks already live for the week, a fifth is refused with 409.
+- [x] AC-4: With the clock at Fri 2026-10-09 8:12 PM ET, the response marks UNLV @ Boise State locked. Posting, changing or removing an entry on it returns 409 and writes nothing (test). The other games are still open.
+- [x] AC-5: The response lists your Week 6 entries, OU +7 made Thu 9:14 PM and BUF −3 made Thu 9:20 PM ET, each with its line and time. Results come from TASK-068's views: season you 12-8 and model's top 4 11-9, the W1–W5 rows, and this week 0 points each. The standing is 3rd of 14, 1 point behind. Posting a standing writes a `contest_standings` row, and the next GET returns it.
+- [x] AC-6: The GET runs at most 6 queries in one concurrent wave on the seeded DB (a test counts them). Every route returns 401 without a valid JWT. The generated TypeScript types include the routes, and the drift check passes.
 
 ## Out of scope
 
@@ -71,8 +71,11 @@ One API call returns everything the Contest page shows for a week: the slate ran
 
 _Work noticed during this task and deliberately left out. Each bullet ends `→ <path> § <section>` (where it was placed) or `→ not tracked: <reason>`. See `.claude/skills/track-follow-ups/classify.md`; the PR's Follow-ups section is copied from here._
 
-- Write the model's contest picks in production on import confirm, in the confirm's transaction (decided at this plan gate: the only writer sure to run before the week's first kickoff, D-171; the `lines` job runs 10 AM ET daily and 9 PM ET Thu/Fri, so it misses a Saturday-morning paste) → docs/tasks/TASK-078-….md (new, Draft) and docs/08-tasklist.md § M6 (approved at plan)
-- An NFL market-implied % that knows the key numbers (3 and 7) instead of a normal curve, from nflverse margins → docs/06-roadmap.md § Phase 8 (approved at plan)
+- Write the model's contest picks in production on import confirm, in the confirm's transaction (decided at the plan gate, D-174: the only writer sure to run before the week's first kickoff, D-171; the `lines` job runs 10 AM ET daily and 9 PM ET Thu/Fri, so it misses a Saturday-morning paste) (approved at plan) → docs/tasks/TASK-078-write-model-contest-picks-on-confirm.md (new, Draft), with its row in docs/08-tasklist.md § M6 (M6.10)
+- An NFL market-implied % that knows the key numbers (3 and 7) instead of a normal curve, from nflverse margins (approved at plan) → docs/06-roadmap.md § Phase 8 — Multi-sport
+- The Contest screen should label `top_n` as the model's picks among the open games: after the week's first kickoff it can differ from the top 4 `results` grades (schema review R1, D-174) → docs/tasks/TASK-073-contest-ranked-slate-tray-results.md § Context
+- A posted standing's `period` isn't checked against the contest's weeks with lines (schema review R1, minor) → not tracked: it's the owner's hand entry, and the database keeps it positive; accepted as is
+- Under a fixture time, `contest_record` and `game_market`'s opening line read no API clock, so a row stamped after the fixture time can show (schema review R1) → not tracked: fixture-only, documented in D-174 and in `api/contest.py`'s comments; with the real clock they agree
 
 ## Plan
 
@@ -106,7 +109,7 @@ Approved 2026-11-18 at 379fbc5.
 
 ## Review log
 
-_Filled by /implement-task. One line per round._
+- Verify R1 PASS (pytest 1087, web 504, dispatcher 17, e2e 88) | Audit R1 PASS (every AC proven; all tests fail to load on the base) | Spec R1 APPROVE | Schema R1 CHANGES (MAJOR: no EXPLAIN test for the page's view reads; minors: D-174 top-N wording, clock caveats, one-decimal standing) → R2 APPROVE | Verify R2 PASS (pytest 1091; one e2e flake, shell.spec.ts waking database [phone], green on re-run)
 
 ## Blocked
 
@@ -114,7 +117,7 @@ _Only if status is Blocked: what failed, what was tried, best hypothesis, decisi
 
 ## Metrics
 
-- Verify rounds:
-- Review rounds:
-- First-pass AC FAILs:
-- Plan revisions after approval:
+- Verify rounds: 2 (both PASS; the second after the schema review's fixes, with one unrelated e2e flake re-run green)
+- Review rounds: 1 (spec), 2 (schema); audit 1
+- First-pass AC FAILs: 0 (schema R1's MAJOR was a missing EXPLAIN test under the database rules, not an AC)
+- Plan revisions after approval: 0
