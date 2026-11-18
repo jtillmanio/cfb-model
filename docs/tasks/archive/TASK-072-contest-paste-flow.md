@@ -1,7 +1,7 @@
 ---
 id: TASK-072
 title: Build the Contest paste flow
-status: Review
+status: Done
 depends_on: [TASK-070, TASK-071, TASK-054]
 size: M
 model: opus
@@ -38,7 +38,7 @@ On the Contest page you paste a Splash page, see the raw text beside the parsed 
 - [x] AC-3: Unparseable text shows C2a's state and a paste that matches no team shows C2b's, each with a way back to edit the paste. Neither writes anything (the API's row counts are unchanged).
 - [x] AC-4: Pasting again with a moved line shows the RepasteDiff (C2e) listing each moved row with its old and new line before Confirm.
 - [x] AC-5: `/contest` has a `loading.tsx` skeleton at the loaded size, with the pulse off under reduced motion, and shows the designed error state when the API fails (D-096). At 390, 768 and 1440 px there's no horizontal scroll and every tap target is at least 44 px. Colours, type and spacing come from tokens only (`web/components/tokens-only.test.ts` passes).
-- [ ] AC-6: `/contest` is in `scripts/perf/routes.mjs` with a budget, and the fixture Lighthouse run is within it. `web/e2e/contest.spec.ts` runs journey 3 (paste → "9 rows match · 1 unmatched" → map → Confirm) at phone and desktop widths.
+- [x] AC-6: `/contest` is in `scripts/perf/routes.mjs` with a budget, and the fixture Lighthouse run is within it. `web/e2e/contest.spec.ts` runs journey 3 (paste → "9 rows match · 1 unmatched" → map → Confirm) at phone and desktop widths.
 
 ## Out of scope
 
@@ -115,6 +115,7 @@ Approved by the owner up front in the `/next-task` request (2026-11-18: "approve
 _Filled by /implement-task. One line per round._
 
 - Verify R1 FAIL(4: an API test assumed no other live contests, fixed; three EXPLAIN tests that fail on the local test DB after e2e runs, on base code too, → TASK-080) → contest e2e 6/6 PASS after each fix round | Audit R1 NOT RUN (tree not clean: docs uncommitted) → R2 CHANGES (AC-5 skeleton untested; mono font check too loose) → fixed (a3aaf97) | Schema R1 APPROVE (4 minors: 3 fixed in a3aaf97, 1 → TASK-080) | Spec R1 CHANGES (follow-ups untraced, skeleton untested, font regex, budget not measured, a comment) → fixed except the budget, set from the PR's fixture run | UI R1 CHANGES (two buttons under 44 px wide; "NY Jets Jets") → fixed (7e39f2d), e2e now checks width
+- Lighthouse R1 FAIL (`/` JS 186,041 > 186,000: the paste flow carried `lib/slate.ts`) → R2 FAIL (`/` 186,005: the chunk split, +595 over #167) → budgets set for `contest` and `this-week` from R2 (median + 20%, reason in docs/02) → R3 PASS (run 44422322927) | CI PASS | Vercel PASS
 
 ## Blocked
 
