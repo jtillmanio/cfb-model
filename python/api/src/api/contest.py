@@ -36,7 +36,7 @@ from decimal import Decimal
 from typing import Any, Literal
 
 from fastapi import HTTPException
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 from sqlalchemy import Connection, Row, text
 
 from engine.core import (
@@ -79,6 +79,14 @@ class StandingIn(BaseModel):
     field_size: int = Field(ge=1)
     points_behind_leader: float | None = Field(default=None, ge=0, le=9999.9)
     note: str | None = Field(default=None, max_length=500)
+
+    @field_validator("points_behind_leader")
+    @classmethod
+    def _one_decimal(cls, value: float | None) -> float | None:
+        """`contest_standings.points_behind_leader` is numeric(5,1): refuse what it would round."""
+        if value is not None and abs(value * 10 - round(value * 10)) > 1e-9:
+            raise ValueError("points behind the leader take at most one decimal place")
+        return value
 
     @model_validator(mode="after")
     def _position_in_field(self) -> StandingIn:
@@ -379,6 +387,8 @@ ENTRIES_SQL = text(
     """
 )
 
+# contest_record reads no clock: under a fixture time an entry or contest pick stamped after the
+# API's clock counts here but not in ENTRIES_SQL. With the real clock they agree (D-174).
 RECORD_SQL = text(
     f"""{_PREFIX}
     SELECT r.picker, r.period, r.breakdown, r.wins, r.losses, r.pushes, r.voids, r.pending,
@@ -417,7 +427,8 @@ def _float(value: Decimal | float | None) -> float | None:
 
 def _market(row: Row[Any]) -> float | None:
     """`/slate`'s current line: the newest pull by the clock, else the close once started, else
-    the open."""
+    the open. game_market's open is its earliest snapshot, which under a fixture time can be
+    captured after the API's clock; with the real clock it never is."""
     if row.pulled_spread_home is not None:
         return float(row.pulled_spread_home)
     if row.started and row.closing_spread_home is not None:

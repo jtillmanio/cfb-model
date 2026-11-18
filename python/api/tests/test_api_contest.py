@@ -20,6 +20,7 @@ from collections.abc import Callable, Iterator
 from datetime import datetime
 from typing import Any
 
+import model_rows as m  # pyright: ignore[reportMissingImports]  (on sys.path via conftest)
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import Connection, event, text
@@ -530,6 +531,16 @@ def test_a_standing_outside_its_field_is_422(
     assert response.status_code == 422
 
 
+def test_points_behind_take_one_decimal(api: TestClient, make_token: MakeToken, contest_id: int):
+    """contest_standings.points_behind_leader is numeric(5,1): 0.25 would be stored as 0.3."""
+    response = api.post(
+        f"/api/py/contests/{contest_id}/standings",
+        json={"period": 6, "position": 2, "field_size": 14, "points_behind_leader": 0.25},
+        headers=_auth(make_token),
+    )
+    assert response.status_code == 422
+
+
 # AC-6
 
 
@@ -559,6 +570,47 @@ def test_the_page_runs_in_one_wave_within_budget(
 
     assert len(statements) == len(contest.QUERIES) == 6
     assert len(statements) <= wave.QUERY_BUDGET
+
+
+def _plan(conn: Connection, contest_id: int, name: str) -> dict[str, Any]:
+    sql, params = contest.queries(datetime.fromisoformat(CONTEST_NOW), contest_id, OWNER, None)[
+        name
+    ]
+    return m.explain(conn, str(sql), params)
+
+
+def _conds(nodes: list[dict[str, Any]]) -> list[str]:
+    for node in nodes:
+        assert node["Node Type"] != "Seq Scan", node
+    return [n.get("Index Cond") or n.get("Recheck Cond") or "" for n in nodes]
+
+
+def test_the_record_is_read_for_the_contest_alone(db_conn: Connection, contest_id: int):
+    """contest_record and contest_results filter by contest below their grouping and windows
+    (.claude/rules/database.md › Views & queries): the contest's entries, its lines and the picks
+    on them, never every contest's."""
+    plan = _plan(db_conn, contest_id, "record")
+    entries = _conds(m.scans(plan, "contest_entries"))
+    assert entries and all("contest_id" in c for c in entries), entries
+    lines = _conds(m.scans(plan, "contest_lines"))
+    assert lines and all("contest_id" in c or "contest_line_id" in c for c in lines), lines
+    picks = _conds(m.scans(plan, "picks"))
+    assert picks and all("contest_line_id" in c for c in picks), picks
+
+
+def test_the_slate_is_read_for_the_weeks_games_alone(db_conn: Connection, contest_id: int):
+    plan = _plan(db_conn, contest_id, "games")
+    lines = _conds(m.scans(plan, "contest_lines"))
+    assert lines and all("contest_id" in c for c in lines), lines
+    predictions = _conds(m.scans(plan, "predictions"))
+    assert predictions and all("game_id" in c for c in predictions), predictions
+    ratings = _conds(m.scans(plan, "team_ratings"))
+    assert ratings and all("week" in c for c in ratings), ratings
+
+
+def test_the_entries_are_read_for_the_contest_alone(db_conn: Connection, contest_id: int):
+    entries = _conds(m.scans(_plan(db_conn, contest_id, "entries"), "contest_entries"))
+    assert entries and all("contest_id" in c for c in entries), entries
 
 
 @pytest.mark.parametrize(
