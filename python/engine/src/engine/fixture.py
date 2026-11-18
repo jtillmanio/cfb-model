@@ -16,6 +16,7 @@ games they need, is written by generate_contest.py (TASK-067, TASK-068).
 from __future__ import annotations
 
 import json
+import re
 from datetime import date, datetime, timedelta
 from typing import Any
 
@@ -860,3 +861,66 @@ def seed_fixture() -> None:
         f" {contest['standings']} new standings, {contest_picks} new model contest picks and"
         f" {aliases} new splash team aliases."
     )
+
+
+# e2e's paste journey (TASK-072, D-175). Journey 3 pastes Week 6 into a contest with no lines and
+# maps "Hou Texans" and "Jax", but contest_lines refuse DELETE and a mapped alias stays, so a
+# second run against the same test DB would find the week confirmed and every name matched. Each
+# run (and each Playwright project, which run in parallel) gets its own contest instead, on its own
+# platform: aliases are keyed by the contest's platform, so the shared `splash` rows are never
+# written, and the platform's aliases are reset to the `splash` ones but the two the journey maps.
+
+PASTE_JOURNEY_MAPS = ("Hou Texans", "Jax")
+_PROJECT = re.compile(r"[a-z]+")
+
+
+def reset_paste_journey(conn: Connection, project: str) -> int:
+    """Soft-delete the fixture user's live "Paste journey (<project>)" contest, insert a fresh one
+    with the Splash work league's rules on platform `splash-e2e-<project>`, and reset that
+    platform's aliases. Returns the new contest's id."""
+    if not _PROJECT.fullmatch(project):
+        raise ValueError(f"project must be lowercase letters, not {project!r}")
+    data = _load("contest.json")
+    name, platform = f"Paste journey ({project})", f"splash-e2e-{project}"
+    rules = ContestRules.model_validate(data["contest"]["rules"])
+    user_id = conn.execute(
+        text("SELECT id FROM users WHERE github_id = :g"), {"g": data["user"]["github_id"]}
+    ).scalar_one()  # seeded by `engine seed fixture`, which e2e runs after
+    conn.execute(
+        text(
+            "UPDATE contests SET deleted_at = now()"
+            " WHERE user_id = :u AND name = :n AND deleted_at IS NULL"
+        ),
+        {"u": user_id, "n": name},
+    )
+    contest_id = conn.execute(
+        text(
+            "INSERT INTO contests (user_id, name, platform, season, rules)"
+            " VALUES (:u, :n, :p, :season, CAST(:rules AS jsonb)) RETURNING id"
+        ),
+        {
+            "u": user_id,
+            "n": name,
+            "p": platform,
+            "season": data["contest"]["season"],
+            "rules": rules.model_dump_json(),
+        },
+    ).scalar_one()
+    conn.execute(text("DELETE FROM team_aliases WHERE source = :p"), {"p": platform})
+    conn.execute(
+        text(
+            "INSERT INTO team_aliases (team_id, source, alias)"
+            " SELECT team_id, :p, alias FROM team_aliases"
+            " WHERE source = 'splash' AND alias <> ALL(:maps)"
+        ),
+        {"p": platform, "maps": list(PASTE_JOURNEY_MAPS)},
+    )
+    return contest_id
+
+
+def paste_journey(project: str) -> None:
+    """`engine seed paste-journey --project <name>`: prints `{"contest_id": n}` for the spec."""
+    refuse_if_live("reset the paste journey")
+    with make_engine(resolve_test_database_url()).begin() as conn:
+        contest_id = reset_paste_journey(conn, project)
+    print(json.dumps({"contest_id": contest_id}))

@@ -17,6 +17,7 @@ export const ROUTES = [
   { id: "login", path: "/login", signedIn: false },
   { id: "this-week", path: "/", signedIn: true },
   { id: "teams", path: "/teams", signedIn: true },
+  { id: "contest", path: "/contest", signedIn: true },
   { id: "design-system", path: "/design-system", signedIn: true },
 ];
 

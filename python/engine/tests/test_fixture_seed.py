@@ -9,6 +9,7 @@ import pytest
 from sqlalchemy import Connection, text
 
 from engine import fixture
+from engine.core.contest_rules import ContestRules
 
 
 def test_a_reseed_with_the_same_spec_reuses_the_versions(db_conn: Connection):
@@ -73,3 +74,57 @@ def test_a_reseed_adds_no_contest_games_or_model_picks(db_conn: Connection):
         db_conn, contest, history, week, picks["season"], version_id
     ) == 0
     assert db_conn.execute(count).scalar_one() == before == 25
+
+
+# `engine seed paste-journey` (TASK-072, D-175): each e2e run of journey 3 starts from a fresh,
+# empty contest whose platform has every fixture `splash` alias but the two the journey maps.
+
+_ALIASES = text("SELECT alias, team_id FROM team_aliases WHERE source = :s ORDER BY alias")
+_LIVE = text(
+    "SELECT c.id, c.platform, c.season, c.rules FROM contests c JOIN users u ON u.id = c.user_id"
+    " WHERE u.github_id = 4242 AND c.name = :n AND c.deleted_at IS NULL"
+)
+
+
+def test_a_reset_makes_an_empty_contest_with_the_splash_aliases_but_two(db_conn: Connection):
+    contest_id = fixture.reset_paste_journey(db_conn, "phone")
+
+    live = db_conn.execute(_LIVE, {"n": "Paste journey (phone)"}).one()
+    assert (live.id, live.platform, live.season) == (contest_id, "splash-e2e-phone", 2026)
+    seeded = fixture._load("contest.json")["contest"]["rules"]
+    assert ContestRules.model_validate(live.rules) == ContestRules.model_validate(seeded)
+    lines = text("SELECT count(*) FROM contest_lines WHERE contest_id = :c")
+    assert db_conn.execute(lines, {"c": contest_id}).scalar_one() == 0
+
+    splash = dict(db_conn.execute(_ALIASES, {"s": "splash"}).all())
+    copied = dict(db_conn.execute(_ALIASES, {"s": "splash-e2e-phone"}).all())
+    assert copied == {a: t for a, t in splash.items() if a not in ("Hou Texans", "Jax")}
+    assert len(copied) == 18
+
+
+def test_a_second_reset_replaces_the_contest_and_the_mapped_aliases(db_conn: Connection):
+    first = fixture.reset_paste_journey(db_conn, "desktop")
+    houston = (
+        "SELECT id FROM teams WHERE sport_id = 'nfl' AND source = 'fixture' AND source_id = 'HOU'"
+    )
+    team = db_conn.execute(text(houston)).scalar_one()
+    db_conn.execute(
+        text("INSERT INTO team_aliases (team_id, source, alias) VALUES (:t, :s, 'Hou Texans')"),
+        {"t": team, "s": "splash-e2e-desktop"},
+    )
+
+    second = fixture.reset_paste_journey(db_conn, "desktop")
+
+    assert second != first
+    assert db_conn.execute(_LIVE, {"n": "Paste journey (desktop)"}).one().id == second
+    gone = text("SELECT deleted_at IS NOT NULL FROM contests WHERE id = :c")
+    assert db_conn.execute(gone, {"c": first}).scalar_one()
+    copied = dict(db_conn.execute(_ALIASES, {"s": "splash-e2e-desktop"}).all())
+    assert "Hou Texans" not in copied and len(copied) == 18
+    assert "Hou Texans" not in dict(db_conn.execute(_ALIASES, {"s": "splash"}).all())
+
+
+@pytest.mark.parametrize("project", ["", "Phone", "phone desktop", "../x"])
+def test_a_reset_refuses_a_project_name_that_isnt_a_plain_word(db_conn: Connection, project: str):
+    with pytest.raises(ValueError, match="project"):
+        fixture.reset_paste_journey(db_conn, project)

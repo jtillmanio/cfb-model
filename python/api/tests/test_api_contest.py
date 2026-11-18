@@ -680,3 +680,78 @@ def test_the_manual_check(
     assert len(_load(db_conn, contest_id).entries) == 3
     monkeypatch.setenv("FIXTURE_NOW", LOCKED_NOW)
     assert _post(api, make_token, contest_id, games[LOCKED], "away").status_code == 409
+
+
+# The Contest screen's own route (TASK-072, D-175): `GET /contest` serves the same page for the
+# caller's first live contest until `user_settings` names a default (M8.7), or for `contest_id`.
+
+
+def _add_contest(conn: Connection, name: str) -> int:
+    """Another live contest of the owner's, after the Splash work league (rolled back)."""
+    return conn.execute(
+        text(
+            "INSERT INTO contests (user_id, name, platform, season, rules)"
+            " SELECT c.user_id, :name, c.platform, c.season, c.rules FROM contests c"
+            " WHERE c.id = (" + CONTEST_SQL + ") RETURNING id"
+        ),
+        {"name": name},
+    ).scalar_one()
+
+
+def test_the_screen_route_serves_the_first_live_contest(
+    client: TestClient, make_token: MakeToken, monkeypatch: pytest.MonkeyPatch, contest_id: int
+):
+    monkeypatch.setenv("FIXTURE_NOW", CONTEST_NOW)
+    response = client.get("/api/py/contest", headers=_auth(make_token))
+    assert response.status_code == 200, response.text
+    page = response.json()
+    assert page["contest"]["id"] == contest_id
+    assert page == _get(client, make_token, monkeypatch, contest_id)
+
+
+def test_the_first_live_contest_is_the_default_and_an_id_picks_another(
+    db_conn: Connection, contest_id: int
+):
+    later = _add_contest(db_conn, "A later league")
+    now = datetime.fromisoformat(CONTEST_NOW)
+    assert contest.load(db_conn, now, None, OWNER).contest.id == contest_id
+    picked = contest.load(db_conn, now, later, OWNER)
+    assert (picked.contest.id, picked.period) == (later, None)
+    assert picked.games == [] and picked.periods == []
+
+    # With the fixture's contest gone the next live one is the default: e2e's paste-journey
+    # contests (D-175) may sit between it and `later` in a local test DB, so ask the table.
+    db_conn.execute(text("UPDATE contests SET deleted_at = now() WHERE id = :c"), {"c": contest_id})
+    first_live = db_conn.execute(
+        text(
+            "SELECT min(c.id) FROM contests c JOIN users u ON u.id = c.user_id"
+            " WHERE u.github_id = 4242 AND c.deleted_at IS NULL"
+        )
+    ).scalar_one()
+    assert first_live <= later
+    assert contest.load(db_conn, now, None, OWNER).contest.id == first_live
+
+
+def test_the_screen_route_is_404_with_no_contest(
+    client: TestClient, make_token: MakeToken, monkeypatch: pytest.MonkeyPatch, contest_id: int
+):
+    monkeypatch.setenv("FIXTURE_NOW", CONTEST_NOW)
+    headers = _auth(make_token, sub="99")
+    assert client.get("/api/py/contest", headers=headers).status_code == 404
+    url = f"/api/py/contest?contest_id={contest_id}"
+    assert client.get(url, headers=headers).status_code == 404  # another user's
+    assert client.get(url, headers=_auth(make_token)).status_code == 200
+
+
+def test_the_page_names_the_contests_sports_and_scoring(
+    client: TestClient, make_token: MakeToken, monkeypatch: pytest.MonkeyPatch, contest_id: int
+):
+    rules = _get(client, make_token, monkeypatch, contest_id)["contest"]["rules"]
+    assert (rules["sports"], rules["scoring"]) == (["cfb", "nfl"], "point_per_win")
+
+
+def test_the_screen_route_needs_the_token_and_is_in_the_schema(client: TestClient):
+    from api.openapi import schema_json
+
+    assert client.get("/api/py/contest").status_code == 401
+    assert "get" in json.loads(schema_json())["paths"]["/api/py/contest"]

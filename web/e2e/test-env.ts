@@ -15,3 +15,8 @@ export const COLD_PREVIEW_URL = "http://127.0.0.1:3101";
 // TASK-054): a journey stops and restarts the API and counts the page's server-side API calls.
 export const SWITCH_WEB_URL = "http://127.0.0.1:3102";
 export const SWITCH_API_URL = "http://127.0.0.1:8003";
+
+// A fourth `next start`, set up like the first, whose API's clock is the Contest screen's fixture
+// time, Thu 2026-10-08 10:00 PM ET (docs/02 › Test-only sign-in and clock; TASK-072).
+export const CONTEST_WEB_URL = "http://127.0.0.1:3103";
+export const CONTEST_API_URL = "http://127.0.0.1:8004";

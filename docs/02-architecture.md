@@ -291,7 +291,7 @@ _Added 2026-10-07 (D-089, D-090). The tools come from the Tooling section above.
 Screen and feature IDs: [05 › Screen inventory](05-ui-design-brief.md#screen-inventory-from-handoff), [01 › Feature index](01-product.md#feature-index-ids-priorities-outcomes).
 1. Signed out, `/` redirects to `/login`, which shows "Sign in with GitHub". With the test session, This Week shows "2026 · Week 6 · 54 games · 9 picks" (S-15, S-01).
 2. This Week → Texas vs Oklahoma: The Number reads "TEX −6.5 · TEX −1.3 · +5.2 OU · 63%" (S-01 → S-03).
-3. Contest at Thu 10:00 PM: paste the Week 6 text → "9 rows match · 1 unmatched" → map "Hou Texans" / "Jax" → Confirm → ranked slate with the cutoff under #4 (S-02).
+3. Contest at Thu 10:00 PM: paste the Week 6 text → "9 rows match · 1 unmatched" → map "Hou Texans" / "Jax" → Confirm → ranked slate with the cutoff under #4 (S-02). Each run starts from a fresh contest with no lines: `engine seed paste-journey --project <name>` (test DB only), whose platform has every fixture `splash` alias but those two (D-175).
 4. Contest: pick OU +7 and BUF −3 → the tray reads "2 of 4". At Fri 8:12 PM, UNLV @ Boise State shows "Picks closed" and the API rejects an entry for it (S-02).
 5. Picks › Best lines → the "Splash only" chip drops Iowa, Kentucky, Northwestern and Utah (S-07).
 6. Rankings → the "SEC" chip leaves 5 rows; the time machine one week back shows the past-week banner (S-04).
@@ -381,6 +381,7 @@ The fixture comment shows both as first hit / median beside the baseline's media
 |---|---|---|---|---|
 | `login` | 10,000 | 166,000 | 15 | 100 |
 | `this-week` | 35,000 | 186,000 | 20 | 100 |
+| `contest` | 35,000 | 186,000 | 20 | 100 |
 | `teams` | 35,000 | 185,000 | 20 | 100 |
 | `design-system` | 13,000 | 190,000 | 17 | 100 |
 <!-- perf-budget:end -->

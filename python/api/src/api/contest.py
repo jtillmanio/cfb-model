@@ -186,8 +186,10 @@ class ContestStandingOut(BaseModel):
 
 
 class ContestRulesOut(BaseModel):
+    sports: list[str]  # e.g. ["cfb", "nfl"]
     picks_per_period: int
     picks_exact: bool
+    scoring: Literal["point_per_win", "confidence"]
     push: Literal["zero", "half", "void"]
     lock: Literal["per_game_kickoff", "fixed_time"]
 
@@ -228,7 +230,9 @@ class ContestRefusalBody(BaseModel):
 
 
 # The page's statements. Each starts with `_PREFIX`: the caller's contest (none when it isn't
-# theirs or is deleted, so every statement reads nothing), the week and the shown version.
+# theirs or is deleted, so every statement reads nothing), the week and the shown version. With no
+# contest id (the screen's `GET /contest`, TASK-072) it is the caller's first live contest, the
+# default until `user_settings` names one (M8.7, D-175).
 
 CUTOFF = shell.CUTOFF
 
@@ -237,7 +241,10 @@ _PREFIX = f"""
         SELECT c.id, c.season
         FROM contests c
         JOIN users u ON u.id = c.user_id
-        WHERE c.id = :contest AND u.github_id = :github AND c.deleted_at IS NULL
+        WHERE (CAST(:contest AS bigint) IS NULL OR c.id = :contest)
+            AND u.github_id = :github AND c.deleted_at IS NULL
+        ORDER BY c.id
+        LIMIT 1
     ),
     page AS (
         SELECT coalesce(
@@ -402,7 +409,9 @@ RECORD_SQL = text(
 )
 
 
-def queries(now: datetime, contest_id: int, subject: str, period: int | None) -> dict[str, Query]:
+def queries(
+    now: datetime, contest_id: int | None, subject: str, period: int | None
+) -> dict[str, Query]:
     """The wave's statements by name, in `QUERIES` order."""
     params = {
         "now": now,
@@ -579,8 +588,10 @@ def page_from(found: Mapping[str, list[Row[Any]]], now: datetime) -> ContestPage
             platform=c.platform,
             season=c.season,
             rules=ContestRulesOut(
+                sports=list(rules.sports),
                 picks_per_period=rules.picks_per_period,
                 picks_exact=rules.picks_exact,
+                scoring=rules.scoring,
                 push=rules.push,
                 lock=rules.lock,
             ),
@@ -598,7 +609,13 @@ def page_from(found: Mapping[str, list[Row[Any]]], now: datetime) -> ContestPage
     )
 
 
-def load(conn: Connection, now: datetime, contest_id: int, subject: str, period: int | None = None):
+def load(
+    conn: Connection,
+    now: datetime,
+    contest_id: int | None,
+    subject: str,
+    period: int | None = None,
+) -> ContestPageOut:
     """The page on one connection (tests read it inside their rolled-back transaction)."""
     found = {
         name: list(conn.execute(sql, dict(params)).all())

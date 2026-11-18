@@ -2,6 +2,8 @@ import { defineConfig, devices } from "@playwright/test";
 
 import {
   COLD_PREVIEW_URL,
+  CONTEST_API_URL,
+  CONTEST_WEB_URL,
   SWITCH_API_URL,
   SWITCH_WEB_URL,
   TEST_API_JWT_SECRET,
@@ -20,6 +22,8 @@ const COLD_API_PORT = 8002;
 const COLD_PREVIEW_PORT = Number(new URL(COLD_PREVIEW_URL).port);
 const SWITCH_API_PORT = Number(new URL(SWITCH_API_URL).port);
 const SWITCH_WEB_PORT = Number(new URL(SWITCH_WEB_URL).port);
+const CONTEST_API_PORT = Number(new URL(CONTEST_API_URL).port);
+const CONTEST_WEB_PORT = Number(new URL(CONTEST_WEB_URL).port);
 const isCI = !!process.env.CI;
 
 export default defineConfig({
@@ -116,6 +120,36 @@ export default defineConfig({
       url: `${SWITCH_WEB_URL}/login`,
       env: {
         API_URL: SWITCH_API_URL,
+        AUTH_SECRET: TEST_AUTH_SECRET,
+        AUTH_ALLOWED_GITHUB_ID: TEST_GITHUB_ID,
+        AUTH_GITHUB_ID: "e2e-github-client-id",
+        AUTH_GITHUB_SECRET: "e2e-github-client-secret",
+        AUTH_TRUST_HOST: "true",
+        API_JWT_SECRET: TEST_API_JWT_SECRET,
+      },
+      reuseExistingServer: !isCI,
+      timeout: 60_000,
+    },
+    // The Contest screen's servers (TASK-072): the same build and env as the first, with the API's
+    // clock at Thu 2026-10-08 10:00 PM ET, the contest journeys' time (docs/02 › Test-only sign-in
+    // and clock).
+    {
+      command: `uv --directory ../python run uvicorn api.main:app --port ${CONTEST_API_PORT}`,
+      url: `${CONTEST_API_URL}/api/py/health`,
+      env: {
+        APP_ENV: "test",
+        FIXTURE_NOW: "2026-10-08T22:00:00-04:00",
+        GIT_COMMIT_SHA: process.env.GITHUB_SHA ?? "local",
+        API_JWT_SECRET: TEST_API_JWT_SECRET,
+      },
+      reuseExistingServer: !isCI,
+      timeout: 60_000,
+    },
+    {
+      command: `pnpm start --port ${CONTEST_WEB_PORT}`,
+      url: `${CONTEST_WEB_URL}/login`,
+      env: {
+        API_URL: CONTEST_API_URL,
         AUTH_SECRET: TEST_AUTH_SECRET,
         AUTH_ALLOWED_GITHUB_ID: TEST_GITHUB_ID,
         AUTH_GITHUB_ID: "e2e-github-client-id",

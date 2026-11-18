@@ -35,6 +35,12 @@
       "requests": 20,
       "a11y": 100
     },
+    "contest": {
+      "docBytes": 35000,
+      "jsBytes": 186000,
+      "requests": 20,
+      "a11y": 100
+    },
     "teams": {
       "docBytes": 35000,
       "jsBytes": 185000,
