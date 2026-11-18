@@ -4,7 +4,6 @@
 
 import type { components } from "./api-types";
 import { formatKickoff, formatLineNumber, formatSpread } from "./format";
-import { SLATE_ZONE } from "./slate";
 
 type Schemas = components["schemas"];
 export type ContestPage = Schemas["ContestPageOut"];
@@ -20,8 +19,9 @@ export type AliasesIn = Schemas["AliasesIn"];
 export type AliasesOut = Schemas["AliasesOut"];
 export type LineChange = Schemas["LineChangeOut"];
 
-/** The zone kickoffs and capture times print in, until `user_settings` (M8.7). */
-export const CONTEST_ZONE = SLATE_ZONE;
+/** The zone kickoffs and capture times print in, until `user_settings` (M8.7): This Week's
+ *  `SLATE_ZONE`, written out so the paste flow's client bundle doesn't carry `lib/slate.ts`. */
+export const CONTEST_ZONE = "America/New_York";
 
 /** Names picked in the inline team picker: the name as the page writes it → a team id. */
 export type Picks = Readonly<Record<string, number>>;
