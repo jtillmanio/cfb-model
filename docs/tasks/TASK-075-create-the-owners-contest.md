@@ -24,6 +24,7 @@ The owner can create their Splash contest in the production database, so the con
 - Decisions: D-170 (`users.github_id` is the token's `sub`; no migration seeds the real account), D-113 (`SPLASH_PRESET` in `engine/core/contest_rules.py`), D-089, D-015 (only workflows touch production; Claude never runs anything against it).
 - The owner's GitHub id is the `sub` the API token carries. It must not be committed (D-170's reason: a personal id in git).
 - Open question for the plan: does the command run from the owner's machine against production (as `engine ingest nflverse --target …` does for dev and test, but production is release-workflow only), or as a manual `workflow_dispatch` job with the id as an input? Either way Claude only builds it; the owner runs it.
+- *From TASK-072 (feat/task-072-contest-paste-flow):* until the owner's contest exists, `/contest` shows "No contest yet" (`GET /api/py/contest` is a 404). That state isn't on the boards; its copy says nothing about how to add a contest, since only this task's command can. Once the contest is created, the page serves it as the default (the owner's first live contest, D-175) and opens on "Paste from Splash" for the coming week.
 
 ## Acceptance criteria
 

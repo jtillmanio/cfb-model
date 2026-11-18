@@ -1,14 +1,14 @@
 ---
 id: TASK-072
 title: Build the Contest paste flow
-status: Ready
+status: In progress
 depends_on: [TASK-070, TASK-071, TASK-054]
 size: M
 model: opus
 autonomy: attended
 ui: true
-plan_status: none
-planned_at_commit:
+plan_status: approved
+planned_at_commit: 484101c
 ---
 
 # TASK-072 — Build the Contest paste flow
@@ -70,6 +70,35 @@ _Work noticed during this task and deliberately left out. Each bullet ends `→ 
 ## Plan
 
 _Written by /plan-batch or /implement-task Phase 1. Approved by the user (plan_status: approved) before any code is written._
+
+Approved by the owner up front in the `/next-task` request (2026-11-18: "approve plan … any questions go with recommendations"); the questions the plan gate would have asked are listed in the PR.
+
+**Steps**
+
+1. **The page's one API call** (`api/main.py`, `api/contest.py`). Nothing lists your contests and `user_settings` (the default contest) is M8.7, so add `GET /api/py/contest?contest_id=&period=`: the same wave as `GET /contests/{id}` (`contest.queries`), whose `mine` CTE takes the given id, else the caller's first live contest (lowest id) until M8.7; none is a 404. `ContestRulesOut` gains `sports` and `scoring` (C2b's "This contest is CFB + NFL" and the header's "Pick 4 · CFB + NFL · … · 1 pt per correct pick"). Regenerate `web/lib/api-types.ts`.
+2. **e2e reset** (`engine/fixture.py`, `engine/cli.py`): `engine seed paste-journey --project <name>` (test DB only, refuses `LIVE`): soft-deletes user 4242's live "Paste journey (<name>)" contest, inserts a fresh one (Splash preset rules, platform `splash-e2e-<name>`), replaces that platform's aliases with copies of the `splash` ones except "Hou Texans" and "Jax", and prints `{"contest_id": n}`. Each test run (and retry) starts from the seeded state, and phone and desktop never share an alias row, so they run in parallel. The shared `splash` rows are never touched.
+3. **`web/lib/api.ts`:** `signedPost` beside `signedGet` (returns status and body, so a 422's refusal reaches the screen; throws on a network failure or a 5xx); `getContest(contestId | null)` (null on 404); `previewContestImport`, `saveContestAliases`, `confirmContestImport`.
+4. **`web/lib/contest.ts`** (pure, Vitest): the week to paste into (the shell's coming regular-season week when it's the contest's season and has no lines; else the newest week, or week 1 with none) and so hero or confirmed week; the summary ("Found 10 games", the date range, "6 CFB · 4 NFL", "9 rows match · 1 unmatched"); Confirm enabled (every row matched, or each unmatched name picked, and no problem, no-game, ambiguous or duplicate row); the raw lines (read, skipped, unmatched, selected); the C2a / C2b copy from the refusal; the RepasteDiff rows from `changes`.
+5. **`/contest`:** `page.tsx` (one call, `?contest=<id>` optional; the confirmed week's toolbar "From Splash paste · <time> · N games", the game list TASK-073 replaces, and "Re-paste to update lines"; "No contest yet" when the API has none; "API unreachable" in the shell on failure); `loading.tsx` (the shell, header and slate skeleton as `Loading States.dc.html` draws it, pulse off under reduced motion); `error.tsx`; `paste-flow.tsx` (hero, paste and clipboard, the parsed view with raw text beside the rows at desktop and in a disclosure on a phone, C2a / C2b with "Clear and paste again", Confirm); `team-picker.tsx` (candidates best first, filter, Enter, Change); `repaste-diff.tsx`; `actions.ts` (`previewImport`, `confirmImport`: save the picked names as aliases, confirm, then `refresh()`). Picks stay local until Confirm, as the board's "Change" and "Remember" draw it. Every control is at least 44 px.
+6. **e2e** (`playwright.config.ts`, `e2e/test-env.ts`, `e2e/contest.spec.ts`): a contest API at Thu 2026-10-08 10:00 PM ET and its own `next start`; each test runs the reset, then journey 3 (AC-1, AC-2), C2a / C2b (AC-3) and a re-paste with a moved line (AC-4), at phone and desktop.
+7. **Perf:** `/contest` in `scripts/perf/routes.mjs`; its `budget.json` entry and the `docs/02` table row from the PR's first fixture Lighthouse run (budgets are never invented).
+8. **Docs:** D-175 (the route, the first-contest default, the paste week, aliases saved at Confirm, the e2e reset); `docs/02` › End-to-end journeys (journey 3's reset) and the perf table.
+
+**Files:** `python/api/src/api/main.py`, `contest.py`, `python/api/tests/test_api_contest.py`, `python/engine/src/engine/fixture.py`, `cli.py`, `python/engine/tests/test_fixture_seed.py` (not in Files likely touched: steps 1–2); `web/lib/api-types.ts` (not listed: regenerated), `web/lib/api.ts`, `web/lib/contest.ts`, `web/lib/contest.test.ts`; `web/app/contest/page.tsx`, `loading.tsx`, `error.tsx`, `paste-flow.tsx`, `team-picker.tsx`, `repaste-diff.tsx`, `actions.ts`, `paste-flow.test.tsx`; `web/e2e/contest.spec.ts`, `web/playwright.config.ts`, `web/e2e/test-env.ts` (not listed); `scripts/perf/routes.mjs`, `budget.json`; `docs/02-architecture.md`, `docs/decisions.md` (not listed).
+
+**Test strategy**
+
+- AC-1: `contest.test.ts` (summary, Confirm disabled, hero week); `paste-flow.test.tsx` "shows the raw text beside the rows and highlights the unmatched row"; `contest.spec.ts` "journey 3".
+- AC-2: `contest.spec.ts` "journey 3" (map → Confirm → confirmed week → reload → re-paste matches 10); `paste-flow.test.tsx` "picking both names enables Confirm"; `test_api_contest.py` for the default contest.
+- AC-3: `contest.spec.ts` "a bad paste shows its state and saves nothing" (C2a, C2b, Clear; after a reload the hero is still there and the good paste still reads 9 / 1); `paste-flow.test.tsx` C2a / C2b copy.
+- AC-4: `contest.spec.ts` "a re-paste lists the moved line"; `repaste-diff` cases in `paste-flow.test.tsx`; `contest.test.ts` moved rows.
+- AC-5: `contest.spec.ts` "no sideways scroll and 44 px targets" at 390 / 768 / 1440 (768 by resizing); a `paste-flow.test.tsx` case for the error state; `tokens-only.test.ts`; the loading skeleton checked by the ui-verifier.
+- AC-6: `web/lib/perf.test.ts` (the route and budget); the fixture Lighthouse run on the PR; `contest.spec.ts` at both projects.
+- Steps 1–2: `test_api_contest.py` (`GET /contest` picks the first live contest, takes `contest_id`, 404s with none, carries sports and scoring); `test_fixture_seed.py` (a reset makes a fresh contest, soft-deletes the last, copies the aliases without the two names, refuses a bad project name).
+
+**Risks / open questions** (answered with recommendations; the owner asked for them listed at the end): no API lists contests (step 1); the board's "Skip it, confirm 9" can't work, because confirm re-reads the whole paste and refuses any unresolved row (left out); "Add game manually" is out of scope (left out); the parsed table's Market column isn't in the preview response (left out); RepasteDiff's cover % and rank columns aren't in the preview (left out; the board calls them illustrative); the 44 px targets make desktop controls taller than the board's 30–36 px.
+
+**Size check:** about 25 files, over the project's 20. Kept whole (owner's "go with recommendations"): a split would turn steps 1–2 into a task this one depends on, and with a WIP limit of 1 it would wait for that PR's merge. Steps 1–2 are only the plumbing the screen needs.
 
 ## Review log
 

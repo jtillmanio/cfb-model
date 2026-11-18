@@ -206,6 +206,7 @@ _Written by `/milestones` on 2026-10-08 from [06-roadmap.md](06-roadmap.md). Eac
 | | M6.8 → TASK-074 | Refresh this week's scores during game windows (`scores` job) | ops | S | M2.7, M6.3 | attended | 02 › Jobs: about every 30 min Thu–Sat; CFBD scoreboard (~25 calls/week) and nflverse for NFL contest games; grading stays in the views |
 | | M6.9 → TASK-075 | Create the owner's contest in production | engine | S | M6.4 | attended | *From TASK-070 (PR #161):* production has no `users` or `contests` row and nothing creates one ("Add contest" isn't designed; M8.8 is read-only), so the import 404s until one exists. An `engine contest add` command the owner runs; the GitHub id is never committed (D-170) |
 | | M6.10 → TASK-078 | Write the model's contest picks when a contest import is confirmed | api | M | M6.5 | attended | *From TASK-071 (PR #168):* decided at its plan gate (D-174): on confirm, in its transaction, the only writer sure to run before the week's first kickoff (D-171); CFB only (D-170); open questions on the FCS rule in the light core and re-rates after a paste |
+| | M6.11 → TASK-079 | Show the market and the model in the paste preview, and let a saved alias be corrected | api, ui | M | M6.6 | attended | *From TASK-072 (feat/task-072-contest-paste-flow):* the board's Market column in the parsed table and the RepasteDiff's cover %, rank and model-side columns aren't in the import preview's response, and nothing can correct an alias saved for the wrong team (D-175). S-02, C2e |
 
 ## M7: Track record and why (Phase 4, part 3) — MVP
 
