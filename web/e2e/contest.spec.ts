@@ -83,7 +83,7 @@ async function noSideScroll(page: Page) {
   expect(widths.scroll).toBeLessThanOrEqual(widths.client);
 }
 
-/** Every visible control in the page's content is at least 44px tall (the shell has its own checks). */
+/** Every visible control in the page's content is at least 44px each way (the shell has its own checks). */
 async function tapTargets(page: Page) {
   const targets: Locator = page.locator("main").locator("button, a, input, textarea, summary").filter({ visible: true });
   const count = await targets.count();
@@ -93,6 +93,7 @@ async function tapTargets(page: Page) {
     const box = await target.boundingBox();
     expect(box, await target.evaluate((el) => el.outerHTML.slice(0, 120))).not.toBeNull();
     expect(box!.height, await target.evaluate((el) => el.outerHTML.slice(0, 120))).toBeGreaterThanOrEqual(44);
+    expect(box!.width, await target.evaluate((el) => el.outerHTML.slice(0, 120))).toBeGreaterThanOrEqual(44);
   }
 }
 

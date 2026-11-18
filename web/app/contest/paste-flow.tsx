@@ -622,7 +622,7 @@ function ParsedRow({
           onClick={onSelect}
           aria-label={`Show lines ${rowSource(row).slice(1)} in the paste`}
           className={cn(
-            "min-h-11 justify-self-start font-mono text-caption font-medium max-md:hidden",
+            "min-h-11 min-w-11 justify-self-start font-mono text-caption font-medium max-md:hidden",
             needs ? "text-neg" : "text-muted-foreground",
           )}
         >
@@ -651,7 +651,7 @@ function ParsedRow({
           {state === "fixed" ? (
             <button
               type="button"
-              className="ml-1 min-h-11 text-muted-foreground underline underline-offset-2 hover:text-foreground"
+              className="ml-1 min-h-11 min-w-11 px-1 text-muted-foreground underline underline-offset-2 hover:text-foreground"
               onClick={() => namesToPick(row).forEach((name) => onPick(name, null))}
             >
               Change

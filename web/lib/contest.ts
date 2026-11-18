@@ -75,7 +75,9 @@ export function weekSource(games: readonly ContestGame[]): string {
 
 /** An NFL team by city and nickname (`Houston Texans`), a CFB team by school. */
 export function teamName(team: ImportTeam): string {
-  return team.sport_id === "nfl" && team.mascot ? `${team.school} ${team.mascot}` : team.school;
+  const { school, mascot } = team;
+  if (team.sport_id !== "nfl" || !mascot || school.endsWith(mascot)) return school; // "NY Jets" has it
+  return `${school} ${mascot}`;
 }
 
 export function teamAbbr(team: ImportTeam): string {

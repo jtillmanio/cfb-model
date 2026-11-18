@@ -179,6 +179,7 @@ describe("AC-2: picking both names enables Confirm and saves them as aliases", (
   it("names NFL teams by city and nickname, CFB teams by school", () => {
     expect(teamName(HOU)).toBe("Houston Texans");
     expect(teamName(TEX)).toBe("Texas");
+    expect(teamName(team(33, "nfl", "NY Jets", "NYJ", "Jets"))).toBe("NY Jets");
   });
 });
 
