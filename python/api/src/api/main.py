@@ -13,15 +13,23 @@ from collections.abc import Iterator
 from functools import cache
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, FastAPI, HTTPException, Query
+from fastapi import APIRouter, Depends, FastAPI, HTTPException, Query, Response
 from pydantic import BaseModel
 from sqlalchemy import Connection, Engine, text
 
 from db.config import app_database_url, load_env
 from db.session import make_engine
 
-from . import clock, contest_import, shell, slate
+from . import clock, contest, contest_import, shell, slate
 from .auth import require_api_token
+from .contest import (
+    ContestEntryOut,
+    ContestPageOut,
+    ContestRefusalBody,
+    ContestStandingOut,
+    EntryIn,
+    StandingIn,
+)
 from .contest_import import (
     AliasConflictBody,
     AliasesIn,
@@ -176,6 +184,51 @@ def save_contest_aliases(
 ) -> AliasesOut:
     """Maps names the contest's platform writes to teams, once (team_aliases, D-036)."""
     return contest_import.save_aliases(conn, contest_id, subject, body)
+
+
+@router.get("/contests/{contest_id}", responses={404: {"description": "No such contest of yours"}})
+def get_contest(
+    contest_id: int, subject: Subject, period: Annotated[int | None, Query(ge=1)] = None
+) -> ContestPageOut:
+    """The Contest page (contest.py): the week asked for, else the newest with lines. Six
+    queries in one wave (budget: ≤ 6)."""
+    now = clock.now()
+    found = run_wave(engine(), contest.queries(now, contest_id, subject, period))
+    return contest.page_from(found, now)
+
+
+ENTRY_REFUSALS: dict[int | str, dict[str, Any]] = {
+    404: {"model": ContestRefusalBody, "description": "No such contest, game or entry of yours"},
+    409: {"model": ContestRefusalBody, "description": "The game is locked, or the week is full"},
+}
+
+
+@router.post("/contests/{contest_id}/entries", responses=ENTRY_REFUSALS)
+def add_contest_entry(
+    contest_id: int, body: EntryIn, subject: Subject, conn: Conn
+) -> ContestEntryOut:
+    """Adds your pick at the game's current contest line, or switches its side."""
+    return contest.add_entry(conn, contest_id, subject, body, clock.now())
+
+
+@router.delete(
+    "/contests/{contest_id}/entries/{game_id}", status_code=204, responses=ENTRY_REFUSALS
+)
+def remove_contest_entry(contest_id: int, game_id: int, subject: Subject, conn: Conn) -> Response:
+    """Removes your pick on the game (a soft delete)."""
+    contest.remove_entry(conn, contest_id, subject, game_id, clock.now())
+    return Response(status_code=204)
+
+
+@router.post(
+    "/contests/{contest_id}/standings",
+    responses={404: {"description": "No such contest of yours"}},
+)
+def add_contest_standing(
+    contest_id: int, body: StandingIn, subject: Subject, conn: Conn
+) -> ContestStandingOut:
+    """Records your league standing as of now."""
+    return contest.add_standing(conn, contest_id, subject, body, clock.now())
 
 
 @router.get("/openapi.json", include_in_schema=False)

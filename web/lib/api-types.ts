@@ -5,6 +5,27 @@
  */
 
 export interface paths {
+    "/api/py/contests/{contest_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Contest
+         * @description The Contest page (contest.py): the week asked for, else the newest with lines. Six
+         *     queries in one wave (budget: ≤ 6).
+         */
+        get: operations["get_contest_api_py_contests__contest_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/py/contests/{contest_id}/aliases": {
         parameters: {
             query?: never;
@@ -20,6 +41,46 @@ export interface paths {
          */
         post: operations["save_contest_aliases_api_py_contests__contest_id__aliases_post"];
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/py/contests/{contest_id}/entries": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add Contest Entry
+         * @description Adds your pick at the game's current contest line, or switches its side.
+         */
+        post: operations["add_contest_entry_api_py_contests__contest_id__entries_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/py/contests/{contest_id}/entries/{game_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Remove Contest Entry
+         * @description Removes your pick on the game (a soft delete).
+         */
+        delete: operations["remove_contest_entry_api_py_contests__contest_id__entries__game_id__delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -59,6 +120,26 @@ export interface paths {
          * @description The pasted page's rows matched to games, with the re-paste diff. Writes nothing.
          */
         post: operations["preview_contest_import_api_py_contests__contest_id__import_preview_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/py/contests/{contest_id}/standings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add Contest Standing
+         * @description Records your league standing as of now.
+         */
+        post: operations["add_contest_standing_api_py_contests__contest_id__standings_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -173,6 +254,94 @@ export interface components {
             /** Source */
             source: string;
         };
+        /** ContestCountsOut */
+        ContestCountsOut: {
+            /** Differs */
+            differs: number;
+            /** Entries */
+            entries: number;
+            /** Games */
+            games: number;
+        };
+        /** ContestEntryOut */
+        ContestEntryOut: {
+            /** Contest Line Id */
+            contest_line_id: number;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Game Id */
+            game_id: number;
+            /** Id */
+            id: number;
+            /** Line */
+            line: number;
+            /**
+             * Side
+             * @enum {string}
+             */
+            side: "home" | "away";
+        };
+        /** ContestGameOut */
+        ContestGameOut: {
+            away: components["schemas"]["SlateTeamOut"];
+            /** Away Points */
+            away_points: number | null;
+            /**
+             * Contest Captured At
+             * Format: date-time
+             */
+            contest_captured_at: string;
+            /** Contest Line Id */
+            contest_line_id: number;
+            /** Contest Spread Home */
+            contest_spread_home: number;
+            /** Differs */
+            differs: boolean;
+            /**
+             * Game Date
+             * Format: date
+             */
+            game_date: string;
+            home: components["schemas"]["SlateTeamOut"];
+            /** Home Points */
+            home_points: number | null;
+            /** Id */
+            id: number;
+            /** Kickoff At */
+            kickoff_at: string | null;
+            /** Locked */
+            locked: boolean;
+            /**
+             * Locks At
+             * Format: date-time
+             */
+            locks_at: string;
+            market_gap: components["schemas"]["ContestMarketGapOut"] | null;
+            /** Market Spread Home */
+            market_spread_home: number | null;
+            model: components["schemas"]["ContestModelOut"] | null;
+            /** Neutral Site */
+            neutral_site: boolean;
+            /** Next Best */
+            next_best: boolean;
+            /** No Model */
+            no_model: boolean;
+            /** Rank */
+            rank: number;
+            /** Sport Id */
+            sport_id: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "scheduled" | "in_progress" | "final" | "canceled" | "postponed";
+            /** Top N */
+            top_n: boolean;
+            venue: components["schemas"]["SlateVenueOut"] | null;
+        };
         /** ContestLineOut */
         ContestLineOut: {
             /** Contest Line Id */
@@ -181,6 +350,158 @@ export interface components {
             game_id: number;
             /** Spread Home */
             spread_home: number;
+        };
+        /**
+         * ContestMarketGapOut
+         * @description A game with no model ("no model yet"): the contest line against the market's.
+         */
+        ContestMarketGapOut: {
+            /** Implied Prob */
+            implied_prob: number;
+            /** Points */
+            points: number;
+            /** Side */
+            side: ("home" | "away") | null;
+        };
+        /**
+         * ContestModelOut
+         * @description The model's view against the contest line (a game it predicts: CFB).
+         */
+        ContestModelOut: {
+            /** Cover Prob */
+            cover_prob: number;
+            /** Edge */
+            edge: number;
+            /** Pred Margin */
+            pred_margin: number;
+            /**
+             * Side
+             * @enum {string}
+             */
+            side: "home" | "away";
+        };
+        /** ContestOut */
+        ContestOut: {
+            /** Id */
+            id: number;
+            /** Name */
+            name: string;
+            /** Platform */
+            platform: string;
+            rules: components["schemas"]["ContestRulesOut"];
+            /** Season */
+            season: number;
+        };
+        /** ContestPageOut */
+        ContestPageOut: {
+            contest: components["schemas"]["ContestOut"];
+            counts: components["schemas"]["ContestCountsOut"];
+            /** Entries */
+            entries: components["schemas"]["ContestEntryOut"][];
+            /** Games */
+            games: components["schemas"]["ContestGameOut"][];
+            /** Period */
+            period: number | null;
+            /** Periods */
+            periods: number[];
+            results: components["schemas"]["ContestResultsOut"] | null;
+            shell: components["schemas"]["ShellOut"];
+            standing: components["schemas"]["ContestStandingOut"] | null;
+        };
+        /** ContestRecordOut */
+        ContestRecordOut: {
+            model: components["schemas"]["ContestTallyOut"] | null;
+            you: components["schemas"]["ContestTallyOut"];
+        };
+        /** ContestRefusalBody */
+        ContestRefusalBody: {
+            detail: components["schemas"]["ContestRefusalOut"];
+        };
+        /** ContestRefusalOut */
+        ContestRefusalOut: {
+            /**
+             * Code
+             * @enum {string}
+             */
+            code: "locked" | "full" | "not_on_slate" | "no_entry";
+            /** Message */
+            message: string;
+        };
+        /** ContestResultsOut */
+        ContestResultsOut: {
+            season: components["schemas"]["ContestRecordOut"];
+            this_week: components["schemas"]["ContestRecordOut"];
+            /** Weeks */
+            weeks: components["schemas"]["ContestWeekRecordOut"][];
+        };
+        /** ContestRulesOut */
+        ContestRulesOut: {
+            /**
+             * Lock
+             * @enum {string}
+             */
+            lock: "per_game_kickoff" | "fixed_time";
+            /** Picks Exact */
+            picks_exact: boolean;
+            /** Picks Per Period */
+            picks_per_period: number;
+            /**
+             * Push
+             * @enum {string}
+             */
+            push: "zero" | "half" | "void";
+        };
+        /** ContestStandingOut */
+        ContestStandingOut: {
+            /**
+             * Entered At
+             * Format: date-time
+             */
+            entered_at: string;
+            /** Field Size */
+            field_size: number;
+            /** Id */
+            id: number;
+            /** Note */
+            note: string | null;
+            /** Period */
+            period: number;
+            /** Points Behind Leader */
+            points_behind_leader: number | null;
+            /** Position */
+            position: number;
+        };
+        /** ContestTallyOut */
+        ContestTallyOut: {
+            /** Losses */
+            losses: number;
+            /** Pending */
+            pending: number;
+            /** Points */
+            points: number;
+            /** Pushes */
+            pushes: number;
+            /** Voids */
+            voids: number;
+            /** Wins */
+            wins: number;
+        };
+        /** ContestWeekRecordOut */
+        ContestWeekRecordOut: {
+            model: components["schemas"]["ContestTallyOut"] | null;
+            /** Period */
+            period: number;
+            you: components["schemas"]["ContestTallyOut"];
+        };
+        /** EntryIn */
+        EntryIn: {
+            /** Game Id */
+            game_id: number;
+            /**
+             * Side
+             * @enum {string}
+             */
+            side: "home" | "away";
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -577,6 +898,19 @@ export interface components {
             /** Week */
             week: number;
         };
+        /** StandingIn */
+        StandingIn: {
+            /** Field Size */
+            field_size: number;
+            /** Note */
+            note?: string | null;
+            /** Period */
+            period: number;
+            /** Points Behind Leader */
+            points_behind_leader?: number | null;
+            /** Position */
+            position: number;
+        };
         /** TeamOut */
         TeamOut: {
             /** Abbreviation */
@@ -620,6 +954,46 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    get_contest_api_py_contests__contest_id__get: {
+        parameters: {
+            query?: {
+                period?: number | null;
+            };
+            header?: never;
+            path: {
+                contest_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContestPageOut"];
+                };
+            };
+            /** @description No such contest of yours */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     save_contest_aliases_api_py_contests__contest_id__aliases_post: {
         parameters: {
             query?: never;
@@ -667,6 +1041,107 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AliasConflictBody"];
+                };
+            };
+        };
+    };
+    add_contest_entry_api_py_contests__contest_id__entries_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                contest_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EntryIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContestEntryOut"];
+                };
+            };
+            /** @description No such contest, game or entry of yours */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContestRefusalBody"];
+                };
+            };
+            /** @description The game is locked, or the week is full */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContestRefusalBody"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    remove_contest_entry_api_py_contests__contest_id__entries__game_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                contest_id: number;
+                game_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such contest, game or entry of yours */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContestRefusalBody"];
+                };
+            };
+            /** @description The game is locked, or the week is full */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContestRefusalBody"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -758,6 +1233,48 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ImportRefusalBody"];
+                };
+            };
+        };
+    };
+    add_contest_standing_api_py_contests__contest_id__standings_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                contest_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StandingIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContestStandingOut"];
+                };
+            };
+            /** @description No such contest of yours */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

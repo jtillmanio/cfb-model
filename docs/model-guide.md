@@ -77,11 +77,10 @@ Inside `python/engine/src/engine/`:
 | `ingest/` | Call CFBD, count every call, save raw responses to the lake |
 | `transform/` | Raw → staged tables → point-in-time feature tables, plus quality checks and closing lines |
 | `sports/cfb/` | Everything specific to college football: FCS pooling, conference tiers, preseason sources. `core` never imports it, so NFL can plug in later |
-| `core/` | The light core: spec, interfaces, probability, picks, contest rules, input registry |
+| `core/` | The light core: spec, interfaces, probability, picks, contest rules, the Splash paste parser, contest ranking, input registry |
 | `models/` | The rating models: `power.py` (Rung 1), `efficiency.py` + `priors.py` (Rung 2) |
 | `backtest/` | The walk-forward harness, baselines, metrics, report, bootstrap, pick-rule tuning |
 | `publish/` | Write reference data, lines and model output to Postgres |
-| `contests/` | The Splash paste parser |
 | `cli.py` | The `engine` command |
 | `specs/` (in `python/engine/`) | Model specs as JSON |
 
@@ -356,7 +355,7 @@ Three ideas in that table need explaining.
 Other rules:
 - **No FCS games** are ever picked (`pick_game` with `sports.cfb.teams.pickable`; D-047).
 - **A pick is locked to its line.** If the line moves, a new pick row is written only if the side or tier changes, so "Picked at −2.5" stays true (D-140). If a pick stops qualifying, a "pass" row replaces it.
-- **Contest mode** (`core/contest_rules.py`, `core/splash.py`, moved into the light core so the contest import API can parse a paste, D-172): Splash has no vig (break-even 50%) and a fixed number of picks, so the rule becomes "rank the slate by cover probability against the contest's line and take the top N", not "everything over a threshold". Wired up in M6.
+- **Contest mode** (`core/contest_rules.py`, `core/splash.py`, moved into the light core so the contest import API can parse a paste, D-172): Splash has no vig (break-even 50%) and a fixed number of picks, so the rule becomes "rank the slate by cover probability against the contest's line and take the top N", not "everything over a threshold". The Contest page's API ranks the week with `core/contest.py` (TASK-071, D-174): a CFB game on the model's displayed cover probability at the contest line; an NFL game, which has no model yet, on a **market-implied** probability, the market's line taken as the expected margin and the contest's line priced on a bell curve 13.5 points wide (a 1.5-point gap is about 54%). The model's top N are the first N games with a model; a game that has kicked off drops out of the ranking until they all have. Who writes the model's contest picks in production (the import's confirm) is a later task.
 
 **Writing picks** (`engine pick`, `publish/picks.py`, TASK-045, D-148). The writer reads only the database: the version's newest run for the week, its predictions and the newest line pull before each game's kickoff. It uses one book's line, one a bettor could take: consensus if it quoted, else DraftKings, else Bovada. In 2026 CFBD's pulls have no consensus quote, so it's DraftKings nearly always, at −110 since no prices come through. A game that has kicked off is skipped, because a pick made after kickoff would be hindsight and the views ignore it anyway. Run it again after a lines pull, and only games whose side or tier changed gain a row. The **expected value** stored with a pick uses the *displayed* probability, so for v1 it's near zero: a pick shown at 53% at −110 is about break-even. That's the honest reading of a model whose calibration gate failed. On production nobody runs it by hand: the Sunday `rate-and-predict` job writes the week's first picks and every `lines` run re-checks them (TASK-046), both from `scheduled` runs only, so an `engine rate` by hand never drives the live picks.
 

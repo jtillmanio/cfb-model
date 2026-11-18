@@ -183,6 +183,7 @@ Phase 8  Multi-sport (NFL)
 ## Phase 8 — Multi-sport
 - [ ] Generalize `Sport` plugin boundaries (refactor anything CFB-specific that leaked)
 - [ ] NFL via nflverse: ingest, ratings, predictions
+  - *From TASK-071 (PR #168):* the Contest page prices an NFL game's contest-vs-market gap on a normal curve, Φ(gap / 13.5) (04 § 4 › Contest mode, D-174). NFL margins cluster on 3 and 7, so a key-number version from nflverse's margins should replace it, or the NFL model's own cover probability once it exists.
 - [ ] Sport switcher in UI
 
 ---
