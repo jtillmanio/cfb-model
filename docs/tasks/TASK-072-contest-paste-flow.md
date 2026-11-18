@@ -1,7 +1,7 @@
 ---
 id: TASK-072
 title: Build the Contest paste flow
-status: In progress
+status: Review
 depends_on: [TASK-070, TASK-071, TASK-054]
 size: M
 model: opus
@@ -33,11 +33,11 @@ On the Contest page you paste a Splash page, see the raw text beside the parsed 
 
 ## Acceptance criteria
 
-- [ ] AC-1: Given a contest week with no confirmed slate, `/contest` shows the "Paste from Splash" hero. Pasting the fixture Week 6 text shows the raw text (IBM Plex Mono) beside the parsed rows, with "9 rows match · 1 unmatched". The unmatched row ("Hou Texans" @ "Jax") is highlighted, and Confirm is disabled.
-- [ ] AC-2: Mapping "Hou Texans" to Houston Texans and "Jax" to Jacksonville Jaguars with the inline team picker enables Confirm. Confirm saves the slate, and the page then shows the confirmed week (TASK-073 draws its ranked slate). After a reload the slate is still there, and pasting the same text again matches all 10 rows.
-- [ ] AC-3: Unparseable text shows C2a's state and a paste that matches no team shows C2b's, each with a way back to edit the paste. Neither writes anything (the API's row counts are unchanged).
-- [ ] AC-4: Pasting again with a moved line shows the RepasteDiff (C2e) listing each moved row with its old and new line before Confirm.
-- [ ] AC-5: `/contest` has a `loading.tsx` skeleton at the loaded size, with the pulse off under reduced motion, and shows the designed error state when the API fails (D-096). At 390, 768 and 1440 px there's no horizontal scroll and every tap target is at least 44 px. Colours, type and spacing come from tokens only (`web/components/tokens-only.test.ts` passes).
+- [x] AC-1: Given a contest week with no confirmed slate, `/contest` shows the "Paste from Splash" hero. Pasting the fixture Week 6 text shows the raw text (IBM Plex Mono) beside the parsed rows, with "9 rows match · 1 unmatched". The unmatched row ("Hou Texans" @ "Jax") is highlighted, and Confirm is disabled.
+- [x] AC-2: Mapping "Hou Texans" to Houston Texans and "Jax" to Jacksonville Jaguars with the inline team picker enables Confirm. Confirm saves the slate, and the page then shows the confirmed week (TASK-073 draws its ranked slate). After a reload the slate is still there, and pasting the same text again matches all 10 rows.
+- [x] AC-3: Unparseable text shows C2a's state and a paste that matches no team shows C2b's, each with a way back to edit the paste. Neither writes anything (the API's row counts are unchanged).
+- [x] AC-4: Pasting again with a moved line shows the RepasteDiff (C2e) listing each moved row with its old and new line before Confirm.
+- [x] AC-5: `/contest` has a `loading.tsx` skeleton at the loaded size, with the pulse off under reduced motion, and shows the designed error state when the API fails (D-096). At 390, 768 and 1440 px there's no horizontal scroll and every tap target is at least 44 px. Colours, type and spacing come from tokens only (`web/components/tokens-only.test.ts` passes).
 - [ ] AC-6: `/contest` is in `scripts/perf/routes.mjs` with a budget, and the fixture Lighthouse run is within it. `web/e2e/contest.spec.ts` runs journey 3 (paste → "9 rows match · 1 unmatched" → map → Confirm) at phone and desktop widths.
 
 ## Out of scope
@@ -66,6 +66,16 @@ On the Contest page you paste a Splash page, see the raw text beside the parsed 
 ## Follow-ups
 
 _Work noticed during this task and deliberately left out. Each bullet ends `→ <path> § <section>` (where it was placed) or `→ not tracked: <reason>`. See `.claude/skills/track-follow-ups/classify.md`; the PR's Follow-ups section is copied from here._
+
+- TASK-073 needs to know the page's call is now `GET /api/py/contest` (D-175) with `sports` and `scoring` on the rules, where the ranked slate replaces the placeholder week list (`<PasteFlow>`'s children), and that journey 4 runs on the default contest beside journey 3's paste-journey contests → docs/tasks/TASK-073-contest-ranked-slate-tray-results.md § Context
+- Until the owner's contest exists, `/contest` shows "No contest yet", a state the boards don't draw → docs/tasks/TASK-075-create-the-owners-contest.md § Context
+- The board's Market column in the parsed table, and the RepasteDiff's cover %, rank and model-side columns, aren't in the import preview's response; and nothing can correct an alias saved for the wrong team (D-175 saves picks as aliases at Confirm) → docs/tasks/TASK-079-paste-preview-market-and-alias-fix.md (new, Draft), with its row in docs/08-tasklist.md § M6 (M6.11)
+- `contest_results` and `contest_record` join `contest_lines` on the line id alone, so with more lines than the fixture's the planner can read every line; the local "no full scan" tests fail after e2e journey 3's confirms (on base code too), though CI runs pytest before e2e on a fresh database (schema review R1) → docs/tasks/TASK-080-contest-views-filter-lines-by-contest.md (new, Draft), with its row in docs/08-tasklist.md § M6 (M6.12)
+- The board's "Skip it, confirm 9" can't work: a confirm saves every row or none (D-172) → not tracked: left out on purpose, recorded in D-175
+- A postseason contest week can't be started from the hero: out of the regular season the page shows the newest week with lines → not tracked: D-175 names it as a revisit condition
+- AC-1 says the raw text sits "beside" the parsed rows; below 1280 px it's a "Your paste" disclosure above them, as the approved plan said (spec review R1, spec gap) → not tracked: approved at plan; the AC wording is the owner's to change, asked in the PR
+- `web/components/tokens-only.test.ts` scans `web/components/` only, so `web/app/contest/` isn't scanned → not tracked: the files use theme tokens only, with arbitrary grid tracks as `(this-week)/slate.tsx` does; widening the scan is its own decision
+- Schema review R1, minor: the default-contest `mine` walks `pk_contests` for `ORDER BY id LIMIT 1` on a table this small, filtering on the caller → not tracked: one user's handful of contests; a `(user_id, id)` index would be a schema change for no measurable gain
 
 ## Plan
 
@@ -104,13 +114,15 @@ Approved by the owner up front in the `/next-task` request (2026-11-18: "approve
 
 _Filled by /implement-task. One line per round._
 
+- Verify R1 FAIL(4: an API test assumed no other live contests, fixed; three EXPLAIN tests that fail on the local test DB after e2e runs, on base code too, → TASK-080) → contest e2e 6/6 PASS after each fix round | Audit R1 NOT RUN (tree not clean: docs uncommitted) → R2 CHANGES (AC-5 skeleton untested; mono font check too loose) → fixed (a3aaf97) | Schema R1 APPROVE (4 minors: 3 fixed in a3aaf97, 1 → TASK-080) | Spec R1 CHANGES (follow-ups untraced, skeleton untested, font regex, budget not measured, a comment) → fixed except the budget, set from the PR's fixture run | UI R1 CHANGES (two buttons under 44 px wide; "NY Jets Jets") → fixed (7e39f2d), e2e now checks width
+
 ## Blocked
 
 _Only if status is Blocked: what failed, what was tried, best hypothesis, decision needed._
 
 ## Metrics
 
-- Verify rounds:
-- Review rounds:
-- First-pass AC FAILs:
-- Plan revisions after approval:
+- Verify rounds: 2 (R1 FAIL on the test DB's state and one test's assumption; the contest e2e PASS after each fix)
+- Review rounds: 1 (spec), 1 (schema), 1 (UI); audit 2 (R1 not run)
+- First-pass AC FAILs: 1 (AC-5's skeleton had no test, audit R2; the UI round's 44 px widths)
+- Plan revisions after approval: 0
