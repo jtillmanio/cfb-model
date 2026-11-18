@@ -1,6 +1,7 @@
 """The engine's light core: sport- and platform-agnostic, pydantic and the standard library only,
 so the API can import it (D-004, D-158). It never imports `engine.sports` (D-022)."""
 
+from engine.core.contest import NFL_MARGIN_SD, MarketGap, Ranked, RankRow, market_gap, rank
 from engine.core.inputs import INPUT_IDS, INPUTS, InputDef
 from engine.core.interfaces import (
     GameContext,
@@ -28,6 +29,7 @@ from engine.core.spec import SPEC_SCHEMA_VERSION, ModelSpec, PickRules, Unresolv
 
 __all__ = [
     "INPUTS",
+    "NFL_MARGIN_SD",
     "INPUT_IDS",
     "SPEC_SCHEMA_VERSION",
     "Cover",
@@ -38,11 +40,14 @@ __all__ = [
     "GameResult",
     "InputDef",
     "MarginDistribution",
+    "MarketGap",
     "ModelSpec",
     "NormalMargin",
     "Pick",
     "PickRules",
     "Prediction",
+    "RankRow",
+    "Ranked",
     "RatingModel",
     "Ratings",
     "UnresolvedSettingError",
@@ -52,7 +57,9 @@ __all__ = [
     "displayed_prob",
     "edge",
     "expected_value",
+    "market_gap",
     "pick",
     "pick_game",
+    "rank",
     "win_probability",
 ]

@@ -190,6 +190,12 @@ Pick logic reads the contest's `ContestRules` (see [03-data-model.md](03-data-mo
 - **Per-game locks:** each game locks at its own kickoff, so a Thursday pick can't be revisited Saturday. Lines can still move until kickoff, so the Contest screen shows when the line you'd get now differs from when you last looked.
 - **Mixed sports:** until the NFL model exists, NFL games are ranked only on the contest-vs-market gap and labeled "no model."
 
+**How the Contest page ranks a week (TASK-071, D-174; `engine/core/contest.py`):**
+- **A game the model predicts** (CFB) ranks on its displayed cover probability against the contest line, `displayed_prob` at the edge `blended_margin + contest spread`, from the shown version's newest prediction: the same numbers `/slate` shows against the market's line.
+- **A game with no model** (NFL) ranks on its **market-implied** probability. Take the market's line as the expected margin and ask how often the side the contest line favours covers the contest's number: `P = Φ(gap / σ_NFL)`, with `gap` the points the contest gives that side beyond the market and `σ_NFL = 13.5`. A 1.5-point gap is about 54%, 1 point 53%, 0.5 points 51%, and no gap 50% with no side. It is shown as approximate ("~54%"): NFL margins cluster on 3 and 7, so a half point across a key number is worth more than a normal curve says (a key-number version is roadmap Phase 8's).
+- **Order:** probability, highest first; ties by edge (a no-model game counts as 0), then kickoff, then game. A game that has kicked off leaves the open ranking (its place before kickoff is kept) until every game has, when the whole slate is ranked again (D-095).
+- **Top N:** the first `picks_per_period` games **with a model**, since the model's stored contest picks are CFB only (D-170) and the record grades exactly those. **Next best** is the first open game ranked below the Nth: "how close #5 was".
+
 **Concept: the winner's curse in top-N picks.** If you rank 75 games by model edge and take the top 4, those 4 are disproportionately games where the model *overestimated* its edge: big errors float to the top. This is why picking a few games from a big slate needs **shrinking toward the market** (below) even more than threshold betting does. The backtest will measure it: we'll check the "top 4 per week" strategy's real hit rate against the hit rate its probabilities predicted.
 
 ### When you pick: end of week
