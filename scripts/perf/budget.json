@@ -30,15 +30,15 @@
       "a11y": 100
     },
     "this-week": {
-      "docBytes": 35000,
-      "jsBytes": 186000,
-      "requests": 20,
+      "docBytes": 36000,
+      "jsBytes": 224000,
+      "requests": 22,
       "a11y": 100
     },
     "contest": {
       "docBytes": 35000,
-      "jsBytes": 186000,
-      "requests": 20,
+      "jsBytes": 218000,
+      "requests": 22,
       "a11y": 100
     },
     "teams": {
