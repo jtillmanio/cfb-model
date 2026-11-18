@@ -7,7 +7,7 @@ import { TeamDot } from "./team-picker";
 // RepasteDiff (C2e, Components › Added in pass 2026-10-07): before Confirm, the rows whose contest
 // line differs from the week's current one, line then → now. The board's cover %, rank and
 // "for the model's side" columns are illustrative and not in the preview response, so they wait
-// for the ranked slate (TASK-073); the slate ranks on the new lines once confirmed.
+// for TASK-079; once confirmed, the slate (TASK-073) ranks on the new lines.
 
 export function RepasteDiff({ preview }: { preview: ImportPreview }) {
   const moved = movedRows(preview);

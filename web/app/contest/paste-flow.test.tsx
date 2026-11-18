@@ -7,6 +7,7 @@ import { getContest } from "@/lib/api";
 import type { ContestPage, ContestRules, ImportPreview, ImportRow, ImportTeam } from "@/lib/contest";
 
 import { confirmImport, previewImport } from "./actions";
+import { ContestLoading } from "./loading";
 import Contest from "./page";
 import { PasteFlow } from "./paste-flow";
 
@@ -329,5 +330,20 @@ describe("AC-5: the page's states", () => {
     await renderPage({ contest: "abc" });
     expect(contestCall).toHaveBeenCalledWith(null);
     expect(screen.getByRole("heading", { name: "No contest yet" })).toBeTruthy();
+  });
+});
+
+describe("AC-5: the loading skeleton", () => {
+  it("draws the title, the toolbar and ten slate rows as bars, with the pulse off under reduced motion", () => {
+    render(<ContestLoading />);
+    expect(screen.getByRole("heading", { level: 1, name: "Contest" })).toBeTruthy();
+    const status = screen.getByRole("status", { name: "Loading the contest" });
+    const rows = status.querySelectorAll('[data-slot="skeleton-row"]');
+    expect(rows).toHaveLength(10);
+    // 64px from 768 (the slate's row), a taller card on a phone (Loading States › Contest).
+    expect(rows[0].className).toContain("md:h-16");
+    const bars = document.querySelectorAll(".animate-pulse");
+    expect(bars.length).toBeGreaterThan(10);
+    for (const bar of bars) expect(bar.className).toContain("motion-reduce:animate-none");
   });
 });

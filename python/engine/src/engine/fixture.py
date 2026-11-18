@@ -906,14 +906,18 @@ def reset_paste_journey(conn: Connection, project: str) -> int:
             "rules": rules.model_dump_json(),
         },
     ).scalar_one()
-    conn.execute(text("DELETE FROM team_aliases WHERE source = :p"), {"p": platform})
+    # Only the two names the journey maps are removed (schema review R1: no reload of the rest);
+    # the other `splash` aliases are copied once and kept.
+    params = {"p": platform, "maps": list(PASTE_JOURNEY_MAPS)}
+    conn.execute(text("DELETE FROM team_aliases WHERE source = :p AND alias = ANY(:maps)"), params)
     conn.execute(
         text(
             "INSERT INTO team_aliases (team_id, source, alias)"
             " SELECT team_id, :p, alias FROM team_aliases"
             " WHERE source = 'splash' AND alias <> ALL(:maps)"
+            " ON CONFLICT (source, alias) DO NOTHING"
         ),
-        {"p": platform, "maps": list(PASTE_JOURNEY_MAPS)},
+        params,
     )
     return contest_id
 

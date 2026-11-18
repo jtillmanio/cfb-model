@@ -240,9 +240,9 @@ _PREFIX = f"""
     WITH mine AS (
         SELECT c.id, c.season
         FROM contests c
-        JOIN users u ON u.id = c.user_id
-        WHERE (CAST(:contest AS bigint) IS NULL OR c.id = :contest)
-            AND u.github_id = :github AND c.deleted_at IS NULL
+        WHERE c.user_id = (SELECT u.id FROM users u WHERE u.github_id = :github)
+            AND (CAST(:contest AS bigint) IS NULL OR c.id = :contest)
+            AND c.deleted_at IS NULL
         ORDER BY c.id
         LIMIT 1
     ),

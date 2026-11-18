@@ -755,3 +755,18 @@ def test_the_screen_route_needs_the_token_and_is_in_the_schema(client: TestClien
 
     assert client.get("/api/py/contest").status_code == 401
     assert "get" in json.loads(schema_json())["paths"]["/api/py/contest"]
+
+
+def test_the_default_contest_is_found_by_index(db_conn: Connection):
+    """With no contest id, `mine` finds the caller by the github_id index and reads only their
+    contests (.claude/rules/database.md › Views & queries; schema review R1). On a table this small
+    the planner walks the primary key for `ORDER BY id LIMIT 1`, filtering on the user."""
+    sql, params = contest.queries(datetime.fromisoformat(CONTEST_NOW), None, OWNER, None)["contest"]
+    plan = m.explain(db_conn, str(sql), params)
+    users = m.scans(plan, "users")
+    assert users and all("github_id" in (n.get("Index Cond") or "") for n in users), users
+    contests = m.scans(plan, "contests")
+    assert contests and all(n["Node Type"] != "Seq Scan" for n in contests), contests
+    conds = [(n.get("Index Cond") or "") + (n.get("Filter") or "") for n in contests]
+    picked = [c for c in conds if "user_id" in c]
+    assert picked, contests

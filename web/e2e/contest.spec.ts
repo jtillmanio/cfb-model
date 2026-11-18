@@ -108,7 +108,7 @@ test("journey 3: paste → 9 rows match · 1 unmatched → map → Confirm, then
   if (testInfo.project.name !== "desktop") await raw.locator("summary").click();
   const rawLine = raw.locator("[data-slot=raw-line]").filter({ hasText: "Hou Texans" }).first();
   await expect(rawLine).toBeVisible();
-  expect(await rawLine.evaluate((el) => getComputedStyle(el).fontFamily)).toMatch(/Plex Mono|Plex_Mono|monospace/i);
+  expect(await rawLine.evaluate((el) => getComputedStyle(el).fontFamily)).toMatch(/IBM[ _]Plex[ _]Mono/i);
   const rows = page.locator("[data-slot=parsed-row]");
   await expect(rows).toHaveCount(10);
   const unmatched = rows.filter({ hasText: "“Hou Texans”" });

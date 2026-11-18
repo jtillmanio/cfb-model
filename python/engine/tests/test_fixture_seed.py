@@ -128,3 +128,15 @@ def test_a_second_reset_replaces_the_contest_and_the_mapped_aliases(db_conn: Con
 def test_a_reset_refuses_a_project_name_that_isnt_a_plain_word(db_conn: Connection, project: str):
     with pytest.raises(ValueError, match="project"):
         fixture.reset_paste_journey(db_conn, project)
+
+
+def test_the_paste_journey_refuses_under_live(monkeypatch: pytest.MonkeyPatch):
+    """Like `seed fixture`, the reset never runs against a live database (refuse_if_live)."""
+    from db.config import UnsafeDatabaseError
+
+    monkeypatch.setenv("LIVE", "true")
+    opened = []
+    monkeypatch.setattr(fixture, "make_engine", lambda *a, **k: opened.append(a))
+    with pytest.raises(UnsafeDatabaseError):
+        fixture.paste_journey("phone")
+    assert opened == []
