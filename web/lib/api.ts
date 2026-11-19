@@ -4,6 +4,7 @@ import { auth } from "@/auth";
 
 import type { components } from "./api-types";
 import { mintApiToken } from "./api-token";
+import type { AliasesIn, AliasesOut, ContestPage, ImportConfirm, ImportIn, ImportPreview } from "./contest";
 import { previewUserId } from "./preview";
 import type { Slate, SlateWeek } from "./slate";
 import type { TeamsResponse } from "./teams";
@@ -41,6 +42,27 @@ async function signedGet<T>(path: string): Promise<T> {
   return get<T>(path, { Authorization: `Bearer ${token}` });
 }
 
+/** A write's answer: its status and JSON body, so a refusal (a 4xx with a `detail`) reaches the
+ *  screen. A network failure, a timeout or a 5xx throws, as a read's failure does. */
+export type Posted<T> = { ok: true; status: number; body: T } | { ok: false; status: number; body: unknown };
+
+async function signedPost<T>(path: string, payload: unknown): Promise<Posted<T>> {
+  const githubId = previewUserId() ?? (await auth())?.user?.id;
+  if (!githubId) throw new Error(`POST /${path} needs a signed-in session.`);
+  const token = await mintApiToken(githubId);
+  const response = await fetch(apiUrl(path), {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+    signal: AbortSignal.timeout(TIMEOUT_MS),
+  });
+  if (response.status >= 500) throw new Error(`POST /${path} failed with ${response.status}`);
+  const body: unknown = await response.json().catch(() => null);
+  return response.ok
+    ? { ok: true, status: response.status, body: body as T }
+    : { ok: false, status: response.status, body };
+}
+
 export function getTeams(): Promise<TeamsResponse> {
   return signedGet<TeamsResponse>("api/py/teams");
 }
@@ -56,6 +78,31 @@ export function getSlate(week?: SlateWeek | null): Promise<Slate> {
     week: String(week.week),
   });
   return signedGet<Slate>(`api/py/slate?${query}`);
+}
+
+// Contest (S-02, TASK-072): the screen's one call, for a contest id or else your first live
+// contest (D-175); null when you have none (a 404).
+export async function getContest(contestId: number | null): Promise<ContestPage | null> {
+  const query = contestId === null ? "" : `?${new URLSearchParams({ contest_id: String(contestId) })}`;
+  try {
+    return await signedGet<ContestPage>(`api/py/contest${query}`);
+  } catch (error) {
+    if (error instanceof Error && error.message.endsWith("failed with 404")) return null;
+    throw error;
+  }
+}
+
+// The import's writes (TASK-070, D-172), called only from the Contest page's Server Actions.
+export function previewContestImport(contestId: number, body: ImportIn): Promise<Posted<ImportPreview>> {
+  return signedPost<ImportPreview>(`api/py/contests/${contestId}/import/preview`, body);
+}
+
+export function saveContestAliases(contestId: number, body: AliasesIn): Promise<Posted<AliasesOut>> {
+  return signedPost<AliasesOut>(`api/py/contests/${contestId}/aliases`, body);
+}
+
+export function confirmContestImport(contestId: number, body: ImportIn): Promise<Posted<ImportConfirm>> {
+  return signedPost<ImportConfirm>(`api/py/contests/${contestId}/import/confirm`, body);
 }
 
 // The only API route outside the auth gate; sign-in calls it to wake the database (TASK-002).

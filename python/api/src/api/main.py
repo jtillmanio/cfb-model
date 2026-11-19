@@ -197,6 +197,19 @@ def get_contest(
     return contest.page_from(found, now)
 
 
+@router.get("/contest", responses={404: {"description": "No such contest of yours"}})
+def get_contest_screen(
+    subject: Subject,
+    contest_id: Annotated[int | None, Query(ge=1)] = None,
+    period: Annotated[int | None, Query(ge=1)] = None,
+) -> ContestPageOut:
+    """The Contest screen's call (TASK-072, D-175): `GET /contests/{id}`'s page for `contest_id`,
+    else for your first live contest (the default until `user_settings`, M8.7)."""
+    now = clock.now()
+    found = run_wave(engine(), contest.queries(now, contest_id, subject, period))
+    return contest.page_from(found, now)
+
+
 ENTRY_REFUSALS: dict[int | str, dict[str, Any]] = {
     404: {"model": ContestRefusalBody, "description": "No such contest, game or entry of yours"},
     409: {"model": ContestRefusalBody, "description": "The game is locked, or the week is full"},
