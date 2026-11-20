@@ -31,6 +31,11 @@ import { RankedSlate } from "./ranked-slate";
 
 type WriteFailure = Exclude<WriteResult, { kind: "saved" }>;
 
+/** A Server Action call that never reached the server rejects (a dropped connection): that is a
+ *  failed save, so it shows the failed-save state instead of reaching the route's error boundary. */
+const DROPPED: WriteFailure = { kind: "failed", message: "Connection dropped" };
+const dropped = (): WriteFailure => DROPPED;
+
 /** A refused tap or a failed save. `kept` is the number of picks left as they were (C2c, C2f). */
 type Notice = { title: string; reason: string; kept: number | null; retry: (() => void) | null };
 
@@ -91,8 +96,9 @@ export function ContestPicks({
     setNotice(null);
     startTransition(async () => {
       show({ game, side, outcome, at: new Date().toISOString() });
-      const result: WriteResult =
-        outcome === "remove" ? await removeEntry(contestId, game.id) : await addEntry(contestId, game.id, side);
+      const result: WriteResult = await (
+        outcome === "remove" ? removeEntry(contestId, game.id) : addEntry(contestId, game.id, side)
+      ).catch(dropped);
       if (result.kind !== "saved") setNotice(failure(game, side, outcome, result, () => tap(game, side)));
     });
   }
@@ -107,7 +113,7 @@ export function ContestPicks({
       const result = await addEntries(
         contestId,
         todo.map(({ game, side }) => ({ game_id: game.id, side })),
-      );
+      ).catch((): WriteResult & { done: number } => ({ ...DROPPED, done: 0 }));
       if (result.kind !== "saved") {
         // The picks before the one that failed are saved; the notice names the one that wasn't.
         const failed = todo[Math.min(result.done, todo.length - 1)];
@@ -199,7 +205,7 @@ function PickTray({
       data-open={open ? "" : undefined}
       data-saving={saving ? "" : undefined}
       aria-label="Your picks"
-      className="sticky bottom-16 z-10 -mx-4 max-h-3/4 overflow-y-auto border-t bg-card px-4 md:-mx-6 md:px-6 lg:sticky lg:top-6 lg:bottom-auto lg:mx-0 lg:max-h-none lg:self-start lg:overflow-visible lg:rounded-lg lg:border lg:p-4"
+      className="sticky bottom-16 z-10 md:bottom-0 -mx-4 max-h-3/4 overflow-y-auto border-t bg-card px-4 md:-mx-6 md:px-6 lg:sticky lg:top-6 lg:bottom-auto lg:mx-0 lg:max-h-none lg:self-start lg:overflow-visible lg:rounded-lg lg:border lg:p-4"
     >
       {notice ? (
         <div
@@ -248,13 +254,13 @@ function PickTray({
             <ChevronUp aria-hidden className={cn("size-4 transition-transform", open && "rotate-180")} />
           </button>
         </div>
-        <div aria-hidden className="grid grid-cols-4 gap-1">
+        <div aria-hidden className={cn("grid-cols-4 gap-1 lg:grid", open ? "grid" : "hidden")}>
           {Array.from({ length: picks }, (_, i) => (
             <span key={i} className={cn("h-1.5 rounded-xs", i < count ? "bg-foreground" : "bg-secondary")} />
           ))}
         </div>
-        <p className="text-caption text-muted-foreground">
-          {`${shared} of ${count} match the model · `}
+        <p className={cn("text-caption text-muted-foreground lg:block", open ? "block" : "hidden")}>
+          {count > 0 ? `${shared} of ${count} match the model · ` : ""}
           {allLocked ? "all games locked, picks are final" : "tap a side in the slate to add"}
         </p>
         <p className="text-caption text-muted-foreground lg:hidden">{summary}</p>

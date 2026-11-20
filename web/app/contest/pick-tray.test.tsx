@@ -202,6 +202,25 @@ describe("AC-4: a save that fails keeps the picks it had", () => {
     expect(count()).toBe("2 of 4");
   });
 
+  it("treats a call that never reached the server (a rejected Server Action) as a failed save", async () => {
+    add.mockRejectedValue(new TypeError("Failed to fetch"));
+    renderPicks();
+    await tap(3, "MISS +3");
+    const alert = await screen.findByRole("alert");
+    expect(alert.textContent).toContain("Couldn't save MISS +3");
+    expect(alert.textContent).toContain("Connection dropped · your picks are unchanged, 2 of 4");
+    expect(within(alert).getByRole("button", { name: "Retry" })).toBeTruthy();
+    expect(count()).toBe("2 of 4");
+    remove.mockRejectedValue(new TypeError("Failed to fetch"));
+    await tap(5, "OU +7");
+    expect((await screen.findByRole("alert")).textContent).toContain("Couldn't remove OU +7");
+    addAll.mockRejectedValue(new TypeError("Failed to fetch"));
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Fill 2 open slots with model's picks" }));
+    });
+    expect((await screen.findByRole("alert")).textContent).toContain("Couldn't save MISS +3");
+  });
+
   it("shows a failed remove as one", async () => {
     remove.mockResolvedValue({ kind: "failed", message: "x" });
     renderPicks();

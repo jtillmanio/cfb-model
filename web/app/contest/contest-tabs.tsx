@@ -109,7 +109,7 @@ export function ContestTabs({ page, period }: { page: ContestPage; period: numbe
         hidden={tab !== "rules"}
         className="max-lg:hidden"
       >
-        <RulesPanel name={contest.name} rules={contest.rules} period={period} />
+        <RulesPanel name={contest.name} rules={contest.rules} />
       </div>
     </div>
   );

@@ -348,14 +348,20 @@ describe("AC-5: the page's states", () => {
 });
 
 describe("AC-5: the loading skeleton", () => {
-  it("draws the title, the toolbar and ten slate rows as bars, with the pulse off under reduced motion", () => {
+  it("draws the title, the tabs, the filters and ten slate rows as bars at the loaded height, with the pulse off under reduced motion", () => {
     render(<ContestLoading />);
     expect(screen.getByRole("heading", { level: 1, name: "Contest" })).toBeTruthy();
     const status = screen.getByRole("status", { name: "Loading the contest" });
     const rows = status.querySelectorAll('[data-slot="skeleton-row"]');
     expect(rows).toHaveLength(10);
-    // 64px from 768 (the slate's row), a taller card on a phone (Loading States › Contest).
-    expect(rows[0].className).toContain("md:h-16");
+    // The slate's real row (TASK-073): two 44px side buttons stacked from 1440 (110px), a card below it.
+    expect(rows[0].className).toContain("wide:h-27.5");
+    expect(rows[0].className).toContain("h-54");
+    expect(status.querySelector('[data-slot="skeleton-tabs"]')).toBeTruthy();
+    expect(status.querySelector('[data-slot="skeleton-filters"]')).toBeTruthy();
+    // The tray: a 320px panel from 1024, a bar over the tab bar below it.
+    expect(status.querySelector('[data-slot="skeleton-tray"]')!.className).toContain("lg:block");
+    expect(status.querySelector('[data-slot="skeleton-tray-bar"]')!.className).toContain("lg:hidden");
     const bars = document.querySelectorAll(".animate-pulse");
     expect(bars.length).toBeGreaterThan(10);
     for (const bar of bars) expect(bar.className).toContain("motion-reduce:animate-none");

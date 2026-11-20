@@ -465,6 +465,9 @@ describe("AC-3: tapping a side adds, removes or switches a pick", () => {
     expect(trayCard(byId(games, 4), { ...ou, game_id: 4, side: "away", line: 17.5 }, 4).why).toBe(
       "Not in model's top 4 · Model ranks it #5 · 55% to cover",
     );
+    // A pick still being saved has no stored line or time, so it is not "locked in" yet.
+    const stand = applyTap([], byId(games, 3), "away", "add", NOW_ISO)[0];
+    expect(trayCard(byId(games, 3), stand, 4).lockedIn).toBe("Saving MISS +3…");
     expect(sharedCount(mine, games)).toBe(1);
   });
 });

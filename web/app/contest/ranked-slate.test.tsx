@@ -54,6 +54,13 @@ describe("AC-1: the slate in the response's order, the cutoff and the next best"
     expect((row(9))?.textContent).toContain("No gap to market");
   });
 
+  it("names the side the model likes in the Edge pill, whichever side that is", () => {
+    renderSlate(weekGames("thu"));
+    const pill = (id: number) => row(id).querySelector<HTMLElement>("[data-slot=badge]")?.textContent;
+    // The API's edge is signed (> 0 likes home): MISS and ND are away picks.
+    expect([5, 3, 2, 6, 4].map(pill)).toEqual(["+5.7 OU", "+4.4 MISS", "+4.2 OSU", "+3.6 BYU", "+2.4 ND"]);
+  });
+
   it("fills the rank badge for the model's picks and not for the rest", () => {
     renderSlate(weekGames("thu"));
     const badge = (id: number) => within(row(id)).getByText(/^\d+$/, { selector: "[data-slot=rank]" });

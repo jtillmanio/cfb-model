@@ -115,7 +115,7 @@ describe("AC-5: results and standing", () => {
 
 describe("AC-5: the rules panel", () => {
   it("lists the contest's rules, read-only, with the plain-English paragraph", () => {
-    render(<RulesPanel name="Splash work league" rules={RULES} period={6} />);
+    render(<RulesPanel name="Splash work league" rules={RULES} />);
     const panel = document.querySelector("[data-slot=rules-panel]")!;
     const text = panel.textContent ?? "";
     for (const part of [
@@ -125,7 +125,7 @@ describe("AC-5: the rules panel", () => {
       "Each game locks at its kickoff",
       "1 point per correct pick",
       "A push scores 0",
-      "Week 6, in plain English",
+      "This week, in plain English",
     ]) {
       expect(text).toContain(part);
     }

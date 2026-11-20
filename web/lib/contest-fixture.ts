@@ -53,6 +53,7 @@ type Def = {
   mA: number;
   side: "away" | "home" | null;
   cover: number;
+  /** The edge in points on the model's side; the API sends it signed (> 0 likes home). */
   edge?: number;
   margin?: number; // pred_margin: home − away
   neutral?: boolean;
@@ -104,7 +105,7 @@ export function weekGames(now: Now = "thu", picksPerPeriod = 4): ContestGame[] {
       no_model: nfl,
       model: nfl
         ? null
-        : { side: d.side as "home" | "away", cover_prob: d.cover / 100, edge: d.edge ?? 0, pred_margin: d.margin ?? 0 },
+        : { side: d.side as "home" | "away", cover_prob: d.cover / 100, edge: (d.side === "home" ? 1 : -1) * (d.edge ?? 0), pred_margin: d.margin ?? 0 },
       market_gap: nfl
         ? { points: Math.abs(gap), side: gap === 0 ? null : gap > 0 ? "away" : "home", implied_prob: d.cover / 100 }
         : null,
@@ -179,8 +180,14 @@ export function weekPage(now: Now = "thu"): ContestPage {
       season_type: "regular",
       week: 6,
       model: null,
-      now: at(now === "thu" ? NOW.thu : NOW[now]),
-    } as unknown as ContestPage["shell"],
+      record: null,
+      record_label: null,
+      lines_updated_at: null,
+      stale: false,
+      picks: null,
+      next_season: null,
+      next_week: null,
+    },
     standing: {
       id: 1,
       period: 5,

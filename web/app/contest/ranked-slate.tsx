@@ -59,9 +59,9 @@ const FILTERS: { value: SlateFilter; label: string }[] = [
   { value: "differs", label: "Line ≠ market" },
 ];
 
-// The table's columns from 768: #, matchup, contest · market, model, edge, cover, kickoff, pick.
+// The table's columns from 1440 (below it a row is a card, which also fits beside the tray): #, matchup, contest · market, model, edge, cover, kickoff, pick.
 const TABLE =
-  "md:grid-cols-[56px_minmax(0,1.4fr)_minmax(0,1.2fr)_minmax(0,.9fr)_minmax(0,1fr)_minmax(0,.9fr)_112px_176px]";
+  "wide:grid-cols-[48px_minmax(0,1.9fr)_minmax(0,1.1fr)_minmax(0,.8fr)_minmax(0,.9fr)_minmax(0,.8fr)_80px_128px]";
 
 const CHIP_TONE = { better: "border-pos text-pos", worse: "border-neg text-neg" } as const;
 
@@ -81,7 +81,7 @@ export function RankedSlate({ games, entries, picks, onTap }: Props) {
   return (
     <section aria-label="Ranked slate" className="flex flex-col gap-3">
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-        <div role="group" aria-label="Filter games" className="flex flex-wrap gap-2">
+        <div role="group" aria-label="Filter games" className="flex flex-wrap gap-1.5">
           {FILTERS.map(({ value, label }) => (
             <Toggle
               key={value}
@@ -89,20 +89,20 @@ export function RankedSlate({ games, entries, picks, onTap }: Props) {
               pressed={filter === value}
               // Pressing the pressed chip again returns to All.
               onPressedChange={() => setFilter(filter === value ? "all" : value)}
-              className="h-11"
+              className="h-11 gap-1 px-2.5"
             >
               {filter === value ? <Check aria-hidden className="size-3.5" /> : null}
               {label} <span className="font-normal opacity-80">{counts[value]}</span>
             </Toggle>
           ))}
         </div>
-        <p className="text-caption text-muted-foreground md:ml-auto">Ranked by cover % against the contest line</p>
+        <p className="text-caption text-muted-foreground wide:ml-auto">Ranked by cover % against the contest line</p>
       </div>
 
       <div className="rounded-lg border bg-card">
         <div
           aria-hidden
-          className={cn("hidden h-10 items-center gap-x-3 border-b px-3 text-label font-medium text-muted-foreground md:grid", TABLE)}
+          className={cn("hidden h-10 items-center gap-x-3 border-b px-3 text-label font-medium text-muted-foreground wide:grid", TABLE)}
         >
           <span>#</span>
           <span>Matchup</span>
@@ -177,8 +177,8 @@ function CutoffRow({ label, next }: { label: string; next: ContestGame }) {
         <MoveUp aria-hidden className="size-3.5" />
         {label}
       </span>
-      <span aria-hidden className="hidden h-px flex-1 border-t border-dashed border-edge md:block" />
-      <span className="text-muted-foreground md:ml-auto">
+      <span aria-hidden className="hidden h-px flex-1 border-t border-dashed border-edge wide:block" />
+      <span className="text-muted-foreground wide:ml-auto">
         Next best <span className="font-semibold text-foreground">{`#${rank} ${line} · ${cover}`}</span>
       </span>
     </li>
@@ -215,14 +215,14 @@ function GameRow({
       data-locked={game.locked ? "" : undefined}
       data-picked={mine ? mine.side : undefined}
       className={cn(
-        "grid grid-cols-[minmax(0,1fr)_auto] gap-x-3 gap-y-2 border-b px-3 py-3 md:items-center md:gap-y-0 md:py-2",
+        "grid grid-cols-[minmax(0,1fr)_auto] gap-x-3 gap-y-2 border-b px-3 py-3 wide:items-center wide:gap-y-0 wide:py-2",
         TABLE,
         game.locked && "bg-background text-locked",
         mine && !game.locked && "bg-secondary",
       )}
     >
-      <div className="col-span-2 flex items-center gap-2 md:contents">
-        <span className="md:col-start-1 md:row-start-1 md:flex md:flex-col md:items-center md:gap-1">
+      <div className="col-span-2 flex items-center gap-2 wide:contents">
+        <span className="wide:col-start-1 wide:row-start-1 wide:flex wide:flex-col wide:items-center wide:gap-1">
           <span
             data-slot="rank"
             className={cn(
@@ -232,16 +232,16 @@ function GameRow({
           >
             {game.locked ? <Lock aria-label="Locked" className="size-3.5" /> : game.rank}
           </span>
-          <span className="ml-1 rounded-sm bg-secondary px-1 text-caption font-semibold tracking-wider text-muted-foreground md:ml-0">
+          <span className="ml-1 rounded-sm bg-secondary px-1 text-caption font-semibold tracking-wider text-muted-foreground wide:ml-0">
             {game.sport_id.toUpperCase()}
           </span>
         </span>
-        <span className="text-label text-muted-foreground md:col-start-7 md:row-start-1">
+        <span className="text-label text-muted-foreground wide:col-start-7 wide:row-start-1">
           {game.locked ? `Locked · ${kickoff}` : kickoff}
         </span>
       </div>
 
-      <div className="flex min-w-0 flex-col md:col-start-2 md:row-start-1">
+      <div className="flex min-w-0 flex-col wide:col-start-2 wide:row-start-1">
         <TeamChip
           abbreviation={away}
           school={game.away.school}
@@ -263,7 +263,7 @@ function GameRow({
         />
       </div>
 
-      <div className="flex flex-col gap-1.5 md:col-start-8 md:row-start-1 md:w-44 md:justify-self-center">
+      <div className="flex flex-col gap-1.5 wide:col-start-8 wide:row-start-1 wide:w-32 wide:justify-self-center">
         <SideButton game={game} side="away" mine={mine} full={full} modelSide={modelPick ? side : null} onTap={onTap} />
         <SideButton game={game} side="home" mine={mine} full={full} modelSide={modelPick ? side : null} onTap={onTap} />
         {game.locked ? (
@@ -273,14 +273,14 @@ function GameRow({
         ) : null}
       </div>
 
-      <dl className="col-span-2 grid grid-cols-4 gap-2 rounded-md bg-secondary px-2 py-1.5 text-label md:contents">
-        <div className="min-w-0 md:col-start-3 md:row-start-1 md:text-right">
-          <dt className="text-caption text-muted-foreground uppercase md:hidden">Contest</dt>
+      <dl className="col-span-2 grid grid-cols-4 gap-2 rounded-md bg-secondary px-2 py-1.5 text-label wide:contents">
+        <div className="min-w-0 wide:col-start-3 wide:row-start-1 wide:text-right">
+          <dt className="text-caption text-muted-foreground uppercase wide:hidden">Contest</dt>
           <dd className="font-semibold whitespace-nowrap">
             {formatSpread(game.contest_spread_home, home, away)}
           </dd>
           {game.market_spread_home !== null ? (
-            <dd className="flex flex-wrap items-center gap-1 text-caption text-muted-foreground md:justify-end">
+            <dd className="flex flex-wrap items-center gap-1 text-caption text-muted-foreground wide:justify-end">
               <span>{`mkt ${formatLineNumber(game.market_spread_home)}`}</span>
               {chip ? (
                 <span
@@ -298,19 +298,19 @@ function GameRow({
           ) : null}
         </div>
 
-        <div className="min-w-0 md:col-start-4 md:row-start-1 md:text-center">
-          <dt className="text-caption text-muted-foreground uppercase md:hidden">Model</dt>
+        <div className="min-w-0 wide:col-start-4 wide:row-start-1 wide:text-center">
+          <dt className="text-caption text-muted-foreground uppercase wide:hidden">Model</dt>
           <dd className={cn(nfl && "text-muted-foreground italic")}>
             {game.model ? formatModelLine(game.model.pred_margin, home, away) : "No model yet"}
           </dd>
         </div>
 
-        <div className="min-w-0 md:col-start-5 md:row-start-1 md:text-right">
-          <dt className="text-caption text-muted-foreground uppercase md:hidden">{nfl ? "Gap" : "Edge"}</dt>
+        <div className="min-w-0 wide:col-start-5 wide:row-start-1 wide:text-right">
+          <dt className="text-caption text-muted-foreground uppercase wide:hidden">{nfl ? "Gap" : "Edge"}</dt>
           <dd>
             {game.model ? (
-              <Badge variant={game.locked ? "locked" : modelPick ? "edge" : "quiet"} className="px-0 md:px-2">
-                {formatEdge(game.model.side === "home" ? game.model.edge : -game.model.edge, home, away)}
+              <Badge variant={game.locked ? "locked" : modelPick ? "edge" : "quiet"}>
+                {formatEdge(game.model.edge, home, away)}
               </Badge>
             ) : (
               <span className="text-label text-muted-foreground">{nflGapText(game)}</span>
@@ -318,8 +318,8 @@ function GameRow({
           </dd>
         </div>
 
-        <div className="min-w-0 md:col-start-6 md:row-start-1">
-          <dt className="text-caption text-muted-foreground uppercase md:hidden">Cover</dt>
+        <div className="min-w-0 wide:col-start-6 wide:row-start-1">
+          <dt className="text-caption text-muted-foreground uppercase wide:hidden">Cover</dt>
           <dd className="flex flex-col">
             <span className="flex items-center gap-1.5 font-semibold">
               {cover}

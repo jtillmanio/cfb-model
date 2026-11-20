@@ -634,7 +634,11 @@ export function trayCard(game: ContestGame, entry: ContestEntry, picks: number):
     match,
     against,
     matchup: `${game.away.school} ${sep} ${game.home.school} · ${kickoff}`,
-    lockedIn: `Locked in at ${entryLine(game, entry)} · ${when(entry.created_at)}`,
+    // A stand-in (negative id) is still being saved: it has no stored line or time yet.
+    lockedIn:
+      entry.id < 0
+        ? `Saving ${entryLine(game, entry)}…`
+        : `Locked in at ${entryLine(game, entry)} · ${when(entry.created_at)}`,
     why,
     switchLabel: `Switch to ${sideLabel(game, other)}`,
     switchTo: other,
