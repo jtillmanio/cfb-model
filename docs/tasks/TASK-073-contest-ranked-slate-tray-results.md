@@ -1,14 +1,14 @@
 ---
 id: TASK-073
 title: Build the ranked contest slate, pick tray and results
-status: Ready
+status: In progress
 depends_on: [TASK-071, TASK-072]
 size: M
 model: sonnet
 autonomy: unattended
 ui: true
-plan_status: none
-planned_at_commit:
+plan_status: approved
+planned_at_commit: 60a9c78
 ---
 
 # TASK-073 — Build the ranked contest slate, pick tray and results
@@ -28,7 +28,7 @@ The Contest page ranks the week's games against the contest's lines and marks th
 - Decisions: D-068 (every number through `web/lib/format.ts`), D-070 (users "add" picks; no "Lock" verbs), D-095 (all locked only after the last kickoff), D-096, D-157.
 - **Pattern to copy:** TASK-072's page, Server Actions and signed POST (`web/app/contest/`, `web/lib/api.ts`). This Week's slate, filters and record strip (`web/app/(this-week)/slate.tsx`, `slate-filters.tsx`, `record-strip.tsx`). Shared components `web/components/team-chip.tsx`, `market-cell.tsx`, `edge-pill.tsx`, `tier-badge.tsx`, `result-marker.tsx`, `filter-chips.tsx`, `data-table.tsx`.
 - **Numbers come from the response.** The screen prints TASK-071's cover %, gap and market-implied %, and counts the ≠ rows from its flag. F-04 AC-3's "Line ≠ market 7" is sample data; the fixture's lines give 8.
-- **Clipboard:** "Copy picks to enter on Splash" writes plain text. The format is drawn on the board.
+- **Clipboard:** "Copy picks to enter on Splash" writes plain text. No board draws the format (only the button), so the owner chose it at the plan gate: a header line `Splash work league · Week 6`, then one line per pick, `OU +7 (Texas @ Oklahoma, Sat 7:30 PM)`.
 - *From TASK-069 (PR #157):* NFL teams from nflverse publish with no color (only the 8 fixture NFL teams carry `contest-data.js`'s colors), so a real NFL chip needs a fallback color or nflverse's team file (D-169).
 - *From TASK-071 (PR #168):* `GET /contests/{id}` (`ContestPageOut`) serves the screen: each game's `rank`, `top_n`, `next_best`, `locked`, `differs`, `no_model`, `model` (CFB edge, side, cover) or `market_gap` (NFL points, side, `implied_prob`), your `entries`, `results` (season, weeks, this week, you and the model) and `standing`. Entries are `POST /contests/{id}/entries` (409 `locked` or `full`) and `DELETE /contests/{id}/entries/{game_id}`, and a standing is `POST /contests/{id}/standings`. Once a game has kicked off, `top_n` is the model's best among the **open** games (D-095), which can differ from the top 4 `results` grades (fixed at the week's first kickoff, D-171), so label it as the model's picks among open games, not the graded set (D-174).
 - *From TASK-072 (PR #169):* the page's one call is now `GET /api/py/contest` (D-175): `GET /contests/{id}`'s page for `?contest=<id>`, else your first live contest, and `contest.rules` carries `sports` and `scoring`. `web/app/contest/page.tsx` draws the confirmed week as `<PasteFlow>`'s children, under its toolbar ("From Splash paste · Thu 9:10 PM · 10 games" and "Re-paste to update lines", or "Week 6 closed · results after the last game" once every game is locked): replace its placeholder `WeekGames` list with the ranked slate. `loading.tsx` already draws ten slate rows at 64 px (Loading States). Journey 4 runs on the default contest (the Splash work league), on the contest servers in `playwright.config.ts` (Thu 10:00 PM ET), beside journey 3's `engine seed paste-journey` contests, which are later and so never the default.
@@ -68,9 +68,45 @@ The Contest page ranks the week's games against the contest's lines and marks th
 
 _Work noticed during this task and deliberately left out. Each bullet ends `→ <path> § <section>` (where it was placed) or `→ not tracked: <reason>`. See `.claude/skills/track-follow-ups/classify.md`; the PR's Follow-ups section is copied from here._
 
+- The Context's clipboard line said the copy format "is drawn on the board"; no board draws it, so the line now records the owner's format (plan gate) → docs/tasks/TASK-073-contest-ranked-slate-tray-results.md § Context (fixed in this PR) (approved at plan)
+- Candidate decision: the per-project `engine seed pick-journey` contest for journey 4, the second (Fri 8:12 PM) e2e server pair, and optimistic picks that roll back on a failed save (C2c/C2f) → docs/decisions.md (approved at plan; ID taken at close-out)
+
 ## Plan
 
-_Written by /plan-batch or /implement-task Phase 1. Approved by the user (plan_status: approved) before any code is written._
+_Approved by the owner on 2026-11-20 (planned on Opus; implement on the task's model, sonnet)._
+
+**Owner's answers at the plan gate**
+1. Clipboard format: `Splash work league · Week 6` (the contest's name and the week), then one line per pick in tray order: `<side line> (<away school> <@|vs> <home school>, <kickoff>)`, e.g. `OU +7 (Texas @ Oklahoma, Sat 7:30 PM)`. Numbers through `format.ts`; kickoffs in `CONTEST_ZONE`.
+2. Rules panel: the board's Rules tab (`Contest Desktop.dc.html` `frame="settings"`) drawn **read-only**: contest name, sports, picks per week, lock rule, scoring and push rule as text rows from `contest.rules`, plus the "This week, in plain English" summary card. No preset picker, no steppers or radios, no Cancel/Save (the form is M8.8). Desktop only (hidden below `lg`).
+3. Cutoff label (D-174): "Model's top 4" while every game is open; "Model's top 4 · open games" once any game in the week has kicked off (`top_n` is then the best among the open games, not the graded set).
+
+**Steps**
+1. `web/lib/contest.ts` pure helpers, each tested in `web/lib/contest.test.ts`: slate rows and the cutoff (rows in the response's order; cutoff after the last `top_n` open row; "Next best #5" from the `next_best` row: its side line and cover %); each side's label (`OU +7`) via `formatLineNumber`; the ≠ chip (text = the side the contest line favors vs market and the point difference; tone `better` (blue token) when that side is the ranked side (`model.side`, else `market_gap.side`), `worse` (orange token) otherwise); the "Line ≠ market" count and filter from `differs`; the NFL text ("<n> pts off mkt → <team>", "~<n>% mkt-implied" from `market_gap`); tray logic (`tap(entries, game, side)` → add / remove (same side) / switch (other side) / refused when full (`rules.picks_per_period`)); `fillFromModel` (the open `top_n` games you haven't picked, on the model's side, up to the open slots); the copy text (answer 1); results rows (season, week rows W1…, this week's points) and the standing text ("3rd of 14", "1 pt behind 1st").
+2. `web/lib/api.ts`: `addContestEntry` (POST `contests/{id}/entries`), `removeContestEntry` (a new `signedDelete`, DELETE `contests/{id}/entries/{game_id}`, 204), `addContestStanding` (POST `contests/{id}/standings`). `web/app/contest/actions.ts`: Server Actions `addEntry`, `removeEntry`, `saveStanding`; each validates its arguments (safe positive ints, side in home/away, standing ints ≥ 1, position ≤ field size), returns `{kind: "saved"} | {kind: "refused", code, message} | {kind: "failed", message}` (409 `locked`/`full` → refused), and calls `refresh()` after a write succeeds.
+3. `web/app/contest/ranked-slate.tsx` (client): the board's table at desktop (#, Matchup, Contest · market, Model, Edge, Cover %, Locks in, Pick) and the mobile board's cards: rank badge (filled for `top_n` open rows, plain number otherwise, lock icon when locked), sport tag, `TeamChip`s, neutral "N", contest line over "mkt <n>" with the ≠ chip, model line or "No model yet", `EdgePill` + `TierBadge` (or "under 2.5", or the NFL gap text), cover % bar and sub-line, countdown + kickoff (or "Locked"), two side buttons (selected / model-dot / idle / full / locked states as `contest-data.js` `btnStyle`); a locked row is greyed with "Picks closed" (or "Your pick · <line>") and no enabled buttons; cutoff row and the "Locked" header row; filter chips All / CFB / NFL / "Line ≠ market" (`FilterChips`), "Ranked by cover % against the contest line", the legend. No "Lock" verbs (D-070).
+4. `web/app/contest/pick-tray.tsx` (client, owns the picks state with `useOptimistic` over the response's `entries`): "Your picks n of 4" with the 4 segments and "<k> of <n> match the model · tap a side in the slate to add"; one card per entry (side line, model badge "Model #r" / "Against model" / "Your call", matchup · kickoff, "Locked in at <line> · <created_at>", the why line, Switch to <other> / Remove, or "Locked at kickoff · pick is final"); "Use the model's top 4" / "Fill N open slots with model's picks"; open slots with the model's next pick and Add; "Picks save the moment you tap…" and "Copy picks to enter on Splash" (`navigator.clipboard.writeText`). A failed save rolls the picks back to what they were and shows C2c (desktop toast with Retry) / C2f (phone); a refusal shows its message. All locked (every game `locked`) shows C2d. Layout: the 320 px side panel at ≥ `lg`; below `lg` the phone's bottom tray bar opening a sheet, as `Contest Mobile.dc.html`. The slate and the tray share the state through one client parent (`ContestPicks`) so a tap in the slate shows in the tray at once.
+5. `web/app/contest/results-standing.tsx`: season cards ("You · season 12-8", "Model's top 4 · season 11-9", "You vs model"), league standing ("3rd of 14", "1 pt behind 1st", ENTERED BY HAND, Edit → Place / Of / Pts back → Save through `saveStanding`, which appends; the page reloads with the new one); "This week so far" (you and model's top 4, points, pending counts, both lists); week by week (cumulative chart as the board's SVG with tokens only, the W1… rows and Total). `web/app/contest/rules-panel.tsx`: answer 2.
+6. `web/app/contest/page.tsx`: the board's tab bar (This week's picks · Results & standing · Rules; Rules hidden below `lg`), the header's season chip (Season 12-8 · 11-9 · 3rd, linking to Results), and `<ContestPicks>` replacing the `WeekGames` placeholder inside `<PasteFlow>`. `loading.tsx` only if the loaded layout's size moves (tray panel at ≥ `lg`).
+7. E2E (journey 4) in `web/e2e/contest.spec.ts`:
+   - `engine seed pick-journey --project <name>` (`python/engine/src/engine/fixture.py`, `cli.py`): soft-deletes the fixture user's live "Pick journey (<project>)" contest and inserts a fresh one with the work league's rules, season and Week 6 `contest_lines` copied (same games, spreads and captured_at), no entries; prints `{"contest_id": n}`. Test in `python/engine/tests/test_fixture_seed.py`.
+   - Thu 10:00 PM (the existing contest servers): on the fresh contest, tap OU +7 and BUF −3 → "Your picks 2 of 4"; on the default contest (read only) the tray reads "Locked in at OU +7 · Thu 9:14 PM" and "BUF −3 · Thu 9:20 PM"; Results shows "You 12-8", "Model top 4 11-9", "3rd of 14"; Edit standing saves on the fresh contest and survives a reload.
+   - Fri 8:12 PM: a second API + web server pair in `web/playwright.config.ts` (`FIXTURE_NOW=2026-10-09T20:12:00-04:00`) with its URLs in `web/e2e/test-env.ts`; on the default contest UNLV @ Boise State shows "Picks closed" with its side buttons disabled, and a signed POST of an entry for it is refused (409 `locked`); a refusal writes nothing.
+   - Runs in both Playwright projects (phone 390, desktop 1440).
+
+**Files**: in "Files likely touched": `web/app/contest/page.tsx`, `ranked-slate.tsx`, `pick-tray.tsx`, `results-standing.tsx`, `rules-panel.tsx`, `actions.ts`, `web/lib/contest.ts`, `web/lib/contest.test.ts`, `web/app/contest/ranked-slate.test.tsx`, `pick-tray.test.tsx`, `web/e2e/contest.spec.ts`, `scripts/perf/budget.json` (only if needed, with the reason in the PR). **Not listed (flagged):** `web/app/contest/results-standing.test.tsx` (AC-5's component test), `web/lib/api.ts` (entry/standing calls, `signedDelete`), `web/playwright.config.ts` and `web/e2e/test-env.ts` (the Fri servers), `python/engine/src/engine/fixture.py`, `python/engine/src/engine/cli.py`, `python/engine/tests/test_fixture_seed.py` (the pick-journey seed), `web/app/contest/loading.tsx` (only if the layout's size moves). About 19 files; no schema change.
+
+**Test strategy**
+- AC-1: `contest.test.ts` › slate rows, cutoff, next best, NFL text; `ranked-slate.test.tsx` › renders in response order with the cutoff under row 4 and "Next best #5"; e2e Thu.
+- AC-2: `contest.test.ts` › ≠ chip text and tone, ≠ count; `ranked-slate.test.tsx` › market line + chip (token class per tone), "Line ≠ market 8" filters to exactly the flagged rows.
+- AC-3: `contest.test.ts` › tap add / re-tap remove / switch / full, fill from top 4, copy text; `pick-tray.test.tsx` › "Your picks 2 of 4", "Locked in at OU +7 · Thu 9:14 PM", fill, copy writes the clipboard, no "Lock" text in controls; e2e Thu.
+- AC-4: `pick-tray.test.tsx` › a failed save keeps the prior picks and shows C2c (C2f at phone), all locked → C2d; e2e Fri › "Picks closed", disabled buttons, refused entry.
+- AC-5: `results-standing.test.tsx` › season, standing, W1–W5, this week 0 pts, Edit → save; `rules-panel` render test in the same file; e2e › standing survives a reload.
+- AC-6: e2e at both widths (no horizontal scroll, tap targets ≥ 44 px); `web/components/tokens-only.test.ts`; ui-verifier at 390 / 768 / 1440 against `03-contest-desktop.png` and `04-contest-mobile.png`; the CI fixture Lighthouse run for `/contest`.
+
+**Risks**
+- Shared test DB: only the fresh pick-journey contest is written; the default contest is read only (the Fri entry is refused, so it writes nothing).
+- The extra server pair adds e2e start-up time; it reuses the one build.
+- Bundle size: the slate and tray are client components; if `/contest`'s JS passes its budget, raise it from a real fixture run with the reason in the PR.
 
 ## Review log
 
