@@ -4,6 +4,8 @@ import {
   COLD_PREVIEW_URL,
   CONTEST_API_URL,
   CONTEST_WEB_URL,
+  FRIDAY_API_URL,
+  FRIDAY_WEB_URL,
   SWITCH_API_URL,
   SWITCH_WEB_URL,
   TEST_API_JWT_SECRET,
@@ -24,6 +26,8 @@ const SWITCH_API_PORT = Number(new URL(SWITCH_API_URL).port);
 const SWITCH_WEB_PORT = Number(new URL(SWITCH_WEB_URL).port);
 const CONTEST_API_PORT = Number(new URL(CONTEST_API_URL).port);
 const CONTEST_WEB_PORT = Number(new URL(CONTEST_WEB_URL).port);
+const FRIDAY_API_PORT = Number(new URL(FRIDAY_API_URL).port);
+const FRIDAY_WEB_PORT = Number(new URL(FRIDAY_WEB_URL).port);
 const isCI = !!process.env.CI;
 
 export default defineConfig({
@@ -150,6 +154,35 @@ export default defineConfig({
       url: `${CONTEST_WEB_URL}/login`,
       env: {
         API_URL: CONTEST_API_URL,
+        AUTH_SECRET: TEST_AUTH_SECRET,
+        AUTH_ALLOWED_GITHUB_ID: TEST_GITHUB_ID,
+        AUTH_GITHUB_ID: "e2e-github-client-id",
+        AUTH_GITHUB_SECRET: "e2e-github-client-secret",
+        AUTH_TRUST_HOST: "true",
+        API_JWT_SECRET: TEST_API_JWT_SECRET,
+      },
+      reuseExistingServer: !isCI,
+      timeout: 60_000,
+    },
+    // The Contest screen at Fri 2026-10-09 8:12 PM ET (TASK-073): UNLV @ Boise State has kicked off,
+    // and its picks are closed.
+    {
+      command: `uv --directory ../python run uvicorn api.main:app --port ${FRIDAY_API_PORT}`,
+      url: `${FRIDAY_API_URL}/api/py/health`,
+      env: {
+        APP_ENV: "test",
+        FIXTURE_NOW: "2026-10-09T20:12:00-04:00",
+        GIT_COMMIT_SHA: process.env.GITHUB_SHA ?? "local",
+        API_JWT_SECRET: TEST_API_JWT_SECRET,
+      },
+      reuseExistingServer: !isCI,
+      timeout: 60_000,
+    },
+    {
+      command: `pnpm start --port ${FRIDAY_WEB_PORT}`,
+      url: `${FRIDAY_WEB_URL}/login`,
+      env: {
+        API_URL: FRIDAY_API_URL,
         AUTH_SECRET: TEST_AUTH_SECRET,
         AUTH_ALLOWED_GITHUB_ID: TEST_GITHUB_ID,
         AUTH_GITHUB_ID: "e2e-github-client-id",

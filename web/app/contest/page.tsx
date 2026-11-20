@@ -1,23 +1,16 @@
 import { Trophy } from "lucide-react";
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 import { connection } from "next/server";
 import { Suspense } from "react";
 
 import { ApiUnreachable } from "@/components/shell/api-unreachable";
 import { AppShell } from "@/components/shell/app-shell";
-import { TeamChip } from "@/components/team-chip";
 import { getContest } from "@/lib/api";
-import {
-  CONTEST_ZONE,
-  type ContestGame,
-  type ContestPage,
-  contestWeek,
-  rulesLine,
-  weekSource,
-} from "@/lib/contest";
-import { formatKickoff, formatSpread } from "@/lib/format";
+import { type ContestPage, contestWeek, rulesLine, weekSource } from "@/lib/contest";
 import { raceWakeNote } from "@/lib/login";
 
+import { ContestTabs } from "./contest-tabs";
 import { ContestHeader, ContestLoading, ContestMain } from "./loading";
 import { PasteFlow } from "./paste-flow";
 
@@ -33,7 +26,7 @@ type Result = { ok: true; data: ContestPage | null } | { ok: false };
 // without it the API serves your first live one (until `user_settings`, M8.7).
 //
 // A week with no slate shows the paste hero; a confirmed week shows its source and Re-paste, and
-// its games, which TASK-073 ranks into the slate, pick tray and results.
+// its tabs (TASK-073): the ranked slate with the pick tray, Results & standing, and Rules.
 export default async function Contest({
   searchParams,
 }: {
@@ -50,8 +43,15 @@ export default async function Contest({
     },
   );
 
+  // A Server Action's refresh() (a pick or a standing was saved) re-renders this page with the
+  // action's request headers. The tab, the tray and the picks are already on screen, so wait for
+  // the call and keep them, rather than swapping them for the skeleton after 1.5 s.
+  const refreshed = (await headers()).has("next-action");
+
   // Settled within 1.5 s: draw the page.
-  if ((await raceWakeNote(call)) === "ready") return <ContestView result={await call} contestId={contestId} />;
+  if (refreshed || (await raceWakeNote(call)) === "ready") {
+    return <ContestView result={await call} contestId={contestId} />;
+  }
 
   // Still waiting: the skeleton with the "Waking up the database…" note, until the same call
   // settles (D-072, D-097). No second call is made.
@@ -111,44 +111,10 @@ function ContestView({ result, contestId }: { result: Result; contestId: number 
           source={weekSource(page.games)}
           weekOpen={page.games.some((g) => !g.locked)}
         >
-          <WeekGames games={page.games} />
+          <ContestTabs page={page} period={week.period} />
         </PasteFlow>
       </ContestMain>
     </AppShell>
-  );
-}
-
-// The confirmed week's games, as stored: TASK-073 replaces this list with the ranked slate.
-function WeekGames({ games }: { games: readonly ContestGame[] }) {
-  return (
-    <ul data-slot="contest-week" aria-label="This week's contest games" className="rounded-lg border bg-card">
-      {games.map((g) => {
-        const home = g.home.abbreviation ?? g.home.school;
-        const away = g.away.abbreviation ?? g.away.school;
-        return (
-          <li
-            key={g.id}
-            data-slot="contest-game"
-            className="grid min-h-14 grid-cols-[minmax(0,1fr)_auto] md:min-h-16 items-center gap-x-3 gap-y-0.5 border-b px-3 py-2 last:border-b-0 md:grid-cols-[40px_112px_minmax(0,1fr)_120px]"
-          >
-            <span className="w-fit rounded-sm bg-secondary px-1 text-caption font-semibold tracking-wider text-muted-foreground max-md:hidden">
-              {g.sport_id.toUpperCase()}
-            </span>
-            <span className="text-label text-muted-foreground max-md:col-span-2 max-md:row-start-2">
-              {g.locked ? "Locked" : formatKickoff(g.kickoff_at, g.game_date, { zone: CONTEST_ZONE, inTable: true })}
-            </span>
-            <span className="flex min-w-0 flex-wrap items-center gap-1.5 text-label">
-              <TeamChip abbreviation={away} school={g.away.school} logoUrl={g.away.logo_url} color={g.away.color} locked={g.locked} />
-              <span className="text-muted-foreground">{g.neutral_site ? "vs" : "@"}</span>
-              <TeamChip abbreviation={home} school={g.home.school} logoUrl={g.home.logo_url} color={g.home.color} locked={g.locked} />
-            </span>
-            <span className="text-right text-label font-semibold whitespace-nowrap">
-              {formatSpread(g.contest_spread_home, home, away)}
-            </span>
-          </li>
-        );
-      })}
-    </ul>
   );
 }
 

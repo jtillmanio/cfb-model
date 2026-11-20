@@ -13,6 +13,8 @@ import {
   formatLiveScore,
   formatLockCountdown,
   formatModelLine,
+  formatOrdinal,
+  formatPoints,
   formatPrice,
   formatRankMove,
   formatRating,
@@ -210,6 +212,20 @@ describe("formatBet: a line written as the bet from the picked side (TASK-056)",
     ["pick'em", () => formatBet(0, "away", "LSU", "MISS"), "MISS PK"],
   ])("%s", (_name, run, expected) => {
     expect(run()).toBe(expected);
+  });
+});
+
+describe("formatPoints and formatOrdinal (TASK-073)", () => {
+  it("prints contest points whole, or with one decimal for a half", () => {
+    expect(formatPoints(0)).toBe("0");
+    expect(formatPoints(12)).toBe("12");
+    expect(formatPoints(2.5)).toBe("2.5");
+  });
+
+  it("prints a place as an ordinal", () => {
+    expect([1, 2, 3, 4, 11, 12, 13, 21, 22, 23, 101].map(formatOrdinal)).toEqual([
+      "1st", "2nd", "3rd", "4th", "11th", "12th", "13th", "21st", "22nd", "23rd", "101st",
+    ]);
   });
 });
 

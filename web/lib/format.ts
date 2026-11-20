@@ -130,6 +130,18 @@ export function formatRecord(wins: number, losses: number, pushes = 0): string {
   return pushes ? `${wins}-${losses}-${pushes}` : `${wins}-${losses}`;
 }
 
+/** Contest points: whole, or one decimal for a half (`12`, `2.5`). */
+export function formatPoints(value: number): string {
+  return wholeOrOneDecimal(roundTo(value, 1));
+}
+
+/** A place as an ordinal: `1st`, `2nd`, `3rd`, `11th`, `21st`. */
+export function formatOrdinal(place: number): string {
+  const teen = place % 100 >= 11 && place % 100 <= 13;
+  const suffix = teen ? "th" : ({ 1: "st", 2: "nd", 3: "rd" } as Record<number, string>)[place % 10] ?? "th";
+  return `${place}${suffix}`;
+}
+
 /** Units won or lost: `+4.6u`, `−1.1u`. */
 export function formatUnits(value: number): string {
   return `${signed(value, 1)}u`;

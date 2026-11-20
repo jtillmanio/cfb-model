@@ -928,3 +928,64 @@ def paste_journey(project: str) -> None:
     with make_engine(resolve_test_database_url()).begin() as conn:
         contest_id = reset_paste_journey(conn, project)
     print(json.dumps({"contest_id": contest_id}))
+
+
+# e2e's pick journey (TASK-073). Journey 4 adds and removes picks and enters a standing, and a
+# contest's entries and standings are the owner's data, so the default Splash work league is read
+# only. Each run (and each Playwright project) gets its own contest instead: the work league's
+# rules and Week 6 lines (the same games, spreads and capture times), with no entries or standings.
+
+
+def reset_pick_journey(conn: Connection, project: str) -> int:
+    """Soft-delete the fixture user's live "Pick journey (<project>)" contest and insert a fresh
+    one with the Splash work league's rules and Week 6 contest lines. Returns its id."""
+    if not _PROJECT.fullmatch(project):
+        raise ValueError(f"project must be lowercase letters, not {project!r}")
+    data = _load("contest.json")
+    name = f"Pick journey ({project})"
+    rules = ContestRules.model_validate(data["contest"]["rules"])
+    user_id = conn.execute(
+        text("SELECT id FROM users WHERE github_id = :g"), {"g": data["user"]["github_id"]}
+    ).scalar_one()  # seeded by `engine seed fixture`, which e2e runs after
+    work_id = conn.execute(
+        text("SELECT id FROM contests WHERE user_id = :u AND name = :n AND deleted_at IS NULL"),
+        {"u": user_id, "n": data["contest"]["name"]},
+    ).scalar_one()
+    conn.execute(
+        text(
+            "UPDATE contests SET deleted_at = now()"
+            " WHERE user_id = :u AND name = :n AND deleted_at IS NULL"
+        ),
+        {"u": user_id, "n": name},
+    )
+    contest_id = conn.execute(
+        text(
+            "INSERT INTO contests (user_id, name, platform, season, rules)"
+            " VALUES (:u, :n, :p, :season, CAST(:rules AS jsonb)) RETURNING id"
+        ),
+        {
+            "u": user_id,
+            "n": name,
+            "p": f"splash-e2e-pick-{project}",
+            "season": data["contest"]["season"],
+            "rules": rules.model_dump_json(),
+        },
+    ).scalar_one()
+    conn.execute(
+        text(
+            "INSERT INTO contest_lines"
+            " (contest_id, period, game_id, spread_home, captured_at, source)"
+            " SELECT :new, period, game_id, spread_home, captured_at, source FROM contest_lines"
+            " WHERE contest_id = :work AND period = :period"
+        ),
+        {"new": contest_id, "work": work_id, "period": WEEK},
+    )
+    return contest_id
+
+
+def pick_journey(project: str) -> None:
+    """`engine seed pick-journey --project <name>`: prints `{"contest_id": n}` for the spec."""
+    refuse_if_live("reset the pick journey")
+    with make_engine(resolve_test_database_url()).begin() as conn:
+        contest_id = reset_pick_journey(conn, project)
+    print(json.dumps({"contest_id": contest_id}))

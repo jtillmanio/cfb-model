@@ -3,6 +3,8 @@ import { cleanup, fireEvent, render, screen, within } from "@testing-library/rea
 import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { headers } from "next/headers";
+
 import { getContest } from "@/lib/api";
 import type { ContestPage, ContestRules, ImportPreview, ImportRow, ImportTeam } from "@/lib/contest";
 
@@ -23,6 +25,7 @@ const confirm = vi.mocked(confirmImport);
 // shell's links and router are plain stand-ins (as app-shell.test.tsx does).
 vi.mock("@/lib/api", () => ({ getContest: vi.fn() }));
 vi.mock("next/server", () => ({ connection: async () => {} }));
+vi.mock("next/headers", () => ({ headers: vi.fn(async () => new Headers()) }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }) }));
 vi.mock("next/link", () => ({
   default: ({ href, children, ...rest }: { href: string; children: ReactNode }) => (
@@ -323,6 +326,17 @@ describe("AC-5: the page's states", () => {
       screen.getByText("Week 6 · Pick 4 · CFB + NFL · each game locks at its kickoff · 1 pt per correct pick · push = 0"),
     ).toBeTruthy();
     expect(screen.getByRole("heading", { name: "Paste from Splash" })).toBeTruthy();
+  });
+
+  it("waits for a slow call, rather than the skeleton, when a Server Action refreshes the page (TASK-073)", async () => {
+    // A pick or a standing is saved by a Server Action, whose refresh() re-renders this page. The
+    // contest call takes about 1.4 s, so the 1.5 s wake race would swap the whole page, tray and
+    // tab included, for the skeleton. The old page stays until the new one is ready instead.
+    vi.mocked(headers).mockResolvedValueOnce(new Headers({ "next-action": "abc123" }));
+    contestCall.mockImplementation(() => new Promise((resolve) => setTimeout(() => resolve(PAGE), 1700)));
+    await renderPage({ contest: "414" });
+    expect(screen.queryByRole("status", { name: "Loading the contest" })).toBeNull();
+    expect(screen.getByText("Paste journey (phone)")).toBeTruthy();
   });
 
   it("asks for the default contest when the URL names none, or a bad id", async () => {
