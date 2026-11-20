@@ -1,7 +1,7 @@
 ---
 id: TASK-073
 title: Build the ranked contest slate, pick tray and results
-status: In progress
+status: Review
 depends_on: [TASK-071, TASK-072]
 size: M
 model: sonnet
@@ -28,18 +28,18 @@ The Contest page ranks the week's games against the contest's lines and marks th
 - Decisions: D-068 (every number through `web/lib/format.ts`), D-070 (users "add" picks; no "Lock" verbs), D-095 (all locked only after the last kickoff), D-096, D-157.
 - **Pattern to copy:** TASK-072's page, Server Actions and signed POST (`web/app/contest/`, `web/lib/api.ts`). This Week's slate, filters and record strip (`web/app/(this-week)/slate.tsx`, `slate-filters.tsx`, `record-strip.tsx`). Shared components `web/components/team-chip.tsx`, `market-cell.tsx`, `edge-pill.tsx`, `tier-badge.tsx`, `result-marker.tsx`, `filter-chips.tsx`, `data-table.tsx`.
 - **Numbers come from the response.** The screen prints TASK-071's cover %, gap and market-implied %, and counts the ≠ rows from its flag. F-04 AC-3's "Line ≠ market 7" is sample data; the fixture's lines give 8.
-- **Clipboard:** "Copy picks to enter on Splash" writes plain text. No board draws the format (only the button), so the owner chose it at the plan gate: a header line `Splash work league · Week 6`, then one line per pick, `OU +7 (Texas @ Oklahoma, Sat 7:30 PM)`.
+- **Clipboard:** "Copy picks to enter on Splash" writes plain text. No board draws the format (only the button), so the owner chose it at the plan gate: a header line `Splash work league · Week 6`, then one line per pick, `OU +7 (Texas vs Oklahoma, Sat 7:30 PM)` (`@` unless the game is at a neutral site, as Texas–Oklahoma is).
 - *From TASK-069 (PR #157):* NFL teams from nflverse publish with no color (only the 8 fixture NFL teams carry `contest-data.js`'s colors), so a real NFL chip needs a fallback color or nflverse's team file (D-169).
 - *From TASK-071 (PR #168):* `GET /contests/{id}` (`ContestPageOut`) serves the screen: each game's `rank`, `top_n`, `next_best`, `locked`, `differs`, `no_model`, `model` (CFB edge, side, cover) or `market_gap` (NFL points, side, `implied_prob`), your `entries`, `results` (season, weeks, this week, you and the model) and `standing`. Entries are `POST /contests/{id}/entries` (409 `locked` or `full`) and `DELETE /contests/{id}/entries/{game_id}`, and a standing is `POST /contests/{id}/standings`. Once a game has kicked off, `top_n` is the model's best among the **open** games (D-095), which can differ from the top 4 `results` grades (fixed at the week's first kickoff, D-171), so label it as the model's picks among open games, not the graded set (D-174).
 - *From TASK-072 (PR #169):* the page's one call is now `GET /api/py/contest` (D-175): `GET /contests/{id}`'s page for `?contest=<id>`, else your first live contest, and `contest.rules` carries `sports` and `scoring`. `web/app/contest/page.tsx` draws the confirmed week as `<PasteFlow>`'s children, under its toolbar ("From Splash paste · Thu 9:10 PM · 10 games" and "Re-paste to update lines", or "Week 6 closed · results after the last game" once every game is locked): replace its placeholder `WeekGames` list with the ranked slate. `loading.tsx` already draws ten slate rows at 64 px (Loading States). Journey 4 runs on the default contest (the Splash work league), on the contest servers in `playwright.config.ts` (Thu 10:00 PM ET), beside journey 3's `engine seed paste-journey` contests, which are later and so never the default.
 
 ## Acceptance criteria
 
-- [ ] AC-1: At Thu 2026-10-08 10:00 PM ET on the seeded DB, the slate lists the week's games in the response's order with the "MODEL'S TOP 4" cutoff under row 4 and, beside it, "Next best #5" with that row's line and cover %. NFL rows read "No model yet", the gap as "<n> pts off mkt → <team>" and "~<n>% mkt-implied", each from the response.
-- [ ] AC-2: A row whose contest line differs from the market shows the market line under the contest line with a ≠ chip naming the difference and the side. The chip is blue (token) when the difference is better for the ranked side and orange (token) when it's worse. The "Line ≠ market" chip shows the count of flagged rows and filters to exactly those rows.
-- [ ] AC-3: One tap on a side adds a pick, a second tap on the same side removes it, and a tap on the other side switches it. No control or copy says "Lock". The tray reads "Your picks 2 of 4", with "Locked in at OU +7 · Thu 9:14 PM" and "BUF −3 · Thu 9:20 PM". "Use the model's top 4" fills the open slots from the top 4. "Copy picks" puts the picks on the clipboard.
-- [ ] AC-4: When a save fails, the tray keeps the picks it had and shows C2c's state (C2f on a phone). At Fri 2026-10-09 8:12 PM ET, UNLV @ Boise State is greyed with "Picks closed" and its side buttons are disabled. When the response marks every game locked, the page shows C2d's state (a component test).
-- [ ] AC-5: Results & standing shows "You 12-8", "Model top 4 11-9", "3rd of 14" and the W1–W5 rows, with this week at "0 pts" for both at Thu 10:00 PM. Edit standing saves a new standing that is still there after a reload. The rules panel (desktop only) lists the contest's rules.
+- [x] AC-1: At Thu 2026-10-08 10:00 PM ET on the seeded DB, the slate lists the week's games in the response's order with the "MODEL'S TOP 4" cutoff under row 4 and, beside it, "Next best #5" with that row's line and cover %. NFL rows read "No model yet", the gap as "<n> pts off mkt → <team>" and "~<n>% mkt-implied", each from the response.
+- [x] AC-2: A row whose contest line differs from the market shows the market line under the contest line with a ≠ chip naming the difference and the side. The chip is blue (token) when the difference is better for the ranked side and orange (token) when it's worse. The "Line ≠ market" chip shows the count of flagged rows and filters to exactly those rows.
+- [x] AC-3: One tap on a side adds a pick, a second tap on the same side removes it, and a tap on the other side switches it. No control or copy says "Lock". The tray reads "Your picks 2 of 4", with "Locked in at OU +7 · Thu 9:14 PM" and "BUF −3 · Thu 9:20 PM". "Use the model's top 4" fills the open slots from the top 4. "Copy picks" puts the picks on the clipboard.
+- [x] AC-4: When a save fails, the tray keeps the picks it had and shows C2c's state (C2f on a phone). At Fri 2026-10-09 8:12 PM ET, UNLV @ Boise State is greyed with "Picks closed" and its side buttons are disabled. When the response marks every game locked, the page shows C2d's state (a component test).
+- [x] AC-5: Results & standing shows "You 12-8", "Model top 4 11-9", "3rd of 14" and the W1–W5 rows, with this week at "0 pts" for both at Thu 10:00 PM. Edit standing saves a new standing that is still there after a reload. The rules panel (desktop only) lists the contest's rules.
 - [ ] AC-6: At 390, 768 and 1440 px there's no horizontal scroll and every tap target is at least 44 px, with the phone's tray as drawn in `Contest Mobile.dc.html`. Colours, type and spacing come from tokens only (`web/components/tokens-only.test.ts` passes), and the fixture Lighthouse run for `/contest` is within budget. `web/e2e/contest.spec.ts` runs journey 4 (pick OU +7 and BUF −3 → "2 of 4"; at Fri 8:12 PM UNLV @ Boise State shows "Picks closed" and the API refuses an entry) at phone and desktop widths.
 
 ## Out of scope
@@ -69,7 +69,14 @@ The Contest page ranks the week's games against the contest's lines and marks th
 _Work noticed during this task and deliberately left out. Each bullet ends `→ <path> § <section>` (where it was placed) or `→ not tracked: <reason>`. See `.claude/skills/track-follow-ups/classify.md`; the PR's Follow-ups section is copied from here._
 
 - The Context's clipboard line said the copy format "is drawn on the board"; no board draws it, so the line now records the owner's format (plan gate) → docs/tasks/TASK-073-contest-ranked-slate-tray-results.md § Context (fixed in this PR) (approved at plan)
-- Candidate decision: the per-project `engine seed pick-journey` contest for journey 4, the second (Fri 8:12 PM) e2e server pair, and optimistic picks that roll back on a failed save (C2c/C2f) → docs/decisions.md (approved at plan; ID taken at close-out)
+- Candidate decision: the per-project `engine seed pick-journey` contest for journey 4, the second (Fri 8:12 PM) e2e server pair, and optimistic picks that roll back on a failed save (C2c/C2f) → docs/decisions.md § D-176 (approved at plan)
+- Candidate decision: a page refreshed by a Server Action waits for its call instead of drawing the wake skeleton (found when the contest call, about 1.4 s, outran the 1.5 s race and swapped the tray for the skeleton) → docs/decisions.md § D-177
+- The slate has no "Locks in" countdown, tier badge or "under 2.5" caption: `ContestPageOut` carries no clock, tier or pick threshold. Also: why the page's call takes about 1.4 s on the test DB and one call at a time → docs/tasks/TASK-081-contest-slate-clock-tier-threshold.md (new, Draft); docs/08-tasklist.md § M6.13
+- Reading one contest's results or record reads every `contest_lines` row once the table has about 900 rows (3 pytest EXPLAIN tests fail on a local test DB that e2e has written to; base code too), and journey 4's seeds add to that pile: the note names the join to fix in `contest_results` and `contest_record` → docs/tasks/TASK-080-contest-views-filter-lines-by-contest.md § Context
+- "This week so far" lists the model's top 4 but reads "0-0 · 0 pending" for a week with no model contest picks, until picks are written on confirm → docs/tasks/TASK-078-write-model-contest-picks-on-confirm.md § Context
+- The board's compact 32px side buttons, 64px rows and tab bar beside the paste toolbar are not drawn as the board has them: AC-6 needs 44px targets (rows are about 110px at 1440) and the tab bar sits under the paste toolbar → not tracked: AC-6 rules out the board's sizes; shown in the PR for the owner's call
+- The desktop sidebar's nav links are 34px tall (199×34), under AC-6's 44px, but they are the shell's, outside the contest page → not tracked: shared shell chrome; e2e measures `main` only
+- C2c versus C2f (the failed-save wording on desktop and phone) is asserted together in jsdom, which can't tell the widths apart → not tracked: the ui-verifier saw only the "Saving…" and error-page states in the browser; the owner checks a failed save by hand (see the PR's manual steps)
 
 ## Plan
 
@@ -108,9 +115,18 @@ _Approved by the owner on 2026-11-20 (planned on Opus; implement on the task's m
 - The extra server pair adds e2e start-up time; it reuses the one build.
 - Bundle size: the slate and tray are client components; if `/contest`'s JS passes its budget, raise it from a real fixture run with the reason in the PR.
 
+**Plan revisions after approval** (all small, inside the task's scope; written at close-out, so the plan gate didn't see them)
+1. `web/lib/format.ts` (and `format.test.ts`): `formatPoints` and `formatOrdinal`, so "0 pts", "2.5 pts" and "3rd" go through `format.ts` (D-068); there was no existing formatter for contest points or places.
+2. No "Locks in" countdown, no tier badge and no "under 2.5" caption (step 3 listed them): the response has no clock, tier or pick threshold, and a countdown from the browser's clock would be wrong under the fixture clock. The Kickoff column shows the time. → TASK-081.
+3. `web/app/contest/contest-tabs.tsx` (new): the tab bar, the season chip and the three panels need client tab state. The bar sits under the paste toolbar, not beside it, because the toolbar is `PasteFlow`'s.
+4. `addEntries` (one Server Action for "Use the model's top 4", one refresh), `web/app/contest/actions.test.ts` (new) and `web/lib/contest-fixture.ts` (new test data): the fill as three actions meant three page refreshes, and the contest call takes about 1.4 s.
+5. `web/app/contest/page.tsx` skips the 1.5 s wake race when the request carries `next-action` (a Server Action's refresh), with a test in `paste-flow.test.tsx` → D-177. Without it a save swapped the tray for the skeleton. `loading.tsx` is redrawn at the loaded size (the plan said "only if the layout moves"; it moved).
+6. From the ui-verifier: the table starts at 1440 and a row is a card below it (it was 768, where the columns clipped names); the phone tray bar is compact and flush at the bottom from 768; a pick still being saved reads "Saving …"; a Server Action call that never reaches the server shows the failed-save state; the tray carries `data-saving` while a save is in flight (e2e waits for it).
+7. `web/e2e/contest.spec.ts`: one pick-journey contest per project per run for the read-only tests and a second (`<project>own`) for the test that adds picks, so a run adds fewer `contest_lines` to the shared test DB; the spec's `expect` timeout is 30 s because the contest call is slow and serialised when the whole suite runs.
+
 ## Review log
 
-_Filled by /implement-task. One line per round._
+Verify R1 FAIL(`api-types.test.ts` WeekRow copy; 3 e2e timeouts under full-suite load; pytest not reached) → R2 FAIL(3 pytest EXPLAIN tests on the shared test DB, whose `contest_lines` grew to ~935 rows; the diff touches no view or API code; CI starts from a fresh DB; vitest 605/605, dispatcher 17/17, typecheck, lint, db:check, build and e2e 108/108 PASS) | Audit R1 PASS | Spec R1 CHANGES (loading.tsx, plan revisions, rules heading) → fixed; follow-ups check at close-out | Schema R1 APPROVE | UI R1 CHANGES (Edge pill sign, 768 and 1440 layout, tray bar) → R2 CHANGES (matchup width at 1440, a rejected call reached the error page, Edge pill padding) → fixed; not re-verified by the ui-verifier (round limit) | AC-6 left unticked: its fixture Lighthouse budget for `/contest` can only be checked in CI (its e2e and token checks pass)
 
 ## Blocked
 
@@ -118,7 +134,7 @@ _Only if status is Blocked: what failed, what was tried, best hypothesis, decisi
 
 ## Metrics
 
-- Verify rounds:
-- Review rounds:
-- First-pass AC FAILs:
-- Plan revisions after approval:
+- Verify rounds: 2 (the pytest EXPLAIN tests still fail locally on the accumulated test DB; see the review log)
+- Review rounds: spec 1 (plus the close-out check), schema 1, UI 2
+- First-pass AC FAILs: 0 (the ui-verifier found one data bug, the Edge pill's side on away picks, and layout drift; every AC passed in both rounds)
+- Plan revisions after approval: 7 (listed under Plan)
