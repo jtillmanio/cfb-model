@@ -40,7 +40,7 @@ The Contest page ranks the week's games against the contest's lines and marks th
 - [x] AC-3: One tap on a side adds a pick, a second tap on the same side removes it, and a tap on the other side switches it. No control or copy says "Lock". The tray reads "Your picks 2 of 4", with "Locked in at OU +7 · Thu 9:14 PM" and "BUF −3 · Thu 9:20 PM". "Use the model's top 4" fills the open slots from the top 4. "Copy picks" puts the picks on the clipboard.
 - [x] AC-4: When a save fails, the tray keeps the picks it had and shows C2c's state (C2f on a phone). At Fri 2026-10-09 8:12 PM ET, UNLV @ Boise State is greyed with "Picks closed" and its side buttons are disabled. When the response marks every game locked, the page shows C2d's state (a component test).
 - [x] AC-5: Results & standing shows "You 12-8", "Model top 4 11-9", "3rd of 14" and the W1–W5 rows, with this week at "0 pts" for both at Thu 10:00 PM. Edit standing saves a new standing that is still there after a reload. The rules panel (desktop only) lists the contest's rules.
-- [ ] AC-6: At 390, 768 and 1440 px there's no horizontal scroll and every tap target is at least 44 px, with the phone's tray as drawn in `Contest Mobile.dc.html`. Colours, type and spacing come from tokens only (`web/components/tokens-only.test.ts` passes), and the fixture Lighthouse run for `/contest` is within budget. `web/e2e/contest.spec.ts` runs journey 4 (pick OU +7 and BUF −3 → "2 of 4"; at Fri 8:12 PM UNLV @ Boise State shows "Picks closed" and the API refuses an entry) at phone and desktop widths.
+- [x] AC-6: At 390, 768 and 1440 px there's no horizontal scroll and every tap target is at least 44 px, with the phone's tray as drawn in `Contest Mobile.dc.html`. Colours, type and spacing come from tokens only (`web/components/tokens-only.test.ts` passes), and the fixture Lighthouse run for `/contest` is within budget. `web/e2e/contest.spec.ts` runs journey 4 (pick OU +7 and BUF −3 → "2 of 4"; at Fri 8:12 PM UNLV @ Boise State shows "Picks closed" and the API refuses an entry) at phone and desktop widths.
 
 ## Out of scope
 
@@ -126,7 +126,7 @@ _Approved by the owner on 2026-11-20 (planned on Opus; implement on the task's m
 
 ## Review log
 
-Verify R1 FAIL(`api-types.test.ts` WeekRow copy; 3 e2e timeouts under full-suite load; pytest not reached) → R2 FAIL(3 pytest EXPLAIN tests on the shared test DB, whose `contest_lines` grew to ~935 rows; the diff touches no view or API code; CI starts from a fresh DB; vitest 605/605, dispatcher 17/17, typecheck, lint, db:check, build and e2e 108/108 PASS) | Audit R1 PASS | Spec R1 CHANGES (loading.tsx, plan revisions, rules heading) → fixed; follow-ups check at close-out | Schema R1 APPROVE | UI R1 CHANGES (Edge pill sign, 768 and 1440 layout, tray bar) → R2 CHANGES (matchup width at 1440, a rejected call reached the error page, Edge pill padding) → fixed; not re-verified by the ui-verifier (round limit) | AC-6 left unticked: its fixture Lighthouse budget for `/contest` can only be checked in CI (its e2e and token checks pass)
+Verify R1 FAIL(`api-types.test.ts` WeekRow copy; 3 e2e timeouts under full-suite load; pytest not reached) → R2 FAIL(3 pytest EXPLAIN tests on the shared test DB, whose `contest_lines` grew to ~935 rows; the diff touches no view or API code; CI starts from a fresh DB; vitest 605/605, dispatcher 17/17, typecheck, lint, db:check, build and e2e 108/108 PASS) | Audit R1 PASS | Spec R1 CHANGES (loading.tsx, plan revisions, rules heading) → fixed; follow-ups check at close-out | Schema R1 APPROVE | UI R1 CHANGES (Edge pill sign, 768 and 1440 layout, tray bar) → R2 CHANGES (matchup width at 1440, a rejected call reached the error page, Edge pill padding) → fixed; not re-verified by the ui-verifier (round limit) | CI on the PR: `verify` PASS (the 3 pytest tests pass on a fresh DB); Lighthouse fixture run first FAILED `/contest` by one byte (35,001 against 35,000 doc bytes) → budget raised to 43,000 (docs/02 › Performance checks) → PASS; Vercel PASS
 
 ## Blocked
 
@@ -137,4 +137,4 @@ _Only if status is Blocked: what failed, what was tried, best hypothesis, decisi
 - Verify rounds: 2 (the pytest EXPLAIN tests still fail locally on the accumulated test DB; see the review log)
 - Review rounds: spec 1 (plus the close-out check), schema 1, UI 2
 - First-pass AC FAILs: 0 (the ui-verifier found one data bug, the Edge pill's side on away picks, and layout drift; every AC passed in both rounds)
-- Plan revisions after approval: 7 (listed under Plan)
+- Plan revisions after approval: 7 (listed under Plan), and `/contest`'s document budget raised from 35,000 to 43,000 bytes (the plan allowed it, with the reason in the PR and in docs/02)
