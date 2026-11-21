@@ -190,11 +190,16 @@ GitHub then starts the workflow on `main`, and its run shows in the Actions tab 
 | `lines.yml` | Daily 08:00 | The daily line snapshot (02 › Non-functional requirements), then picks re-evaluated against it |
 | `rate-and-predict.yml` | Sun 09:00 | The coming week's ratings, predictions and picks, after Sunday's `results` and `lines`, out before 10 AM (D-092) |
 | `lines.yml` | Thu and Fri 19:00 | The pick window, when lines move most before the weekend |
+| `scores.yml` | Every 30 min, Thu and Fri 19:30–00:30, Sat 12:00–00:30, and Sun 03:00 | Near-live CFB scores (one CFBD `/scoreboard` call each, 49 a week) and any live contest NFL game, so picks grade as games finish (D-092's ≤ 60-minute Saturday scores); Sun 03:00 catches late west-coast finals past the 01:00–02:59 gap |
+| `scores.yml` | Every 30 min, Sun 13:30–00:30 and Mon 20:30–00:30, with `sport=nfl` | NFL contest games only, no CFBD call; it pulls nflverse only while a contest's NFL game is live. Thursday and Saturday NFL games ride the CFB slots |
 
 This table mirrors `SCHEDULE` in `infra/dispatcher/src/index.ts`; that file wins if they differ.
+`every30()` there builds a window's slots; a window past midnight carries on into the next day.
 `backup.yml` keeps a 12:00 UTC cron as a fallback (D-128): it does nothing when the day's dump is
 already in R2 ([Backups](#backups)). `results.yml`, `lines.yml` and `rate-and-predict.yml` keep
 UTC crons as late fallbacks, which do nothing when the dispatcher's run succeeded ([Jobs](#jobs)).
+`scores.yml` has none: GitHub's scheduled runs start hours late, after the scores they'd fetch
+have changed, and Sunday's `results` settles the week anyway (D-178).
 
 ### What it doesn't do
 - **Retry.** A tick that runs late but inside its quarter hour still fires. A quarter hour Cloudflare
@@ -434,6 +439,17 @@ version the workflow names (`efficiency v1.1`, v1 with `postseason: rounds`, pap
 | `results.yml` | Sun and Mon 06:00 | `0 12 * * 0,1` | ~6 |
 | `lines.yml` | Daily 08:00, Thu and Fri 19:00 | `0 14 * * *`, `0 1 * * 5,6` | 2 |
 | `rate-and-predict.yml` | Sun 09:00 | `0 15 * * 0` | 0 |
+| `scores.yml` | Every 30 min in the game windows ([Dispatcher](#dispatcher)) | none | 1 (`sport=nfl`: 0) |
+
+The **Scores** workflow (`.github/workflows/scores.yml`, TASK-074, D-178) keeps this week's scores
+near-live, so the record strip and contest results grade picks as games finish. Each run of
+`engine job scores` makes one CFBD `/scoreboard` call, saved as a new raw file in R2, and updates
+each CFB game it matches by CFBD id: in progress gets the score, period and clock; completed goes
+`final` with the clock cleared. It never creates a game, never touches one already `final`, and
+changes no row when nothing moved. When a contest's NFL game kicked off in the last 12 hours and
+isn't final, it also pulls nflverse (no CFBD call) and publishes the season's NFL games, without
+their lines (the next `lines` run publishes those). The NFL-only slots (`sport=nfl`) skip CFBD.
+It needs production migrated to `0009` (the clock columns), which a release does.
 
 GitHub's cron knows only UTC, so each fallback fires 1–2 hours after its ET slot (an hour later in
 EDT than in EST). GitHub can start it 5-8 hours late, so the check is anchored to the cron's slot,
@@ -480,8 +496,9 @@ uv --directory python run engine job rate-and-predict --target dev --spec engine
 | 1 | A data-quality check failed; nothing was published | The Summary lists the failed check and the games. A late game missing advanced stats on Sunday clears on Monday's run |
 | 1 (`lines`) | The snapshots were published, but re-evaluating the picks failed and was rolled back | The Summary names the error; the next `lines` run tries again |
 | 1 (`rate-and-predict`) | The fit failed (recorded as a `failed` run, no picks), or a point-in-time check failed (nothing written) | Read the error in the Summary or the log; re-run by hand once fixed |
+| 1 (`scores`) | The nflverse download failed; the CFB updates were written | The Summary names the error; the next run 30 minutes later tries again |
 | 2 | Refused: `LIVE` is unset, or `PRODUCTION_DATABASE_URL_UNPOOLED` is missing or pooled. `rate-and-predict` also: the settings file didn't score this season, or a version of that name has another spec | Check the workflow's `env:` and the secret; for a new season, commit its settings (D-149) |
-| 3 | The month's CFBD budget (5,000 calls) is spent | Wait for the next UTC month; nothing was published |
+| 3 | The month's CFBD budget (5,000 calls) is spent | Wait for the next UTC month; nothing was published (`scores`: nothing pulled or written) |
 
 Any other failure (R2 credentials, a CFBD error) shows as a Python traceback in the step's log. The
 lake keeps whatever was pulled before it, and the next run reuses it.

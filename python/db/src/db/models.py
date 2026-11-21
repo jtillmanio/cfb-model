@@ -18,6 +18,7 @@ from sqlalchemy import (
     MetaData,
     Numeric,
     PrimaryKeyConstraint,
+    SmallInteger,
     String,
     Text,
     UniqueConstraint,
@@ -129,6 +130,11 @@ class Game(Base):
             "status <> 'final' OR (home_points IS NOT NULL AND away_points IS NOT NULL)",
             name="final_has_points",
         ),
+        # The live clock is the `scores` job's (TASK-074, D-178); every other write clears it.
+        CheckConstraint(
+            "status = 'in_progress' OR (period IS NULL AND clock IS NULL)",
+            name="clock_only_in_progress",
+        ),
     )
 
     id: Mapped[int] = mapped_column(BigInteger, Identity(), primary_key=True)
@@ -149,6 +155,9 @@ class Game(Base):
     home_points: Mapped[int | None]
     away_points: Mapped[int | None]
     status: Mapped[str] = mapped_column(Text)
+    # While in progress only (CFBD's /scoreboard): the period, and the clock as CFBD gives it.
+    period: Mapped[int | None] = mapped_column(SmallInteger)
+    clock: Mapped[str | None] = mapped_column(Text)
     updated_at: Mapped[datetime] = mapped_column(
         TIMESTAMP(timezone=True), server_default=func.now()
     )

@@ -15,6 +15,45 @@ export interface Entry {
   inputs?: Readonly<Record<string, string>>;
 }
 
+const NEXT_DAY: Readonly<Record<Weekday, Weekday>> = {
+  Sun: "Mon",
+  Mon: "Tue",
+  Tue: "Wed",
+  Wed: "Thu",
+  Thu: "Fri",
+  Fri: "Sat",
+  Sat: "Sun",
+};
+
+const hhmm = (minutes: number) =>
+  `${String(Math.floor(minutes / 60) % 24).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`;
+
+/**
+ * An entry every 30 minutes from `start` to `end` (ET "HH:MM", both included) on `days`. A window
+ * that ends past midnight goes on into the next day, so its last slots fall on the day after.
+ */
+export function every30(
+  workflow: string,
+  days: readonly Weekday[],
+  start: string,
+  end: string,
+  inputs?: Readonly<Record<string, string>>,
+): Entry[] {
+  const toMinutes = (t: string) => {
+    const [h, m] = t.split(":").map(Number);
+    return h * 60 + m;
+  };
+  const from = toMinutes(start);
+  let to = toMinutes(end);
+  if (to < from) to += 24 * 60;
+  const out: Entry[] = [];
+  for (let t = from; t <= to; t += 30) {
+    const slotDays = t >= 24 * 60 ? days.map((d) => NEXT_DAY[d]) : days;
+    out.push({ workflow, days: slotDays, time: hhmm(t), ...(inputs ? { inputs } : {}) });
+  }
+  return out;
+}
+
 /** Add a job by adding a line (README › Dispatcher). */
 export const SCHEDULE: readonly Entry[] = [
   { workflow: "backup.yml", days: "daily", time: "03:30" },
@@ -23,6 +62,13 @@ export const SCHEDULE: readonly Entry[] = [
   { workflow: "lines.yml", days: "daily", time: "08:00" },
   { workflow: "rate-and-predict.yml", days: ["Sun"], time: "09:00" },
   { workflow: "lines.yml", days: ["Thu", "Fri"], time: "19:00" },
+  // Scores (TASK-074, D-178): CFBD's scoreboard (one call a run) and any live contest NFL game.
+  ...every30("scores.yml", ["Thu", "Fri"], "19:30", "00:30"),
+  ...every30("scores.yml", ["Sat"], "12:00", "00:30"),
+  { workflow: "scores.yml", days: ["Sun"], time: "03:00" }, // late west-coast finals
+  // NFL-only slots: no CFBD call. Thursday and Saturday NFL games ride the CFB windows.
+  ...every30("scores.yml", ["Sun"], "13:30", "00:30", { sport: "nfl" }),
+  ...every30("scores.yml", ["Mon"], "20:30", "00:30", { sport: "nfl" }),
 ];
 
 export interface Env {

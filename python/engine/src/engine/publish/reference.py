@@ -114,7 +114,11 @@ def upsert_games(
     rows: Sequence[Mapping[str, Any]],
     new: Counter[str] | None = None,
 ) -> dict[str, int]:
+    """Rows carry source_id plus the columns to set. A row without `period` and `clock` clears
+    them: only the `scores` job writes a live clock (TASK-074, D-178), and a publish that moves a
+    game out of `in_progress` must not leave one behind (`ck_games_clock_only_in_progress`)."""
     fixed = {"sport_id": sport_id, "source": source}
+    rows = [{"period": None, "clock": None, **r} for r in rows]
     return _upsert_ids(
         conn, Game, rows, fixed, ["sport_id", "source", "source_id"], new, touch=True
     )

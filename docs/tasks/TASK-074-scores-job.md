@@ -1,14 +1,14 @@
 ---
 id: TASK-074
 title: Refresh this week's scores during game windows (the scores job)
-status: Ready
+status: In progress
 depends_on: [TASK-022, TASK-069]
 size: M
 model: opus
 autonomy: attended
 ui: false
-plan_status: none
-planned_at_commit:
+plan_status: approved
+planned_at_commit: 752c602
 ---
 
 # TASK-074 — Refresh this week's scores during game windows (the scores job)
@@ -66,9 +66,35 @@ During game windows the app's scores and game statuses refresh about every 30 mi
 
 _Work noticed during this task and deliberately left out. Each bullet ends `→ <path> § <section>` (where it was placed) or `→ not tracked: <reason>`. See `.claude/skills/track-follow-ups/classify.md`; the PR's Follow-ups section is copied from here._
 
+- Showing the live clock on `/slate`, This Week, Game Detail and Contest (approved at plan) → a new Draft task and its stub in `docs/08-tasklist.md` › M6
+- Deploy the dispatcher's new slots only after the release that applies `0009` (approved at plan) → `docs/owner-checklist.md` § Actions
+- Weekday CFB games (Tue/Wed in November) and NFL games on other days aren't in the windows; the next 08:00 `lines` run catches them (approved at plan) → recorded in the task's decision, not tracked
+
 ## Plan
 
 _Written by /plan-batch or /implement-task Phase 1. Approved by the user (plan_status: approved) before any code is written._
+
+Approved 2026-11-20 (schema change included).
+
+**Schema:** migration `0009_game_clock` (0008 is taken): `games.period smallint NULL`, `games.clock text NULL` (CFBD's `"MM:SS"` as given), CHECK `status = 'in_progress' OR (period IS NULL AND clock IS NULL)`.
+
+**Steps**
+1. Migration and `models.Game` columns plus the CHECK; an up → down → up test with row values. The staged publish (`publish/staging.py`) sends `period`/`clock` NULL, so a `results`/`lines` publish that marks a game final clears its clock (staged games are never in progress).
+2. `engine/scores.py`: one counted `/scoreboard` call (`endpoints.fetch`, new raw file). Each record matched by `(sport cfb, source cfbd, source_id)`, never inserted. In progress → `in_progress`, points, period, clock; completed → `final`, points, NULL clock; scheduled → nothing. A row already `final` is never touched; every write is `WHERE (status, points, period, clock) IS DISTINCT FROM` the new values, so a rerun changes no row. Unmatched records and completed records without points are listed in the summary.
+3. NFL: when a non-deleted contest's `contest_lines` hold an NFL game kicked off in the last 12 h, not `final` or `canceled`, run TASK-069's path (`nflverse.pull` → `transform.nfl.stage` → `publish_nfl`), no CFBD call; otherwise skip. A failed download still commits the CFB updates, names the failure and exits 1 (as `lines`).
+4. `engine job scores --target dev|live [--sport all|nfl] [--summary PATH]`: summary has calls this run, the month's total, games updated by sport; the budget exits 3 before anything is written, a refusal 2. `--sport nfl` makes no CFBD call.
+5. `.github/workflows/scores.yml`: `workflow_dispatch` only (input `sport`), `lake-publish` concurrency, `timeout-minutes: 10`; no fallback cron (GitHub's schedule starts 5–8 h late, D-122, useless for a 30-minute job).
+6. Dispatcher: a helper builds 30-minute slots. CFB+NFL: Thu and Fri 19:30–00:30, Sat 12:00–00:30 and Sun 03:00. NFL only (`inputs: {sport: "nfl"}`): Sun 13:30–00:30, Mon 20:30–00:30. About 49 CFBD calls a week (≈210 of 5,000 a month).
+7. Docs: 02 › Jobs (windows, calls, no fallback), 03 › Games & market (the columns; the proposal removed), decision D-178 (incl. the rebuild limit below), README › Dispatcher.
+
+**Files:** `python/engine/src/engine/scores.py` (new, instead of growing `jobs.py`), `cli.py`, `publish/staging.py`, `python/db/migrations/versions/0009_game_clock.py` (new), `python/db/src/db/models.py`, `python/engine/tests/test_scores_job.py` (new), `python/engine/tests/fixtures/cfbd_scoreboard_sample.json` (new), `python/db/tests/test_game_clock_schema.py` (new), `.github/workflows/scores.yml` (new), `infra/dispatcher/src/index.ts`, `index.test.ts`, `python/db/tests/test_ci_config.py` (if it lists workflows), docs 02, 03, decisions, README, `docs/08-tasklist.md`, owner checklist, the new task file.
+
+**Test strategy:** AC-1/3/6 `test_scores_job.py` on the recorded scoreboard (written to CFBD's documented `ScoreboardGame` shape; R2 isn't readable locally) against the test DB; AC-4 with and without a live contest NFL game; AC-2 `test_game_clock_schema.py`; AC-5 `index.test.ts` slots in and out of windows plus the 01:00–02:59 rule.
+
+**Accepted at the gate:**
+- The raw scoreboard files are kept, but `transform --rebuild` doesn't read them: a rebuild reproduces final scores (from `/games` after `results`), not the transient in-progress status and clock. Recorded in D-178.
+- AC-5's branch run can't pass before merge (the file isn't on `main`, production lacks `0009`): checked after merge and release with `gh workflow run scores.yml`; the dispatcher is deployed after that (Owner checklist).
+- A Thu/Fri 19:00 `lines` publish during a live game sets it back to `scheduled` until the next scores run (≤ 30 min).
 
 ## Review log
 
