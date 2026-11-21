@@ -42,3 +42,26 @@ def test_republishing_updates_a_changed_score_in_place(db_conn: Connection):
         {"s": SOURCE},
     ).one()
     assert (row.id, row.home_points) == (before["401752677"], 17)
+
+
+def test_a_publish_that_ends_a_live_game_clears_its_clock(db_conn: Connection):
+    """TASK-074 (D-178): only the scores job writes a live clock. A /games or staged publish that
+    moves a game out of `in_progress` clears `period` and `clock`, so it never trips
+    `ck_games_clock_only_in_progress` or leaves a stale clock behind."""
+    publish_games_batch(db_conn, "cfb", SOURCE, map_games(SAMPLE))
+    final = next(g for g in SAMPLE if g["completed"])
+    db_conn.execute(
+        text(
+            "UPDATE games SET status = 'in_progress', period = 4, clock = '01:10'"
+            " WHERE source = :s AND source_id = :id"
+        ),
+        {"s": SOURCE, "id": str(final["id"])},
+    )
+
+    publish_games_batch(db_conn, "cfb", SOURCE, map_games([final]))
+
+    row = db_conn.execute(
+        text("SELECT status, period, clock FROM games WHERE source = :s AND source_id = :id"),
+        {"s": SOURCE, "id": str(final["id"])},
+    ).one()
+    assert tuple(row) == ("final", None, None)
