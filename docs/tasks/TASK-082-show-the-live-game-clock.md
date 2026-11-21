@@ -23,7 +23,7 @@ A game in progress shows its score and the clock ("Live: OSU 24, PUR 3 · Q3 9:1
 - Data model: `docs/03-data-model.md` › Games & market: `games.period` and `games.clock` (migration `0009`), set by the `scores` job while a game is `in_progress` and NULL otherwise (D-178).
 - Design: `design/sample-data.md` § 1 (the live row "Live: OSU 24, PUR 3 · Q3 9:12"); `design/handoff/designs/This Week Wireframe.dc.html`, `Contest Mobile.dc.html`, `Team Desktop.dc.html` and `Team Mobile.dc.html` draw live rows. The plan confirms which screens are in scope against the `Pass … .dc.html` boards.
 - Decisions: D-158 (`/slate`), D-171/D-174 (the contest page's response), D-178 (the clock columns: `clock` is CFBD's string as given, e.g. `09:12`, so the API passes it through; overtime periods are 5 and up).
-- *From TASK-074 (feat/074-scores-job):* the clock columns are filled during game windows, but no API response carries them: `/slate`'s `status` is there (`api/slate.py`), `period` and `clock` aren't, and the contest page has neither. Showing them is this task.
+- *From TASK-074 (PR #171):* the clock columns are filled during game windows, but no API response carries them: `/slate`'s `status` is there (`api/slate.py`), `period` and `clock` aren't, and the contest page has neither. Showing them is this task.
 - Product: `docs/01-product.md` › F-32 AC-2 (a live pick that's behind shows as live, never as lost, until final).
 
 ## Acceptance criteria
