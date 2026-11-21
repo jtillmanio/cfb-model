@@ -1,0 +1,64 @@
+# The scores job (TASK-074, D-178, docs/02-architecture.md › Components › 4 Jobs): about every 30
+# minutes during game windows, this week's scores and game status, published to production so the
+# record strip and contest results grade picks as games finish:
+#
+#   sport all: one CFBD /scoreboard call saved to the R2 lake → each matched CFB game's status,
+#   points and live clock updated (never a new game, never a final one) → the season's NFL games
+#   from nflverse, only while a contest's NFL game is live (no CFBD call)
+#   sport nfl: the NFL part alone
+#
+# The dispatcher (infra/dispatcher, D-122) starts it with workflow_dispatch at its slots; the NFL-
+# only slots pass sport=nfl. There's no `schedule` fallback: GitHub starts scheduled runs 5–8
+# hours late, long after the scores they'd fetch have changed, and the next `results` run settles
+# the week anyway. The logic lives in `engine job scores` (python/engine/src/engine/scores.py);
+# README › Jobs says how to read a failed run. Secrets reach steps only through `env:`.
+name: Scores
+
+on:
+  workflow_dispatch:
+    inputs:
+      sport:
+        description: "all: CFBD's scoreboard (one call) and the NFL if a contest game is live; nfl: the NFL alone (no CFBD call)"
+        required: false
+        type: choice
+        options:
+          - all
+          - nfl
+        default: all
+
+# One publish to production at a time, shared with results.yml and lines.yml; a queued run never
+# cancels one half done. It also keeps the lake to one writer (D-112).
+concurrency:
+  group: lake-publish
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  UV_FROZEN: "1"
+
+jobs:
+  scores:
+    name: scores
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: astral-sh/setup-uv@v10.3.3
+        with:
+          enable-cache: true
+          cache-dependency-glob: python/uv.lock
+
+      # `uv run` installs the dev group, which holds the engine's pyarrow, boto3 and duckdb (D-114).
+      - name: Pull the scoreboard and publish scores to production
+        env:
+          LIVE: "true"
+          LAKE_URI: ${{ vars.LAKE_URI }}
+          R2_ACCOUNT_ID: ${{ vars.R2_ACCOUNT_ID }}
+          R2_DATA_LAKE_ACCESS_KEY_ID: ${{ secrets.R2_DATA_LAKE_ACCESS_KEY_ID }}
+          R2_DATA_LAKE_SECRET_ACCESS_KEY: ${{ secrets.R2_DATA_LAKE_SECRET_ACCESS_KEY }}
+          CFBD_API_KEY: ${{ secrets.CFBD_API_KEY }}
+          PRODUCTION_DATABASE_URL_UNPOOLED: ${{ secrets.PRODUCTION_DATABASE_URL_UNPOOLED }}
+        run: uv --directory python run engine job scores --target live --sport ${{ inputs.sport }} --summary "$GITHUB_STEP_SUMMARY"

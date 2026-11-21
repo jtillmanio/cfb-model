@@ -59,7 +59,7 @@ describe("due (AC-1)", () => {
     expect(due(new Date("2026-10-27T10:00:00Z"))).toEqual([]);
     expect(due(new Date("2026-10-25T12:00:00Z"))).toEqual(["lines.yml"]);
     expect(due(new Date("2026-10-29T23:00:00Z"))).toEqual(["lines.yml"]);
-    expect(due(new Date("2026-10-31T23:00:00Z"))).toEqual([]); // Saturday evening
+    expect(due(new Date("2026-10-31T23:00:00Z"))).toEqual(["scores.yml"]); // Saturday: no lines
     // EST (UTC-5): Sunday 2026-11-08, Friday 11-13.
     expect(due(new Date("2026-11-08T11:00:00Z"))).toEqual(["results.yml"]);
     expect(due(new Date("2026-11-08T10:00:00Z"))).toEqual([]);
@@ -84,6 +84,61 @@ describe("due (AC-1)", () => {
     ]);
     expect(due(new Date("2026-11-09T11:15:00Z"))).toEqual(["vercel-cleanup.yml"]);
     expect(due(new Date("2026-10-25T10:15:00Z"))).toEqual([]);
+  });
+
+  describe("scores (TASK-074 AC-5)", () => {
+    const scores = (now: string) =>
+      dueEntries(new Date(now))
+        .filter((e) => e.workflow === "scores.yml")
+        .map((e) => e.inputs?.sport ?? "all");
+
+    it("fires every 30 minutes Thu and Fri 19:30 to 00:30 ET, CFB and NFL", () => {
+      // EDT (UTC-4): Thursday 2026-10-29, Friday 10-30, Saturday 10-31.
+      expect(scores("2026-10-29T23:15:00Z")).toEqual([]); // Thu 19:15
+      expect(scores("2026-10-29T23:30:00Z")).toEqual(["all"]); // Thu 19:30
+      expect(scores("2026-10-30T00:45:00Z")).toEqual([]); // Thu 20:45: off the half hour
+      expect(scores("2026-10-30T03:00:00Z")).toEqual(["all"]); // Thu 23:00
+      expect(scores("2026-10-30T04:30:00Z")).toEqual(["all"]); // Fri 00:30
+      expect(scores("2026-10-30T05:00:00Z")).toEqual([]); // Fri 01:00
+      expect(scores("2026-10-30T22:30:00Z")).toEqual([]); // Fri 18:30
+      expect(scores("2026-10-31T04:30:00Z")).toEqual(["all"]); // Sat 00:30, Friday's window
+    });
+
+    it("fires Sat 12:00 ET to Sun 00:30, and Sun 03:00 for late finals", () => {
+      // EST (UTC-5): Saturday 2026-11-14, Sunday 11-15.
+      expect(scores("2026-11-14T16:30:00Z")).toEqual([]); // Sat 11:30
+      expect(scores("2026-11-14T17:00:00Z")).toEqual(["all"]); // Sat 12:00
+      expect(scores("2026-11-15T04:30:00Z")).toEqual(["all"]); // Sat 23:30
+      expect(scores("2026-11-15T05:30:00Z")).toEqual(["all"]); // Sun 00:30
+      expect(scores("2026-11-15T06:00:00Z")).toEqual([]); // Sun 01:00
+      expect(scores("2026-11-15T08:00:00Z")).toEqual(["all"]); // Sun 03:00
+      expect(scores("2026-11-15T08:30:00Z")).toEqual([]); // Sun 03:30, the backup's
+    });
+
+    it("fires NFL-only Sun 13:30 to Mon 00:30 and Mon 20:30 to Tue 00:30 ET", () => {
+      // EST: Sunday 2026-11-15, Monday 11-16, Tuesday 11-17.
+      expect(scores("2026-11-15T18:00:00Z")).toEqual([]); // Sun 13:00
+      expect(scores("2026-11-15T18:30:00Z")).toEqual(["nfl"]); // Sun 13:30
+      expect(scores("2026-11-16T01:30:00Z")).toEqual(["nfl"]); // Sun 20:30
+      expect(scores("2026-11-16T05:30:00Z")).toEqual(["nfl"]); // Mon 00:30
+      expect(scores("2026-11-16T06:00:00Z")).toEqual([]); // Mon 01:00
+      expect(scores("2026-11-17T01:00:00Z")).toEqual([]); // Mon 20:00
+      expect(scores("2026-11-17T01:30:00Z")).toEqual(["nfl"]); // Mon 20:30
+      expect(scores("2026-11-17T05:30:00Z")).toEqual(["nfl"]); // Tue 00:30
+      expect(scores("2026-11-18T01:30:00Z")).toEqual([]); // Tue 20:30
+      expect(scores("2026-11-19T01:30:00Z")).toEqual([]); // Wed 20:30
+    });
+
+    it("starts at most one scores run a slot, 49 CFB runs (CFBD calls) a week", () => {
+      let cfb = 0;
+      // Every quarter hour of an EST week, Sunday 2026-11-15 00:00 ET onwards.
+      for (let t = Date.parse("2026-11-15T05:00:00Z"); t < Date.parse("2026-11-22T05:00:00Z"); t += 15 * 60_000) {
+        const found = scores(new Date(t).toISOString());
+        expect(found.length, new Date(t).toISOString()).toBeLessThanOrEqual(1);
+        if (found[0] === "all") cfb += 1;
+      }
+      expect(cfb).toBe(49);
+    });
   });
 
   it("has no entry between 01:00 and 02:59 ET, and every entry is on a quarter hour", () => {

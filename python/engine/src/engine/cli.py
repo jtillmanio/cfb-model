@@ -177,6 +177,34 @@ def _job(kind: Kind, target: str, summary_path: str | None) -> None:
         sys.exit(code)
 
 
+def _scores_job(target: str, sport: str, summary_path: str | None) -> None:
+    """The near-live scores job (TASK-074); exit 1 if the nflverse download fails (the CFB
+    updates written), 2 on a refusal, 3 when the CFBD budget stops it (nothing written). The
+    summary is appended to `summary_path` whatever happens."""
+    from engine import clock, jobs, scores
+    from engine.ingest.backfill import client_for
+    from engine.ingest.cfbd import BudgetExceededError
+    from engine.ingest.lake import open_lake
+
+    url = _job_url(target)
+    lake = open_lake()
+    chosen: scores.Sport = "nfl" if sport == "nfl" else "all"
+    summary = scores.Summary(jobs.current_season(clock.now()), target, chosen)
+    code = 0
+    try:
+        client = client_for(lake) if chosen == "all" else None
+        scores.run(lake, url, target=target, sport=chosen, client=client, summary=summary)
+    except jobs.NflverseFailed:
+        code = 1
+    except BudgetExceededError as e:
+        print(e)
+        code = 3
+    finally:
+        _write_summary(summary.render(), summary_path)
+    if code:
+        sys.exit(code)
+
+
 def _rate_job(args: argparse.Namespace) -> None:
     """The weekly rate-and-predict job; exit 1 if a check fails (nothing written), the fit fails
     (recorded as a failed run) or the point-in-time check fails (nothing written), 2 on a refusal
@@ -654,11 +682,20 @@ def main(argv: list[str] | None = None) -> None:
         "lake, checked, and published in one transaction. rate-and-predict: no CFBD call; every "
         "season rebuilt in a scratch lake and checked, the coming week (postseason week 1 is "
         "every bowl and CFP game) fit as the backtest fits it, and a scheduled run, its ratings, "
-        "predictions and picks inserted in one transaction. Exits 1 if a check fails (nothing "
-        "published), a fit fails or the pick re-evaluation fails, 2 on a refusal, 3 when the "
-        "CFBD budget stops it.",
+        "predictions and picks inserted in one transaction. scores: one CFBD /scoreboard call "
+        "saved to the lake, each matched CFB game's status, points and live clock updated (never "
+        "a new game, never a final one), and the season's NFL games from nflverse while a "
+        "contest's NFL game is live. Exits 1 if a check fails (nothing "
+        "published), a fit fails, the pick re-evaluation fails or the nflverse download fails, "
+        "2 on a refusal, 3 when the CFBD budget stops it.",
     )
-    job.add_argument("kind", choices=["results", "lines", "rate-and-predict"])
+    job.add_argument("kind", choices=["results", "lines", "scores", "rate-and-predict"])
+    job.add_argument(
+        "--sport",
+        choices=["all", "nfl"],
+        help="scores: all (CFBD's scoreboard, one call, and the NFL when a contest's NFL game is "
+        "live) or nfl (no CFBD call); default all",
+    )
     job.add_argument(
         "--target",
         required=True,
@@ -893,9 +930,13 @@ def main(argv: list[str] | None = None) -> None:
             job.error("rate-and-predict needs --spec")
         if not weekly and (args.spec or args.choices or args.name or args.dry_run):
             job.error("--spec, --choices, --name and --dry-run are rate-and-predict's")
+        if args.kind != "scores" and args.sport:
+            job.error("--sport is the scores job's")
         load_env()
         if weekly:
             _rate_job(args)
+        elif args.kind == "scores":
+            _scores_job(args.target, args.sport or "all", args.summary)
         else:
             _job(args.kind, args.target, args.summary)
     elif args.command == "backtest":
