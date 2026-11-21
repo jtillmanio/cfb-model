@@ -69,9 +69,10 @@ def _label(record: Mapping[str, Any]) -> str:
 
 
 def updates(records: Iterable[Mapping[str, Any]]) -> tuple[list[Update], list[str]]:
-    """The writes a scoreboard asks for, and the completed records with no score (not written:
-    a final game needs both points)."""
-    out: list[Update] = []
+    """The writes a scoreboard asks for, one per game (a game listed twice takes its last
+    record, so the write never depends on which row Postgres's UPDATE … FROM picks), and the
+    completed records with no score (not written: a final game needs both points)."""
+    out: dict[str, Update] = {}
     unscored: list[str] = []
     for r in records:
         status = STATUSES.get(r["status"])
@@ -82,17 +83,15 @@ def updates(records: Iterable[Mapping[str, Any]]) -> tuple[list[Update], list[st
             unscored.append(_label(r))
             continue
         live = status == "in_progress"
-        out.append(
-            Update(
-                str(r["id"]),
-                status,
-                home,
-                away,
-                r.get("period") if live else None,
-                r.get("clock") if live else None,
-            )
+        out[str(r["id"])] = Update(
+            str(r["id"]),
+            status,
+            home,
+            away,
+            r.get("period") if live else None,
+            r.get("clock") if live else None,
         )
-    return out, sorted(unscored)
+    return list(out.values()), sorted(unscored)
 
 
 # Every write is filtered twice: never a `final` row, and only when a value differs.

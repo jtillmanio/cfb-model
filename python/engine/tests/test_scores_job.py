@@ -576,3 +576,11 @@ def test_each_scoreboard_status_maps_to_one_write() -> None:
     assert set(by_id) == {"401790001", "401790002", "401790004", "401790005"}
     assert by_id["401790001"].status == "in_progress"
     assert by_id["401790002"] == scores.Update("401790002", "final", 31, 24, None, None)
+
+
+def test_a_game_listed_twice_writes_its_last_record() -> None:
+    """Schema review: UPDATE … FROM with two rows for one game would apply either; the job
+    sends one, the scoreboard's last."""
+    later = finished(BOARD)[0]
+    writes, _ = scores.updates([BOARD[0], later])
+    assert writes == [scores.Update("401790001", "final", 38, 10, None, None)]
