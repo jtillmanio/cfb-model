@@ -20,3 +20,8 @@ export const SWITCH_API_URL = "http://127.0.0.1:8003";
 // time, Thu 2026-10-08 10:00 PM ET (docs/02 › Test-only sign-in and clock; TASK-072).
 export const CONTEST_WEB_URL = "http://127.0.0.1:3103";
 export const CONTEST_API_URL = "http://127.0.0.1:8004";
+
+// A fifth `next start` and its API, set up like the fourth with the clock at Fri 2026-10-09 8:12 PM
+// ET, after UNLV @ Boise State's kickoff and before the rest (TASK-073, journey 4).
+export const FRIDAY_WEB_URL = "http://127.0.0.1:3104";
+export const FRIDAY_API_URL = "http://127.0.0.1:8005";

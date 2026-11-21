@@ -4,7 +4,18 @@ import { auth } from "@/auth";
 
 import type { components } from "./api-types";
 import { mintApiToken } from "./api-token";
-import type { AliasesIn, AliasesOut, ContestPage, ImportConfirm, ImportIn, ImportPreview } from "./contest";
+import type {
+  AliasesIn,
+  AliasesOut,
+  ContestEntry,
+  ContestPage,
+  ContestStanding,
+  ImportConfirm,
+  ImportIn,
+  ImportPreview,
+  Side,
+  StandingIn,
+} from "./contest";
 import { previewUserId } from "./preview";
 import type { Slate, SlateWeek } from "./slate";
 import type { TeamsResponse } from "./teams";
@@ -63,6 +74,21 @@ async function signedPost<T>(path: string, payload: unknown): Promise<Posted<T>>
     : { ok: false, status: response.status, body };
 }
 
+/** A delete's answer: 204 has no body, a refusal (a 4xx with a `detail`) reaches the screen. */
+async function signedDelete(path: string): Promise<Posted<null>> {
+  const githubId = previewUserId() ?? (await auth())?.user?.id;
+  if (!githubId) throw new Error(`DELETE /${path} needs a signed-in session.`);
+  const token = await mintApiToken(githubId);
+  const response = await fetch(apiUrl(path), {
+    method: "DELETE",
+    headers: { Authorization: `Bearer ${token}` },
+    signal: AbortSignal.timeout(TIMEOUT_MS),
+  });
+  if (response.status >= 500) throw new Error(`DELETE /${path} failed with ${response.status}`);
+  if (response.ok) return { ok: true, status: response.status, body: null };
+  return { ok: false, status: response.status, body: await response.json().catch(() => null) };
+}
+
 export function getTeams(): Promise<TeamsResponse> {
   return signedGet<TeamsResponse>("api/py/teams");
 }
@@ -103,6 +129,19 @@ export function saveContestAliases(contestId: number, body: AliasesIn): Promise<
 
 export function confirmContestImport(contestId: number, body: ImportIn): Promise<Posted<ImportConfirm>> {
   return signedPost<ImportConfirm>(`api/py/contests/${contestId}/import/confirm`, body);
+}
+
+// Your picks and standing (TASK-071, TASK-073), called only from the Contest page's Server Actions.
+export function addContestEntry(contestId: number, gameId: number, side: Side): Promise<Posted<ContestEntry>> {
+  return signedPost<ContestEntry>(`api/py/contests/${contestId}/entries`, { game_id: gameId, side });
+}
+
+export function removeContestEntry(contestId: number, gameId: number): Promise<Posted<null>> {
+  return signedDelete(`api/py/contests/${contestId}/entries/${gameId}`);
+}
+
+export function addContestStanding(contestId: number, body: StandingIn): Promise<Posted<ContestStanding>> {
+  return signedPost<ContestStanding>(`api/py/contests/${contestId}/standings`, body);
 }
 
 // The only API route outside the auth gate; sign-in calls it to wake the database (TASK-002).

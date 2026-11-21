@@ -22,7 +22,30 @@ import {
   teamName,
   weekSource,
   type ContestGame,
+  applyTap,
+  copyText,
+  cutoffLabel,
+  differsCount,
+  fillFromModel,
+  filterGames,
+  impliedText,
+  lineChip,
+  nextBestText,
+  nflGapText,
+  rankedSide,
+  rulesRows,
+  rulesSentence,
+  seasonCards,
+  sharedCount,
+  sideLabel,
+  slateLayout,
+  standingText,
+  tapOutcome,
+  trayCard,
+  weekRows,
+  weekSummary,
 } from "./contest";
+import { RULES as FIXTURE_RULES, weekGames, weekPage } from "./contest-fixture";
 
 // The fixture's Week 6 paste (TASK-070, D-172): nine rows match, and "Hou Texans" @ "Jax" doesn't.
 
@@ -272,5 +295,243 @@ describe("AC-4: a re-paste lists each moved line, old then new", () => {
     ]);
     expect(movedTitle(moved.changes)).toBe("2 contest lines moved since Thu 10:00 PM");
     expect(movedRows(WEEK6)).toEqual([]);
+  });
+});
+
+// TASK-073: the ranked slate, the pick tray and the results.
+
+const byId = (games: readonly ContestGame[], id: number) => games.find((g) => g.id === id)!;
+const entries = () => weekPage().entries;
+
+describe("AC-1: the slate, the cutoff under row 4 and the next best", () => {
+  it("lists the open games in the response's order, the top 4 above the cutoff, then the locked", () => {
+    const layout = slateLayout(weekGames("fri"));
+    expect(layout.open.map((g) => g.rank)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9]);
+    expect(layout.cutoffAfter?.id).toBe(layout.open[3].id);
+    expect(layout.locked.map((g) => g.away.abbreviation)).toEqual(["UNLV"]);
+    expect(layout.nextBest?.away.abbreviation).toBe("ND");
+    expect(layout.allLocked).toBe(false);
+  });
+
+  it("puts the cutoff after the last top-N row even when an NFL row ranks above it", () => {
+    const games = weekGames("thu");
+    const nfl = games.find((g) => g.sport_id === "nfl")!;
+    const rest = games.filter((g) => g !== nfl);
+    // An NFL row at rank 2 is not one of the model's picks; the cutoff stays under the 4th pick.
+    const layout = slateLayout([rest[0], nfl, ...rest.slice(1)]);
+    expect(layout.cutoffAfter).toBe(rest[3]);
+  });
+
+  it("reads 'Next best #5' from the flagged row: its side's line and cover %", () => {
+    const layout = slateLayout(weekGames("thu"));
+    expect(nextBestText(layout.nextBest!)).toEqual({ rank: 5, line: "ND −17.5", cover: "55%" });
+  });
+
+  it("labels the cutoff for the whole slate until a game kicks off (D-174), then for the open games", () => {
+    expect(cutoffLabel(slateLayout(weekGames("thu")), 4)).toBe("Model's top 4");
+    expect(cutoffLabel(slateLayout(weekGames("sat")), 4)).toBe("Model's top 4 · open games");
+  });
+
+  it("has no cutoff or next best once every game is locked, only the locked list", () => {
+    const layout = slateLayout(weekGames("after"));
+    expect(layout.allLocked).toBe(true);
+    expect(layout.open).toEqual([]);
+    expect(layout.cutoffAfter).toBeNull();
+    expect(layout.nextBest).toBeNull();
+    expect(layout.locked).toHaveLength(10);
+  });
+
+  it("reads an NFL row's gap and implied probability from the response", () => {
+    const games = weekGames("thu");
+    expect(nflGapText(byId(games, 7))).toBe("1.5 pts off mkt → BUF");
+    expect(nflGapText(byId(games, 10))).toBe("1 pt off mkt → PHI");
+    expect(nflGapText(byId(games, 9))).toBe("No gap to market");
+    expect(nflGapText(byId(games, 5))).toBeNull();
+    expect(impliedText(byId(games, 7))).toBe("~54%");
+    expect(impliedText(byId(games, 5))).toBeNull();
+  });
+
+  it("labels each side as the bet from that side", () => {
+    const ou = byId(weekGames("thu"), 5);
+    expect(sideLabel(ou, "home")).toBe("OU +7");
+    expect(sideLabel(ou, "away")).toBe("TEX −7");
+    expect(rankedSide(ou)).toBe("home");
+    expect(rankedSide(byId(weekGames("thu"), 7))).toBe("away");
+    expect(rankedSide(byId(weekGames("thu"), 9))).toBeNull();
+  });
+});
+
+describe("AC-2: the ≠ chip, its tone and the 'Line ≠ market' filter", () => {
+  const games = weekGames("thu");
+
+  it("names the side the contest line favors and the points, blue when it is the ranked side", () => {
+    // OU: contest TEX −7, market TEX −6.5, so the contest gives OU half a point; the model likes OU.
+    expect(lineChip(byId(games, 5))).toEqual({ text: "≠ OU +0.5", tone: "better" });
+    // PHI: contest PHI −6 vs market PHI −7: the contest line gives PHI a point; the ranked side is PHI.
+    expect(lineChip(byId(games, 10))).toEqual({ text: "≠ PHI +1", tone: "better" });
+  });
+
+  it("is orange when the difference favors the other side than the ranked one", () => {
+    // LSU: contest MISS −3 vs market MISS −3.5 gives LSU half a point; the model likes MISS.
+    expect(lineChip(byId(games, 3))).toEqual({ text: "≠ LSU +0.5", tone: "worse" });
+    expect(lineChip(byId(games, 4))).toEqual({ text: "≠ STAN +0.5", tone: "worse" });
+  });
+
+  it("has no chip for a line that matches the market", () => {
+    expect(lineChip(byId(games, 1))).toBeNull();
+    expect(lineChip(byId(games, 9))).toBeNull();
+  });
+
+  it("counts the flagged rows from the flag (8 in the fixture) and filters to exactly them", () => {
+    expect(differsCount(games)).toBe(8);
+    const flagged = filterGames(games, "differs");
+    expect(flagged).toHaveLength(8);
+    expect(flagged.every((g) => g.differs)).toBe(true);
+    expect(filterGames(games, "all")).toHaveLength(10);
+    expect(filterGames(games, "cfb")).toHaveLength(6);
+    expect(filterGames(games, "nfl")).toHaveLength(4);
+  });
+});
+
+describe("AC-3: tapping a side adds, removes or switches a pick", () => {
+  const games = weekGames("thu");
+  const mine = entries();
+  const lsu = byId(games, 3);
+  const NOW_ISO = "2026-10-09T02:00:00.000Z";
+
+  it("adds on a tap of an unpicked game", () => {
+    expect(tapOutcome([], lsu, "away", 4)).toBe("add");
+    const next = applyTap(mine, lsu, "away", "add", NOW_ISO);
+    expect(next.map((e) => [e.game_id, e.side])).toEqual([[5, "home"], [7, "away"], [3, "away"]]);
+    expect(next[2]).toMatchObject({ line: lsu.contest_spread_home, created_at: NOW_ISO });
+  });
+
+  it("removes on a second tap of the same side, and switches on a tap of the other", () => {
+    const ou = byId(games, 5);
+    expect(tapOutcome(mine, ou, "home", 4)).toBe("remove");
+    expect(applyTap(mine, ou, "home", "remove", NOW_ISO).map((e) => e.game_id)).toEqual([7]);
+    expect(tapOutcome(mine, ou, "away", 4)).toBe("switch");
+    const switched = applyTap(mine, ou, "away", "switch", NOW_ISO);
+    expect(switched.map((e) => [e.game_id, e.side])).toEqual([[5, "away"], [7, "away"]]);
+  });
+
+  it("refuses a new pick when the week is full, but still allows a switch or a remove", () => {
+    const full = applyTap(applyTap(mine, lsu, "away", "add", NOW_ISO), byId(games, 2), "home", "add", NOW_ISO);
+    expect(full).toHaveLength(4);
+    expect(tapOutcome(full, byId(games, 6), "home", 4)).toBe("full");
+    expect(tapOutcome(full, lsu, "home", 4)).toBe("switch");
+    expect(tapOutcome(full, lsu, "away", 4)).toBe("remove");
+  });
+
+  it("refuses a locked game", () => {
+    expect(tapOutcome([], byId(weekGames("fri"), 1), "away", 4)).toBe("locked");
+  });
+
+  it("fills the open slots from the open top 4, on the model's side, skipping what you picked", () => {
+    expect(fillFromModel(games, mine, 4).map((f) => [f.game.id, f.side])).toEqual([
+      [3, "away"],
+      [2, "home"],
+    ]);
+    expect(fillFromModel(games, [], 4).map((f) => f.game.id)).toEqual([5, 3, 2, 6]);
+    expect(fillFromModel(games, mine.slice(0, 1), 2).map((f) => f.game.id)).toEqual([3]);
+  });
+
+  it("writes the clipboard text: the contest and week, then a line per pick in tray order", () => {
+    expect(copyText("Splash work league", 6, mine, games)).toBe(
+      "Splash work league · Week 6\n" +
+        "OU +7 (Texas vs Oklahoma, Sat 7:30 PM)\n" +
+        "BUF −3 (Buffalo @ NY Jets, Sun 1:00 PM)",
+    );
+  });
+
+  it("explains each pick in the tray: model match, against the model, or your call", () => {
+    const [ou, buf] = mine;
+    expect(trayCard(byId(games, 5), ou, 4)).toMatchObject({
+      badge: "Model #1",
+      match: true,
+      lockedIn: "Locked in at OU +7 · Thu 9:14 PM",
+      why: "Model's #1 pick · 64% to cover",
+    });
+    expect(trayCard(byId(games, 7), buf, 4)).toMatchObject({
+      badge: "Your call",
+      match: false,
+      lockedIn: "Locked in at BUF −3 · Thu 9:20 PM",
+      why: "Not in model's top 4 · No model yet (NFL) · contest 1.5 pts better than market · ~54% mkt-implied",
+    });
+    expect(trayCard(byId(games, 5), { ...ou, side: "away" }, 4)).toMatchObject({
+      badge: "Against model",
+      why: "Model has the other side (OU +7)",
+    });
+    expect(trayCard(byId(games, 4), { ...ou, game_id: 4, side: "away", line: 17.5 }, 4).why).toBe(
+      "Not in model's top 4 · Model ranks it #5 · 55% to cover",
+    );
+    // A pick still being saved has no stored line or time, so it is not "locked in" yet.
+    const stand = applyTap([], byId(games, 3), "away", "add", NOW_ISO)[0];
+    expect(trayCard(byId(games, 3), stand, 4).lockedIn).toBe("Saving MISS +3…");
+    expect(sharedCount(mine, games)).toBe(1);
+  });
+});
+
+describe("AC-5: season, weeks and standing, as the response has them", () => {
+  const page = weekPage();
+
+  it("writes the season cards and the week's points", () => {
+    expect(seasonCards(page.results!, 4)).toEqual({
+      you: { label: "You", record: "12-8", rate: "60.0%" },
+      model: { label: "Model top 4", record: "11-9", rate: "55.0%" },
+      diff: "+1",
+    });
+    expect(weekSummary(page.results!.this_week)).toMatchObject({
+      you: { points: "0 pts", pending: 2 },
+      model: { points: "0 pts", pending: 4 },
+    });
+  });
+
+  it("lists the weeks W1 to W5 with a running total", () => {
+    const rows = weekRows(page.results!);
+    expect(rows.map((r) => [r.label, r.youRecord, r.modelRecord, r.diff])).toEqual([
+      ["W1", "3-1", "2-2", "+1"],
+      ["W2", "2-2", "3-1", "−1"],
+      ["W3", "3-1", "2-2", "+1"],
+      ["W4", "1-3", "2-2", "−1"],
+      ["W5", "3-1", "2-2", "+1"],
+    ]);
+    expect(rows.map((r) => [r.cumulativeYou, r.cumulativeModel])).toEqual([
+      [3, 2],
+      [5, 5],
+      [8, 7],
+      [9, 9],
+      [12, 11],
+    ]);
+  });
+
+  it("says where you stand, and how far behind", () => {
+    expect(standingText(page.standing)).toEqual({ place: "3rd of 14", behind: "1 pt behind 1st" });
+    expect(standingText({ ...page.standing!, position: 1, points_behind_leader: 0 })).toEqual({
+      place: "1st of 14",
+      behind: "Leading",
+    });
+    expect(standingText({ ...page.standing!, position: 2, points_behind_leader: 2.5 })?.behind).toBe(
+      "2.5 pts behind 1st",
+    );
+    expect(standingText(null)).toBeNull();
+  });
+
+  it("lists the contest's rules as rows and a plain-English paragraph", () => {
+    expect(rulesRows(FIXTURE_RULES)).toEqual([
+      ["Sports", "CFB + NFL"],
+      ["Picks per week", "Exactly 4"],
+      ["Lock", "Each game locks at its kickoff"],
+      ["Scoring", "1 point per correct pick"],
+      ["Push", "A push scores 0"],
+    ]);
+    expect(rulesSentence(FIXTURE_RULES)).toBe(
+      "Pick exactly 4 games from CFB + NFL. Each game locks at its own kickoff, so you can change a pick until then. " +
+        "A correct pick scores 1 point; a push scores 0.",
+    );
+    expect(rulesRows({ ...FIXTURE_RULES, picks_exact: false, lock: "fixed_time", push: "half" })).toContainEqual([
+      "Picks per week",
+      "Up to 4",
+    ]);
   });
 });

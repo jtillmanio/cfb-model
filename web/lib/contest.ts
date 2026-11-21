@@ -3,7 +3,18 @@
 // format.ts; the API's rows are the truth (D-172), so nothing here re-matches a name.
 
 import type { components } from "./api-types";
-import { formatKickoff, formatLineNumber, formatSpread } from "./format";
+import {
+  formatBet,
+  formatCoverPct,
+  formatKickoff,
+  formatLineNumber,
+  formatOrdinal,
+  formatPoints,
+  formatRecord,
+  formatSpread,
+  formatWinRate,
+  signed,
+} from "./format";
 
 type Schemas = components["schemas"];
 export type ContestPage = Schemas["ContestPageOut"];
@@ -349,4 +360,395 @@ function dayLabel(date: string): string {
   return new Intl.DateTimeFormat("en-US", { timeZone: "UTC", weekday: "short", month: "short", day: "numeric" })
     .format(new Date(Date.UTC(y, m - 1, d)))
     .replace(",", "");
+}
+
+// The ranked slate (TASK-073). The API ranks (D-095, D-171) and these helpers only arrange and
+// word what it sent: rows in the response's order, the cutoff, the ≠ chip, the tray.
+
+export type Side = "home" | "away";
+export type ContestEntry = Schemas["ContestEntryOut"];
+export type ContestResults = Schemas["ContestResultsOut"];
+export type ContestRecord = Schemas["ContestRecordOut"];
+export type ContestStanding = Schemas["ContestStandingOut"];
+export type StandingIn = Schemas["StandingIn"];
+type Tally = Schemas["ContestTallyOut"];
+
+const abbr = (team: ContestGame["home"]): string => team.abbreviation ?? team.school;
+
+/** A side's line as the bet from that side at the game's contest line: `OU +7`. */
+export function sideLabel(game: ContestGame, side: Side): string {
+  return formatBet(game.contest_spread_home, side, abbr(game.home), abbr(game.away));
+}
+
+/** The side the row is ranked on: the model's (CFB), else the one the contest line favors over the market (NFL). */
+export function rankedSide(game: ContestGame): Side | null {
+  return game.model?.side ?? game.market_gap?.side ?? null;
+}
+
+/** The cover % the row ranks on: the model's, or `~54%` market-implied (no model). */
+export function coverText(game: ContestGame): string | null {
+  if (game.model) return formatCoverPct(game.model.cover_prob);
+  return game.market_gap ? formatCoverPct(game.market_gap.implied_prob, { marketImplied: true }) : null;
+}
+
+export type SlateLayout = {
+  /** Open games, in rank order */
+  open: ContestGame[];
+  /** Games that have kicked off, as the response lists them (after the open ones) */
+  locked: ContestGame[];
+  /** The last open game that is one of the model's top N; the cutoff is drawn under it */
+  cutoffAfter: ContestGame | null;
+  /** The first open game below the top N */
+  nextBest: ContestGame | null;
+  /** Every game has kicked off (C2d) */
+  allLocked: boolean;
+  /** Some game has kicked off, so `top_n` is the best of the open games (D-174) */
+  anyKicked: boolean;
+};
+
+export function slateLayout(games: readonly ContestGame[]): SlateLayout {
+  const open = games.filter((g) => !g.locked);
+  const locked = games.filter((g) => g.locked);
+  return {
+    open,
+    locked,
+    cutoffAfter: open.findLast((g) => g.top_n) ?? null,
+    nextBest: open.find((g) => g.next_best) ?? null,
+    allLocked: games.length > 0 && open.length === 0,
+    anyKicked: locked.length > 0,
+  };
+}
+
+/** The cutoff row's label; once a game has kicked off it is the best of the open games, not the graded set (D-174). */
+export function cutoffLabel(layout: SlateLayout, picks: number): string {
+  return `Model's top ${picks}${layout.anyKicked ? " · open games" : ""}`;
+}
+
+/** `Next best #5 ND −17.5 · 55%`, in parts. */
+export function nextBestText(game: ContestGame): { rank: number; line: string; cover: string } {
+  const side = rankedSide(game);
+  const line = side
+    ? sideLabel(game, side)
+    : formatSpread(game.contest_spread_home, abbr(game.home), abbr(game.away));
+  return { rank: game.rank, line, cover: coverText(game) ?? "—" };
+}
+
+function pts(points: number): string {
+  return `${formatPoints(points)} ${points === 1 ? "pt" : "pts"}`;
+}
+
+/** An NFL row's gap (no model): `1.5 pts off mkt → BUF`, `No gap to market`; null for a game with a model. */
+export function nflGapText(game: ContestGame): string | null {
+  const gap = game.market_gap;
+  if (!gap) return null;
+  if (gap.side === null) return "No gap to market";
+  return `${pts(gap.points)} off mkt → ${abbr(gap.side === "home" ? game.home : game.away)}`;
+}
+
+/** `~54%`, the market-implied cover of an NFL row; null for a game with a model. */
+export function impliedText(game: ContestGame): string | null {
+  return game.market_gap ? formatCoverPct(game.market_gap.implied_prob, { marketImplied: true }) : null;
+}
+
+export type LineChip = { text: string; tone: "better" | "worse" };
+
+/**
+ * The ≠ chip on a row whose contest line differs from the market: the side the contest line favors
+ * and by how many points. Blue (`better`) when that side is the ranked one, orange (`worse`) when
+ * the contest line favors the other side.
+ */
+export function lineChip(game: ContestGame): LineChip | null {
+  if (!game.differs || game.market_spread_home === null) return null;
+  const gap = game.contest_spread_home - game.market_spread_home;
+  const side: Side = gap > 0 ? "home" : "away";
+  // A bigger home spread helps the home side: the "+n" the team would see on its own line.
+  const points = formatLineNumber(Math.abs(gap), "home");
+  return {
+    text: `≠ ${abbr(side === "home" ? game.home : game.away)} ${points}`,
+    tone: side === rankedSide(game) ? "better" : "worse",
+  };
+}
+
+export function differsCount(games: readonly ContestGame[]): number {
+  return games.filter((g) => g.differs).length;
+}
+
+export type SlateFilter = "all" | "cfb" | "nfl" | "differs";
+
+export function filterGames(games: readonly ContestGame[], filter: SlateFilter): ContestGame[] {
+  if (filter === "all") return [...games];
+  if (filter === "differs") return games.filter((g) => g.differs);
+  return games.filter((g) => g.sport_id === filter);
+}
+
+// The pick tray
+
+export type TapOutcome = "add" | "remove" | "switch" | "full" | "locked";
+
+/** What a tap on a side does: add it, remove it (a second tap), switch to it (the other side), or nothing. */
+export function tapOutcome(
+  entries: readonly ContestEntry[],
+  game: ContestGame,
+  side: Side,
+  picks: number,
+): TapOutcome {
+  if (game.locked) return "locked";
+  const mine = entries.find((e) => e.game_id === game.id);
+  if (mine) return mine.side === side ? "remove" : "switch";
+  return entries.length >= picks ? "full" : "add";
+}
+
+function entryFor(game: ContestGame, side: Side, now: string): ContestEntry {
+  // Until the save answers, a stand-in at the game's line: `id` is not the stored row's.
+  return {
+    id: -game.id,
+    game_id: game.id,
+    side,
+    contest_line_id: game.contest_line_id,
+    line: game.contest_spread_home,
+    created_at: now,
+  };
+}
+
+/** The picks after a tap, for the tray to show at once; a refused tap changes nothing. */
+export function applyTap(
+  entries: readonly ContestEntry[],
+  game: ContestGame,
+  side: Side,
+  outcome: TapOutcome,
+  now: string,
+): ContestEntry[] {
+  switch (outcome) {
+    case "add":
+      return [...entries, entryFor(game, side, now)];
+    case "remove":
+      return entries.filter((e) => e.game_id !== game.id);
+    case "switch":
+      return entries.map((e) => (e.game_id === game.id ? entryFor(game, side, now) : e));
+    default:
+      return [...entries];
+  }
+}
+
+/** Your picks, oldest first: the tray's order. */
+export function trayOrder(entries: readonly ContestEntry[]): ContestEntry[] {
+  return [...entries].sort((a, b) => a.created_at.localeCompare(b.created_at) || a.id - b.id);
+}
+
+/** "Use the model's top 4": the open top-N games you haven't picked, on the model's side, up to the open slots. */
+export function fillFromModel(
+  games: readonly ContestGame[],
+  entries: readonly ContestEntry[],
+  picks: number,
+): { game: ContestGame; side: Side }[] {
+  const slots = Math.max(0, picks - entries.length);
+  return games
+    .filter((g) => g.top_n && !g.locked && g.model !== null && !entries.some((e) => e.game_id === g.id))
+    .slice(0, slots)
+    .map((game) => ({ game, side: game.model!.side }));
+}
+
+function when(iso: string): string {
+  return formatKickoff(iso, iso.slice(0, 10), { zone: CONTEST_ZONE, inTable: true });
+}
+
+function entryLine(game: ContestGame, entry: ContestEntry): string {
+  return formatBet(entry.line, entry.side, abbr(game.home), abbr(game.away));
+}
+
+/** The text "Copy picks to enter on Splash" puts on the clipboard (the owner's format, TASK-073). */
+export function copyText(
+  contestName: string,
+  period: number,
+  entries: readonly ContestEntry[],
+  games: readonly ContestGame[],
+): string {
+  const lines = trayOrder(entries).flatMap((entry) => {
+    const game = games.find((g) => g.id === entry.game_id);
+    if (!game) return [];
+    const sep = game.neutral_site ? "vs" : "@";
+    const kickoff = formatKickoff(game.kickoff_at, game.game_date, { zone: CONTEST_ZONE, inTable: true });
+    return [`${entryLine(game, entry)} (${game.away.school} ${sep} ${game.home.school}, ${kickoff})`];
+  });
+  return [`${contestName} · Week ${period}`, ...lines].join("\n");
+}
+
+/** The pick agrees with the model: one of its top N, on its side. */
+export function matchesModel(game: ContestGame, entry: ContestEntry): boolean {
+  return game.top_n && game.model?.side === entry.side;
+}
+
+export function sharedCount(entries: readonly ContestEntry[], games: readonly ContestGame[]): number {
+  return entries.filter((e) => {
+    const game = games.find((g) => g.id === e.game_id);
+    return game ? matchesModel(game, e) : false;
+  }).length;
+}
+
+export type TrayCard = {
+  /** `OU +7` */
+  line: string;
+  side: Side;
+  /** `Model #1`, `Against model` or `Your call` */
+  badge: string;
+  match: boolean;
+  against: boolean;
+  /** `Texas vs Oklahoma · Sat 7:30 PM` */
+  matchup: string;
+  /** `Locked in at OU +7 · Thu 9:14 PM` */
+  lockedIn: string;
+  why: string;
+  /** `Switch to TEX −7` */
+  switchLabel: string;
+  switchTo: Side;
+  locked: boolean;
+};
+
+export function trayCard(game: ContestGame, entry: ContestEntry, picks: number): TrayCard {
+  const match = matchesModel(game, entry);
+  const against = game.top_n && game.model !== null && game.model.side !== entry.side;
+  const other: Side = entry.side === "home" ? "away" : "home";
+  const outside = `Not in model's top ${picks} · `;
+  let why: string;
+  if (match) {
+    why = `Model's #${game.rank} pick · ${formatCoverPct(game.model!.cover_prob)} to cover`;
+  } else if (against) {
+    why = `Model has the other side (${sideLabel(game, game.model!.side)})`;
+  } else if (game.model) {
+    why = `${outside}Model ranks it #${game.rank} · ${formatCoverPct(game.model.cover_prob)} to cover`;
+  } else {
+    const gap = game.market_gap;
+    const better =
+      !gap || gap.side === null
+        ? "same as market"
+        : `${pts(gap.points)} ${gap.side === entry.side ? "better" : "worse"} than market`;
+    const implied = impliedText(game);
+    why = `${outside}No model yet (NFL) · contest ${better}${implied ? ` · ${implied} mkt-implied` : ""}`;
+  }
+  const kickoff = formatKickoff(game.kickoff_at, game.game_date, { zone: CONTEST_ZONE, inTable: true });
+  const sep = game.neutral_site ? "vs" : "@";
+  return {
+    line: entryLine(game, entry),
+    side: entry.side,
+    badge: match ? `Model #${game.rank}` : against ? "Against model" : "Your call",
+    match,
+    against,
+    matchup: `${game.away.school} ${sep} ${game.home.school} · ${kickoff}`,
+    // A stand-in (negative id) is still being saved: it has no stored line or time yet.
+    lockedIn:
+      entry.id < 0
+        ? `Saving ${entryLine(game, entry)}…`
+        : `Locked in at ${entryLine(game, entry)} · ${when(entry.created_at)}`,
+    why,
+    switchLabel: `Switch to ${sideLabel(game, other)}`,
+    switchTo: other,
+    locked: game.locked,
+  };
+}
+
+// Results & standing
+
+function winRate(t: Tally): string {
+  return t.wins + t.losses === 0 ? "—" : formatWinRate(t.wins / (t.wins + t.losses));
+}
+
+function record(t: Tally): string {
+  return formatRecord(t.wins, t.losses, t.pushes);
+}
+
+function winsBehind(a: Tally, b: Tally | null): string {
+  return b === null ? "—" : signed(a.wins - b.wins, 0);
+}
+
+export type SeasonCard = { label: string; record: string; rate: string };
+
+/** The season cards: you, the model's top N and you against it. */
+export function seasonCards(
+  results: ContestResults,
+  picks: number,
+): { you: SeasonCard; model: SeasonCard | null; diff: string } {
+  const { you, model } = results.season;
+  return {
+    you: { label: "You", record: record(you), rate: winRate(you) },
+    model: model ? { label: `Model top ${picks}`, record: record(model), rate: winRate(model) } : null,
+    diff: winsBehind(you, model),
+  };
+}
+
+export type WeekSide = { record: string; points: string; pending: number };
+
+function weekSide(t: Tally): WeekSide {
+  return { record: record(t), points: pts(t.points), pending: t.pending };
+}
+
+/** This week so far: each side's record, points and pending picks. */
+export function weekSummary(week: ContestRecord): { you: WeekSide; model: WeekSide | null } {
+  return { you: weekSide(week.you), model: week.model ? weekSide(week.model) : null };
+}
+
+export type WeekRow = {
+  label: string;
+  /** `3-1` */
+  youRecord: string;
+  modelRecord: string;
+  diff: string;
+  cumulativeYou: number;
+  cumulativeModel: number;
+};
+
+/** The past weeks, W1…: each side's record and the running wins. */
+export function weekRows(results: ContestResults): WeekRow[] {
+  let you = 0;
+  let model = 0;
+  return results.weeks.map((w) => {
+    you += w.you.wins;
+    model += w.model?.wins ?? 0;
+    return {
+      label: `W${w.period}`,
+      youRecord: record(w.you),
+      modelRecord: w.model ? record(w.model) : "—",
+      diff: winsBehind(w.you, w.model),
+      cumulativeYou: you,
+      cumulativeModel: model,
+    };
+  });
+}
+
+/** `3rd of 14` and `1 pt behind 1st`; null with no standing entered. */
+export function standingText(standing: ContestStanding | null): { place: string; behind: string | null } | null {
+  if (!standing) return null;
+  const behind = standing.points_behind_leader;
+  return {
+    place: `${formatOrdinal(standing.position)} of ${standing.field_size}`,
+    behind: behind === null ? null : behind === 0 ? "Leading" : `${pts(behind)} behind 1st`,
+  };
+}
+
+// The Rules panel (read-only; the form is M8.8)
+
+const LOCK_ROW = { per_game_kickoff: "Each game locks at its kickoff", fixed_time: "Picks lock at a set time" } as const;
+const SCORING_ROW = { point_per_win: "1 point per correct pick", confidence: "Confidence points" } as const;
+const PUSH_ROW = { zero: "A push scores 0", half: "A push scores ½", void: "A push is void" } as const;
+
+/** The rules as label and value rows. */
+export function rulesRows(rules: ContestRules): [string, string][] {
+  return [
+    ["Sports", sportsLabel(rules.sports)],
+    ["Picks per week", `${rules.picks_exact ? "Exactly" : "Up to"} ${rules.picks_per_period}`],
+    ["Lock", LOCK_ROW[rules.lock]],
+    ["Scoring", SCORING_ROW[rules.scoring]],
+    ["Push", PUSH_ROW[rules.push]],
+  ];
+}
+
+/** "This week, in plain English": the rules as one short paragraph. */
+export function rulesSentence(rules: ContestRules): string {
+  const pick = `Pick ${rules.picks_exact ? "exactly" : "up to"} ${rules.picks_per_period} games from ${sportsLabel(rules.sports)}.`;
+  const lock =
+    rules.lock === "per_game_kickoff"
+      ? "Each game locks at its own kickoff, so you can change a pick until then."
+      : "Picks lock together at a set time.";
+  const score = rules.scoring === "point_per_win" ? "A correct pick scores 1 point" : "Picks score confidence points";
+  const push = PUSH_ROW[rules.push].replace(/^A/, "a");
+  return `${pick} ${lock} ${score}; ${push}.`;
 }

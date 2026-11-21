@@ -821,10 +821,11 @@ def main(argv: list[str] | None = None) -> None:
     pick.add_argument("--version", default="v1.0", help="The model version (default %(default)s)")
 
     seed = commands.add_parser("seed", help="Load seed data into the test DB")
-    seed.add_argument("what", choices=["fixture", "paste-journey"])
+    seed.add_argument("what", choices=["fixture", "paste-journey", "pick-journey"])
     seed.add_argument(
         "--project",
-        help="paste-journey: the Playwright project (lowercase) whose contest to reset (TASK-072)",
+        help="paste-journey, pick-journey: the Playwright project (lowercase) whose contest"
+        " to reset (TASK-072, TASK-073)",
     )
 
     if (argv if argv is not None else sys.argv[1:])[:1] == ["fallback"]:
@@ -917,12 +918,12 @@ def main(argv: list[str] | None = None) -> None:
         _pick(args)
     elif args.command == "seed":
         load_env()
-        from engine.fixture import paste_journey, seed_fixture
+        from engine.fixture import paste_journey, pick_journey, seed_fixture
 
-        if args.what == "paste-journey":
+        if args.what in ("paste-journey", "pick-journey"):
             if not args.project:
-                parser.error("seed paste-journey needs --project")
-            paste_journey(args.project)
+                parser.error(f"seed {args.what} needs --project")
+            (paste_journey if args.what == "paste-journey" else pick_journey)(args.project)
         else:
             seed_fixture()
 

@@ -140,3 +140,80 @@ def test_the_paste_journey_refuses_under_live(monkeypatch: pytest.MonkeyPatch):
     with pytest.raises(UnsafeDatabaseError):
         fixture.paste_journey("phone")
     assert opened == []
+
+
+# `engine seed pick-journey` (TASK-073): journey 4 taps picks and enters a standing, so it gets
+# its own contest per Playwright project: the work league's rules and Week 6 lines, no entries.
+
+_WORK_LINES = text(
+    "SELECT l.game_id, l.spread_home, l.captured_at FROM contest_lines l"
+    " JOIN contests c ON c.id = l.contest_id JOIN users u ON u.id = c.user_id"
+    " WHERE u.github_id = 4242 AND c.name = :n AND c.deleted_at IS NULL AND l.period = :p"
+    " ORDER BY l.game_id, l.captured_at"
+)
+_OWN_LINES = text(
+    "SELECT game_id, spread_home, captured_at, period FROM contest_lines WHERE contest_id = :c"
+    " ORDER BY game_id, captured_at"
+)
+
+
+def test_a_pick_reset_copies_the_work_leagues_week_6_lines_and_no_entries(db_conn: Connection):
+    work = fixture._load("contest.json")["contest"]
+    contest_id = fixture.reset_pick_journey(db_conn, "phone")
+
+    live = db_conn.execute(_LIVE, {"n": "Pick journey (phone)"}).one()
+    assert (live.id, live.season) == (contest_id, work["season"])
+    assert ContestRules.model_validate(live.rules) == ContestRules.model_validate(work["rules"])
+
+    seeded = db_conn.execute(_WORK_LINES, {"n": work["name"], "p": fixture.WEEK}).all()
+    copied = db_conn.execute(_OWN_LINES, {"c": contest_id}).all()
+    assert len(seeded) == 10
+    assert [tuple(r)[:3] for r in copied] == [tuple(r) for r in seeded]
+    assert {r.period for r in copied} == {fixture.WEEK}
+    for table in ("contest_entries", "contest_standings"):
+        count = text(f"SELECT count(*) FROM {table} WHERE contest_id = :c")
+        assert db_conn.execute(count, {"c": contest_id}).scalar_one() == 0
+
+
+def test_a_second_pick_reset_replaces_the_contest_and_leaves_the_work_league(db_conn: Connection):
+    work = fixture._load("contest.json")["contest"]["name"]
+    before = db_conn.execute(_LIVE, {"n": work}).one().id
+    first = fixture.reset_pick_journey(db_conn, "desktop")
+    entry = text(
+        "INSERT INTO contest_entries (user_id, contest_id, game_id, contest_line_id, side)"
+        " SELECT c.user_id, c.id, l.game_id, l.id, 'home' FROM contest_lines l"
+        " JOIN contests c ON c.id = l.contest_id WHERE c.id = :c LIMIT 1"
+    )
+    db_conn.execute(entry, {"c": first})
+
+    second = fixture.reset_pick_journey(db_conn, "desktop")
+
+    assert second != first
+    assert db_conn.execute(_LIVE, {"n": "Pick journey (desktop)"}).one().id == second
+    gone = text("SELECT deleted_at IS NOT NULL FROM contests WHERE id = :c")
+    assert db_conn.execute(gone, {"c": first}).scalar_one()
+    count = text(
+        "SELECT count(*) FROM contest_entries WHERE contest_id = :c AND deleted_at IS NULL"
+    )
+    assert db_conn.execute(count, {"c": second}).scalar_one() == 0
+    # the default contest is untouched
+    assert db_conn.execute(_LIVE, {"n": work}).one().id == before
+
+
+@pytest.mark.parametrize("project", ["", "Phone", "phone desktop", "../x"])
+def test_a_pick_reset_refuses_a_project_name_that_isnt_a_plain_word(
+    db_conn: Connection, project: str
+):
+    with pytest.raises(ValueError, match="project"):
+        fixture.reset_pick_journey(db_conn, project)
+
+
+def test_the_pick_journey_refuses_under_live(monkeypatch: pytest.MonkeyPatch):
+    from db.config import UnsafeDatabaseError
+
+    monkeypatch.setenv("LIVE", "true")
+    opened = []
+    monkeypatch.setattr(fixture, "make_engine", lambda *a, **k: opened.append(a))
+    with pytest.raises(UnsafeDatabaseError):
+        fixture.pick_journey("phone")
+    assert opened == []
