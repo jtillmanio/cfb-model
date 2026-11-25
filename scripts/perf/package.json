@@ -9,6 +9,6 @@
   "dependencies": {
     "@auth/core": "0.41.3",
     "lighthouse": "13.6.0",
-    "puppeteer-core": "25.16.0"
+    "puppeteer-core": "25.17.0"
   }
 }
