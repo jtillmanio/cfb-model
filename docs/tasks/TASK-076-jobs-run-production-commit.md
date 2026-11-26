@@ -1,14 +1,14 @@
 ---
 id: TASK-076
 title: Run the scheduled jobs on the commit production serves
-status: Draft
+status: In progress
 depends_on: []
 size: M
 model: opus
 autonomy: attended
 ui: false
-plan_status: none
-planned_at_commit:
+plan_status: approved
+planned_at_commit: 4c0dc8d
 ---
 
 # TASK-076 — Run the scheduled jobs on the commit production serves
@@ -70,9 +70,44 @@ A merged migration that hasn't been released yet no longer breaks the scheduled 
 
 _Work noticed during this task and deliberately left out. Each bullet ends `→ <path> § <section>` (where it was placed) or `→ not tracked: <reason>`. See `.claude/skills/track-follow-ups/classify.md`; the PR's Follow-ups section is copied from here._
 
+- TASK-077: once this lands, its retry reaches the jobs only through a release, so its manual check needs a release first or a `code_ref` dispatch (approved at plan)
+- The four duplicated `scratch_url` fixtures in `python/db/tests` could use the new shared conftest fixture (approved at plan)
+- Locally, three EXPLAIN tests fail on `main` too (`test_contest_views.py::test_one_contest_reads_without_a_full_scan[contest_results|contest_record]`, `test_api_contest.py::test_the_record_is_read_for_the_contest_alone`): with the local test DB's data the planner reads `contest_lines`/`picks` by an index scan with no condition. CI, on a fresh database, passes them
+
 ## Plan
 
-_Written by /plan-batch or /implement-task Phase 1. Approved by the user (plan_status: approved) before any code is written._
+Approved 2026-11-26 with the owner's answers to the plan's questions: `scores` is included (it landed in #171 after the task was written and checks out `main` like the others), and the workflows get a `code_ref` input, empty by default. A step command written on `main` must still work on production's commit: that coupling is documented, not engineered around.
+
+**Approach:** the workflow YAML and its composite actions stay `main`'s (the dispatcher's `ref: main`, D-122); the engine, specs and migrations come from production's commit, checked out into `target/` and run with `uv --directory target/python run engine job …`. An engine guard is the second line of defence.
+
+**Steps**
+1. `python -m db production-commit` (`db/production.py`, standard library): GET `PRODUCTION_URL/api/py/health` with the bypass header, 5 retries; only a 40-hex `commit` passes. Writes `commit=` and `ref=` (`code_ref` if given, else the commit) to `$GITHUB_OUTPUT`, and the summary line `Running production's commit <sha>` (or `Running <code_ref>, not production's commit <sha>`). Otherwise exits 1, and the summary names the URL and what came back.
+2. Composite action `.github/actions/production-commit` wraps it; `backup.yml` uses it in place of its curl/jq step.
+3. `results.yml`, `lines.yml`, `rate-and-predict.yml`, `scores.yml`: after the fallback skip, the lookup, then `actions/checkout` of `ref` into `target/`, then the job step from `target/python`. `code_ref` dispatch input on each.
+4. `jobs.require_schema(url)`: production's `alembic_version` against the head of the running code's migrations (`db.release.script_directory`/`single_head`). Behind → `SchemaBehind`; equal → pass; a revision the code doesn't know (ahead, mid-release) → pass with a one-line warning. First thing in `run` (before the nflverse pull), `rate_and_predict` and `scores.run`, for `--target live`. CLI exits **4**; the summary renders only its header and `**Nothing run:** production's schema is at <rev>, behind this code's migration head <head>. Run the release workflow.`
+5. Docs: README › Jobs (each job's `### Read a failed run`: exit 4 and the failed lookup), README › Backups, docs/02-architecture.md § Components › 4. Jobs and § Release & operations, a decisions row (amends D-123, D-149, D-178; applies D-109).
+
+**Files**
+- `python/db/src/db/production.py` (new, not in Files likely touched): the lookup
+- `python/db/src/db/__main__.py` (not listed): wire the command
+- `python/db/tests/test_production.py` (new, not listed): AC-2
+- `.github/actions/production-commit/action.yml` (new): the shared step
+- `.github/workflows/backup.yml`, `results.yml`, `lines.yml`, `rate-and-predict.yml`, `scores.yml` (scores not listed): the checkout
+- `python/engine/src/engine/jobs.py`: guard, `SchemaBehind`, summaries
+- `python/engine/src/engine/scores.py` (not listed): guard and summary
+- `python/engine/src/engine/cli.py`: exit 4 in `_job`, `_rate_job`, `_scores_job`
+- `python/conftest.py` (not listed): a scratch schema stamped at a given revision
+- `python/engine/tests/test_jobs.py`, `test_rate_and_predict.py`, `test_scores_job.py` (scores not listed)
+- `README.md`, `docs/02-architecture.md`, `docs/decisions.md`, this file
+
+**Test strategy**
+- AC-1: `test_jobs.py::test_job_workflows_run_production_commit` (parametrized over the 4 workflows: the lookup precedes the job step, `ref` is checked out into `target`, the job runs from `target/python`, `code_ref` input). Manual: the branch dispatches (ready gate) show the summary line.
+- AC-2: `test_production.py`: a 500, a connection error, `unknown`, and a non-JSON body each exit 1, write no output and name the URL and value in the summary; a 40-hex SHA writes `commit`/`ref` and the summary line; `code_ref` wins `ref`. Manual: `uv --directory python run python -m db production-commit --url <a 404 URL>` exits 1 with that summary.
+- AC-3: `test_jobs.py::test_a_job_stops_when_production_is_behind` (lines and results through `engine job … --target live` against a scratch schema stamped below head: exit 4, no CFBD request, ledger `{}`, lake unchanged, summary line); the same in `test_rate_and_predict.py` and `test_scores_job.py`.
+- AC-4: `test_jobs.py::test_the_guard_passes_when_production_is_level_or_ahead` (equal and ahead reach the pull; ahead prints the warning).
+- AC-5: the doc edits; spec-reviewer.
+
+**Risks:** a second `uv` sync per run (~10–20 s cached). The ready gate's branch dispatches are real production runs (`rate-and-predict` with `dry_run=true`; backup replaces the day's dump).
 
 ## Review log
 

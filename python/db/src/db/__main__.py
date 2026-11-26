@@ -1,6 +1,7 @@
 """`python -m db migrate|check --target dev|test|preview|live`, `python -m db release <step>` and
 `python -m db backup dump|verify`, `python -m db merged-migrations --base <ref>` (CI) and
-`python -m db vercel-cleanup [--branch <b>]` (db.deployments).
+`python -m db vercel-cleanup [--branch <b>]` (db.deployments), and
+`python -m db production-commit` (db.production: the commit the job workflows run).
 
 Root scripts: db:migrate (dev), db:migrate:test, db:check (test). The preview target is the
 Vercel preview build's step; outside a preview build it does nothing. The live target is
@@ -14,7 +15,7 @@ import argparse
 from pathlib import Path
 from typing import cast
 
-from db import backup, deployments, merged_migrations, release
+from db import backup, deployments, merged_migrations, production, release
 from db.config import MigrationTarget, direct_url, live_url, load_env, preview_migration_url
 from db.migrate import check, upgrade
 
@@ -30,9 +31,12 @@ def main(argv: list[str] | None = None) -> None:
     backup.add_commands(commands)
     merged_migrations.add_command(commands)
     deployments.add_command(commands)
+    production.add_command(commands)
     args = parser.parse_args(argv)
 
-    if args.command in ("release", "backup", "merged-migrations", "vercel-cleanup"):
+    if args.command in (
+        "release", "backup", "merged-migrations", "vercel-cleanup", "production-commit"
+    ):
         args.func(args)
         return
 

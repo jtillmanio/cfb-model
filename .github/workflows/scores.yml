@@ -25,6 +25,10 @@ on:
           - all
           - nfl
         default: all
+      code_ref:
+        description: "Run this branch or commit's code instead of production's (a hand-run test of unreleased code; it still writes production). Empty: the commit production serves"
+        required: false
+        default: ""
 
 # One publish to production at a time, shared with results.yml and lines.yml; a queued run never
 # cancels one half done. It also keeps the lake to one writer (D-112).
@@ -51,6 +55,25 @@ jobs:
           enable-cache: true
           cache-dependency-glob: python/uv.lock
 
+      # The job runs the commit production serves, not this ref's (TASK-076): main can hold a
+      # migration production hasn't had (0009's clock columns, 2026-11-21 to 11-25), and its code
+      # would fail on production's schema until a release. This YAML is still main's, so its
+      # command must work on production's commit.
+      - name: Find the commit production serves
+        id: production
+        uses: ./.github/actions/production-commit
+        with:
+          production-url: ${{ vars.PRODUCTION_URL }}
+          bypass-secret: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+          code-ref: ${{ inputs.code_ref }}
+
+      - name: Check out the code to run
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ steps.production.outputs.ref }}
+          path: target
+          persist-credentials: false
+
       # `uv run` installs the dev group, which holds the engine's pyarrow, boto3 and duckdb (D-114).
       - name: Pull the scoreboard and publish scores to production
         env:
@@ -61,4 +84,4 @@ jobs:
           R2_DATA_LAKE_SECRET_ACCESS_KEY: ${{ secrets.R2_DATA_LAKE_SECRET_ACCESS_KEY }}
           CFBD_API_KEY: ${{ secrets.CFBD_API_KEY }}
           PRODUCTION_DATABASE_URL_UNPOOLED: ${{ secrets.PRODUCTION_DATABASE_URL_UNPOOLED }}
-        run: uv --directory python run engine job scores --target live --sport ${{ inputs.sport }} --summary "$GITHUB_STEP_SUMMARY"
+        run: uv --directory target/python run engine job scores --target live --sport ${{ inputs.sport }} --summary "$GITHUB_STEP_SUMMARY"

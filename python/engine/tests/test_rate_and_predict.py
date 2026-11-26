@@ -11,7 +11,7 @@ and FBS teams in the `pytest` sport) with a `scheduled` run of their own."""
 from __future__ import annotations
 
 import json
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -32,6 +32,7 @@ from test_publish_picks import KICKOFF, World, _line
 from test_publish_picks import SEASON as PICK_SEASON
 from test_publish_picks import WEEK as PICK_WEEK
 
+from db.release import script_directory, single_head
 from engine import jobs
 from engine.backtest import harness
 from engine.core.spec import ModelSpec
@@ -326,6 +327,43 @@ def test_failed_check_exits_1_before_the_database(
 
     assert weekly.urls == []
     assert "FAIL final_has_score" in summary.read_text("utf-8")
+
+
+def test_production_behind_the_code_exits_4_before_anything(
+    lake: LocalLake,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    stamped_url: Callable[[str | None], str],
+) -> None:
+    """TASK-076: a production schema older than the code's migrations stops the job before it
+    reads the lake, fits or opens production for a write."""
+    script = script_directory()
+    below_head = script.get_revision(single_head(script)).down_revision
+    assert isinstance(below_head, str)
+
+    def refuse(*_args: Any, **_kwargs: Any) -> Any:
+        raise AssertionError("the job went past the schema guard")
+
+    monkeypatch.setattr(jobs, "coming_week", refuse)
+    monkeypatch.setattr(jobs, "make_engine", refuse)
+    monkeypatch.setenv("APP_ENV", "test")
+    monkeypatch.setenv("FIXTURE_NOW", NOW.isoformat())
+    monkeypatch.setenv("LIVE", "true")
+    monkeypatch.setenv("PRODUCTION_DATABASE_URL_UNPOOLED", stamped_url(below_head))
+    summary = tmp_path / "summary.md"
+
+    code = engine(
+        "job",
+        "rate-and-predict",
+        *("--target", "live", "--spec", str(SPEC_FILE), "--choices", str(_run_file(tmp_path))),
+        *("--name", NAME, "--summary", str(summary)),
+    )
+
+    assert code == 4
+    text = summary.read_text("utf-8")
+    assert f"**Nothing run:** production's schema is at `{below_head}`" in text
+    assert "Run the release workflow" in text
+    assert "Week rated" not in text
 
 
 def test_second_run_adds_a_run_but_no_unchanged_pick(

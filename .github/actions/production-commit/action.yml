@@ -1,0 +1,56 @@
+# The commit production serves (TASK-076, D-109): `commit` from PRODUCTION_URL/api/py/health, the
+# one route outside the auth gate. The scheduled jobs check it out and run it instead of the
+# dispatched ref (always `main`, D-122), because `main` can hold a migration production hasn't had:
+# its code would fail against production's schema until a release (schema first, code second). The
+# backup re-applies that commit's views for the same reason.
+#
+# Only a full 40-hex SHA will do: anything else (unreachable, an error status, Vercel's login page,
+# `unknown`) fails the step before the job pulls, writes the lake or opens the database, and the
+# summary names the URL and what it got. `code-ref` swaps in another ref for a hand-run test of
+# unreleased code; the summary says so. The logic is `python -m db production-commit`
+# (python/db/src/db/production.py), so the calling job must run `astral-sh/setup-uv` first.
+name: Production commit
+description: Find the commit production serves, from its /api/py/health, for a job to check out
+
+inputs:
+  production-url:
+    description: Production's base URL (vars.PRODUCTION_URL), which only a release moves
+    required: true
+  bypass-secret:
+    description: Vercel's automation bypass secret, in case Deployment Protection covers production
+    required: false
+    default: ""
+  code-ref:
+    description: "A ref to check out instead (a hand-run test). Empty: production's commit"
+    required: false
+    default: ""
+  uses:
+    description: "What the caller takes from the commit, for the summary line: code or views"
+    required: false
+    default: code
+
+outputs:
+  commit:
+    description: The full SHA production serves
+    value: ${{ steps.lookup.outputs.commit }}
+  ref:
+    description: The ref to check out, code-ref or else the commit
+    value: ${{ steps.lookup.outputs.ref }}
+
+runs:
+  using: composite
+  steps:
+    # `--no-dev`: the lookup is the standard library's. `uv run` syncs inexactly, so a dev group
+    # an earlier step installed stays put.
+    - name: Ask production's health which commit it serves
+      id: lookup
+      shell: bash
+      env:
+        PRODUCTION_URL: ${{ inputs.production-url }}
+        VERCEL_AUTOMATION_BYPASS_SECRET: ${{ inputs.bypass-secret }}
+        CODE_REF: ${{ inputs.code-ref }}
+        USES: ${{ inputs.uses }}
+        WORKFLOW: ${{ github.workflow }}
+      run: >-
+        uv --directory python run --no-dev python -m db production-commit
+        --code-ref "$CODE_REF" --uses "$USES" --workflow "$WORKFLOW"

@@ -19,6 +19,7 @@ from lake_fixture import FIXTURE, engine, write, write_fixture
 from sqlalchemy import Connection, text
 
 from db.config import repo_root
+from db.release import script_directory, single_head
 from engine import jobs
 from engine.ingest import backfill
 from engine.ingest.cfbd import CallBudget, CfbdClient
@@ -133,8 +134,10 @@ def refuse_postgres(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def live(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Production at PROD, its schema at the code's head: the guard's own tests are below."""
     monkeypatch.setenv("LIVE", "true")
     monkeypatch.setenv("PRODUCTION_DATABASE_URL_UNPOOLED", PROD)
+    monkeypatch.setattr(jobs, "require_schema", lambda _url: None)
 
 
 def ledger(lake: LocalLake) -> dict[str, int]:
@@ -556,6 +559,73 @@ def test_a_job_refuses_production_without_live(
     assert ledger(r2) == {}
 
 
+# TASK-076: production's schema behind the code's migrations stops a job before anything
+
+
+HEAD = single_head(script_directory())
+BELOW_HEAD = script_directory().get_revision(HEAD).down_revision
+assert isinstance(BELOW_HEAD, str)
+
+
+def production_at(monkeypatch: pytest.MonkeyPatch, url: str) -> None:
+    monkeypatch.setenv("LIVE", "true")
+    monkeypatch.setenv("PRODUCTION_DATABASE_URL_UNPOOLED", url)
+
+
+@pytest.mark.parametrize("kind", ["lines", "results"])
+@pytest.mark.parametrize("revision", [BELOW_HEAD, None], ids=["below-head", "empty"])
+def test_a_job_stops_when_production_is_behind(
+    r2: LocalLake,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path_factory: pytest.TempPathFactory,
+    stamped_url: Callable[[str | None], str],
+    kind: str,
+    revision: str | None,
+) -> None:
+    requests = serve(r2, monkeypatch, lambda games: games)
+    refuse_postgres(monkeypatch)
+    downloads: list[str] = []
+    monkeypatch.setattr(jobs.nflverse, "pull", lambda *_a: downloads.append("nflverse"))
+    production_at(monkeypatch, stamped_url(revision))
+    before = r2.walk("")
+    summary = tmp_path_factory.mktemp("summary") / "summary.md"  # outside the lake's folder
+
+    assert engine("job", kind, "--target", "live", "--summary", str(summary)) == 4
+
+    assert requests == []  # no CFBD call
+    assert downloads == []  # nor nflverse's
+    assert ledger(r2) == {}
+    assert r2.walk("") == before  # nothing written to the lake
+    text = summary.read_text(encoding="utf-8")
+    assert f"production's schema is at `{revision or 'none'}`" in text
+    assert f"this code's migration head `{HEAD}`" in text
+    assert "Run the release workflow" in text
+    assert "| Table |" not in text  # nothing was published, so no table says so
+
+
+@pytest.mark.parametrize("ahead", [False, True], ids=["level", "ahead"])
+def test_the_guard_passes_when_production_is_level_or_ahead(
+    r2: LocalLake,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    stamped_url: Callable[[str | None], str],
+    ahead: bool,
+) -> None:
+    requests = serve(r2, monkeypatch, lambda games: games)
+    published = Published()
+    fake_postgres(monkeypatch, published)
+    # Ahead: a release has migrated production past this code and not promoted yet.
+    url = stamped_url("9999_released_not_promoted" if ahead else HEAD)
+    production_at(monkeypatch, url)
+
+    assert engine("job", "results", "--target", "live") == 0
+
+    assert requests  # it reached the pull
+    assert published.opened == [url]
+    warning = "9999_released_not_promoted, which this code's migrations don't know"
+    assert (warning in capsys.readouterr().out) is ahead
+
+
 # E: which weeks a job pulls
 
 
@@ -655,6 +725,62 @@ def test_workflows_dispatch_schedule_and_share_concurrency(name: str) -> None:
         assert re.search(rf"^\s+{secret}: \$\{{\{{ secrets\.{secret} \}}\}}$", text, re.M), secret
 
 
+JOB_WORKFLOWS = ["results.yml", "lines.yml", "rate-and-predict.yml", "scores.yml"]
+CHECKOUT_TARGET = (
+    r"- name: Check out the code to run\n"
+    r"(        if: .*\n)?"
+    r"        uses: actions/checkout@v\d+\n"
+    r"        with:\n"
+    r"          ref: \$\{\{ steps\.production\.outputs\.ref \}\}\n"
+    r"          path: target\n"
+)
+
+
+@pytest.mark.parametrize("name", JOB_WORKFLOWS)
+def test_job_workflows_run_production_commit(name: str) -> None:
+    """TASK-076 AC-1 and AC-2: each job looks up the commit production serves before it runs
+    anything, checks that commit (or a hand run's `code_ref`) out into target/, and runs the
+    engine from there, never from the dispatched ref's own tree."""
+    text = workflow(name)
+    lookup = re.search(
+        r"- name: Find the commit production serves\n"
+        r"        id: production\n"
+        r"(        if: .*\n)?"
+        r"        uses: \./\.github/actions/production-commit\n"
+        r"        with:\n"
+        r"          production-url: \$\{\{ vars\.PRODUCTION_URL \}\}\n"
+        r"          bypass-secret: \$\{\{ secrets\.VERCEL_AUTOMATION_BYPASS_SECRET \}\}\n"
+        r"          code-ref: \$\{\{ inputs\.code_ref \}\}\n",
+        text,
+    )
+    checkout = re.search(CHECKOUT_TARGET, text)
+    job = re.search(r"run: uv --directory target/python run engine job ", text)
+    assert lookup and checkout and job
+    assert lookup.start() < checkout.start() < job.start()
+    assert "uv --directory python run engine job" not in text
+    assert re.search(r"^      code_ref:\n(        .*\n)*        default: \"\"$", text, re.M)
+    if "skip-if-dispatched" in text:  # a fallback that skips looks nothing up
+        assert text.index("skip-if-dispatched") < lookup.start()
+        assert lookup.group(1) == checkout.group(1) == (
+            "        if: ${{ steps.guard.outputs.skip != 'true' }}\n"
+        )
+
+
+def test_the_production_commit_action_fails_the_job_on_no_commit() -> None:
+    """TASK-076 AC-2: the shared step is `python -m db production-commit` (exit 1 and a summary
+    naming the URL when health names no full SHA), and the backup uses it for its views."""
+    action = (WORKFLOWS.parent / "actions" / "production-commit" / "action.yml").read_text("utf-8")
+    assert "python -m db production-commit" in action
+    assert '--workflow "$WORKFLOW"' in action
+    assert "WORKFLOW: ${{ github.workflow }}" in action
+    assert "PRODUCTION_URL: ${{ inputs.production-url }}" in action
+    assert "VERCEL_AUTOMATION_BYPASS_SECRET: ${{ inputs.bypass-secret }}" in action
+    backup = workflow("backup.yml")
+    assert "uses: ./.github/actions/production-commit" in backup
+    assert "uses: views" in backup
+    assert "curl" not in backup
+
+
 @pytest.mark.parametrize("name", ["results.yml", "lines.yml"])
 def test_pulling_workflows_have_the_cfbd_key(name: str) -> None:
     assert re.search(
@@ -667,7 +793,7 @@ def test_rate_and_predict_workflow_runs_the_weekly_job() -> None:
     (it makes no call), and a dry_run input only a hand run sets."""
     text = workflow("rate-and-predict.yml")
     assert "CFBD_API_KEY" not in text
-    step = r"^\s+run: (uv --directory python run engine job rate-and-predict .*)$"
+    step = r"^\s+run: (uv --directory target/python run engine job rate-and-predict .*)$"
     run = re.search(step, text, re.M)
     assert run, "no engine job rate-and-predict step"
     command = run.group(1)

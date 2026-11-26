@@ -112,26 +112,15 @@ jobs:
           --out "$RUNNER_TEMP/backup.dump" --counts "$RUNNER_TEMP/counts.json"
 
       # The views to re-apply are production's, not this ref's: main may hold a view for a
-      # migration that isn't released yet, which production's schema can't run (D-109).
-      # PRODUCTION_URL is the production domain, which only a release moves. The bypass
-      # header gets past Deployment Protection should it ever cover production (02 › Auth).
+      # migration that isn't released yet, which production's schema can't run (D-109). The
+      # lookup is shared with the job workflows (TASK-076); a failure writes **Backup failed:**.
       - name: Find the commit production serves
         id: production
-        env:
-          PRODUCTION_URL: ${{ vars.PRODUCTION_URL }}
-          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
-        run: |
-          commit=$(curl -fsS --retry 5 --retry-all-errors --max-time 20 \
-            -H "x-vercel-protection-bypass: $VERCEL_AUTOMATION_BYPASS_SECRET" \
-            "${PRODUCTION_URL%/}/api/py/health" | jq -r '.commit // empty' 2>/dev/null || true)
-          # Health says "unknown" when the build has no commit SHA; only a full SHA will do.
-          if ! [[ "$commit" =~ ^[0-9a-f]{40}$ ]]; then
-            echo "**Backup failed:** ${PRODUCTION_URL}/api/py/health didn't name a commit (got '${commit}'), so production's views are unknown." >> "$GITHUB_STEP_SUMMARY"
-            echo "::error::No commit from ${PRODUCTION_URL}/api/py/health"
-            exit 1
-          fi
-          echo "Production serves ${commit}"
-          echo "commit=${commit}" >> "$GITHUB_OUTPUT"
+        uses: ./.github/actions/production-commit
+        with:
+          production-url: ${{ vars.PRODUCTION_URL }}
+          bypass-secret: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+          uses: views
       - uses: actions/checkout@v7
         with:
           ref: ${{ steps.production.outputs.commit }}

@@ -141,6 +141,8 @@ In-season cadence (all times ET; adjustable). Jobs run in GitHub Actions but are
 | `preseason` | Manual, summer | Pull talent, returning production, recruiting; build priors |
 | `backfill` | Manual | Historical pulls for new seasons/endpoints |
 
+**The jobs run the commit production serves** (TASK-076, D-179). Each workflow's YAML is `main`'s, since the dispatcher always dispatches `main`, but it looks up the `commit` that production's `/api/py/health` names, checks it out into `target/`, and runs the engine, specs and settings from there. A merged migration that isn't released yet therefore can't put `main`'s code on production's older schema, and a change to a job reaches production only through a release. A step's command line is still `main`'s, so it has to work on production's commit too. A hand dispatch can set `code_ref` to run unreleased code. As a second line of defence, every job run against production first compares production's migration head with the code's own and stops before pulling or writing anything (exit 4) when production is behind. If production is ahead (a release migrated it and hasn't promoted yet), the job still runs, with a warning.
+
 GitHub Actions gives a private repo 2,000 free minutes a month. Our jobs should run a few minutes each, well within budget.
 
 ## Hosting & cost plan
@@ -200,7 +202,7 @@ The engine treats the lake location as config (`LAKE_URI=./data` or `s3://cfb-la
 4. **Promote** the staged build.
 5. **Smoke test** `/api/py/health` on the production domain: right commit, DB reachable, expected migration head. An unsigned `GET /api/py/teams` must also answer 401, so a build without the API guard (or its `API_JWT_SECRET`) can't pass (D-107).
 
-Schema goes first and code second, so old code briefly runs on the new schema, never the reverse.
+Schema goes first and code second, so old code briefly runs on the new schema, never the reverse. The scheduled jobs keep that order too: they run the commit production serves, not `main`, so their code moves only when a release promotes it, and each one refuses to run against a production schema older than its own migrations (D-179).
 
 **Backups:** the nightly `backup` workflow runs `pg_dump` through a read-only role, checks the exit code and file size, restores the dump into a `postgres:PG_MAJOR` container started in a step, re-applies the views of the commit production serves, queries each view, and compares row counts with production's, counted in the dump's own snapshot. Only then does it upload to R2, in a bucket of its own, at every key for the run's UTC date: `backups/daily/<date>.dump` always, `backups/weekly/<date>.dump` on a Sunday and `backups/monthly/<date>.dump` on the 1st. R2 lifecycle rules in the bucket's settings, set by the owner, expire them after 14, 90 and 365 days, so a problem noticed weeks late can still be rolled back while storage stays bounded (D-124). Its GitHub permissions are read-only (`contents: read`); it writes R2 with a token scoped to the backup bucket, so nothing else can overwrite a backup and the backup can't touch the lake (D-109). The restore steps are in [docs/runbooks/restore.md](runbooks/restore.md). The lake is already its own backup for everything reproducible.
 
