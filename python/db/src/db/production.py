@@ -18,6 +18,7 @@ import json
 import os
 import re
 import time
+from http.client import HTTPException
 from typing import Any
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
@@ -78,6 +79,9 @@ def lookup(base: str, bypass: str) -> str:
             continue
         except OSError as e:
             error = f"no answer ({e})"
+            continue
+        except HTTPException as e:  # a broken answer, e.g. cut short: IncompleteRead
+            error = f"a broken answer ({type(e).__name__}: {e})"
             continue
         return commit_from(body)
     raise LookupFailed(f"{error} after {ATTEMPTS} attempts")

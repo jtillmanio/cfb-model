@@ -22,9 +22,10 @@ class Production:
     """A local stand-in for production's `/api/py/health`: each request takes the next answer
     (status, body); the last one repeats. It records the bypass header it was sent."""
 
-    def __init__(self, *answers: tuple[int, bytes]) -> None:
+    def __init__(self, *answers: tuple[int, bytes], truncate: bool = False) -> None:
         self.answers = list(answers)
         self.requests: list[tuple[str, str | None]] = []
+        self.truncate = truncate  # promise more bytes than are sent, then hang up
 
     def next(self) -> tuple[int, bytes]:
         return self.answers.pop(0) if len(self.answers) > 1 else self.answers[0]
@@ -37,6 +38,9 @@ def serve(fake: Production) -> Iterator[str]:
             status, body = fake.next()
             self.send_response(status)
             self.send_header("Content-Type", "application/json")
+            if fake.truncate:
+                self.send_header("Content-Length", str(len(body) + 100))
+                self.close_connection = True
             self.end_headers()
             self.wfile.write(body)
 
@@ -180,6 +184,20 @@ def test_an_unreachable_production_fails_after_every_attempt(
     assert "**Results failed:**" in text
     assert f"http://127.0.0.1:{port}/api/py/health" in text
     assert f"after {production.ATTEMPTS} attempts" in text
+
+
+def test_an_answer_cut_short_fails_with_the_summary_line(gha: tuple[Path, Path]) -> None:
+    output, summary = gha
+    fake = Production((200, health(SHA)), truncate=True)
+    url = ""
+    for url in serve(fake):
+        assert run("--url", url, "--workflow", "Scores") == 1
+    assert len(fake.requests) == production.ATTEMPTS  # a broken answer is tried again
+    assert read(output) == ""
+    text = read(summary)
+    assert "**Scores failed:**" in text
+    assert f"{url.rstrip('/')}/api/py/health" in text
+    assert "IncompleteRead" in text
 
 
 def test_an_unset_production_url_fails(gha: tuple[Path, Path]) -> None:

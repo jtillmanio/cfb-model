@@ -32,13 +32,15 @@ def stamped_url(test_db_url: str) -> Iterator[Callable[[str | None], str]]:
     """A database that says it's migrated to `revision`: a new schema of the test DB holding only
     Alembic's `alembic_version` table with that one row (None: no row, an empty database), and a
     URL whose search_path is that schema. A revision the migrations don't know stands in for a
-    production a release has migrated ahead of the code. Each schema is dropped afterwards."""
+    production a release has migrated ahead of the code. Each schema is dropped afterwards.
+
+    The search_path goes in the URL's `options`, replacing any already there, so this needs
+    TEST_DATABASE_URL to be a direct host (local Postgres in CI), not a pooled one."""
     admin = make_engine(test_db_url)
     schemas: list[str] = []
 
     def stamp(revision: str | None) -> str:
         schema = f"pytest_{uuid.uuid4().hex[:12]}"
-        schemas.append(schema)
         with admin.begin() as conn:
             conn.execute(text(f'CREATE SCHEMA "{schema}"'))
             conn.execute(
@@ -52,6 +54,7 @@ def stamped_url(test_db_url: str) -> Iterator[Callable[[str | None], str]]:
                     text(f'INSERT INTO "{schema}".alembic_version VALUES (:rev)'),
                     {"rev": revision},
                 )
+        schemas.append(schema)  # only once it exists, so a failed stamp leaves nothing to drop
         url = make_url(sqlalchemy_url(test_db_url)).update_query_dict(
             {"options": f"-csearch_path={schema}"}
         )
@@ -62,4 +65,4 @@ def stamped_url(test_db_url: str) -> Iterator[Callable[[str | None], str]]:
     finally:
         with admin.begin() as conn:
             for schema in schemas:
-                conn.execute(text(f'DROP SCHEMA "{schema}" CASCADE'))
+                conn.execute(text(f'DROP SCHEMA IF EXISTS "{schema}" CASCADE'))
