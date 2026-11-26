@@ -1,7 +1,7 @@
 ---
 id: TASK-076
 title: Run the scheduled jobs on the commit production serves
-status: In progress
+status: Review
 depends_on: []
 size: M
 model: opus
@@ -31,11 +31,11 @@ A merged migration that hasn't been released yet no longer breaks the scheduled 
 
 ## Acceptance criteria
 
-- [ ] AC-1: Given production serves commit P (its `/api/py/health` `commit`) and `main` is ahead of P, when `results.yml`, `lines.yml` or `rate-and-predict.yml` runs (dispatched or fallback), then the engine code, specs and migrations it runs are P's, and the step summary names P (expected: summary line `Running production's commit <P>`, or wording the plan fixes, with the full SHA).
-- [ ] AC-2: Given `/api/py/health` doesn't return a 40-hex `commit` (unreachable, an error status, or `unknown`), when any of the three workflows runs, then it fails before any CFBD call, lake write or database connection, and the summary names the URL and what it returned (expected: non-zero exit, `cfbd_calls.json` unchanged).
-- [ ] AC-3: Given production's `alembic_version` is an ancestor of, and not equal to, the head of the migrations in the code being run, when `engine job results|lines|rate-and-predict --target live` starts, then it exits with a new distinct exit code before any CFBD call, lake write or production write, and the summary names production's revision, the code's head and "run the release workflow" (pytest against the test database, migrated to a revision below head).
-- [ ] AC-4: Given production's revision equals the code's head, or is a revision the code's migrations don't contain (production ahead, during a release), when the same job starts, then the guard lets the run continue, and in the "ahead" case prints a one-line warning (pytest: both cases reach the pull step).
-- [ ] AC-5: README › Jobs, docs/02-architecture.md § Components › 4. Jobs and § Release & operations, and a new decisions row say that the jobs run production's commit, that a change to a job reaches production only through a release, and what the new exit code means. Each job's `### Read a failed run` section lists the new failure.
+- [x] AC-1: Given production serves commit P (its `/api/py/health` `commit`) and `main` is ahead of P, when `results.yml`, `lines.yml` or `rate-and-predict.yml` runs (dispatched or fallback), then the engine code, specs and migrations it runs are P's, and the step summary names P (expected: summary line `Running production's commit <P>`, or wording the plan fixes, with the full SHA).
+- [x] AC-2: Given `/api/py/health` doesn't return a 40-hex `commit` (unreachable, an error status, or `unknown`), when any of the three workflows runs, then it fails before any CFBD call, lake write or database connection, and the summary names the URL and what it returned (expected: non-zero exit, `cfbd_calls.json` unchanged).
+- [x] AC-3: Given production's `alembic_version` is an ancestor of, and not equal to, the head of the migrations in the code being run, when `engine job results|lines|rate-and-predict --target live` starts, then it exits with a new distinct exit code before any CFBD call, lake write or production write, and the summary names production's revision, the code's head and "run the release workflow" (pytest against the test database, migrated to a revision below head).
+- [x] AC-4: Given production's revision equals the code's head, or is a revision the code's migrations don't contain (production ahead, during a release), when the same job starts, then the guard lets the run continue, and in the "ahead" case prints a one-line warning (pytest: both cases reach the pull step).
+- [x] AC-5: README › Jobs, docs/02-architecture.md § Components › 4. Jobs and § Release & operations, and a new decisions row say that the jobs run production's commit, that a change to a job reaches production only through a release, and what the new exit code means. Each job's `### Read a failed run` section lists the new failure.
 
 ## Out of scope
 
@@ -70,9 +70,12 @@ A merged migration that hasn't been released yet no longer breaks the scheduled 
 
 _Work noticed during this task and deliberately left out. Each bullet ends `→ <path> § <section>` (where it was placed) or `→ not tracked: <reason>`. See `.claude/skills/track-follow-ups/classify.md`; the PR's Follow-ups section is copied from here._
 
-- TASK-077: once this lands, its retry reaches the jobs only through a release, so its manual check needs a release first or a `code_ref` dispatch (approved at plan)
-- The four duplicated `scratch_url` fixtures in `python/db/tests` could use the new shared conftest fixture (approved at plan)
-- Locally, three EXPLAIN tests fail on `main` too (`test_contest_views.py::test_one_contest_reads_without_a_full_scan[contest_results|contest_record]`, `test_api_contest.py::test_the_record_is_read_for_the_contest_alone`): with the local test DB's data the planner reads `contest_lines`/`picks` by an index scan with no condition. CI, on a fresh database, passes them
+- TASK-077: once this lands, its retry reaches the jobs only through a release, so its manual check needs a release first or a `code_ref` dispatch; exit 4 is now taken (approved at plan) → docs/tasks/TASK-077-cfbd-retry-transient.md § Context
+- The four duplicated `scratch_url` fixtures in `python/db/tests` could use the new shared `stamped_url`-style conftest fixture (approved at plan) → not tracked: cosmetic test duplication, each copy works
+- Locally, three EXPLAIN tests fail on `main` too (`test_contest_views.py::test_one_contest_reads_without_a_full_scan[contest_results|contest_record]`, `test_api_contest.py::test_the_record_is_read_for_the_contest_alone`); CI, on a fresh database, passes them → not tracked: already tracked in docs/tasks/TASK-080-contest-views-filter-lines-by-contest.md § Context
+- Spec review R1's note that an `http.client.HTTPException` (e.g. `IncompleteRead`) escaped the lookup without a summary line → not tracked: done in this PR (plan revision, d5ac707)
+- Schema review R1's minors on the `stamped_url` fixture (a failed stamp's teardown; `options` needing a direct test host) → not tracked: done in this PR (d5ac707)
+- Candidate decision: the jobs run production's commit, with the migration-head guard and exit 4 → docs/decisions.md § D-179
 
 ## Plan
 
@@ -113,13 +116,17 @@ Approved 2026-11-26 with the owner's answers to the plan's questions: `scores` i
 
 _Filled by /implement-task. One line per round._
 
+- Verify R1 FAIL(5: two backup workflow tests pinned the old curl step; three EXPLAIN tests that fail on `main` too, local test DB, TASK-080) → R2 PASS apart from those three known failures
+- Audit R1 PASS
+- Spec R1 CHANGES (Follow-ups had no destinations, placed at close-out; non-blocking: `HTTPException` escaped the lookup, fixed) | Schema R1 APPROVE (2 minors on `stamped_url`, fixed) → close-out check below
+
 ## Blocked
 
 _Only if status is Blocked: what failed, what was tried, best hypothesis, decision needed._
 
 ## Metrics
 
-- Verify rounds:
-- Review rounds:
-- First-pass AC FAILs:
-- Plan revisions after approval:
+- Verify rounds: 2
+- Review rounds: 1 (plus the close-out check)
+- First-pass AC FAILs: 0
+- Plan revisions after approval: 1 (the lookup retries an `http.client.HTTPException` too, from spec review R1)
