@@ -76,6 +76,7 @@ _Work noticed during this task and deliberately left out. Each bullet ends `→ 
 - Spec review R1's note that an `http.client.HTTPException` (e.g. `IncompleteRead`) escaped the lookup without a summary line → not tracked: done in this PR (plan revision, d5ac707)
 - Schema review R1's minors on the `stamped_url` fixture (a failed stamp's teardown; `options` needing a direct test host) → not tracked: done in this PR (d5ac707)
 - Candidate decision: the jobs run production's commit, with the migration-head guard and exit 4 → docs/decisions.md § D-179
+- The ready gate's branch run of `backup.yml` passed the shared lookup and views but failed its upload: R2's `cfb-backups` bucket lock refuses to replace the day's dump (`ObjectLockedByBucketPolicy`), though D-109, D-124 and README › Backups say a same-day re-run replaces it → docs/owner-checklist.md § Actions
 
 ## Plan
 
