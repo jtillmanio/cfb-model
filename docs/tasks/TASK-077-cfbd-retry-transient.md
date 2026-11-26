@@ -25,7 +25,7 @@ A slow or briefly unavailable CFBD response no longer fails a scheduled job outr
 - **Pattern:** `test_cfbd_client.py` fakes CFBD with `httpx.MockTransport` and never opens a socket. The retry tests use it too, with the sleep injected so no test waits.
 - Architecture: docs/02-architecture.md § Components › 4. Jobs
 - Decisions: D-027, D-112, D-123
-- *From TASK-076 (fix/076-jobs-run-production-commit):* the job workflows now run the commit production serves, not `main` (D-179). The retry reaches the `lines` job only after a release, so the Verification's manual check ("the next scheduled `lines` run") needs a release first. To try it on the task branch before that, dispatch `lines.yml` with `code_ref=<the task branch>`; that run writes production. Exit 4 now means production's schema is behind the code, so the give-up error must not reuse it.
+- *From TASK-076 (PR #175):* the job workflows now run the commit production serves, not `main` (D-179). The retry reaches the `lines` job only after a release, so the Verification's manual check ("the next scheduled `lines` run") needs a release first. To try it on the task branch before that, dispatch `lines.yml` with `code_ref=<the task branch>`; that run writes production. Exit 4 now means production's schema is behind the code, so the give-up error must not reuse it.
 
 ## Acceptance criteria
 
