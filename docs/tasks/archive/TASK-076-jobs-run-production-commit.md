@@ -1,7 +1,7 @@
 ---
 id: TASK-076
 title: Run the scheduled jobs on the commit production serves
-status: Review
+status: Done
 depends_on: []
 size: M
 model: opus
