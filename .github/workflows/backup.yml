@@ -13,7 +13,8 @@
 # Sunday's results job, and within the 24-hour recovery point (D-092). The `schedule` entry
 # (12:00 UTC) is only a fallback (D-128), for a dispatcher that has stopped and so started nothing: the `fallback` job
 # skips the backup when the day's dump is already in R2, and takes it otherwise. A dispatched run
-# always backs up (a manual re-run replaces the day's dump).
+# always backs up; on a UTC day already backed up its upload fails, since the bucket lock keeps the
+# day's first dump (D-180).
 name: Backup
 
 on:
