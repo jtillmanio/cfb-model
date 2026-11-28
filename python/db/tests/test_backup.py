@@ -357,8 +357,12 @@ def test_secrets_reach_backup_steps_only_through_env():
         BACKUP_SECRETS
     )
     for line in uses:
-        # Only `VAR: ${{ secrets.NAME }}`, which sits under a step's env:, never inline in `run:`.
-        assert re.fullmatch(r"\s+[A-Z0-9_]+: \$\{\{ secrets\.[A-Z0-9_]+ \}\}", line), line
+        # Only `VAR: ${{ secrets.NAME }}` under a step's env:, or `input-name: ${{ secrets.NAME }}`
+        # under a composite action's `with:` (which puts it in its own step's env:), never
+        # inline in `run:`.
+        assert re.fullmatch(
+            r"\s+([A-Z0-9_]+|[a-z][a-z0-9-]*): \$\{\{ secrets\.[A-Z0-9_]+ \}\}", line
+        ), line
 
 
 def test_the_backup_steps_run_in_order_and_the_upload_comes_last():
@@ -386,11 +390,17 @@ def test_the_backup_reads_production_only_through_backup_database_url():
 
 
 def test_the_health_call_gets_past_vercels_deployment_protection():
-    # Should Deployment Protection cover production, health without it is a login page.
+    # Should Deployment Protection cover production, health without it is a login page. The
+    # lookup is the shared production-commit action (TASK-076), which hands the secret to
+    # `python -m db production-commit` as an env var; test_production.py checks the header.
     code = re.sub(r"#.*", "", (WORKFLOWS / "backup.yml").read_text(encoding="utf-8"))
-    step = next(s for s in re.split(r"^      - ", code, flags=re.M) if "/api/py/health" in s)
-    assert f"{BYPASS}: ${{{{ secrets.{BYPASS} }}}}" in step
-    assert f'-H "x-vercel-protection-bypass: ${BYPASS}"' in step
+    step = next(
+        s for s in re.split(r"^      - ", code, flags=re.M)
+        if "uses: ./.github/actions/production-commit" in s
+    )
+    assert f"bypass-secret: ${{{{ secrets.{BYPASS} }}}}" in step
+    action = (WORKFLOWS.parent / "actions" / "production-commit" / "action.yml").read_text("utf-8")
+    assert f"{BYPASS}: ${{{{ inputs.bypass-secret }}}}" in action
 
 
 def test_the_backup_workflow_runs_nightly_and_on_demand_with_read_only_permissions():

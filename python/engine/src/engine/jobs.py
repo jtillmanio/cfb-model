@@ -72,6 +72,7 @@ from typing import Any, Literal, cast
 import httpx
 from sqlalchemy import Connection, text
 
+from db.release import current_heads, script_directory, single_head
 from db.session import make_engine
 from engine import clock
 from engine.backtest import harness
@@ -127,6 +128,50 @@ class PicksFailed(RuntimeError):
     """`lines` published its snapshots, but re-evaluating the picks failed and was rolled back."""
 
 
+class SchemaBehind(RuntimeError):
+    """Production's schema is older than the migrations of the code being run. Raised before the
+    job pulls, writes the lake or writes production (TASK-076)."""
+
+    def __init__(self, current: str, head: str) -> None:
+        self.current, self.head = current, head
+        super().__init__(
+            f"production's schema is at `{current}`, behind this code's migration head "
+            f"`{head}`. Run the release workflow, which migrates production, then run this job "
+            "again (README › Jobs › Read a failed run)."
+        )
+
+    def render(self) -> str:
+        return f"**Nothing run:** {self}"
+
+
+def require_schema(url: str) -> None:
+    """Stop a live job whose code is ahead of production's schema (TASK-076).
+
+    The workflows run the commit production serves, so this is the second line of defence: a
+    `code_ref` run of a branch with a new migration, or a build put live without the release's
+    migrate step (a promote or rollback in Vercel's dashboard). Production's
+    `alembic_version` is read in a read-only transaction and compared with the head of the
+    migrations in the code being run. Behind (a revision those migrations hold, not the head, or
+    none) raises `SchemaBehind`. Ahead (a revision they don't know: a release has migrated
+    production and not yet promoted its build) carries on with a warning, since old code on a
+    newer schema is the supported direction (docs/02-architecture.md › Release & operations)."""
+    script = script_directory()
+    head = single_head(script)
+    current = current_heads(url)
+    if current == (head,):
+        return
+    known = {s.revision for s in script.walk_revisions()}
+    unknown = [rev for rev in current if rev not in known]
+    if unknown:
+        print(
+            f"Production's schema is at {', '.join(unknown)}, which this code's migrations don't "
+            f"know (their head is {head}): a release has migrated production ahead of this code. "
+            "Running anyway: old code on a newer schema is supported."
+        )
+        return
+    raise SchemaBehind(", ".join(current) or "none", head)
+
+
 SCHEDULED = ("scheduled",)  # the run type the jobs write, and the only one they pick from
 
 
@@ -167,6 +212,8 @@ class Summary:
     next_calendar: tuple[int, int] | None = None
     # `lines` only: why the nflverse download failed, else None.
     nfl_error: str | None = None
+    # Set when the run stopped before anything because production's schema is behind the code.
+    schema_behind: SchemaBehind | None = None
 
     def _nfl(self) -> list[str]:
         if self.nfl_error is not None:
@@ -200,9 +247,12 @@ class Summary:
         return out
 
     def render(self) -> str:
+        header = f"### `{self.kind}` {self.season} → {self.target}"
+        if self.schema_behind is not None:
+            return "\n".join([header, "", self.schema_behind.render()])
         weeks = ", ".join(f"{t} week {w}" for t, w in self.weeks) or "none due"
         out = [
-            f"### `{self.kind}` {self.season} → {self.target}",
+            header,
             "",
             f"- Weeks pulled: {weeks}",
             f"- CFBD calls this run: {self.calls}",
@@ -257,11 +307,16 @@ class WeeklySummary:
     picks: picks.PickSummary | None = None
     # Postseason weeks only: "Away at Home (date)" for each game still to come with no prediction.
     unpredicted: list[str] | None = None
+    # Set when the run stopped before anything because production's schema is behind the code.
+    schema_behind: SchemaBehind | None = None
 
     def render(self) -> str:
+        header = f"### `rate-and-predict` {self.season} → {self.target}"
+        if self.schema_behind is not None:
+            return "\n".join([header, "", self.schema_behind.render()])
         rated = f"{self.week[0]} week {self.week[1]}" if self.week else f"none: {self.note}"
         out = [
-            f"### `rate-and-predict` {self.season} → {self.target}",
+            header,
             "",
             f"- Version: {self.version}",
             f"- Week rated: {rated}",
@@ -401,12 +456,19 @@ def run(
     summary: Summary | None = None,
     nfl_http: httpx.Client | None = None,
 ) -> Summary:
-    """Pull, stage, check and publish one job; see the module docstring. Raises `JobFailed`
-    before opening `url` when a check fails, with `summary` filled in so far, and
+    """Pull, stage, check and publish one job; see the module docstring. Raises `SchemaBehind`
+    before anything else when `target` is live and production's schema is behind this code,
+    `JobFailed` before opening `url` when a check fails, with `summary` filled in so far, and
     `NflverseFailed` once the rest is done when `lines` couldn't download nflverse's file."""
     now = clock.now()
     season = current_season(now)
     summary = summary or Summary(kind, season, target)
+    if target == "live":
+        try:
+            require_schema(url)
+        except SchemaBehind as e:
+            summary.schema_behind = e
+            raise
     if kind == "lines":
         try:
             nflverse.pull(lake, season, nfl_http)
@@ -576,12 +638,19 @@ def rate_and_predict(
     dry_run: bool = False,
     summary: WeeklySummary | None = None,
 ) -> WeeklySummary:
-    """The weekly cycle; see the module docstring. Raises `JobFailed` before opening `url` when
-    a check fails, `models.RateRefused` or `picks.PicksRefused` on a refusal (nothing written),
-    and `PointInTimeError` from the fit or the picks (nothing written)."""
+    """The weekly cycle; see the module docstring. Raises `SchemaBehind` before anything else
+    when `target` is live and production's schema is behind this code, `JobFailed` before
+    opening `url` when a check fails, `models.RateRefused` or `picks.PicksRefused` on a refusal
+    (nothing written), and `PointInTimeError` from the fit or the picks (nothing written)."""
     now = clock.now()
     season = current_season(now)
     summary = summary or WeeklySummary(season, target, f"{name} {version}", dry_run)
+    if target == "live":
+        try:
+            require_schema(url)
+        except SchemaBehind as e:
+            summary.schema_behind = e
+            raise
     week = coming_week(lake, season, now)
     if week is None:
         summary.note = f"no game of {season} is still to be played"

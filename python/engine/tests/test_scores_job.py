@@ -23,6 +23,7 @@ from lake_fixture import engine
 from sqlalchemy import Connection, text
 
 from db.config import repo_root
+from db.release import script_directory, single_head
 from engine import scores
 from engine.ingest import backfill, nflverse
 from engine.ingest.cfbd import MONTHLY_LIMIT, CallBudget, CfbdClient
@@ -81,8 +82,10 @@ def into(monkeypatch: pytest.MonkeyPatch, conn: Connection) -> None:
 
 
 def live(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Production at PROD, its schema at the code's head (the guard's own test is below)."""
     monkeypatch.setenv("LIVE", "true")
     monkeypatch.setenv("PRODUCTION_DATABASE_URL_UNPOOLED", PROD)
+    monkeypatch.setattr(scores, "require_schema", lambda _url: None)
 
 
 def job(tmp_path: Path, *args: str) -> tuple[int, str]:
@@ -201,6 +204,7 @@ def nfl_and_fixture_games(conn: Connection) -> int:
 
 
 def run(lake: LocalLake, monkeypatch: pytest.MonkeyPatch, sport: scores.Sport = "all") -> Any:
+    monkeypatch.setattr(scores, "require_schema", lambda _url: None)  # schema at the head
     client = backfill.client_for(lake)
     return scores.run(lake, PROD, target="live", sport=sport, client=client)
 
@@ -533,6 +537,41 @@ def test_a_failed_nflverse_download_keeps_the_cfb_updates_and_exits_1(
     assert "**NFL (nflverse) download failed:** ConnectError: github.com unreachable" in text_
 
 
+@pytest.mark.parametrize("sport", ["all", "nfl"])
+def test_production_behind_the_code_exits_4_before_anything(
+    r2: LocalLake,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    stamped_url: Callable[[str | None], str],
+    sport: str,
+) -> None:
+    """TASK-076: a production schema older than the code's migrations stops the run before the
+    CFBD call, nflverse or a write (on 2026-11-24 it was missing the clock columns this job
+    writes)."""
+    script = script_directory()
+    below_head = script.get_revision(single_head(script)).down_revision
+    assert isinstance(below_head, str)
+    requests = serve(r2, monkeypatch)
+
+    def refuse(*_args: Any, **_kwargs: Any) -> Any:
+        raise AssertionError("the job went past the schema guard")
+
+    monkeypatch.setattr(scores, "make_engine", refuse)
+    monkeypatch.setattr(nflverse, "download", refuse)
+    monkeypatch.setenv("LIVE", "true")
+    monkeypatch.setenv("PRODUCTION_DATABASE_URL_UNPOOLED", stamped_url(below_head))
+
+    code, text_ = job(tmp_path, "--sport", sport)
+
+    assert code == 4
+    assert requests == []
+    assert ledger(r2) == {}
+    assert r2.walk("raw") == []
+    assert f"**Nothing run:** production's schema is at `{below_head}`" in text_
+    assert "Run the release workflow" in text_
+    assert "CFBD calls this run" not in text_
+
+
 def test_the_job_refuses_production_without_live(
     r2: LocalLake, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
@@ -563,7 +602,9 @@ def test_the_workflow_dispatches_in_the_publish_group_with_no_fallback() -> None
     secrets = ("CFBD_API_KEY", "R2_DATA_LAKE_ACCESS_KEY_ID", "PRODUCTION_DATABASE_URL_UNPOOLED")
     for secret in secrets:
         assert re.search(rf"^\s+{secret}: \$\{{\{{ secrets\.{secret} \}}\}}$", wf, re.M), secret
-    step = re.search(r"^\s+run: (uv --directory python run engine job scores .*)$", wf, re.M)
+    step = re.search(
+        r"^\s+run: (uv --directory target/python run engine job scores .*)$", wf, re.M
+    )
     assert step, "no engine job scores step"
     assert "--target live" in step.group(1)
     assert "--sport ${{ inputs.sport }}" in step.group(1)

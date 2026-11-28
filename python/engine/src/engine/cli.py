@@ -20,6 +20,10 @@ from engine.ingest.endpoints import ENDPOINTS, SEASON_TYPES, query
 if TYPE_CHECKING:
     from engine.jobs import Kind
 
+# A job stopped before anything because production's schema is behind the code's migrations
+# (TASK-076): a release is due. Distinct from a failed check (1), a refusal (2) and the budget (3).
+SCHEMA_BEHIND = 4
+
 
 def _extra_params(parser: argparse.ArgumentParser, pairs: list[str]) -> dict[str, str]:
     extra: dict[str, str] = {}
@@ -154,7 +158,8 @@ def _job(kind: Kind, target: str, summary_path: str | None) -> None:
     """Run one scheduled job; exit 1 if a check fails (nothing published), the `lines` pick
     re-evaluation fails (snapshots published, picks rolled back) or `lines` couldn't download
     nflverse's file (the rest published), 2 on a refusal, 3 when the CFBD
-    budget stops it. The summary is appended to `summary_path` whatever happens."""
+    budget stops it, 4 when production's schema is behind this code (nothing pulled or written).
+    The summary is appended to `summary_path` whatever happens."""
     from engine import clock, jobs
     from engine.ingest.backfill import client_for
     from engine.ingest.cfbd import BudgetExceededError
@@ -168,6 +173,9 @@ def _job(kind: Kind, target: str, summary_path: str | None) -> None:
         jobs.run(kind, lake, url, target=target, client=client_for(lake), summary=summary)
     except (jobs.JobFailed, jobs.PicksFailed, jobs.NflverseFailed):
         code = 1
+    except jobs.SchemaBehind as e:
+        print(e)
+        code = SCHEMA_BEHIND
     except BudgetExceededError as e:
         print(e)
         code = 3
@@ -179,8 +187,9 @@ def _job(kind: Kind, target: str, summary_path: str | None) -> None:
 
 def _scores_job(target: str, sport: str, summary_path: str | None) -> None:
     """The near-live scores job (TASK-074); exit 1 if the nflverse download fails (the CFB
-    updates written), 2 on a refusal, 3 when the CFBD budget stops it (nothing written). The
-    summary is appended to `summary_path` whatever happens."""
+    updates written), 2 on a refusal, 3 when the CFBD budget stops it (nothing written), 4 when
+    production's schema is behind this code (nothing pulled or written). The summary is appended
+    to `summary_path` whatever happens."""
     from engine import clock, jobs, scores
     from engine.ingest.backfill import client_for
     from engine.ingest.cfbd import BudgetExceededError
@@ -196,6 +205,9 @@ def _scores_job(target: str, sport: str, summary_path: str | None) -> None:
         scores.run(lake, url, target=target, sport=chosen, client=client, summary=summary)
     except jobs.NflverseFailed:
         code = 1
+    except jobs.SchemaBehind as e:
+        print(e)
+        code = SCHEMA_BEHIND
     except BudgetExceededError as e:
         print(e)
         code = 3
@@ -208,7 +220,8 @@ def _scores_job(target: str, sport: str, summary_path: str | None) -> None:
 def _rate_job(args: argparse.Namespace) -> None:
     """The weekly rate-and-predict job; exit 1 if a check fails (nothing written), the fit fails
     (recorded as a failed run) or the point-in-time check fails (nothing written), 2 on a refusal
-    (nothing written). The summary is appended to `--summary` whatever happens."""
+    (nothing written), 4 when production's schema is behind this code (nothing read or written).
+    The summary is appended to `--summary` whatever happens."""
     import json
     from pathlib import Path
 
@@ -252,6 +265,9 @@ def _rate_job(args: argparse.Namespace) -> None:
             code = 1
     except jobs.JobFailed:
         code = 1
+    except jobs.SchemaBehind as e:
+        print(e)
+        code = SCHEMA_BEHIND
     except (models.RateRefused, picks.PicksRefused, harness.RefusedError) as e:
         refusal = str(e)
     except PointInTimeError as e:
