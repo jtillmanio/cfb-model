@@ -355,7 +355,7 @@ failed, its summary lists which of the day's keys were written.
 | Failed step | What it means | What to do |
 |---|---|---|
 | Dump production | `BACKUP_DATABASE_URL` is unset, pooled, or can't read a table; or `pg_dump` failed | Check the secret is `backup_reader`'s direct URL, and that the role can read every table |
-| Find the commit production serves | `/api/py/health` on `PRODUCTION_URL` didn't answer (no release has put a build live yet, or the site is down), answered with Vercel's login page, or named no commit | Check `PRODUCTION_URL` is the production domain (Vercel › Settings › Domains), not a generated `*.vercel.app` alias, and that a release has run; re-run |
+| Find the commit production serves | `/api/py/health` on `PRODUCTION_URL` didn't answer after 6 tries (no release has put a build live yet, or the site is down), answered with Vercel's login page, or named no full commit SHA; the Summary names the URL and what came back. The same step starts every job workflow ([Jobs](#jobs)) | Check `PRODUCTION_URL` is the production domain (Vercel › Settings › Domains), not a generated `*.vercel.app` alias, and that a release has run; re-run |
 | Restore the dump | The dump has something a plain Postgres can't restore | Read the `pg_restore` error; production is unaffected |
 | Re-apply views… | A view fails on production's data, or a table's counts differ | The summary names the view or table; a mismatch means the dump isn't trustworthy |
 | Upload to R2 | A key wasn't written: the R2 token, bucket or account is wrong, or R2 refused one write | The summary lists each key as written or **Not written**. Check `R2_BACKUPS_ACCESS_KEY_ID`, `R2_BACKUPS_SECRET_ACCESS_KEY`, `R2_ACCOUNT_ID`, `R2_BUCKET`; re-run to write them all again |
@@ -449,7 +449,31 @@ each CFB game it matches by CFBD id: in progress gets the score, period and cloc
 changes no row when nothing moved. When a contest's NFL game kicked off in the last 12 hours and
 isn't final, it also pulls nflverse (no CFBD call) and publishes the season's NFL games, without
 their lines (the next `lines` run publishes those). The NFL-only slots (`sport=nfl`) skip CFBD.
-It needs production migrated to `0009` (the clock columns), which a release does.
+Like every job it runs the commit production serves (below), so it writes the clock columns
+(`0009`) only once a release has put them live.
+
+**Every job runs the commit production serves, not `main`** (TASK-076, D-179). `main` can hold a
+migration production hasn't had yet, and its code would fail on production's schema until a
+release. So each workflow keeps `main`'s YAML (the dispatcher always dispatches `main`) but, after
+the fallback skip, asks `PRODUCTION_URL/api/py/health` for its commit
+(`.github/actions/production-commit`, `python -m db production-commit`), checks that commit out
+into `target/` and runs the engine from there. The Summary's first line says `Running production's
+commit <sha>`. Two consequences:
+
+- **A change to a job reaches production only through a release**: its engine code, its specs and
+  settings files, and the migrations it expects. Merging does nothing to the jobs until then.
+- **A step's command line is `main`'s, run on production's code.** A new flag or spec path in a
+  workflow fails until a release puts the code that knows it live; release first, or keep the old
+  command working.
+
+To try unreleased engine code by hand, dispatch with `code_ref` set to a branch or commit
+(`gh workflow run lines.yml -f code_ref=<branch>`; add `--ref <branch>` when the branch changes the
+workflow itself). It still writes production,
+so the Summary says it isn't production's commit; `rate-and-predict` takes `dry_run=true` with it.
+As a second line of defence, each job run against production first compares production's
+migration head with its own code's: behind stops the run before anything (exit 4, below); ahead
+(a release migrated and hasn't promoted yet) runs with a warning, since old code on a newer schema
+is supported.
 
 GitHub's cron knows only UTC, so each fallback fires 1–2 hours after its ET slot (an hour later in
 EDT than in EST). GitHub can start it 5-8 hours late, so the check is anchored to the cron's slot,
@@ -499,6 +523,8 @@ uv --directory python run engine job rate-and-predict --target dev --spec engine
 | 1 (`scores`) | The nflverse download failed; the CFB updates were written | The Summary names the error; the next run 30 minutes later tries again |
 | 2 | Refused: `LIVE` is unset, or `PRODUCTION_DATABASE_URL_UNPOOLED` is missing or pooled. `rate-and-predict` also: the settings file didn't score this season, or a version of that name has another spec | Check the workflow's `env:` and the secret; for a new season, commit its settings (D-149) |
 | 3 | The month's CFBD budget (5,000 calls) is spent | Wait for the next UTC month; nothing was published (`scores`: nothing pulled or written) |
+| 4 | **Nothing run:** production's schema is behind the migrations of the code the run used: a `code_ref` run of a branch with a new migration, or a build put live without the release's migrate step (a promote or rollback in Vercel's dashboard). Nothing was pulled, written to the lake or published | Run the Release workflow ([Releasing](#releasing)), then run the job again by hand |
+| 1, step "Find the commit production serves" | **`<Workflow>` failed:** `/api/py/health` on `PRODUCTION_URL` didn't name a full commit SHA (unreachable after 6 tries, an error status, Vercel's login page, or `unknown`). The Summary names the URL and what came back. Nothing ran | Check `PRODUCTION_URL` is the production domain and that a release has put a build live, as for the backup ([Backups](#backups) › Read a failed run); re-run |
 
 Any other failure (R2 credentials, a CFBD error) shows as a Python traceback in the step's log. The
 lake keeps whatever was pulled before it, and the next run reuses it.
@@ -507,9 +533,10 @@ lake keeps whatever was pulled before it, and the next run reuses it.
 Repository **secrets**: `CFBD_API_KEY` (not `rate-and-predict`), `R2_DATA_LAKE_ACCESS_KEY_ID` and
 `R2_DATA_LAKE_SECRET_ACCESS_KEY` (an R2 token with Object Read & Write on the lake bucket only), and
 `PRODUCTION_DATABASE_URL_UNPOOLED` (shared with the release workflow). Repository **variables**:
-`LAKE_URI` (`s3://<lake bucket>`) and `R2_ACCOUNT_ID`. `rate-and-predict` and the `lines` pick
-step also need production migrated to `main`'s head (the model tables, `picks` and the pick
-views), which a release does.
+`LAKE_URI` (`s3://<lake bucket>`) and `R2_ACCOUNT_ID`. Every job also reads `PRODUCTION_URL`
+(variable) and `VERCEL_AUTOMATION_BYPASS_SECRET` (secret), both shared with the backup, to find
+the commit production serves. The jobs run production's own code, so they need nothing from
+`main` that a release hasn't put live.
 
 ## Performance checks
 

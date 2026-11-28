@@ -20,6 +20,10 @@ on:
         description: "Try the fallback: take the late-fallback path as if this cron had fired (e.g. the schedule below). Empty: always run"
         required: false
         default: ""
+      code_ref:
+        description: "Run this branch or commit's code instead of production's (a hand-run test of unreleased code; it still writes production). Empty: the commit production serves"
+        required: false
+        default: ""
   schedule:
     # Fallback for the dispatcher's Sun and Mon 06:00 ET: 12:00 UTC is 08:00 ET in EDT, 07:00 ET in EST
     - cron: "0 12 * * 0,1"
@@ -54,6 +58,26 @@ jobs:
         id: guard
         uses: ./.github/actions/skip-if-dispatched
 
+      # The job runs the commit production serves, not this ref's (TASK-076): main can hold a
+      # migration production hasn't had, and its code would fail on production's schema until a
+      # release. This YAML is still main's, so its command must work on production's commit.
+      - name: Find the commit production serves
+        id: production
+        if: ${{ steps.guard.outputs.skip != 'true' }}
+        uses: ./.github/actions/production-commit
+        with:
+          production-url: ${{ vars.PRODUCTION_URL }}
+          bypass-secret: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+          code-ref: ${{ inputs.code_ref }}
+
+      - name: Check out the code to run
+        if: ${{ steps.guard.outputs.skip != 'true' }}
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ steps.production.outputs.ref }}
+          path: target
+          persist-credentials: false
+
       # `uv run` installs the dev group, which holds the engine's pyarrow, boto3 and duckdb (D-114).
       - name: Pull, stage, check and publish to production
         if: ${{ steps.guard.outputs.skip != 'true' }}
@@ -65,4 +89,4 @@ jobs:
           R2_DATA_LAKE_SECRET_ACCESS_KEY: ${{ secrets.R2_DATA_LAKE_SECRET_ACCESS_KEY }}
           CFBD_API_KEY: ${{ secrets.CFBD_API_KEY }}
           PRODUCTION_DATABASE_URL_UNPOOLED: ${{ secrets.PRODUCTION_DATABASE_URL_UNPOOLED }}
-        run: uv --directory python run engine job results --target live --summary "$GITHUB_STEP_SUMMARY"
+        run: uv --directory target/python run engine job results --target live --summary "$GITHUB_STEP_SUMMARY"

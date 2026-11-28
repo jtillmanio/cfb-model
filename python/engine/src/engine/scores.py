@@ -42,7 +42,7 @@ from engine import clock
 from engine.ingest import endpoints, nflverse
 from engine.ingest.cfbd import MONTHLY_LIMIT, CallBudget, CfbdClient
 from engine.ingest.lake import Lake, decode_raw
-from engine.jobs import NflverseFailed, current_season
+from engine.jobs import NflverseFailed, SchemaBehind, current_season, require_schema
 
 Sport = Literal["all", "nfl"]
 SPORTS: tuple[Sport, ...] = ("all", "nfl")
@@ -203,6 +203,8 @@ class Summary:
     nfl_live: bool = False
     nfl_updated: int = 0
     nfl_error: str | None = None
+    # Set when the run stopped before anything because production's schema is behind the code.
+    schema_behind: SchemaBehind | None = None
 
     def _cfb(self) -> list[str]:
         if self.sport == "nfl":
@@ -240,9 +242,12 @@ class Summary:
         ]
 
     def render(self) -> str:
+        header = f"### `scores` {self.season} → {self.target}"
+        if self.schema_behind is not None:
+            return "\n".join([header, "", self.schema_behind.render()])
         return "\n".join(
             [
-                f"### `scores` {self.season} → {self.target}",
+                header,
                 "",
                 f"- CFBD calls this run: {self.calls}",
                 f"- CFBD calls in {self.month}: {self.month_calls}/{MONTHLY_LIMIT}",
@@ -262,13 +267,20 @@ def run(
     summary: Summary | None = None,
     nfl_http: httpx.Client | None = None,
 ) -> Summary:
-    """See the module docstring. Raises `BudgetExceededError` before anything is saved or written
-    when the month's budget is spent, and `NflverseFailed` once the CFB updates are committed when
-    the nflverse download failed."""
+    """See the module docstring. Raises `SchemaBehind` before anything else when `target` is
+    live and production's schema is behind this code (TASK-076), `BudgetExceededError` before
+    anything is saved or written when the month's budget is spent, and `NflverseFailed` once the
+    CFB updates are committed when the nflverse download failed."""
     now = clock.now()
     season = current_season(now)
     summary = summary or Summary(season, target, sport)
     summary.sport = sport
+    if target == "live":
+        try:
+            require_schema(url)
+        except SchemaBehind as e:
+            summary.schema_behind = e
+            raise
 
     writes: list[Update] = []
     labels: dict[str, str] = {}
