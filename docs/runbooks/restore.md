@@ -23,7 +23,8 @@ client of the same major version as `PG_MAJOR` (`.github/actions/start-postgres/
 
 1. **Find the newest dump.** Cloudflare › R2 › the backup bucket (the `R2_BUCKET` repository
    variable, `cfb-backups`) › `backups/daily/`. Names are UTC dates, so the last one listed is the
-   newest; this folder keeps the last 14 days.
+   newest; this folder keeps at least the last 14 days, and usually about 30 (the bucket lock
+   holds each dump for 30 days, D-180).
    - **The damage is older than that** (or every daily dump already holds it): go to
      `backups/weekly/` (Sundays, kept 90 days), then `backups/monthly/` (the 1st, kept 365 days),
      and pick the newest dump from before the damage started. A missed Sunday or 1st has no copy;

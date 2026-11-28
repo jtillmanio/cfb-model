@@ -316,12 +316,13 @@ proving it restores:
 2. **restore**: `pg_restore` into a `postgres:PG_MAJOR` container on the runner.
 3. **verify**: re-applies the views of the commit production serves (from `/api/py/health`),
    queries each view, and compares row counts with production's.
-4. **upload**: to R2, at every key for the run's UTC date (D-124). A re-run the same day replaces
-   that day's dumps.
+4. **upload**: to R2, at every key for the run's UTC date (D-124). The bucket lock (below) refuses
+   to replace a dump, so a second run the same UTC day fails here and the day's first dump stands
+   (D-180).
 
 | Prefix | Written when the run's UTC date is | Expires after |
 |---|---|---|
-| `backups/daily/<date>.dump` | every day | 14 days |
+| `backups/daily/<date>.dump` | every day | 14 days, but the lock holds each for 30 |
 | `backups/weekly/<date>.dump` | a Sunday | 90 days |
 | `backups/monthly/<date>.dump` | the 1st of the month | 365 days |
 
@@ -329,6 +330,12 @@ The expiry periods are R2 lifecycle rules in the bucket's settings (Cloudflare �
 `cfb-backups` › Settings › Object lifecycle rules), set by the owner. The workflow never sets or
 reads them: its token can write objects but not change the bucket. A failed Sunday or 1st isn't
 made up later; the daily dumps cover the gap.
+
+The bucket also has a **lock rule**, "Backup Retainment Rule" (Cloudflare › R2 › `cfb-backups` ›
+Settings › Bucket lock rules), set by the owner: for 30 days after it's written, no dump can be
+overwritten or deleted, not by the backup's own token, a bug in the workflow or a leaked secret.
+So a daily dump outlives its 14-day lifecycle rule until the lock lets go, and a second run the
+same UTC day can't replace the first (D-180). Weekly and monthly dumps outlive the lock anyway.
 
 `PG_MAJOR` is set in one place, `.github/actions/start-postgres/action.yml`, which CI uses too.
 To restore a dump, follow [docs/runbooks/restore.md](docs/runbooks/restore.md).
@@ -339,7 +346,8 @@ gh workflow run backup.yml
 gh run watch
 ```
 The run's **Summary** lists each table's row count in production and in the restore, the views
-queried, the dump size and every key it uploaded.
+queried, the dump size and every key it uploaded. On a UTC day that's already backed up, a hand run
+does every check and then fails its upload: the bucket lock keeps the day's first dump (D-180).
 
 To try the fallback without waiting for the schedule, name the date to check (a branch run that
 finds the dump skips; a date with no dump takes a full backup of production):
@@ -358,7 +366,8 @@ failed, its summary lists which of the day's keys were written.
 | Find the commit production serves | `/api/py/health` on `PRODUCTION_URL` didn't answer after 6 tries (no release has put a build live yet, or the site is down), answered with Vercel's login page, or named no full commit SHA; the Summary names the URL and what came back. The same step starts every job workflow ([Jobs](#jobs)) | Check `PRODUCTION_URL` is the production domain (Vercel › Settings › Domains), not a generated `*.vercel.app` alias, and that a release has run; re-run |
 | Restore the dump | The dump has something a plain Postgres can't restore | Read the `pg_restore` error; production is unaffected |
 | Re-apply views… | A view fails on production's data, or a table's counts differ | The summary names the view or table; a mismatch means the dump isn't trustworthy |
-| Upload to R2 | A key wasn't written: the R2 token, bucket or account is wrong, or R2 refused one write | The summary lists each key as written or **Not written**. Check `R2_BACKUPS_ACCESS_KEY_ID`, `R2_BACKUPS_SECRET_ACCESS_KEY`, `R2_ACCOUNT_ID`, `R2_BUCKET`; re-run to write them all again |
+| Upload to R2, `ObjectLockedByBucketPolicy` | The day's dump is already written, and the bucket lock won't let a second run replace it (D-180) | Nothing: the day's first dump stands. This happens only on a hand run (or a branch run) after the day's backup |
+| Upload to R2, any other error | A key wasn't written: the R2 token, bucket or account is wrong, or R2 refused one write | The summary lists each key as written or **Not written**. Check `R2_BACKUPS_ACCESS_KEY_ID`, `R2_BACKUPS_SECRET_ACCESS_KEY`, `R2_ACCOUNT_ID`, `R2_BUCKET`; re-run to write the missing keys (one already written stays locked) |
 
 ### What it needs
 Repository **secrets**: `BACKUP_DATABASE_URL` (the read-only `backup_reader` role's direct URL on
